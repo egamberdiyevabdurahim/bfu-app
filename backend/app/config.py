@@ -1,0 +1,30 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/bfu_db"
+    BOT_TOKEN: str = ""
+    DEVELOPER_ID: int = 0
+    SECRET_KEY: str = "change-me"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ANTHROPIC_API_KEY: str = ""
+    AI_MODEL: str = "claude-haiku-4-5-20251001"
+    CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    ENVIRONMENT: str = "production"
+    WEBAPP_URL: str = "https://grilled-renae-unforeseeably.ngrok-free.dev"
+    # Default Telegram groups every user must join
+    TG_GLOBAL_GROUP_ID: int = 0
+    TG_GLOBAL_GROUP_LINK: str = ""
+    TG_OFFICIAL_CHANNEL_ID: int = 0
+    TG_OFFICIAL_CHANNEL_LINK: str = ""
+
+    @property
+    def is_dev(self) -> bool:
+        return self.ENVIRONMENT == "development"
+
+
+settings = Settings()

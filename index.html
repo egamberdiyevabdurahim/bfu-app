@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bfu-app</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        document.body.innerHTML += '<div style="color: red; padding: 20px; font-family: monospace; z-index: 9999; position: relative;">' + 
+          '<h3>JS Error:</h3>' + message + '<br>' + source + ':' + lineno + 
+          '<br><br><pre>' + (error && error.stack ? error.stack : '') + '</pre></div>';
+      };
+      window.addEventListener("unhandledrejection", function(event) {
+        document.body.innerHTML += '<div style="color: red; padding: 20px; font-family: monospace; z-index: 9999; position: relative;">' + 
+          '<h3>Promise Error:</h3>' + event.reason + '</div>';
+      });
+    </script>
+  </body>
+</html>

@@ -140,12 +140,29 @@ async def _reload_project(db: AsyncSession, project_id: int) -> Project:
     return res.scalar_one()
 
 
+_NOTIFY = {
+    "en": {
+        "text": "🔔 <b>New Application!</b>\n\n<b>{a}</b> applied to join your project <b>{p}</b>.\n\nTap the button below to review their request.",
+        "btn": "👀 Review Application",
+    },
+    "uz": {
+        "text": "🔔 <b>Yangi ariza!</b>\n\n<b>{a}</b> sizning <b>{p}</b> loyihangizga qo‘shilish uchun ariza yubordi.\n\nKo‘rib chiqish uchun quyidagi tugmani bosing.",
+        "btn": "👀 Arizani ko‘rish",
+    },
+    "ru": {
+        "text": "🔔 <b>Новая заявка!</b>\n\n<b>{a}</b> хочет присоединиться к вашему проекту <b>{p}</b>.\n\nНажмите кнопку ниже, чтобы рассмотреть заявку.",
+        "btn": "👀 Рассмотреть заявку",
+    },
+}
+
+
 async def _notify_founder(
     founder_telegram_id: int,
     applicant_name: str,
     project_name: str,
     project_type: str,
     application_id: int,
+    lang: str = "en",
 ) -> None:
     """Send a Telegram notification to the founder about a new application."""
     if not settings.BOT_TOKEN:
@@ -154,10 +171,11 @@ async def _notify_founder(
     start_param = f"req_{project_type}_{application_id}"
     webapp_url = f"{settings.WEBAPP_URL}?startapp={start_param}"
 
-    text = (
-        f"🔔 <b>New Application!</b>\n\n"
-        f"<b>{applicant_name}</b> applied to join your project <b>{project_name}</b>.\n\n"
-        f"Tap the button below to review their request."
+    import html
+    tr = _NOTIFY.get(lang, _NOTIFY["en"])
+    text = tr["text"].format(
+        a=html.escape(applicant_name or ""),
+        p=html.escape(project_name or ""),
     )
     payload = {
         "chat_id": founder_telegram_id,
@@ -166,7 +184,7 @@ async def _notify_founder(
         "reply_markup": {
             "inline_keyboard": [[
                 {
-                    "text": "👀 Review Application",
+                    "text": tr["btn"],
                     "web_app": {"url": webapp_url},
                 }
             ]]
@@ -437,6 +455,7 @@ async def apply_to_project(
             project_name=project.name,
             project_type=project.type,
             application_id=app.id,
+            lang=getattr(founder, "language", "en") or "en",
         )
 
     return {"id": app.id, "status": "pending"}

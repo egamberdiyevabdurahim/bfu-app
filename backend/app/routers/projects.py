@@ -18,7 +18,7 @@ from app.models.project import (
     ProjectReqRegion,
     ProjectReqSkill,
 )
-from app.models.user import User
+from app.models.user import User, Favorite
 from app.schemas.project import (
     ApplicationOut,
     ApplicantPublic,
@@ -66,7 +66,7 @@ async def _set_requirements(
         db.add(ProjectReqKnowledge(project_id=project.id, knowledge_name=k))
 
 
-def _project_response(project: Project, current_user: User | None = None) -> ProjectResponse:
+def _project_response(project: Project, current_user: User | None = None, fav_set: set | None = None) -> ProjectResponse:
     is_member = False
     is_fit = True
     my_application_status = None
@@ -135,10 +135,16 @@ def _project_response(project: Project, current_user: User | None = None) -> Pro
         members=members_out,
         member_count=len(project.members),
         pending_applications_count=pending_count,
+        is_favorited=bool(fav_set and project.id in fav_set),
         is_member=is_member,
         is_fit=is_fit,
         my_application_status=my_application_status,
     )
+
+
+async def _load_fav_set(db: AsyncSession, user_id: int) -> set[int]:
+    rows = await db.execute(select(Favorite.project_id).where(Favorite.user_id == user_id))
+    return set(rows.scalars().all())
 
 
 async def _reload_project(db: AsyncSession, project_id: int) -> Project:
@@ -265,7 +271,8 @@ async def list_projects(
             if any(r.region_id == rid for r in p.req_regions) or not p.req_regions
         ]
 
-    return [_project_response(p, current_user) for p in projects]
+    fav_set = await _load_fav_set(db, current_user.id)
+    return [_project_response(p, current_user, fav_set) for p in projects]
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -325,7 +332,8 @@ async def my_projects(
     if type:
         q = q.where(Project.type == type)
     result = await db.execute(q)
-    return [_project_response(p, current_user) for p in result.scalars().all()]
+    fav_set = await _load_fav_set(db, current_user.id)
+    return [_project_response(p, current_user, fav_set) for p in result.scalars().all()]
 
 
 @router.get("/my-requests", response_model=list[ApplicationOut])
@@ -381,6 +389,23 @@ async def my_requests(
     ]
 
 
+@router.get("/favorites", response_model=list[ProjectResponse])
+async def my_favorites(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Projects this user has bookmarked."""
+    rows = (await db.execute(
+        select(Project)
+        .join(Favorite, Favorite.project_id == Project.id)
+        .options(*_PROJECT_OPTIONS)
+        .where(Favorite.user_id == current_user.id, Project.is_deleted == False)
+        .order_by(Favorite.created_at.desc())
+    )).scalars().all()
+    fav_set = {p.id for p in rows}
+    return [_project_response(p, current_user, fav_set) for p in rows]
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: int,
@@ -395,7 +420,19 @@ async def get_project(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return _project_response(project, current_user)
+    # Bump view count for everyone except the creator.
+    if project.creator_id != current_user.id:
+        project.view_count = (project.view_count or 0) + 1
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+    fav_row = await db.execute(
+        select(Favorite).where(Favorite.user_id == current_user.id,
+                               Favorite.project_id == project.id)
+    )
+    fav_set = {project.id} if fav_row.scalar_one_or_none() else set()
+    return _project_response(project, current_user, fav_set)
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
@@ -549,6 +586,7 @@ async def review_application(
     else:
         app.status = "declined"
 
+    app.decided_at = dt.datetime.utcnow()
     await db.commit()
 
     # Notify the applicant of the decision
@@ -562,7 +600,7 @@ async def review_application(
             msg.format(p=project.name),
             reply_markup={"inline_keyboard": [[{
                 "text": _DECISION[lang]["btn"],
-                "web_app": {"url": settings.WEBAPP_URL},
+                "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=project_{project_id}"},
             }]]},
         )
 
@@ -618,3 +656,71 @@ async def leave_project(
 
     await db.delete(member)
     await db.commit()
+
+
+@router.post("/{project_id}/favorite", status_code=status.HTTP_201_CREATED)
+async def add_favorite(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    p = await db.get(Project, project_id)
+    if not p or p.is_deleted:
+        raise HTTPException(status_code=404, detail="Project not found")
+    existing = await db.execute(
+        select(Favorite).where(Favorite.user_id == current_user.id,
+                               Favorite.project_id == project_id)
+    )
+    if not existing.scalar_one_or_none():
+        db.add(Favorite(user_id=current_user.id, project_id=project_id))
+        await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/{project_id}/favorite", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_favorite(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await db.execute(
+        delete(Favorite).where(
+            Favorite.user_id == current_user.id,
+            Favorite.project_id == project_id,
+        )
+    )
+    await db.commit()
+
+
+@router.get("/{project_id}/stats", response_model=dict)
+async def project_stats(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder dashboard: applicant counts, views, average decision time."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.is_deleted:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if proj.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your project")
+    apps = (await db.execute(
+        select(ProjectApplication).where(ProjectApplication.project_id == project_id)
+    )).scalars().all()
+    pending = sum(1 for a in apps if a.status == "pending")
+    accepted = sum(1 for a in apps if a.status == "accepted")
+    declined = sum(1 for a in apps if a.status == "declined")
+    decided = [(a.decided_at - a.created_at) for a in apps
+               if a.decided_at and a.created_at]
+    if decided:
+        avg_h = sum(d.total_seconds() for d in decided) / 3600 / len(decided)
+        avg_decision_hours = round(avg_h, 1)
+    else:
+        avg_decision_hours = None
+    return {
+        "pending": pending,
+        "accepted": accepted,
+        "declined": declined,
+        "views": proj.view_count or 0,
+        "avg_decision_hours": avg_decision_hours,
+    }

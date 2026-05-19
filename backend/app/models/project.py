@@ -26,6 +26,7 @@ class Project(SoftDeleteMixin, TimestampMixin, Base):
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     creator = relationship("User", backref="created_projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
@@ -87,6 +88,7 @@ class ProjectApplication(Base):
     applicant_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | accepted | declined
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     project = relationship("Project", back_populates="applications")
     applicant = relationship("User")

@@ -39,10 +39,33 @@ const TagChip = ({ label, category }) => {
 };
 
 export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [user, setUser] = useState(propUser || null);
   const [loading, setLoading] = useState(!propUser && !!userId);
   const [introSending, setIntroSending] = useState(false);
+  const [translated, setTranslated] = useState(null);
+  const [translating, setTranslating] = useState(false);
+
+  const doInterest = async () => {
+    if (!user) return;
+    try {
+      await users.interest(user.id);
+      tgAlert(t("interest.sent"));
+    } catch (e) { tgAlert(e.message); }
+  };
+
+  const doTranslate = async () => {
+    if (!user || translating) return;
+    if (translated) { setTranslated(null); return; }
+    setTranslating(true);
+    try {
+      const r = await users.translateBio(user.id, lang);
+      if (r?.translated) setTranslated(r.translated);
+    } catch (e) {
+      // silent — keep original
+    }
+    setTranslating(false);
+  };
 
   const doIntro = async () => {
     if (!user) return;
@@ -161,6 +184,11 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                   textDecoration: "none", fontFamily: "var(--font-display)",
                 }}>💬 {user?.tg_username ? `@${user.tg_username}` : t("intro.btn").replace("👋 ", "")}</a>
               )}
+              <button onClick={doInterest} style={{
+                padding: "11px 14px", background: "rgba(167,139,250,0.12)",
+                border: "1px solid rgba(167,139,250,0.4)", borderRadius: "var(--radius-sm)",
+                color: "#A78BFA", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>{t("interest.btn")}</button>
               <button onClick={doReport} title={t("report.btn")} style={{
                 padding: "11px 14px", background: "rgba(255,107,107,0.1)",
                 border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",
@@ -187,8 +215,14 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
             {/* About */}
             {user?.about && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("um.about")}</div>
-                <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7 }}>{user.about}</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div className="section-label">{t("um.about")}</div>
+                  <button onClick={doTranslate} disabled={translating} style={{
+                    background: "none", border: "none", color: "var(--accent)",
+                    fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0,
+                  }}>{translating ? t("bio.translating") : translated ? t("bio.original") : t("bio.translate")}</button>
+                </div>
+                <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7 }}>{translated || user.about}</p>
               </div>
             )}
 

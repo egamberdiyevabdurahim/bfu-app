@@ -7,10 +7,32 @@ import { VolunteerScreen } from "./screens/VolunteerScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { EventsScreen } from "./screens/EventsScreen";
 import { UserProfileModal } from "./components/UserProfileModal";
-import { storage, users } from "./api";
+import { storage, users, projects } from "./api";
 import { useT } from "./i18n";
+import { Landing } from "./Landing";
+import { RegionLandingScreen } from "./RegionLandingScreen";
+import { ProjectDetail } from "./components/ProjectDetail";
+
+function publicRoute() {
+  const path = window.location.pathname;
+  const inTelegram = !!window.Telegram?.WebApp?.initData;
+  if (path.startsWith("/r/")) {
+    const id = parseInt(path.split("/")[2] || "", 10);
+    return Number.isFinite(id) ? { kind: "region", id } : null;
+  }
+  // Show landing at "/" only for browser visitors (no Telegram WebApp).
+  if (path === "/" && !inTelegram) return { kind: "landing" };
+  return null;
+}
 
 export default function App() {
+  const pub = publicRoute();
+  if (pub?.kind === "landing") return <Landing />;
+  if (pub?.kind === "region") return <RegionLandingScreen regionId={pub.id} />;
+  return <MiniApp />;
+}
+
+function MiniApp() {
   const { t, setLang } = useT();
   // null = loading, false = not authed, true = authed+registered
   const [authed, setAuthed] = useState(null);
@@ -18,6 +40,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("discover");
   const [deepLink, setDeepLink] = useState(null);
   const [deepUserId, setDeepUserId] = useState(null);
+  const [deepProject, setDeepProject] = useState(null);
 
   useEffect(() => {
     const handleSignout = () => {
@@ -70,6 +93,10 @@ export default function App() {
     } else if ((m = sp.match(/^user_(\d+)$/))) {
       // Admin link to a specific user's profile
       if (isAuthed) setDeepUserId(Number(m[1]));
+    } else if ((m = sp.match(/^project_(\d+)$/))) {
+      if (isAuthed) {
+        projects.get(Number(m[1])).then(setDeepProject).catch(() => {});
+      }
     }
   };
 
@@ -154,6 +181,14 @@ export default function App() {
         )}
         {deepUserId && (
           <UserProfileModal userId={deepUserId} onClose={() => setDeepUserId(null)} />
+        )}
+        {deepProject && (
+          <ProjectDetail
+            project={deepProject}
+            me={me}
+            onClose={() => setDeepProject(null)}
+            onUpdate={(p) => setDeepProject(p)}
+          />
         )}
       </div>
     </>

@@ -13,9 +13,9 @@ from app.config import settings
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.region import LearningCenter, Region, School
-from app.models.user import User, UserLearningCenter, UserSchool, Report
+from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
-from app.services.ai import analyze_and_save
+from app.services.ai import analyze_and_save, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import send_telegram
 
@@ -462,15 +462,24 @@ async def set_referral(
 
 @router.get("/leaderboard", response_model=dict)
 async def leaderboard(
+    period: str = "week",  # "week" | "month" | "all"
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (await db.execute(
+    now = datetime.utcnow()
+    since = None
+    if period == "week":
+        since = now - timedelta(days=7)
+    elif period == "month":
+        since = now - timedelta(days=30)
+    q = (
         select(User.referred_by, func.count(User.id))
         .where(User.referred_by.is_not(None), User.is_registered == True, User.is_deleted == False)
-        .group_by(User.referred_by)
-        .order_by(func.count(User.id).desc())
-        .limit(10)
+    )
+    if since is not None:
+        q = q.where(User.created_at >= since)
+    rows = (await db.execute(
+        q.group_by(User.referred_by).order_by(func.count(User.id).desc()).limit(10)
     )).all()
     ids = [r[0] for r in rows]
     names: dict[int, str] = {}
@@ -482,13 +491,14 @@ async def leaderboard(
          "count": c, "is_me": rid == current_user.id}
         for i, (rid, c) in enumerate(rows)
     ]
-    my = await db.scalar(
-        select(func.count(User.id)).where(
-            User.referred_by == current_user.id,
-            User.is_registered == True, User.is_deleted == False,
-        )
+    mq = select(func.count(User.id)).where(
+        User.referred_by == current_user.id,
+        User.is_registered == True, User.is_deleted == False,
     )
-    return {"top": top, "my_count": my or 0}
+    if since is not None:
+        mq = mq.where(User.created_at >= since)
+    my = await db.scalar(mq)
+    return {"top": top, "my_count": my or 0, "period": period}
 
 
 @router.post("/reports", response_model=dict)
@@ -514,6 +524,14 @@ async def create_report(
 
 
 _last_intro: dict[int, float] = {}
+_last_interest: dict[tuple[int, int], float] = {}  # (from, to) → ts
+
+
+_INTEREST_MSG = {
+    "en": "💜 <b>{name}</b> is interested in your profile on BFU.",
+    "uz": "💜 <b>{name}</b> sizning BFU profilingiz bilan qiziqdi.",
+    "ru": "💜 <b>{name}</b> заинтересовался(-ась) вашим профилем в BFU.",
+}
 
 
 @router.post("/{user_id}/intro", response_model=dict)
@@ -545,6 +563,79 @@ async def request_intro(
     if target.telegram_id:
         await send_telegram(target.telegram_id, txt, reply_markup=mk)
     return {"ok": True, "has_username": bool(current_user.tg_username)}
+
+
+@router.post("/{user_id}/interest", response_model=dict)
+async def soft_interest(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lightweight 'I'm interested in your profile' ping (no chat infra)."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot mark yourself")
+    now = time.monotonic()
+    key = (current_user.id, user_id)
+    if now - _last_interest.get(key, 0.0) < 60 * 60 * 24:
+        raise HTTPException(status_code=429, detail="Already pinged in the last 24h")
+    target = await db.get(User, user_id)
+    if not target or target.is_deleted or not target.is_registered:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.add(Interest(from_user_id=current_user.id, to_user_id=user_id))
+    await db.commit()
+    _last_interest[key] = now
+    if target.telegram_id:
+        lang = (target.language or "en") if (target.language or "en") in _INTEREST_MSG else "en"
+        chat_url = (
+            f"https://t.me/{current_user.tg_username}"
+            if current_user.tg_username
+            else f"tg://user?id={current_user.telegram_id}"
+        )
+        await send_telegram(
+            target.telegram_id,
+            _INTEREST_MSG[lang].format(name=current_user.display_name),
+            reply_markup={"inline_keyboard": [[
+                {"text": "👀 See profile", "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}},
+                {"text": "💬 Chat", "url": chat_url},
+            ]]},
+        )
+    return {"ok": True}
+
+
+@router.get("/{user_id}/bio/translate", response_model=dict)
+async def translate_bio(
+    user_id: int,
+    lang: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Translate the target user's bio into `lang` (en/uz/ru) via Claude.
+    Result is cached per (user, lang) and invalidated when the source changes."""
+    if lang not in {"en", "uz", "ru"}:
+        raise HTTPException(status_code=400, detail="Unsupported lang")
+    target = await db.get(User, user_id)
+    if not target or target.is_deleted or not target.about:
+        return {"translated": None}
+    import hashlib
+    h = hashlib.sha256(target.about.encode()).hexdigest()
+    cached = (await db.execute(
+        select(BioTranslation).where(
+            BioTranslation.user_id == user_id, BioTranslation.lang == lang
+        )
+    )).scalar_one_or_none()
+    if cached and cached.source_hash == h:
+        return {"translated": cached.text, "cached": True}
+    out = await translate_bio_async(target.about, lang)
+    if not out:
+        return {"translated": None}
+    if cached:
+        cached.source_hash = h
+        cached.text = out
+        cached.updated_at = datetime.utcnow()
+    else:
+        db.add(BioTranslation(user_id=user_id, lang=lang, source_hash=h, text=out))
+    await db.commit()
+    return {"translated": out, "cached": False}
 
 
 # ── Discover ───────────────────────────────────────────────────────────────────

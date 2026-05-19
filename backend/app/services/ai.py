@@ -125,6 +125,33 @@ async def analyze_about_async(text: str) -> dict[str, list[str]]:
         return _keyword_fallback(text)
 
 
+async def translate_bio_async(text: str, target_lang: str) -> str | None:
+    """Translate a short bio into `target_lang` (en/uz/ru) via Claude.
+    Returns None on failure (caller should fall back to source text)."""
+    if not text or not text.strip() or not settings.ANTHROPIC_API_KEY:
+        return None
+    name = {"en": "English", "uz": "Uzbek (Latin script)", "ru": "Russian"}.get(target_lang)
+    if not name:
+        return None
+    try:
+        import anthropic
+        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        resp = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=400,
+            system=(
+                f"Translate the user's short self-description into {name}. "
+                f"Keep tone and meaning. Reply with only the translation, no quotes, no commentary."
+            ),
+            messages=[{"role": "user", "content": text[:1500]}],
+        )
+        out = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        return out or None
+    except Exception as exc:
+        logger.warning("translate failed: %s", exc)
+        return None
+
+
 async def analyze_and_save(db: AsyncSession, user_id: int, text: str) -> dict[str, list[str]]:
     """Run analysis and upsert into user_analyses. Returns the tag dict."""
     data = await analyze_about_async(text)

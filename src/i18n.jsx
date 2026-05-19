@@ -333,6 +333,54 @@ const STRINGS = {
 
   // ── Co-applied insight ────────────────────────────────────────────────────
   "pd.othersApplied": { en: "{n} others applied recently.", uz: "Bu yaqinda {n} kishi ariza yuborgan.", ru: "Недавно подало заявку: {n}." },
+
+  // ── Landing & region ─────────────────────────────────────────────────────
+  "land.hero.title": { en: "Where young Uzbekistan builds the future.", uz: "Yosh O‘zbekiston kelajakni quradigan joy.", ru: "Где молодой Узбекистан строит будущее." },
+  "land.hero.body":  { en: "Connect with students, co-founders, and volunteers. Find opportunities, build projects, get verified.", uz: "Talabalar, hammuassislar va volontyorlar bilan tanishing. Imkoniyatlar toping, loyihalar quring, tasdiqlanish oling.", ru: "Знакомьтесь со студентами, сооснователями и волонтёрами. Находите возможности, создавайте проекты, проходите верификацию." },
+  "land.cta.telegram": { en: "Open in Telegram", uz: "Telegramda ochish", ru: "Открыть в Telegram" },
+  "land.cta.web":      { en: "Open the app", uz: "Ilovani ochish", ru: "Открыть приложение" },
+  "land.f1.title": { en: "Startups & volunteering", uz: "Startaplar va volontyorlik", ru: "Стартапы и волонтёрство" },
+  "land.f1.body":  { en: "Browse projects across Uzbekistan, apply with one tap, or post your own.", uz: "O‘zbekiston bo‘ylab loyihalarni ko‘rib chiqing, bir bosishda ariza yuboring yoki o‘zingizniknini joylang.", ru: "Просматривайте проекты по всему Узбекистану, подавайте заявку одним касанием или публикуйте свой." },
+  "land.f2.title": { en: "Smart matching", uz: "Aqlli moslashtirish", ru: "Умный мэтчинг" },
+  "land.f2.body":  { en: "AI matches you to people with overlapping skills, interests and goals.", uz: "AI sizga ko‘nikma, qiziqish va maqsadlar mos keladigan odamlarni tanlab beradi.", ru: "ИИ подбирает людей с общими навыками, интересами и целями." },
+  "land.f3.title": { en: "Opportunities & events", uz: "Imkoniyatlar va tadbirlar", ru: "Возможности и события" },
+  "land.f3.body":  { en: "Hackathons, grants, scholarships, meetups — curated for Uzbek youth.", uz: "Hakatonlar, grantlar, stipendiyalar, uchrashuvlar — O‘zbek yoshlari uchun tanlab olingan.", ru: "Хакатоны, гранты, стипендии и встречи — отобраны для молодёжи Узбекистана." },
+
+  "region.members":        { en: "members", uz: "a’zo", ru: "участников" },
+  "region.projects":       { en: "projects", uz: "loyiha", ru: "проектов" },
+  "region.recentProjects": { en: "Recent projects", uz: "So‘nggi loyihalar", ru: "Последние проекты" },
+  "region.empty":          { en: "No public projects yet.", uz: "Hozircha ommaviy loyihalar yo‘q.", ru: "Пока нет публичных проектов." },
+
+  // ── Founder stats ────────────────────────────────────────────────────────
+  "pd.stats.title":       { en: "Project stats", uz: "Loyiha statistikasi", ru: "Статистика проекта" },
+  "pd.stats.pending":     { en: "Pending", uz: "Kutilmoqda", ru: "В ожидании" },
+  "pd.stats.accepted":    { en: "Accepted", uz: "Qabul qilingan", ru: "Принято" },
+  "pd.stats.declined":    { en: "Declined", uz: "Rad etilgan", ru: "Отклонено" },
+  "pd.stats.views":       { en: "Views", uz: "Ko‘rishlar", ru: "Просмотры" },
+  "pd.stats.avgDecision": { en: "Avg. decision time", uz: "Qaror vaqti (o‘rt.)", ru: "Среднее время решения" },
+  "pd.stats.hours":       { en: "{n}h", uz: "{n} s", ru: "{n} ч" },
+  "pd.stats.noData":      { en: "—", uz: "—", ru: "—" },
+
+  // ── Misc actions ─────────────────────────────────────────────────────────
+  "fav.add":     { en: "Save", uz: "Saqlash", ru: "Сохранить" },
+  "fav.remove":  { en: "Saved", uz: "Saqlangan", ru: "Сохранено" },
+  "fav.tab":     { en: "Saved", uz: "Saqlangan", ru: "Сохранённые" },
+  "interest.btn":     { en: "💜 Interest", uz: "💜 Qiziqish", ru: "💜 Интерес" },
+  "interest.sent":    { en: "✓ Sent — they'll get a quiet ping.", uz: "✓ Yuborildi — ular bildirishnoma oladi.", ru: "✓ Отправлено — придёт уведомление." },
+  "bio.translate":    { en: "Translate", uz: "Tarjima qilish", ru: "Перевести" },
+  "bio.translating":  { en: "Translating…", uz: "Tarjima…", ru: "Перевод…" },
+  "bio.original":     { en: "Show original", uz: "Asl matn", ru: "Оригинал" },
+
+  // ── Admin audit / export ─────────────────────────────────────────────────
+  "admin.tab.audit": { en: "Audit", uz: "Audit", ru: "Аудит" },
+  "admin.audit.row": { en: "admin#{a} {action} {t}#{id}", uz: "admin#{a} {action} {t}#{id}", ru: "admin#{a} {action} {t}#{id}" },
+  "admin.export.users":    { en: "📥 Export users (JSON)", uz: "📥 Foydalanuvchilarni eksport (JSON)", ru: "📥 Экспорт пользователей (JSON)" },
+  "admin.export.projects": { en: "📥 Export projects (JSON)", uz: "📥 Loyihalarni eksport (JSON)", ru: "📥 Экспорт проектов (JSON)" },
+
+  // ── Leaderboard periods ──────────────────────────────────────────────────
+  "lb.period.week":  { en: "This week", uz: "Bu hafta", ru: "Эта неделя" },
+  "lb.period.month": { en: "This month", uz: "Bu oy", ru: "Этот месяц" },
+  "lb.period.all":   { en: "All time", uz: "Hamma vaqt", ru: "За всё время" },
   "common.verified": { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
 
   // ── Connect / report ──────────────────────────────────────────────────────

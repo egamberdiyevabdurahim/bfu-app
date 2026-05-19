@@ -138,9 +138,15 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [regionMap, setRegionMap] = useState({});
   const [viewingUserId, setViewingUserId] = useState(null);
+  const [stats, setStats] = useState(null);
 
   const isCreator = me && project.creator_id === me.id;
   const projectWithFlag = { ...project, _is_creator: isCreator };
+
+  // Founder stats (only for the project creator)
+  useEffect(() => {
+    if (isCreator) projects.stats(project.id).then(setStats).catch(() => {});
+  }, [isCreator, project.id]);
 
   // Load region names once
   useEffect(() => {
@@ -222,7 +228,27 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
           <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
             <div style={{ width: 40, height: 4, background: "var(--surface-3)", borderRadius: 99 }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 20px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 20px 0" }}>
+            <button
+              onClick={async () => {
+                try {
+                  if (project.is_favorited) {
+                    await projects.unfavorite(project.id);
+                    setProject({ ...project, is_favorited: false });
+                  } else {
+                    await projects.favorite(project.id);
+                    setProject({ ...project, is_favorited: true });
+                  }
+                } catch (e) { tgAlert(e.message); }
+              }}
+              style={{
+                background: project.is_favorited ? "rgba(255,107,107,0.12)" : "var(--surface-2)",
+                border: project.is_favorited ? "1px solid rgba(255,107,107,0.4)" : "1px solid var(--border)",
+                borderRadius: 99, padding: "6px 12px", fontSize: 13,
+                color: project.is_favorited ? "#FF6B6B" : "var(--text-2)",
+                cursor: "pointer", fontWeight: 600,
+              }}
+            >{project.is_favorited ? "❤️ " + t("fav.remove") : "🤍 " + t("fav.add")}</button>
             <button onClick={onClose} style={{
               background: "var(--surface-2)", border: "none", borderRadius: 99,
               width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
@@ -346,6 +372,32 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
                 }}>
                   <Icon name="send" size={14} /> {project.channel}
                 </a>
+              </div>
+            )}
+
+            {isCreator && stats && (
+              <div style={{
+                background: "var(--surface-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius)", padding: 14, marginBottom: 14,
+              }}>
+                <div className="section-label">{t("pd.stats.title")}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {[
+                    [t("pd.stats.pending"),  stats.pending,  "#FFB347"],
+                    [t("pd.stats.accepted"), stats.accepted, "#4ECDC4"],
+                    [t("pd.stats.declined"), stats.declined, "#FF6B6B"],
+                    [t("pd.stats.views"),    stats.views,    "#7B6FFF"],
+                    [t("pd.stats.avgDecision"), stats.avg_decision_hours != null ? t("pd.stats.hours", { n: stats.avg_decision_hours }) : t("pd.stats.noData"), "#A78BFA"],
+                  ].map(([label, val, col], i) => (
+                    <div key={i} style={{
+                      textAlign: "center", padding: "8px 4px", background: "var(--surface)",
+                      borderRadius: "var(--radius-sm)", border: `1px solid ${col}40`,
+                    }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: col }}>{val}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

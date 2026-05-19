@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db
 import json
-from app.models.user import User, PendingLocation, Report, ErrorLog
+from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
 from app.services.notify import send_telegram
+from app.services.audit import log_action
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
@@ -557,3 +559,43 @@ async def delete_lc(
     lc.is_deleted = True
     await db.commit()
     return {"detail": "Learning Center deleted"}
+
+
+# ── Audit + Export ─────────────────────────────────────────────────────────────
+
+@router.get("/audit")
+async def list_audit(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(200))
+    return [
+        {"id": a.id, "admin_id": a.admin_id, "action": a.action,
+         "target_type": a.target_type, "target_id": a.target_id,
+         "details": a.details, "created_at": a.created_at}
+        for a in res.scalars().all()
+    ]
+
+
+@router.get("/export/users.json")
+async def export_users(
+    admin: User = Depends(get_super_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(User).where(User.is_deleted == False))
+    return [
+        {c.name: getattr(u, c.name) for c in User.__table__.columns}
+        for u in res.scalars().all()
+    ]
+
+
+@router.get("/export/projects.json")
+async def export_projects(
+    admin: User = Depends(get_super_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(Project).where(Project.is_deleted == False))
+    return [
+        {c.name: getattr(p, c.name) for c in Project.__table__.columns}
+        for p in res.scalars().all()
+    ]

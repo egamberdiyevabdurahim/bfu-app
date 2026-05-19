@@ -68,6 +68,49 @@ class Report(TimestampMixin, Base):
     resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
+class Favorite(Base):
+    """User bookmarks a project (no application implied)."""
+    __tablename__ = "favorites"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    project_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Interest(Base):
+    """Soft 'interested in your profile' ping — lighter than a full intro."""
+    __tablename__ = "interests"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    from_user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    to_user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AuditLog(Base):
+    """Append-only record of admin actions for accountability."""
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    admin_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class BioTranslation(Base):
+    """Cached Claude bio translations to keep cost ~zero per view."""
+    __tablename__ = "bio_translations"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    lang: Mapped[str] = mapped_column(String(2), primary_key=True)
+    source_hash: Mapped[str] = mapped_column(String(64))  # invalidate on source change
+    text: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class ErrorLog(Base):
     """Recent unhandled API errors — surfaced in the admin panel."""
     __tablename__ = "error_logs"

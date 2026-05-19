@@ -93,8 +93,10 @@ export const users = {
   updateTags:      ()       => req("/users/me/update-tags", { method: "POST" }),
   invite:          ()       => req("/users/me/invite"),
   setReferral:     (code)   => req("/users/me/referral", { method: "POST", body: JSON.stringify({ code }) }),
-  leaderboard:     ()       => req("/users/leaderboard"),
+  leaderboard:     (period = "week") => req(`/users/leaderboard${qs({ period })}`),
   requestIntro:    (id)     => req(`/users/${id}/intro`, { method: "POST" }),
+  interest:        (id)     => req(`/users/${id}/interest`, { method: "POST" }),
+  translateBio:    (id, lang) => req(`/users/${id}/bio/translate${qs({ lang })}`),
   report:          (d)      => req("/users/reports", { method: "POST", body: JSON.stringify(d) }),
   getProfile:      (id)     => req(`/users/${id}`),
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),
@@ -114,6 +116,10 @@ export const projects = {
   reviewApplication: (id, appId, action) =>
     req(`/projects/${id}/applications/${appId}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   leave:             (id)     => req(`/projects/${id}/join`, { method: "DELETE" }),
+  favorite:          (id)     => req(`/projects/${id}/favorite`, { method: "POST" }),
+  unfavorite:        (id)     => req(`/projects/${id}/favorite`, { method: "DELETE" }),
+  favorites:         ()       => req("/projects/favorites"),
+  stats:             (id)     => req(`/projects/${id}/stats`),
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -141,6 +147,9 @@ export const admin = {
   verifyUser:        (id)     => req(`/admin/users/${id}/verify`, { method: "POST" }),
   pinProject:        (id)     => req(`/admin/projects/${id}/pin`, { method: "PATCH" }),
   getErrors:         ()       => req("/admin/errors"),
+  getAudit:          ()       => req("/admin/audit"),
+  exportUsersUrl:    ()       => `${import.meta.env.VITE_API_URL ?? ""}/admin/export/users.json`,
+  exportProjectsUrl: ()       => `${import.meta.env.VITE_API_URL ?? ""}/admin/export/projects.json`,
   getProjects:       (p = {}) => req(`/admin/projects${qs(p)}`),
   approveProject:    (id)     => req(`/admin/projects/${id}/approve`, { method: "PATCH" }),
   deleteProject:     (id)     => req(`/admin/projects/${id}`, { method: "DELETE" }),

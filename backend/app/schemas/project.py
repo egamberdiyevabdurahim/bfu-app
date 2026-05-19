@@ -68,6 +68,8 @@ class ProjectResponse(BaseModel):
     is_pinned: bool = False
     is_draft: bool = False
     pending_applications_count: int = 0
+    view_count: int = 0
+    is_favorited: bool = False
     is_member: bool = False
     is_fit: bool = True
     my_application_status: str | None = None  # null | pending | accepted | declined

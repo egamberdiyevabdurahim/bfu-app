@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
-from app.routers import admin, auth, events, projects, regions, users
+from app.routers import admin, auth, events, projects, public, regions, users
 from app.services.notify import send_telegram
 
 # Import all models so Base.metadata knows about every table
@@ -51,6 +51,8 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_nudged_at TIMESTAMP;",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_draft BOOLEAN DEFAULT false;",
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0;",
+            "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP;",
         ]
         for ddl in new_columns:
             try:
@@ -131,6 +133,7 @@ app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(regions.router)
 app.include_router(events.router)
+app.include_router(public.router)
 app.include_router(admin.router)
 
 @app.exception_handler(Exception)

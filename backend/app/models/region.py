@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -30,6 +30,8 @@ class LearningCenter(SoftDeleteMixin, Base):
     parent_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("learning_centers.id"), nullable=True)
     group_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     group_link: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     region = relationship("Region", back_populates="learning_centers")
     users = relationship("UserLearningCenter", back_populates="learning_center")
@@ -49,6 +51,8 @@ class School(SoftDeleteMixin, Base):
     region_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("regions.id"))
     group_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     group_link: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     region = relationship("Region", back_populates="schools")
     users = relationship("UserSchool", back_populates="school")

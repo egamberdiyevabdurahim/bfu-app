@@ -134,8 +134,10 @@ export const admin = {
   getRegions:        ()       => req("/admin/regions"),
   getSchools:        ()       => req("/admin/schools"),
   updateSchool:      (id, d)  => req(`/admin/schools/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
+  deleteSchool:      (id)     => req(`/admin/schools/${id}`, { method: "DELETE" }),
   getLCs:            ()       => req("/admin/learning-centers"),
   updateLC:          (id, d)  => req(`/admin/learning-centers/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
+  deleteLC:          (id)     => req(`/admin/learning-centers/${id}`, { method: "DELETE" }),
 };
 
 // ── Health ────────────────────────────────────────────────────────────────────

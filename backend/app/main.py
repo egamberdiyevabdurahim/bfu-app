@@ -36,6 +36,10 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS group_id BIGINT;",
             "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS group_link VARCHAR(512);",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT false;",
+            "ALTER TABLE schools ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;",
+            "ALTER TABLE schools ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
+            "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;",
+            "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
         ]
         for ddl in new_columns:
             try:

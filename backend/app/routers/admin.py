@@ -25,6 +25,8 @@ class UpdateGroupConfig(BaseModel):
     group_link: str | None = None
     name: str | None = None
     region_id: int | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 class UpdateRoleConfig(BaseModel):
     role: str
@@ -188,7 +190,7 @@ async def list_regions(admin: User = Depends(get_admin_user), db: AsyncSession =
 
 @router.get("/schools")
 async def list_schools(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(School).order_by(School.id))
+    res = await db.execute(select(School).where(School.is_deleted == False).order_by(School.id))
     return res.scalars().all()
 
 @router.patch("/schools/{school_id}")
@@ -214,12 +216,29 @@ async def update_school(
         if not await db.get(Region, body.region_id):
             raise HTTPException(400, "Region not found")
         s.region_id = body.region_id
+    if body.latitude is not None:
+        s.latitude = body.latitude
+    if body.longitude is not None:
+        s.longitude = body.longitude
     await db.commit()
     return s
 
+@router.delete("/schools/{school_id}")
+async def delete_school(
+    school_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    s = await db.get(School, school_id)
+    if not s:
+        raise HTTPException(404, "School not found")
+    s.is_deleted = True
+    await db.commit()
+    return {"detail": "School deleted"}
+
 @router.get("/learning-centers")
 async def list_lcs(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(LearningCenter).order_by(LearningCenter.id))
+    res = await db.execute(select(LearningCenter).where(LearningCenter.is_deleted == False).order_by(LearningCenter.id))
     return res.scalars().all()
 
 @router.patch("/learning-centers/{lc_id}")
@@ -245,5 +264,22 @@ async def update_lc(
         if not await db.get(Region, body.region_id):
             raise HTTPException(400, "Region not found")
         lc.region_id = body.region_id
+    if body.latitude is not None:
+        lc.latitude = body.latitude
+    if body.longitude is not None:
+        lc.longitude = body.longitude
     await db.commit()
     return lc
+
+@router.delete("/learning-centers/{lc_id}")
+async def delete_lc(
+    lc_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    lc = await db.get(LearningCenter, lc_id)
+    if not lc:
+        raise HTTPException(404, "Learning Center not found")
+    lc.is_deleted = True
+    await db.commit()
+    return {"detail": "Learning Center deleted"}

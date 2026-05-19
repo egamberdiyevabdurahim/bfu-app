@@ -255,11 +255,15 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
     region_id: item.region_id ? String(item.region_id) : "",
     group_id: item.group_id || "",
     group_link: item.group_link || "",
+    latitude: item.latitude ?? "",
+    longitude: item.longitude ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const regionName = (r) => (r ? (r[`name_${lang}`] || r.name_en) : "");
   const currentRegion = regions.find(r => String(r.id) === String(item.region_id));
+  const hasPos = item.latitude != null && item.longitude != null;
 
   const handleSave = async () => {
     if (!form.name.trim()) { alert(t("ep.required")); return; }
@@ -270,6 +274,8 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
         group_link: form.group_link || null,
         name: form.name.trim(),
         region_id: form.region_id ? parseInt(form.region_id) : null,
+        latitude: form.latitude !== "" && !isNaN(parseFloat(form.latitude)) ? parseFloat(form.latitude) : null,
+        longitude: form.longitude !== "" && !isNaN(parseFloat(form.longitude)) ? parseFloat(form.longitude) : null,
       };
       if (type === "school") await admin.updateSchool(item.id, payload);
       else await admin.updateLC(item.id, payload);
@@ -277,6 +283,18 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
       onSaved();
     } catch(e) { alert(t("admin.saveFailed")); }
     setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    const actKey = type === "school" ? "admin.act.deleteSchool" : "admin.act.deleteLc";
+    if (!window.confirm(t("admin.confirm", { action: t(actKey) }))) return;
+    setDeleting(true);
+    try {
+      if (type === "school") await admin.deleteSchool(item.id);
+      else await admin.deleteLC(item.id);
+      onSaved();
+    } catch (e) { alert(t("admin.actionFailed", { msg: e.message })); }
+    setDeleting(false);
   };
 
   if (editing) {
@@ -292,10 +310,16 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
         </select>
         <input className="input-field" placeholder={t("admin.groupIdPh")} value={form.group_id} onChange={e => setForm({...form, group_id: e.target.value})} style={{ marginBottom: 8 }} />
         <input className="input-field" placeholder={t("admin.groupLinkPh")} value={form.group_link} onChange={e => setForm({...form, group_link: e.target.value})} style={{ marginBottom: 12 }} />
+        <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.position")}</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
+          <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setEditing(false)} style={{ flex: 1, padding: 8, background: "var(--surface-3)", borderRadius: "var(--radius-sm)", color: "var(--text-2)" }}>{t("common.cancel")}</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 8, background: "var(--accent)", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600 }}>{saving ? t("common.saving") : t("common.save")}</button>
         </div>
+        <button onClick={handleDelete} disabled={deleting} style={{ width: "100%", marginTop: 8, padding: 8, background: "rgba(255,107,107,0.1)", color: "#FF6B6B", border: "1px solid rgba(255,107,107,0.3)", borderRadius: "var(--radius-sm)", fontWeight: 600, fontSize: 13 }}>{deleting ? "…" : t("admin.delete")}</button>
       </div>
     );
   }
@@ -309,6 +333,15 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
         </div>
         <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
           {t("admin.idLabel", { id: item.group_id || t("admin.none"), link: item.group_link ? t("admin.set") : t("admin.none") })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+          {t("admin.posLabel", { pos: hasPos ? `${item.latitude}, ${item.longitude}` : t("admin.none") })}
+          {hasPos && (
+            <a href={`https://www.google.com/maps?q=${item.latitude},${item.longitude}`} target="_blank" rel="noopener noreferrer"
+              style={{ color: "var(--accent)", marginLeft: 8, textDecoration: "none" }}>
+              {t("admin.openMaps")}
+            </a>
+          )}
         </div>
       </div>
       <button onClick={() => setEditing(true)} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer" }}><Icon name="edit" size={16} /></button>

@@ -18,6 +18,8 @@ class LearningCenterOut(BaseModel):
     is_branch: bool
     group_id: int | None = None
     group_link: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -28,5 +30,7 @@ class SchoolOut(BaseModel):
     region_id: int
     group_id: int | None = None
     group_link: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
     model_config = {"from_attributes": True}

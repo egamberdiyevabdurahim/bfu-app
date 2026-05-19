@@ -4,6 +4,7 @@ import { Icon } from "../components/Icons";
 import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
+import { EventsScreen } from "./EventsScreen";
 import { useT } from "../i18n";
 import { shareUrl } from "../tg";
 
@@ -94,6 +95,7 @@ export const SettingsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [eventsOpen, setEventsOpen] = useState(false);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -126,6 +128,10 @@ export const SettingsScreen = () => {
   // ── Admin Panel overlay ───────────────────────────────────────────────────
   if (adminOpen) return (
     <AdminScreen user={user} onBack={() => setAdminOpen(false)} />
+  );
+
+  if (eventsOpen) return (
+    <EventsScreen onBack={() => setEventsOpen(false)} />
   );
 
   const age = user.birth_year ? new Date().getFullYear() - user.birth_year : null;
@@ -220,6 +226,13 @@ export const SettingsScreen = () => {
         }}>
           <Icon name="edit" size={16} color="#fff" /> {t("settings.editProfile")}
         </button>
+
+        <button onClick={() => setEventsOpen(true)} style={{
+          width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)", padding: "14px", cursor: "pointer",
+          color: "var(--text)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15,
+          marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>{t("settings.events")}</button>
 
         {/* Admin Dashboard */}
         {(user.role === "admin" || user.role === "super_admin") && (

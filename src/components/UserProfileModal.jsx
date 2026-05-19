@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { users } from "../api";
 import { useT } from "../i18n";
-import { tgAlert, tgConfirm } from "../tg";
+import { tgAlert, tgConfirm, tgChatUrl } from "../tg";
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF", label: "Skills" },
@@ -147,12 +147,20 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
             </div>
 
             {/* Connect actions */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               <button onClick={doIntro} disabled={introSending} style={{
-                flex: 1, padding: "11px", background: "var(--accent)", border: "none",
+                flex: "1 1 auto", minWidth: 130, padding: "11px", background: "var(--accent)", border: "none",
                 borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
                 cursor: "pointer", fontFamily: "var(--font-display)",
               }}>{introSending ? t("intro.sending") : t("intro.btn")}</button>
+              {tgChatUrl(user) && (
+                <a href={tgChatUrl(user)} target="_blank" rel="noopener noreferrer" style={{
+                  flex: "1 1 auto", minWidth: 100, padding: "11px", textAlign: "center",
+                  background: "var(--surface-2)", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)", color: "var(--text)", fontWeight: 600, fontSize: 13,
+                  textDecoration: "none", fontFamily: "var(--font-display)",
+                }}>💬 {user?.tg_username ? `@${user.tg_username}` : t("intro.btn").replace("👋 ", "")}</a>
+              )}
               <button onClick={doReport} title={t("report.btn")} style={{
                 padding: "11px 14px", background: "rgba(255,107,107,0.1)",
                 border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",

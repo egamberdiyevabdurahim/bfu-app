@@ -1,6 +1,15 @@
 // Thin helpers around the Telegram WebApp SDK with browser fallbacks.
 const wa = () => window.Telegram?.WebApp;
 
+function syncViewport() {
+  const w = wa();
+  if (!w) return;
+  const h = w.viewportStableHeight || w.viewportHeight;
+  if (h && h > 100) {
+    document.documentElement.style.setProperty("--app-h", `${h}px`);
+  }
+}
+
 export function initTelegram() {
   const w = wa();
   if (!w) return;
@@ -10,7 +19,18 @@ export function initTelegram() {
     if (typeof w.disableVerticalSwipes === "function") w.disableVerticalSwipes();
     if (typeof w.setHeaderColor === "function") w.setHeaderColor("#0A0A0F");
     if (typeof w.setBackgroundColor === "function") w.setBackgroundColor("#0A0A0F");
+    syncViewport();
+    if (typeof w.onEvent === "function") {
+      w.onEvent("viewportChanged", syncViewport);
+    }
   } catch { /* older SDKs */ }
+}
+
+// Build a Telegram chat URL that works even without a @username.
+export function tgChatUrl(user) {
+  if (user?.tg_username) return `https://t.me/${user.tg_username}`;
+  if (user?.telegram_id) return `tg://user?id=${user.telegram_id}`;
+  return null;
 }
 
 export function tgAlert(message) {

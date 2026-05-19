@@ -7,6 +7,8 @@ from app.database import get_db
 from app.models.user import User, PendingLocation, Report
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
+from app.models.event import Event
+from datetime import datetime
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
 from pydantic import BaseModel
@@ -132,6 +134,68 @@ async def hard_delete_user(
     await db.delete(user)
     await db.commit()
     return {"detail": "User hard deleted"}
+
+class EventBody(BaseModel):
+    type: str
+    title: str
+    description: str | None = None
+    link: str | None = None
+    cover_url: str | None = None
+    deadline: datetime | None = None
+    region_id: int | None = None
+
+
+class EventOut(BaseModel):
+    id: int
+    type: str
+    title: str
+    description: str | None = None
+    link: str | None = None
+    cover_url: str | None = None
+    deadline: datetime | None = None
+    region_id: int | None = None
+    is_deleted: bool
+    model_config = {"from_attributes": True}
+
+
+@router.get("/events", response_model=list[EventOut])
+async def admin_list_events(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(Event).order_by(Event.id.desc()).limit(200))
+    return res.scalars().all()
+
+
+@router.post("/events", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    if not body.title.strip():
+        raise HTTPException(400, "Title required")
+    e = Event(
+        type=body.type, title=body.title.strip(), description=body.description,
+        link=body.link, cover_url=body.cover_url, deadline=body.deadline,
+        region_id=body.region_id, created_by=admin.id,
+    )
+    db.add(e); await db.commit(); await db.refresh(e)
+    return e
+
+
+@router.patch("/events/{event_id}", response_model=EventOut)
+async def admin_update_event(event_id: int, body: EventBody,
+                              admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    e = await db.get(Event, event_id)
+    if not e: raise HTTPException(404, "Event not found")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(e, k, v)
+    await db.commit(); await db.refresh(e)
+    return e
+
+
+@router.delete("/events/{event_id}")
+async def admin_delete_event(event_id: int, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    e = await db.get(Event, event_id)
+    if not e: raise HTTPException(404, "Event not found")
+    e.is_deleted = True
+    await db.commit()
+    return {"detail": "Event deleted"}
+
 
 class ReportOut(BaseModel):
     id: int

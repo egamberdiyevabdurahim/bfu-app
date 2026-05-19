@@ -8,18 +8,21 @@ import { useT } from "../i18n";
 export const DiscoverScreen = () => {
   const { t } = useT();
   const [activeFilter, setActiveFilter] = useState("All");
+  const [sort, setSort] = useState("recent");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewingUserId, setViewingUserId] = useState(null);
 
   const filters = ["ForYou", "All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
 
-  useEffect(() => { loadUsers(); }, [activeFilter]);
+  useEffect(() => { loadUsers(); }, [activeFilter, sort, verifiedOnly]);
 
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const q = {};
+      const q = { sort };
+      if (verifiedOnly) q.verified = true;
       if (activeFilter === "ForYou") q.match = true;
       else if (activeFilter !== "All") q.skill = activeFilter.toLowerCase();
       const res = await users.discover(q);
@@ -39,6 +42,24 @@ export const DiscoverScreen = () => {
             </div>
           </div>
 
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+            <select value={sort} onChange={e => setSort(e.target.value)} style={{
+              flex: 1, background: "var(--surface-2)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)", padding: "8px 10px", fontSize: 13,
+              color: "var(--text)", appearance: "none", cursor: "pointer",
+            }}>
+              <option value="recent">{t("sort.recent")}</option>
+              <option value="verified">{t("sort.verified")}</option>
+              <option value="name">{t("sort.name")}</option>
+            </select>
+            <button onClick={() => setVerifiedOnly(v => !v)} style={{
+              padding: "8px 12px", fontSize: 12, fontWeight: 600,
+              background: verifiedOnly ? "var(--accent)" : "var(--surface-2)",
+              color: verifiedOnly ? "#fff" : "var(--text-2)",
+              border: `1px solid ${verifiedOnly ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)", cursor: "pointer", whiteSpace: "nowrap",
+            }}>{t("filter.verifiedOnly")}</button>
+          </div>
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 20, scrollbarWidth: "none" }}>
             {filters.map(f => (
               <button key={f} onClick={() => setActiveFilter(f)} style={{

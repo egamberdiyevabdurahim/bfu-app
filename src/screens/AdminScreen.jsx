@@ -44,6 +44,9 @@ export const AdminScreen = ({ user, onBack }) => {
       } else if (tab === "Reports") {
         const res = await admin.getReports();
         setData(Array.isArray(res) ? res : []);
+      } else if (tab === "Events") {
+        const [evs, regs] = await Promise.all([admin.getEvents(), admin.getRegions()]);
+        setData({ events: Array.isArray(evs) ? evs : [], regions: Array.isArray(regs) ? regs : [] });
       }
     } catch (e) {
       console.error("Admin load error:", e);
@@ -185,6 +188,39 @@ export const AdminScreen = ({ user, onBack }) => {
     );
   };
 
+  const renderEvents = () => {
+    if (!data || !Array.isArray(data.events)) return null;
+    return (
+      <div>
+        <EventAdminForm regions={data.regions || []} onCreated={() => loadData("Events")} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+          {data.events.map(ev => (
+            <div key={ev.id} className="card" style={{ opacity: ev.is_deleted ? 0.5 : 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.title}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                    {ev.type}{ev.deadline ? ` · ${new Date(ev.deadline).toLocaleDateString()}` : ""}
+                  </div>
+                </div>
+                {!ev.is_deleted && (
+                  <button onClick={async () => {
+                    if (!await tgConfirm(t("admin.confirm", { action: t("admin.delete") }))) return;
+                    try { await admin.deleteEvent(ev.id); loadData("Events"); }
+                    catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
+                  }} style={{
+                    padding: "4px 10px", borderRadius: 6, background: "rgba(255,107,107,0.1)",
+                    color: "#FF6B6B", border: "1px solid rgba(255,107,107,0.25)", fontSize: 12, fontWeight: 600,
+                  }}>{t("admin.delete")}</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderReports = () => {
     if (!data || !Array.isArray(data)) return null;
     if (data.length === 0) return <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("admin.report.none")}</div>;
@@ -254,7 +290,7 @@ export const AdminScreen = ({ user, onBack }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", overflowX: "auto", padding: "12px 24px", gap: 8, flexShrink: 0, borderBottom: "1px solid var(--border)", scrollbarWidth: "none" }}>
-        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Reports","admin.tab.reports"]].map(([tab, key]) => (
+        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"]].map(([tab, key]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSearch(""); }} style={{
             flexShrink: 0, padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600,
             background: activeTab === tab ? "var(--accent)" : "var(--surface-2)",
@@ -275,8 +311,64 @@ export const AdminScreen = ({ user, onBack }) => {
             {activeTab === "Projects" && renderProjects()}
             {activeTab === "Locations" && renderLocations()}
             {activeTab === "Reports" && renderReports()}
+            {activeTab === "Events" && renderEvents()}
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+const EventAdminForm = ({ regions = [], onCreated }) => {
+  const { t, lang } = useT();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const empty = { type: "hackathon", title: "", description: "", link: "", cover_url: "", deadline: "", region_id: "" };
+  const [form, setForm] = useState(empty);
+
+  const submit = async () => {
+    if (!form.title.trim()) { tgAlert(t("ep.required")); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        type: form.type, title: form.title.trim(),
+        description: form.description || null, link: form.link || null,
+        cover_url: form.cover_url || null,
+        deadline: form.deadline ? form.deadline.replace(" ", "T") : null,
+        region_id: form.region_id ? parseInt(form.region_id) : null,
+      };
+      await admin.createEvent(payload);
+      setForm(empty); setOpen(false); onCreated();
+    } catch (e) { tgAlert(t("admin.createFailed", { msg: e.message })); }
+    setSaving(false);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        width: "100%", marginBottom: 12, padding: 10, background: "var(--accent-dim)",
+        border: "1px solid var(--accent)", borderRadius: "var(--radius-sm)",
+        color: "var(--accent)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+      }}>{t("adminev.add")}</button>
+    );
+  }
+  return (
+    <div style={{ background: "var(--surface-2)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 12, marginBottom: 12 }}>
+      <select className="input-field" value={form.type} onChange={e => setForm({...form, type: e.target.value})} style={{ marginBottom: 10, appearance: "none", cursor: "pointer" }}>
+        {["hackathon","grant","scholarship","meetup","other"].map(k => <option key={k} value={k}>{t(`events.type.${k}`)}</option>)}
+      </select>
+      <input className="input-field" placeholder={t("adminev.titlePh")} value={form.title} onChange={e => setForm({...form, title: e.target.value})} style={{ marginBottom: 10 }} />
+      <textarea className="input-field" rows={3} placeholder={t("adminev.descPh")} value={form.description} onChange={e => setForm({...form, description: e.target.value})} style={{ marginBottom: 10, resize: "none" }} />
+      <input className="input-field" placeholder={t("adminev.linkPh")} value={form.link} onChange={e => setForm({...form, link: e.target.value})} style={{ marginBottom: 10 }} />
+      <input className="input-field" placeholder={t("adminev.coverPh")} value={form.cover_url} onChange={e => setForm({...form, cover_url: e.target.value})} style={{ marginBottom: 10 }} />
+      <input className="input-field" placeholder={t("adminev.deadlinePh")} value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})} style={{ marginBottom: 10 }} />
+      <select className="input-field" value={form.region_id} onChange={e => setForm({...form, region_id: e.target.value})} style={{ marginBottom: 12, appearance: "none", cursor: "pointer" }}>
+        <option value="">{t("admin.selectRegion")}</option>
+        {regions.map(r => <option key={r.id} value={r.id}>{r[`name_${lang}`] || r.name_en}</option>)}
+      </select>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => { setForm(empty); setOpen(false); }} style={{ flex: 1, padding: 8, background: "var(--surface-3)", borderRadius: "var(--radius-sm)", color: "var(--text-2)" }}>{t("common.cancel")}</button>
+        <button onClick={submit} disabled={saving} style={{ flex: 1, padding: 8, background: "var(--accent)", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600 }}>{saving ? t("admin.creating") : t("admin.create")}</button>
       </div>
     </div>
   );

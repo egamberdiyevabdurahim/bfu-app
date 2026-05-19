@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import Base, engine
-from app.routers import admin, auth, projects, regions, users
+from app.routers import admin, auth, events, projects, regions, users
 from app.services.notify import send_telegram
 
 # Import all models so Base.metadata knows about every table
@@ -126,6 +126,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(regions.router)
+app.include_router(events.router)
 app.include_router(admin.router)
 
 @app.exception_handler(Exception)

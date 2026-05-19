@@ -305,6 +305,11 @@ const STRINGS = {
 
   // ── Discover / match / verified ───────────────────────────────────────────
   "discover.forYou": { en: "For you", uz: "Siz uchun", ru: "Для вас" },
+  "sort.label": { en: "Sort", uz: "Saralash", ru: "Сортировка" },
+  "sort.recent": { en: "Newest", uz: "Yangi", ru: "Новые" },
+  "sort.verified": { en: "Verified first", uz: "Tasdiqlanganlar oldin", ru: "Сначала проверенные" },
+  "sort.name": { en: "Name (A–Z)", uz: "Ism (A–Z)", ru: "Имя (А–Я)" },
+  "filter.verifiedOnly": { en: "✓ Verified only", uz: "✓ Faqat tasdiqlangan", ru: "✓ Только проверенные" },
   "common.verified": { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
 
   // ── Connect / report ──────────────────────────────────────────────────────
@@ -328,6 +333,30 @@ const STRINGS = {
   "admin.report.reopen": { en: "Reopen", uz: "Qayta ochish", ru: "Открыть" },
   "admin.report.resolved": { en: "Resolved", uz: "Hal qilingan", ru: "Решено" },
   "admin.report.none": { en: "No reports.", uz: "Shikoyatlar yo‘q.", ru: "Жалоб нет." },
+
+  // ── Events ───────────────────────────────────────────────────────────────
+  "events.title": { en: "Events", uz: "Tadbirlar", ru: "Мероприятия" },
+  "events.kicker": { en: "OPPORTUNITIES", uz: "IMKONIYATLAR", ru: "ВОЗМОЖНОСТИ" },
+  "events.empty": { en: "No upcoming events yet.", uz: "Hozircha tadbirlar yo‘q.", ru: "Пока нет мероприятий." },
+  "events.open": { en: "Open ↗", uz: "Ochish ↗", ru: "Открыть ↗" },
+  "events.deadline": { en: "Deadline: {d}", uz: "Muddat: {d}", ru: "Срок: {d}" },
+  "events.type.hackathon": { en: "Hackathon", uz: "Hakaton", ru: "Хакатон" },
+  "events.type.grant": { en: "Grant", uz: "Grant", ru: "Грант" },
+  "events.type.scholarship": { en: "Scholarship", uz: "Stipendiya", ru: "Стипендия" },
+  "events.type.meetup": { en: "Meetup", uz: "Uchrashuv", ru: "Встреча" },
+  "events.type.other": { en: "Event", uz: "Tadbir", ru: "Мероприятие" },
+  "events.filterAll": { en: "All", uz: "Hammasi", ru: "Все" },
+
+  "settings.events": { en: "📅 Events", uz: "📅 Tadbirlar", ru: "📅 Мероприятия" },
+
+  // Admin Events
+  "admin.tab.events": { en: "Events", uz: "Tadbirlar", ru: "Мероприятия" },
+  "adminev.add": { en: "＋ Add event", uz: "＋ Tadbir qo‘shish", ru: "＋ Добавить мероприятие" },
+  "adminev.titlePh": { en: "Title", uz: "Sarlavha", ru: "Название" },
+  "adminev.descPh": { en: "Description", uz: "Tavsif", ru: "Описание" },
+  "adminev.linkPh": { en: "Link (https://…)", uz: "Havola (https://…)", ru: "Ссылка (https://…)" },
+  "adminev.coverPh": { en: "Cover image URL (optional)", uz: "Muqova rasm URL (ixtiyoriy)", ru: "URL обложки (необязательно)" },
+  "adminev.deadlinePh": { en: "Deadline (YYYY-MM-DD HH:MM)", uz: "Muddat (YYYY-MM-DD SS:DD)", ru: "Срок (ГГГГ-ММ-ДД ЧЧ:ММ)" },
   "admin.act.deleteSchool": { en: "delete this school", uz: "bu maktabni o‘chirish", ru: "удалить эту школу" },
   "admin.act.deleteLc": { en: "delete this learning center", uz: "bu o‘quv markazini o‘chirish", ru: "удалить этот учебный центр" },
   "admin.groupIdPh": { en: "Group ID (e.g. -100…)", uz: "Guruh ID (masalan, -100…)", ru: "ID группы (напр. -100…)" },

@@ -116,6 +116,11 @@ export const projects = {
   leave:             (id)     => req(`/projects/${id}/join`, { method: "DELETE" }),
 };
 
+// ── Events ────────────────────────────────────────────────────────────────────
+export const events = {
+  list: (p = {}) => req(`/events${qs(p)}`),
+};
+
 // ── Region endpoints ──────────────────────────────────────────────────────────
 export const regions = {
   list:    ()   => req("/regions"),
@@ -139,6 +144,10 @@ export const admin = {
   myBotLocation:     ()       => req("/admin/my-bot-location"),
   getReports:        ()       => req("/admin/reports"),
   resolveReport:     (id)     => req(`/admin/reports/${id}/resolve`, { method: "PATCH" }),
+  getEvents:         ()       => req("/admin/events"),
+  createEvent:       (d)      => req("/admin/events", { method: "POST", body: JSON.stringify(d) }),
+  updateEvent:       (id, d)  => req(`/admin/events/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
+  deleteEvent:       (id)     => req(`/admin/events/${id}`, { method: "DELETE" }),
   getRegions:        ()       => req("/admin/regions"),
   getSchools:        ()       => req("/admin/schools"),
   createSchool:      (d)      => req("/admin/schools", { method: "POST", body: JSON.stringify(d) }),

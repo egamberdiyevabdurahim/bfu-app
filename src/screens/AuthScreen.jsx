@@ -3,6 +3,7 @@ import { Icon } from "../components/Icons";
 import { auth, health, makeDevInitData, storage, regions, users } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, getStartParam } from "../tg";
+import { nearestRegionId } from "../regionCentroids";
 
 const LANGUAGES = [
   { label: "English", code: "en" },
@@ -104,7 +105,12 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     setLocStatus("sharing");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const auto = nearestRegionId(dbRegions, lat, lng);
+        setForm(f => ({ ...f, latitude: lat, longitude: lng,
+                              region_id: auto ? String(auto) : f.region_id }));
+        if (auto) fetchSchoolsAndLCs(auto);
         setLocStatus("shared");
       },
       () => setLocStatus("failed"),
@@ -116,9 +122,11 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     setCheckingGroups(true);
     try {
       const data = await users.checkGroups();
-      setGroupStatuses(data);
+      setGroupStatuses(Array.isArray(data) ? data : []);
     } catch (e) {
-      tgAlert(t("auth.groups.checkFailed", { msg: e.message }));
+      // Fail open: never block the last registration step if this hiccups.
+      setGroupStatuses([]);
+      console.warn("checkGroups failed:", e?.message);
     }
     setCheckingGroups(false);
   };

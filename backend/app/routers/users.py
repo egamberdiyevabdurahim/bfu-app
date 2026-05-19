@@ -10,10 +10,11 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.core.deps import get_current_user
 from app.database import get_db
-from app.models.region import LearningCenter, School
+from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save
+from app.services.geo import nearest_region_id
 from app.services.notify import send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -103,6 +104,15 @@ async def update_me(
     for field, value in data.items():
         setattr(current_user, field, value)
 
+    # Auto-detect region from GPS if user has coords but no region.
+    if (current_user.region_id is None
+            and current_user.latitude is not None
+            and current_user.longitude is not None):
+        regs = (await db.execute(select(Region).where(Region.is_deleted == False))).scalars().all()
+        auto = nearest_region_id(regs, current_user.latitude, current_user.longitude)
+        if auto:
+            current_user.region_id = auto
+
     if school_id is not None:
         existing = await db.execute(
             select(UserSchool).where(UserSchool.user_id == current_user.id)
@@ -178,7 +188,18 @@ async def check_groups(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return list of required groups and whether the user has joined each."""
+    """Return list of required groups and whether the user has joined each.
+
+    Fail-open: any unexpected error returns an empty list so the
+    registration flow is never blocked by a transient Telegram or DB
+    hiccup (this caused a confusing 'error' on iOS for first-time users)."""
+    try:
+        return await _check_groups_impl(current_user, db)
+    except Exception:
+        return []
+
+
+async def _check_groups_impl(current_user: User, db: AsyncSession):
     groups_to_check: list[dict] = []
 
     # Default groups from config
@@ -463,10 +484,14 @@ async def request_intro(
     txt = f"👋 <b>{current_user.display_name}</b> wants to connect with you on BFU."
     if current_user.about:
         txt += f"\n\n<i>{current_user.about[:300]}</i>"
-    mk = None
-    if current_user.tg_username:
-        mk = {"inline_keyboard": [[{"text": "💬 Message back",
-                                    "url": f"https://t.me/{current_user.tg_username}"}]]}
+    # Always provide a chat URL — falls back to tg://user?id= when the
+    # requester has no @username (works inside Telegram clients).
+    chat_url = (
+        f"https://t.me/{current_user.tg_username}"
+        if current_user.tg_username
+        else f"tg://user?id={current_user.telegram_id}"
+    )
+    mk = {"inline_keyboard": [[{"text": "💬 Message back", "url": chat_url}]]}
     if target.telegram_id:
         await send_telegram(target.telegram_id, txt, reply_markup=mk)
     return {"ok": True, "has_username": bool(current_user.tg_username)}
@@ -482,6 +507,9 @@ async def discover(
     open_to_work: bool | None = None,
     open_to_volunteering: bool | None = None,
     match: bool | None = None,
+    gender: str | None = None,
+    verified: bool | None = None,
+    sort: str | None = None,  # "recent" (default) | "verified" | "name"
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
@@ -498,6 +526,16 @@ async def discover(
         q = q.where(User.open_to_work == open_to_work)
     if open_to_volunteering is not None:
         q = q.where(User.open_to_volunteering == open_to_volunteering)
+    if gender:
+        q = q.where(User.gender == gender)
+    if verified:
+        q = q.where(User.checked == True)
+    if sort == "name":
+        q = q.order_by(User.name.asc())
+    elif sort == "verified":
+        q = q.order_by(User.checked.desc(), User.created_at.desc())
+    else:
+        q = q.order_by(User.created_at.desc())
 
     _CATS = ("skills", "knowledges", "interests", "preparations", "goals")
 

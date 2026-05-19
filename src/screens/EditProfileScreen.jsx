@@ -20,7 +20,12 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
     phone_number: me?.phone_number || "",
     open_to_work: me?.open_to_work ?? false,
     open_to_volunteering: me?.open_to_volunteering ?? false,
+    latitude: me?.latitude ?? null,
+    longitude: me?.longitude ?? null,
   });
+  const [locStatus, setLocStatus] = useState(
+    (me?.latitude != null && me?.longitude != null) ? "shared" : ""
+  );
   const [loading, setLoading] = useState(false);
   const [fetchingUsername, setFetchingUsername] = useState(false);
   const [updatingTags, setUpdatingTags] = useState(false);
@@ -69,6 +74,8 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         phone_number: form.phone_number || null,
         open_to_work: form.open_to_work,
         open_to_volunteering: form.open_to_volunteering,
+        latitude: form.latitude,
+        longitude: form.longitude,
       });
 
       const nameChanged = form.name.trim() !== origName || form.surname.trim() !== origSurname;
@@ -99,6 +106,24 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       tgAlert(t("ep.fetchFailed", { msg: e.message }));
     }
     setFetchingUsername(false);
+  };
+
+  const shareLocation = () => {
+    if (!navigator.geolocation) { setLocStatus("failed"); return; }
+    setLocStatus("sharing");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+        setLocStatus("shared");
+      },
+      () => setLocStatus("failed"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const clearLocation = () => {
+    setForm(f => ({ ...f, latitude: null, longitude: null }));
+    setLocStatus("");
   };
 
   const LANGS = [
@@ -266,6 +291,33 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
                 {t("ep.bioReanalyze")}
               </div>
             )}
+          </div>
+
+          {/* Location */}
+          <div>
+            <div className="section-label">{t("loc.label")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 8 }}>{t("loc.why")}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={shareLocation} disabled={locStatus === "sharing"} style={{
+                flex: 1, background: locStatus === "shared" ? "rgba(78,205,196,0.12)" : "var(--surface-2)",
+                border: `1px solid ${locStatus === "shared" ? "rgba(78,205,196,0.5)" : "var(--border)"}`,
+                borderRadius: "var(--radius-sm)", padding: "12px",
+                color: locStatus === "shared" ? "#4ECDC4" : "var(--text)",
+                fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>
+                {locStatus === "sharing" ? t("loc.sharing")
+                  : locStatus === "shared" ? t("loc.shared")
+                  : t("loc.share")}
+              </button>
+              {form.latitude != null && (
+                <button type="button" onClick={clearLocation} style={{
+                  padding: "12px 14px", background: "rgba(255,107,107,0.1)",
+                  border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",
+                  color: "#FF6B6B", fontWeight: 600, fontSize: 13, cursor: "pointer",
+                }}>{t("admin.delete")}</button>
+              )}
+            </div>
+            {locStatus === "failed" && <div style={{ fontSize: 11, color: "#FFB347", marginTop: 6 }}>{t("loc.failed")}</div>}
           </div>
 
           <div style={{ height: 20 }} />

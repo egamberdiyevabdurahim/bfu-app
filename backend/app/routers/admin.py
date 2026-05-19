@@ -28,6 +28,14 @@ class UpdateGroupConfig(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
 
+class CreateLocation(BaseModel):
+    name: str
+    region_id: int
+    group_id: int | None = None
+    group_link: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
 class UpdateRoleConfig(BaseModel):
     role: str
 
@@ -193,6 +201,27 @@ async def list_schools(admin: User = Depends(get_admin_user), db: AsyncSession =
     res = await db.execute(select(School).where(School.is_deleted == False).order_by(School.id))
     return res.scalars().all()
 
+@router.post("/schools", status_code=status.HTTP_201_CREATED)
+async def create_school(
+    body: CreateLocation,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+    if not await db.get(Region, body.region_id):
+        raise HTTPException(400, "Region not found")
+    s = School(
+        name=name, region_id=body.region_id,
+        group_id=body.group_id, group_link=body.group_link,
+        latitude=body.latitude, longitude=body.longitude,
+    )
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return s
+
 @router.patch("/schools/{school_id}")
 async def update_school(
     school_id: int,
@@ -240,6 +269,27 @@ async def delete_school(
 async def list_lcs(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(LearningCenter).where(LearningCenter.is_deleted == False).order_by(LearningCenter.id))
     return res.scalars().all()
+
+@router.post("/learning-centers", status_code=status.HTTP_201_CREATED)
+async def create_lc(
+    body: CreateLocation,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+    if not await db.get(Region, body.region_id):
+        raise HTTPException(400, "Region not found")
+    lc = LearningCenter(
+        name=name, region_id=body.region_id,
+        group_id=body.group_id, group_link=body.group_link,
+        latitude=body.latitude, longitude=body.longitude,
+    )
+    db.add(lc)
+    await db.commit()
+    await db.refresh(lc)
+    return lc
 
 @router.patch("/learning-centers/{lc_id}")
 async def update_lc(

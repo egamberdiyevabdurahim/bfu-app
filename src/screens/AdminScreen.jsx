@@ -187,10 +187,12 @@ export const AdminScreen = ({ user, onBack }) => {
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>{t("admin.schools")}</h3>
+          <AddLocation type="school" regions={data.regions || []} onCreated={() => loadData("Locations")} />
           {data.schools.map(s => <LocationItem key={s.id} item={s} type="school" regions={data.regions || []} onSaved={() => loadData("Locations")} />)}
         </div>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>{t("admin.lcs")}</h3>
+          <AddLocation type="lc" regions={data.regions || []} onCreated={() => loadData("Locations")} />
           {(data.lcs || []).map(lc => <LocationItem key={lc.id} item={lc} type="lc" regions={data.regions || []} onSaved={() => loadData("Locations")} />)}
         </div>
       </div>
@@ -242,6 +244,68 @@ export const AdminScreen = ({ user, onBack }) => {
             {activeTab === "Locations" && renderLocations()}
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+const AddLocation = ({ type, regions = [], onCreated }) => {
+  const { t, lang } = useT();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const empty = { name: "", region_id: "", group_id: "", group_link: "", latitude: "", longitude: "" };
+  const [form, setForm] = useState(empty);
+
+  const regionLabel = (r) => r[`name_${lang}`] || r.name_en;
+
+  const handleCreate = async () => {
+    if (!form.name.trim() || !form.region_id) { alert(t("ep.required")); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name.trim(),
+        region_id: parseInt(form.region_id),
+        group_id: form.group_id ? parseInt(form.group_id) : null,
+        group_link: form.group_link || null,
+        latitude: form.latitude !== "" && !isNaN(parseFloat(form.latitude)) ? parseFloat(form.latitude) : null,
+        longitude: form.longitude !== "" && !isNaN(parseFloat(form.longitude)) ? parseFloat(form.longitude) : null,
+      };
+      if (type === "school") await admin.createSchool(payload);
+      else await admin.createLC(payload);
+      setForm(empty); setOpen(false); onCreated();
+    } catch (e) { alert(t("admin.createFailed", { msg: e.message })); }
+    setSaving(false);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        width: "100%", marginBottom: 12, padding: 10, background: "var(--accent-dim)",
+        border: "1px solid var(--accent)", borderRadius: "var(--radius-sm)",
+        color: "var(--accent)", fontWeight: 600, fontSize: 13, cursor: "pointer"
+      }}>{type === "school" ? t("admin.addSchool") : t("admin.addLc")}</button>
+    );
+  }
+
+  return (
+    <div style={{ background: "var(--surface-2)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 12, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.nameField")}</div>
+      <input className="input-field" placeholder={t("admin.namePh")} value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={{ marginBottom: 10 }} />
+      <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.region")}</div>
+      <select className="input-field" value={form.region_id} onChange={e => setForm({...form, region_id: e.target.value})} style={{ marginBottom: 10, appearance: "none", cursor: "pointer" }}>
+        <option value="">{t("admin.selectRegion")}</option>
+        {regions.map(r => <option key={r.id} value={r.id}>{regionLabel(r)}</option>)}
+      </select>
+      <input className="input-field" placeholder={t("admin.groupIdPh")} value={form.group_id} onChange={e => setForm({...form, group_id: e.target.value})} style={{ marginBottom: 8 }} />
+      <input className="input-field" placeholder={t("admin.groupLinkPh")} value={form.group_link} onChange={e => setForm({...form, group_link: e.target.value})} style={{ marginBottom: 12 }} />
+      <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.position")}</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
+        <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => { setForm(empty); setOpen(false); }} style={{ flex: 1, padding: 8, background: "var(--surface-3)", borderRadius: "var(--radius-sm)", color: "var(--text-2)" }}>{t("common.cancel")}</button>
+        <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: 8, background: "var(--accent)", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600 }}>{saving ? t("admin.creating") : t("admin.create")}</button>
       </div>
     </div>
   );

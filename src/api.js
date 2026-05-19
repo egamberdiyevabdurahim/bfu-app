@@ -133,9 +133,11 @@ export const admin = {
   hardDeleteProject: (id)     => req(`/admin/projects/${id}/hard`, { method: "DELETE" }),
   getRegions:        ()       => req("/admin/regions"),
   getSchools:        ()       => req("/admin/schools"),
+  createSchool:      (d)      => req("/admin/schools", { method: "POST", body: JSON.stringify(d) }),
   updateSchool:      (id, d)  => req(`/admin/schools/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
   deleteSchool:      (id)     => req(`/admin/schools/${id}`, { method: "DELETE" }),
   getLCs:            ()       => req("/admin/learning-centers"),
+  createLC:          (d)      => req("/admin/learning-centers", { method: "POST", body: JSON.stringify(d) }),
   updateLC:          (id, d)  => req(`/admin/learning-centers/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
   deleteLC:          (id)     => req(`/admin/learning-centers/${id}`, { method: "DELETE" }),
 };

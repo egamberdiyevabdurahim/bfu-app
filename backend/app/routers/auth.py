@@ -36,6 +36,8 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
     user = result.scalar_one_or_none()
     is_new = user is None
 
+    tg_username = tg.get("username") or None
+
     if is_new:
         lang_code = tg.get("language_code", "en")
         lang = _LANG_MAP.get(lang_code[:2], "en")
@@ -44,11 +46,17 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
             name=tg.get("first_name"),
             surname=tg.get("last_name"),
             language=lang,
+            tg_username=tg_username,
         )
         db.add(user)
     elif user.is_deleted:
         # Restore deleted user if they come back
         user.is_deleted = False
+        db.add(user)
+
+    # Keep the Telegram @username fresh on every login (if the user has one)
+    if tg_username and user.tg_username != tg_username:
+        user.tg_username = tg_username
         db.add(user)
 
     await db.commit()

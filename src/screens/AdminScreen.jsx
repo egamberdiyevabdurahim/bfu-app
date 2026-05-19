@@ -268,7 +268,7 @@ export const AdminScreen = ({ user, onBack }) => {
   };
 
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
       {/* Header */}
       <div style={{ padding: "52px 24px 16px", flexShrink: 0, borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

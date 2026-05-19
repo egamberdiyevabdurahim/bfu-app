@@ -58,7 +58,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px calc(40px + var(--safe-b))" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: `16px 20px calc(${embedded ? 100 : 40}px + var(--safe-b))` }}>
         {loading ? <SkeletonList count={4} /> :
          list.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("events.empty")}</div>

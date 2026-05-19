@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db
-from app.models.user import User, PendingLocation, Report
+import json
+from app.models.user import User, PendingLocation, Report, ErrorLog
+from app.services.notify import send_telegram
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
@@ -40,6 +42,26 @@ class CreateLocation(BaseModel):
 
 class UpdateRoleConfig(BaseModel):
     role: str
+
+
+DENIABLE_FIELDS = {"name", "surname", "phone_number", "about", "birth_year", "gender", "tg_username"}
+
+
+class DenyBody(BaseModel):
+    fields: list[str]
+    note: str | None = None
+
+
+_DENY_NOTIFY = {
+    "en": "⚠️ Your BFU profile needs corrections in: <b>{fields}</b>.\n\n{note}\n\nTap below to fix it.",
+    "uz": "⚠️ Profilingizda quyidagi maydonlarni to‘g‘rilash kerak: <b>{fields}</b>.\n\n{note}\n\nTuzatish uchun tugmani bosing.",
+    "ru": "⚠️ В вашем профиле нужно исправить: <b>{fields}</b>.\n\n{note}\n\nНажмите, чтобы исправить.",
+}
+_VERIFY_NOTIFY = {
+    "en": "✅ Your BFU profile has been verified. Welcome!",
+    "uz": "✅ Profilingiz tasdiqlandi. Xush kelibsiz!",
+    "ru": "✅ Ваш профиль подтверждён. Добро пожаловать!",
+}
 
 # ── Stats ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +114,81 @@ async def toggle_user_check(
     user.checked = not user.checked
     await db.commit()
     return {"checked": user.checked}
+
+@router.post("/users/{user_id}/deny")
+async def deny_user_fields(
+    user_id: int,
+    body: DenyBody,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    bad = [f for f in body.fields if f not in DENIABLE_FIELDS]
+    if bad:
+        raise HTTPException(400, f"Cannot deny: {bad}")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.denied_fields = json.dumps(sorted(set(body.fields)))
+    user.denied_note = (body.note or "")[:500] or None
+    user.checked = False
+    await db.commit()
+    if user.telegram_id:
+        lang = (user.language or "en") if (user.language or "en") in _DENY_NOTIFY else "en"
+        await send_telegram(
+            user.telegram_id,
+            _DENY_NOTIFY[lang].format(fields=", ".join(body.fields), note=user.denied_note or ""),
+            reply_markup={"inline_keyboard": [[{
+                "text": "✏️ Open BFU", "web_app": {"url": settings.WEBAPP_URL},
+            }]]},
+        )
+    return {"detail": "denied", "fields": body.fields}
+
+
+@router.post("/users/{user_id}/verify")
+async def verify_user(
+    user_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.checked = True
+    user.denied_fields = None
+    user.denied_note = None
+    await db.commit()
+    if user.telegram_id:
+        lang = (user.language or "en") if (user.language or "en") in _VERIFY_NOTIFY else "en"
+        await send_telegram(user.telegram_id, _VERIFY_NOTIFY[lang])
+    return {"detail": "verified"}
+
+
+@router.get("/errors")
+async def list_errors(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(ErrorLog).order_by(ErrorLog.id.desc()).limit(50))
+    return [
+        {"id": e.id, "path": e.path, "method": e.method, "message": e.message,
+         "created_at": e.created_at}
+        for e in res.scalars().all()
+    ]
+
+
+@router.patch("/projects/{project_id}/pin")
+async def pin_project(
+    project_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    p = await db.get(Project, project_id)
+    if not p:
+        raise HTTPException(404, "Project not found")
+    p.is_pinned = not p.is_pinned
+    await db.commit()
+    return {"is_pinned": p.is_pinned}
+
 
 @router.patch("/users/{user_id}/role")
 async def update_user_role(

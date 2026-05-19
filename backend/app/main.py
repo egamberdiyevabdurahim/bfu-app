@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import AsyncSessionLocal, Base, engine
 from app.routers import admin, auth, events, projects, regions, users
 from app.services.notify import send_telegram
 
@@ -47,6 +47,10 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_nudged_at TIMESTAMP;",
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;",
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_draft BOOLEAN DEFAULT false;",
         ]
         for ddl in new_columns:
             try:
@@ -132,6 +136,19 @@ app.include_router(admin.router)
 @app.exception_handler(Exception)
 async def _report_unhandled(request: Request, exc: Exception):
     tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-2500:]
+    # Persist for the admin "Errors" tab — best-effort, never re-raise.
+    try:
+        from app.models.user import ErrorLog
+        async with AsyncSessionLocal() as session:
+            session.add(ErrorLog(
+                path=request.url.path[:512],
+                method=request.method[:8],
+                message=str(exc)[:1000],
+                traceback=tb,
+            ))
+            await session.commit()
+    except Exception:
+        pass
     if settings.DEVELOPER_GROUP_ID:
         await send_telegram(
             settings.DEVELOPER_GROUP_ID,

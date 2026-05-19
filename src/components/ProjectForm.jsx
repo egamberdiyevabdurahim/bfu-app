@@ -35,12 +35,12 @@ export const ProjectForm = ({ type, onSuccess }) => {
     regions.list().then(setDbRegions).catch(console.error);
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (asDraft = false) => {
     if (!form.name || !form.goal || !form.about) {
       tgAlert(t("pf.validation"));
       return;
     }
-    
+
     setLoading(true);
     try {
       const payload = {
@@ -55,6 +55,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
         req_region_ids: form.req_region_ids,
         req_skills: selectedSkills,
         req_knowledges: [], // Removed from UI as requested
+        is_draft: asDraft,
       };
 
       await projects.create(payload);
@@ -245,9 +246,16 @@ export const ProjectForm = ({ type, onSuccess }) => {
           </div>
         </div>
         
-        <button className="btn-primary" style={{ marginTop: 10 }} onClick={handleSubmit} disabled={loading}>
-          {loading ? t("common.saving") : (type === "startup" ? t("pf.publishStartup") : t("pf.publishProject"))}
-        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button onClick={() => handleSubmit(true)} disabled={loading} style={{
+            flex: 1, padding: "14px", background: "var(--surface-3)", color: "var(--text-2)",
+            border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+            fontWeight: 600, fontSize: 14, cursor: "pointer",
+          }}>{t("pf.saveDraft")}</button>
+          <button className="btn-primary" style={{ flex: 2 }} onClick={() => handleSubmit(false)} disabled={loading}>
+            {loading ? t("common.saving") : (type === "startup" ? t("pf.publishStartup") : t("pf.publishProject"))}
+          </button>
+        </div>
 
       </div>
     </div>

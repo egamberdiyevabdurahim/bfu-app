@@ -35,6 +35,8 @@ class UserResponse(BaseModel):
     analysis: AnalysisOut | None = None
     created_at: datetime
     role: str
+    denied_fields: str | None = None
+    denied_note: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -91,6 +93,9 @@ class AdminUserOut(BaseModel):
     is_registered: bool
     is_deleted: bool
     region_id: int | None = None
+    denied_fields: str | None = None
+    denied_note: str | None = None
+    last_seen_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

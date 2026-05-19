@@ -4,7 +4,6 @@ import { Icon } from "../components/Icons";
 import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
-import { EventsScreen } from "./EventsScreen";
 import { useT } from "../i18n";
 import { shareUrl } from "../tg";
 
@@ -89,13 +88,52 @@ const TAG_COLORS = {
 
 const TAG_KEYS = ["skills", "knowledges", "interests", "preparations", "goals"];
 
+function profileCompleteness(u) {
+  if (!u) return 0;
+  let s = 0;
+  if (u.name && u.surname) s += 10;
+  if (u.phone_number) s += 10;
+  if (u.birth_year) s += 5;
+  if (u.gender) s += 5;
+  if (u.region_id) s += 10;
+  if (u.about) s += 20;
+  if (u.tg_username) s += 10;
+  if (u.latitude != null && u.longitude != null) s += 10;
+  if (u.checked) s += 15;
+  if (u.open_to_work || u.open_to_volunteering) s += 5;
+  return Math.min(100, s);
+}
+
+const CompletenessMeter = ({ user, onClick }) => {
+  const { t } = useT();
+  const pct = profileCompleteness(user);
+  if (pct >= 100) return null;
+  return (
+    <div onClick={onClick} style={{
+      background: "var(--surface-2)", border: "1px solid var(--border)",
+      borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>{t("complete.label", { n: pct })}</span>
+        <span style={{ fontSize: 11, color: "var(--text-3)" }}>{t("complete.hint")}</span>
+      </div>
+      <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", width: `${pct}%`,
+          background: "linear-gradient(90deg, var(--accent), #A78BFA)",
+          transition: "width 0.5s ease", borderRadius: 99,
+        }} />
+      </div>
+    </div>
+  );
+};
+
 export const SettingsScreen = () => {
   const { t } = useT();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [eventsOpen, setEventsOpen] = useState(false);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -130,17 +168,15 @@ export const SettingsScreen = () => {
     <AdminScreen user={user} onBack={() => setAdminOpen(false)} />
   );
 
-  if (eventsOpen) return (
-    <EventsScreen onBack={() => setEventsOpen(false)} />
-  );
-
   const age = user.birth_year ? new Date().getFullYear() - user.birth_year : null;
   const analysis = user.analysis;
 
   return (
     <Page>
       <div style={{ padding: "20px 20px 100px" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 20 }}>{t("settings.title")}</h1>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 14 }}>{t("settings.title")}</h1>
+
+        <CompletenessMeter user={user} onClick={() => setEditOpen(true)} />
 
         {/* Profile Card */}
         <div style={{
@@ -226,13 +262,6 @@ export const SettingsScreen = () => {
         }}>
           <Icon name="edit" size={16} color="#fff" /> {t("settings.editProfile")}
         </button>
-
-        <button onClick={() => setEventsOpen(true)} style={{
-          width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
-          borderRadius: "var(--radius-sm)", padding: "14px", cursor: "pointer",
-          color: "var(--text)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15,
-          marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>{t("settings.events")}</button>
 
         {/* Admin Dashboard */}
         {(user.role === "admin" || user.role === "super_admin") && (

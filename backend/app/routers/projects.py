@@ -102,12 +102,18 @@ def _project_response(project: Project, current_user: User | None = None) -> Pro
             if current_user.region_id not in [r.region_id for r in project.req_regions]:
                 is_fit = False
 
-    computed_fields = {"is_member", "is_fit", "member_count", "my_application_status", "members"}
+    computed_fields = {"is_member", "is_fit", "member_count",
+                       "my_application_status", "members",
+                       "pending_applications_count"}
     orm_data = {
         c: getattr(project, c)
         for c in ProjectResponse.model_fields
         if c not in computed_fields and hasattr(project, c)
     }
+
+    pending_count = sum(
+        1 for a in (project.applications or []) if a.status == "pending"
+    )
 
     # Build member list with display_name
     from app.schemas.project import MemberOut
@@ -128,6 +134,7 @@ def _project_response(project: Project, current_user: User | None = None) -> Pro
         **orm_data,
         members=members_out,
         member_count=len(project.members),
+        pending_applications_count=pending_count,
         is_member=is_member,
         is_fit=is_fit,
         my_application_status=my_application_status,
@@ -227,6 +234,7 @@ async def list_projects(
     type: str | None = None,
     is_hiring: bool | None = None,
     region_id: int | None = None,
+    near: bool | None = None,
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
@@ -235,20 +243,26 @@ async def list_projects(
     q = (
         select(Project)
         .options(*_PROJECT_OPTIONS)
-        .where(Project.is_deleted == False, Project.is_approved == True)
+        .where(
+            Project.is_deleted == False,
+            Project.is_approved == True,
+            Project.is_draft == False,
+        )
     )
     if type:
         q = q.where(Project.type == type)
     if is_hiring is not None:
         q = q.where(Project.is_hiring == is_hiring)
-    q = q.order_by(Project.created_at.desc()).limit(limit).offset(offset)
+    # Pinned items first, then newest. is_pinned desc puts True (1) on top.
+    q = q.order_by(Project.is_pinned.desc(), Project.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(q)
     projects = result.scalars().all()
 
-    if region_id:
+    rid = region_id or (current_user.region_id if near else None)
+    if rid:
         projects = [
             p for p in projects
-            if any(r.region_id == region_id for r in p.req_regions) or not p.req_regions
+            if any(r.region_id == rid for r in p.req_regions) or not p.req_regions
         ]
 
     return [_project_response(p, current_user) for p in projects]
@@ -275,6 +289,7 @@ async def create_project(
         gender_req=body.gender_req,
         is_active=body.is_active,
         is_hiring=body.is_hiring,
+        is_draft=body.is_draft,
     )
     db.add(project)
     await db.flush()
@@ -285,7 +300,7 @@ async def create_project(
     await _set_requirements(db, project, body.req_region_ids, body.req_skills, body.req_knowledges)
     await db.commit()
 
-    if settings.ADMIN_GROUP_ID:
+    if settings.ADMIN_GROUP_ID and not project.is_draft:
         await send_telegram(
             settings.ADMIN_GROUP_ID,
             f"🆕 <b>New {body.type}</b>: {project.name}\nby {current_user.display_name}"

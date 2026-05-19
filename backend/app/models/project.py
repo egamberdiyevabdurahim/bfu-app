@@ -24,6 +24,8 @@ class Project(SoftDeleteMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hiring: Mapped[bool] = mapped_column(Boolean, default=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     creator = relationship("User", backref="created_projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")

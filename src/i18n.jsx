@@ -24,6 +24,7 @@ const STRINGS = {
   "nav.startups": { en: "Startups", uz: "Startaplar", ru: "Стартапы" },
   "nav.volunteer": { en: "Volunteer", uz: "Volontyorlik", ru: "Волонтёрство" },
   "nav.profile": { en: "Profile", uz: "Profil", ru: "Профиль" },
+  "nav.events": { en: "Events", uz: "Tadbirlar", ru: "События" },
 
   // ── Auth: welcome ─────────────────────────────────────────────────────────
   "auth.tagline": { en: "BRIGHT FUTURES UZBEKISTAN", uz: "BRIGHT FUTURES UZBEKISTAN", ru: "BRIGHT FUTURES UZBEKISTAN" },
@@ -310,6 +311,28 @@ const STRINGS = {
   "sort.verified": { en: "Verified first", uz: "Tasdiqlanganlar oldin", ru: "Сначала проверенные" },
   "sort.name": { en: "Name (A–Z)", uz: "Ism (A–Z)", ru: "Имя (А–Я)" },
   "filter.verifiedOnly": { en: "✓ Verified only", uz: "✓ Faqat tasdiqlangan", ru: "✓ Только проверенные" },
+
+  // ── Profile completeness ──────────────────────────────────────────────────
+  "complete.label": { en: "Profile {n}% complete", uz: "Profil {n}% to‘ldirilgan", ru: "Профиль заполнен на {n}%" },
+  "complete.hint":  { en: "Finish your profile to get matched better.", uz: "Yaxshiroq mos kelish uchun profilingizni to‘ldiring.", ru: "Заполните профиль, чтобы лучше находить вас." },
+
+  // ── Deny banner ───────────────────────────────────────────────────────────
+  "deny.banner.title": { en: "Your profile needs corrections", uz: "Profilingizda tuzatishlar talab qilinadi", ru: "Ваш профиль требует исправлений" },
+  "deny.banner.body":  { en: "Please fix: {fields}", uz: "Iltimos, tuzating: {fields}", ru: "Исправьте: {fields}" },
+  "deny.field.flag":   { en: "Needs correction", uz: "Tuzatish kerak", ru: "Нужно исправить" },
+
+  // ── Pending approval / draft ──────────────────────────────────────────────
+  "badge.pending":  { en: "⏳ Pending approval", uz: "⏳ Tasdiqlash kutilmoqda", ru: "⏳ Ожидает одобрения" },
+  "badge.draft":    { en: "📝 Draft", uz: "📝 Qoralama", ru: "📝 Черновик" },
+  "badge.pinned":   { en: "📌 Pinned", uz: "📌 Pin qilingan", ru: "📌 Закреплено" },
+  "pf.saveDraft":   { en: "💾 Save as draft", uz: "💾 Qoralama qilib saqlash", ru: "💾 Сохранить как черновик" },
+
+  // ── Read more ─────────────────────────────────────────────────────────────
+  "common.readMore": { en: "Read more", uz: "Davomi", ru: "Подробнее" },
+  "common.readLess": { en: "Show less", uz: "Yashirish", ru: "Свернуть" },
+
+  // ── Co-applied insight ────────────────────────────────────────────────────
+  "pd.othersApplied": { en: "{n} others applied recently.", uz: "Bu yaqinda {n} kishi ariza yuborgan.", ru: "Недавно подало заявку: {n}." },
   "common.verified": { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
 
   // ── Connect / report ──────────────────────────────────────────────────────

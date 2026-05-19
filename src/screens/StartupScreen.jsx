@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Page } from "../components/Shared";
+import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { projects, users } from "../api";
 import { ProjectForm } from "../components/ProjectForm";
@@ -165,7 +165,7 @@ export const StartupScreen = ({ deepLinkAppId }) => {
       ) : active === "requests" ? (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12, paddingBottom: 100 }}>
           {reqLoading ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}><Icon name="loader" size={24} /></div>
+            <SkeletonList count={4} />
           ) : requestsList.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("board.empty.reqStartups")}</div>
           ) : requestsList.map(app => {
@@ -241,7 +241,7 @@ export const StartupScreen = ({ deepLinkAppId }) => {
       ) : (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12, paddingBottom: 100 }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}><Icon name="loader" size={24} /></div>
+            <SkeletonList count={4} />
           ) : list.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>
               {active === "my startups" ? t("board.empty.myStartups") : t("board.empty.startups")}
@@ -253,6 +253,14 @@ export const StartupScreen = ({ deepLinkAppId }) => {
                 <span style={{ background: "rgba(123,111,255,0.15)", color: "#7B6FFF", borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}>startup</span>
                 {active === "browse" && (
                   s.my_application_status ? <ApplyStatusTag status={s.my_application_status} /> : <FitBadge isFit={s.is_fit} />
+                )}
+                {active === "my startups" && (
+                  s.is_draft ? <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", background: "var(--surface-3)", borderRadius: 99, padding: "3px 9px" }}>{t("badge.draft")}</span>
+                  : !s.is_approved ? <span style={{ fontSize: 11, fontWeight: 700, color: "#FFB347", background: "rgba(255,179,71,0.12)", borderRadius: 99, padding: "3px 9px" }}>{t("badge.pending")}</span>
+                  : null
+                )}
+                {active === "browse" && s.is_pinned && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", background: "var(--accent-dim)", borderRadius: 99, padding: "3px 9px", marginLeft: 6 }}>{t("badge.pinned")}</span>
                 )}
               </div>
               <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{s.name}</h3>

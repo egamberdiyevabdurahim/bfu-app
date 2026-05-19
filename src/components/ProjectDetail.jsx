@@ -359,6 +359,11 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
 
           {/* Apply CTA */}
           <div style={{ padding: "16px 24px calc(24px + var(--safe-b))", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+            {project.pending_applications_count > 0 && !isCreator && (
+              <div style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", marginBottom: 8 }}>
+                {t("pd.othersApplied", { n: project.pending_applications_count })}
+              </div>
+            )}
             <StatusButton
               project={projectWithFlag}
               onApply={handleApply}

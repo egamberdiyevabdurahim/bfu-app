@@ -19,6 +19,7 @@ export const BottomNav = ({ active, onChange }) => {
     { id: "discover", icon: "compass", label: t("nav.discover") },
     { id: "startups", icon: "rocket", label: t("nav.startups") },
     { id: "volunteer", icon: "heart", label: t("nav.volunteer") },
+    { id: "events", emoji: "📅", label: t("nav.events") },
     { id: "settings", icon: "settings", label: t("nav.profile") },
   ];
   return (
@@ -46,7 +47,9 @@ export const BottomNav = ({ active, onChange }) => {
               borderRadius: "0 0 4px 4px",
             }} />
           )}
-          <Icon name={t.icon} size={22} strokeWidth={active === t.id ? 2.2 : 1.6} />
+          {t.icon
+            ? <Icon name={t.icon} size={22} strokeWidth={active === t.id ? 2.2 : 1.6} />
+            : <span style={{ fontSize: 20, lineHeight: 1, filter: active === t.id ? "none" : "grayscale(0.6) opacity(0.7)" }}>{t.emoji}</span>}
           <span style={{ fontSize: 10, fontWeight: active === t.id ? 700 : 400, fontFamily: "var(--font-display)", letterSpacing: "0.03em" }}>
             {t.label}
           </span>

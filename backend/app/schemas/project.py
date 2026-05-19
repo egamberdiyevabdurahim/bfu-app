@@ -14,6 +14,7 @@ class ProjectCreate(BaseModel):
     gender_req: str | None = None
     is_active: bool = True
     is_hiring: bool = True
+    is_draft: bool = False
     req_region_ids: list[int] = []
     req_skills: list[str] = []
     req_knowledges: list[str] = []
@@ -63,6 +64,10 @@ class ProjectResponse(BaseModel):
     is_active: bool
     is_hiring: bool
     is_deleted: bool
+    is_approved: bool = False
+    is_pinned: bool = False
+    is_draft: bool = False
+    pending_applications_count: int = 0
     is_member: bool = False
     is_fit: bool = True
     my_application_status: str | None = None  # null | pending | accepted | declined
@@ -85,6 +90,8 @@ class AdminProjectOut(BaseModel):
     is_active: bool
     is_hiring: bool
     is_approved: bool = False
+    is_pinned: bool = False
+    is_draft: bool = False
     is_deleted: bool
     created_at: datetime
 

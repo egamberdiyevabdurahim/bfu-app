@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Boolean, Float, ForeignKey, Integer, String, Text
+from datetime import datetime
+
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -29,6 +31,8 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     open_to_work: Mapped[bool] = mapped_column(Boolean, default=False)
     open_to_volunteering: Mapped[bool] = mapped_column(Boolean, default=False)
     referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_nudged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")
@@ -62,6 +66,18 @@ class Report(TimestampMixin, Base):
     target_id: Mapped[int] = mapped_column(BigInteger)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
+class ErrorLog(Base):
+    """Recent unhandled API errors — surfaced in the admin panel."""
+    __tablename__ = "error_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    path: Mapped[str] = mapped_column(String(512))
+    method: Mapped[str] = mapped_column(String(8))
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class PendingLocation(Base):

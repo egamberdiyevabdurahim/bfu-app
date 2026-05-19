@@ -6,7 +6,7 @@ import { useT } from "../i18n";
 
 const TYPES = ["all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
-export const EventsScreen = ({ onBack }) => {
+export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null }) => {
   const { t } = useT();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +31,15 @@ export const EventsScreen = ({ onBack }) => {
 
   return (
     <div style={{ height: "var(--app-h, 100dvh)", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
-      <div style={{ padding: "52px 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: embedded ? "20px 24px 12px" : "52px 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={onBack} style={{
-            background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
-            width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", color: "var(--text-2)",
-          }}><Icon name="arrow_left" size={16} /></button>
+          {!embedded && (
+            <button onClick={onBack} style={{
+              background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
+              width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "var(--text-2)",
+            }}><Icon name="arrow_left" size={16} /></button>
+          )}
           <div>
             <p style={{ color: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.1em" }}>{t("events.kicker")}</p>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800 }}>{t("events.title")}</h1>
@@ -62,8 +64,12 @@ export const EventsScreen = ({ onBack }) => {
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("events.empty")}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {list.map(ev => (
-              <div key={ev.id} className="card">
+            {list.map((ev, i) => (
+              <div key={ev.id} className="card" style={{
+                animation: `fadeUp ${0.1 + i * 0.05}s ease`,
+                border: deepLinkEventId === ev.id ? "2px solid var(--accent)" : "1px solid var(--border)",
+                boxShadow: deepLinkEventId === ev.id ? "0 0 20px rgba(123,111,255,0.3)" : undefined,
+              }}>
                 {ev.cover_url && (
                   <img src={ev.cover_url} alt="" style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: "var(--radius-sm)", marginBottom: 10 }} />
                 )}

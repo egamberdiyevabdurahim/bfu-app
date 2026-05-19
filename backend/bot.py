@@ -3,7 +3,7 @@ import logging
 import sys
 
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from sqlalchemy import select
 
@@ -69,6 +69,18 @@ async def command_start_handler(message: types.Message) -> None:
     )
 
     await message.answer(tr["msg"], reply_markup=markup)
+
+
+@dp.message(Command("me"))
+async def command_me_handler(message: types.Message) -> None:
+    """`/me` — shortcut that just opens the Mini App."""
+    webapp_url = getattr(settings, "WEBAPP_URL", "https://your-mini-app.telegram.app")
+    tr = _START[_lang_of(message)]
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=tr["btn"], web_app=WebAppInfo(url=webapp_url))]]
+    )
+    await message.answer("👤", reply_markup=markup)
+
 
 _LOC = {
     "en": "📍 Location saved: {lat}, {lng}\nOpen the web admin → Locations → Add/Edit → “Use my Telegram location”.",

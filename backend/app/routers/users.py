@@ -1,4 +1,6 @@
+import json
 import time
+from datetime import datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,6 +45,20 @@ class ReportIn(BaseModel):
     reason: str | None = None
 
 
+def _denied_set(user: User) -> set[str]:
+    if not user.denied_fields:
+        return set()
+    try:
+        v = json.loads(user.denied_fields)
+        return set(v) if isinstance(v, list) else set()
+    except Exception:
+        return set()
+
+
+def _write_denied(user: User, fields: set[str]) -> None:
+    user.denied_fields = json.dumps(sorted(fields)) if fields else None
+
+
 # ── Helper: set Telegram name tag ─────────────────────────────────────────────
 
 async def _set_member_tag(chat_id: int, user_id: int, tag: str) -> None:
@@ -85,7 +101,19 @@ def _build_tag(user: User) -> str:
 # ── Current user ──────────────────────────────────────────────────────────────
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Lazy last_seen_at refresh (cheap; throttled to once / 5 min).
+    now = datetime.utcnow()
+    if (not current_user.last_seen_at
+            or now - current_user.last_seen_at > timedelta(minutes=5)):
+        current_user.last_seen_at = now
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
     return current_user
 
 
@@ -112,6 +140,27 @@ async def update_me(
         auto = nearest_region_id(regs, current_user.latitude, current_user.longitude)
         if auto:
             current_user.region_id = auto
+
+    # Deny-fields auto-clear: any flagged field the user just touched in
+    # this PATCH is removed from `denied_fields`. When the set is empty
+    # we notify admins that this user is back in the review queue.
+    denied = _denied_set(current_user)
+    if denied:
+        touched = set(data.keys())
+        if school_id is not None:
+            touched.add("school_id")
+        if lc_ids is not None:
+            touched.add("learning_center_ids")
+        if touched & denied:
+            denied -= touched
+            _write_denied(current_user, denied)
+            if not denied and settings.ADMIN_GROUP_ID:
+                current_user.denied_note = None
+                link = f"https://t.me/{settings.BOT_USERNAME}?startapp=user_{current_user.id}"
+                await send_telegram(
+                    settings.ADMIN_GROUP_ID,
+                    f"✅ <b>Ready for re-review</b>: {current_user.display_name}\n{link}",
+                )
 
     if school_id is not None:
         existing = await db.execute(
@@ -272,10 +321,11 @@ async def finalize_registration(
     # Analytics + referral payoff (only on the first time they finish)
     if not was_registered:
         if settings.ADMIN_GROUP_ID:
+            link = f"https://t.me/{settings.BOT_USERNAME}?startapp=user_{current_user.id}"
+            handle = f" (@{current_user.tg_username})" if current_user.tg_username else ""
             await send_telegram(
                 settings.ADMIN_GROUP_ID,
-                f"✅ <b>New registered user</b>: {current_user.display_name}"
-                + (f" (@{current_user.tg_username})" if current_user.tg_username else ""),
+                f"✅ <b>New registered user</b>: {current_user.display_name}{handle}\n{link}",
             )
         if current_user.referred_by:
             referrer = await db.get(User, current_user.referred_by)

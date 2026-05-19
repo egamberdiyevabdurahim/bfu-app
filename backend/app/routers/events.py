@@ -30,14 +30,17 @@ class EventOut(BaseModel):
 async def list_events(
     type: str | None = None,
     region_id: int | None = None,
-    _: User = Depends(get_current_user),
+    near: bool | None = None,
+    me: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(Event).where(Event.is_deleted == False)
     if type:
         q = q.where(Event.type == type)
-    if region_id:
-        q = q.where(Event.region_id == region_id)
+    # near=true → user's region OR region-agnostic events.
+    eff_region = region_id or (me.region_id if near else None)
+    if eff_region:
+        q = q.where((Event.region_id == eff_region) | (Event.region_id.is_(None)))
     # Upcoming first (deadlines in the future), then most recently added.
     q = q.order_by(Event.deadline.asc().nullslast(), Event.created_at.desc()).limit(100)
     res = await db.execute(q)

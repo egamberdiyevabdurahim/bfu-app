@@ -23,6 +23,8 @@ class StatsOut(BaseModel):
 class UpdateGroupConfig(BaseModel):
     group_id: int | None = None
     group_link: str | None = None
+    name: str | None = None
+    region_id: int | None = None
 
 class UpdateRoleConfig(BaseModel):
     role: str
@@ -203,6 +205,15 @@ async def update_school(
         s.group_id = body.group_id
     if body.group_link is not None:
         s.group_link = body.group_link
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(400, "Name cannot be empty")
+        s.name = name
+    if body.region_id is not None:
+        if not await db.get(Region, body.region_id):
+            raise HTTPException(400, "Region not found")
+        s.region_id = body.region_id
     await db.commit()
     return s
 
@@ -225,5 +236,14 @@ async def update_lc(
         lc.group_id = body.group_id
     if body.group_link is not None:
         lc.group_link = body.group_link
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(400, "Name cannot be empty")
+        lc.name = name
+    if body.region_id is not None:
+        if not await db.get(Region, body.region_id):
+            raise HTTPException(400, "Region not found")
+        lc.region_id = body.region_id
     await db.commit()
     return lc

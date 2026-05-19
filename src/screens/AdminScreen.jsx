@@ -187,11 +187,11 @@ export const AdminScreen = ({ user, onBack }) => {
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>{t("admin.schools")}</h3>
-          {data.schools.map(s => <LocationItem key={s.id} item={s} type="school" onSaved={() => loadData("Locations")} />)}
+          {data.schools.map(s => <LocationItem key={s.id} item={s} type="school" regions={data.regions || []} onSaved={() => loadData("Locations")} />)}
         </div>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>{t("admin.lcs")}</h3>
-          {(data.lcs || []).map(lc => <LocationItem key={lc.id} item={lc} type="lc" onSaved={() => loadData("Locations")} />)}
+          {(data.lcs || []).map(lc => <LocationItem key={lc.id} item={lc} type="lc" regions={data.regions || []} onSaved={() => loadData("Locations")} />)}
         </div>
       </div>
     );
@@ -247,18 +247,29 @@ export const AdminScreen = ({ user, onBack }) => {
   );
 };
 
-const LocationItem = ({ item, type, onSaved }) => {
-  const { t } = useT();
+const LocationItem = ({ item, type, regions = [], onSaved }) => {
+  const { t, lang } = useT();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ group_id: item.group_id || "", group_link: item.group_link || "" });
+  const [form, setForm] = useState({
+    name: item.name || "",
+    region_id: item.region_id ? String(item.region_id) : "",
+    group_id: item.group_id || "",
+    group_link: item.group_link || "",
+  });
   const [saving, setSaving] = useState(false);
 
+  const regionName = (r) => (r ? (r[`name_${lang}`] || r.name_en) : "");
+  const currentRegion = regions.find(r => String(r.id) === String(item.region_id));
+
   const handleSave = async () => {
+    if (!form.name.trim()) { alert(t("ep.required")); return; }
     setSaving(true);
     try {
-      const payload = { 
-        group_id: form.group_id ? parseInt(form.group_id) : null, 
-        group_link: form.group_link || null 
+      const payload = {
+        group_id: form.group_id ? parseInt(form.group_id) : null,
+        group_link: form.group_link || null,
+        name: form.name.trim(),
+        region_id: form.region_id ? parseInt(form.region_id) : null,
       };
       if (type === "school") await admin.updateSchool(item.id, payload);
       else await admin.updateLC(item.id, payload);
@@ -272,6 +283,13 @@ const LocationItem = ({ item, type, onSaved }) => {
     return (
       <div style={{ background: "var(--surface-2)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 12, marginBottom: 8 }}>
         <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>{t("admin.editing", { name: item.name })}</div>
+        <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.nameField")}</div>
+        <input className="input-field" placeholder={t("admin.namePh")} value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={{ marginBottom: 10 }} />
+        <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.region")}</div>
+        <select className="input-field" value={form.region_id} onChange={e => setForm({...form, region_id: e.target.value})} style={{ marginBottom: 10, appearance: "none", cursor: "pointer" }}>
+          <option value="">{t("admin.selectRegion")}</option>
+          {regions.map(r => <option key={r.id} value={r.id}>{regionName(r)}</option>)}
+        </select>
         <input className="input-field" placeholder={t("admin.groupIdPh")} value={form.group_id} onChange={e => setForm({...form, group_id: e.target.value})} style={{ marginBottom: 8 }} />
         <input className="input-field" placeholder={t("admin.groupLinkPh")} value={form.group_link} onChange={e => setForm({...form, group_link: e.target.value})} style={{ marginBottom: 12 }} />
         <div style={{ display: "flex", gap: 8 }}>
@@ -287,6 +305,9 @@ const LocationItem = ({ item, type, onSaved }) => {
       <div>
         <div style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</div>
         <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
+          {t("admin.regionLabel", { region: currentRegion ? regionName(currentRegion) : t("admin.none") })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
           {t("admin.idLabel", { id: item.group_id || t("admin.none"), link: item.group_link ? t("admin.set") : t("admin.none") })}
         </div>
       </div>

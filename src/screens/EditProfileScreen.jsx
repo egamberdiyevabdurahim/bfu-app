@@ -155,7 +155,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
             </div>
             <div style={{ flex: 2 }}>
               <div className="section-label">{t("ep.phone")}</div>
-              <input className="input-field" type="tel" placeholder="+998901234567"
+              <input className="input-field" type="tel" placeholder="+998911853616"
                 value={form.phone_number} onChange={e => set("phone_number", e.target.value)} />
               {errors.phone_number && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
             </div>

@@ -233,14 +233,14 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <div className="section-label">{t("auth.birthYear")} *</div>
-              <input className="input-field" type="number" placeholder={`${MIN_BIRTH_YEAR}–${MAX_BIRTH_YEAR}`}
+              <input className="input-field" type="number" placeholder={t("auth.birthYearPh")}
                 value={form.birth_year} onChange={e => set("birth_year", e.target.value)}
                 style={{ textAlign: "center" }} />
               {errors.birth_year && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.birth_year}</div>}
             </div>
             <div style={{ flex: 2 }}>
               <div className="section-label">{t("auth.phone")} *</div>
-              <input className="input-field" type="tel" placeholder="+998901234567" value={form.phone_number}
+              <input className="input-field" type="tel" placeholder="+998911853616" value={form.phone_number}
                 onChange={e => set("phone_number", e.target.value)} />
               {errors.phone_number && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
             </div>

@@ -73,6 +73,24 @@ class UserPublic(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminUserOut(BaseModel):
+    """User fields exposed to the admin panel. Deliberately excludes
+    phone_number so the bulk list endpoint does not leak contact PII."""
+    id: int
+    telegram_id: int
+    tg_username: str | None = None
+    name: str | None
+    surname: str | None
+    role: str
+    checked: bool
+    is_registered: bool
+    is_deleted: bool
+    region_id: int | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class GroupStatus(BaseModel):
     """Used in check-groups response."""
     group_id: int

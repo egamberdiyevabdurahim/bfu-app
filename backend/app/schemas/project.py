@@ -76,6 +76,21 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminProjectOut(BaseModel):
+    """Project fields exposed to the admin moderation panel."""
+    id: int
+    type: str
+    creator_id: int
+    name: str
+    is_active: bool
+    is_hiring: bool
+    is_approved: bool = False
+    is_deleted: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class MemberOut(BaseModel):
     user_id: int
     joined_at: datetime

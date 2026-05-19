@@ -57,12 +57,15 @@ async def seed_data():
         else:
             print("Regions already exist in the database. Skipping seed.", flush=True)
 
-    await engine.dispose()
 
 if __name__ == "__main__":
     # Ensure working directory is backend
     if not os.path.exists("app"):
         print("Please run this script from the backend directory.")
         exit(1)
-    
-    asyncio.run(seed_data())
+
+    async def _main():
+        await seed_data()
+        await engine.dispose()
+
+    asyncio.run(_main())

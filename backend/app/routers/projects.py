@@ -508,6 +508,12 @@ async def cancel_application(
     app = result.scalar_one_or_none()
     if not app:
         raise HTTPException(status_code=404, detail="No application found")
+    if app.status != "pending":
+        # Once accepted the user is a member — they must use "leave" instead.
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot withdraw an application that was already reviewed",
+        )
     await db.delete(app)
     await db.commit()
 
@@ -529,7 +535,8 @@ async def leave_project(
         raise HTTPException(status_code=404, detail="Not a member")
 
     proj = await db.execute(select(Project).where(Project.id == project_id))
-    if proj.scalar_one_or_none().creator_id == current_user.id:
+    project = proj.scalar_one_or_none()
+    if project and project.creator_id == current_user.id:
         raise HTTPException(status_code=400, detail="Creator cannot leave; delete the project instead")
 
     await db.delete(member)

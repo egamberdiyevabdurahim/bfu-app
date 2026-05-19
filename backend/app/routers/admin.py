@@ -7,8 +7,8 @@ from app.database import get_db
 from app.models.user import User
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
-from app.schemas.user import UserPublic
-from app.schemas.project import ProjectResponse
+from app.schemas.user import AdminUserOut
+from app.schemas.project import AdminProjectOut
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -50,7 +50,7 @@ async def get_stats(
 
 # ── Users ────────────────────────────────────────────────────────────────────
 
-@router.get("/users")
+@router.get("/users", response_model=list[AdminUserOut])
 async def list_users(
     skip: int = 0, limit: int = 50,
     search: str | None = None,
@@ -123,7 +123,7 @@ async def hard_delete_user(
 
 # ── Projects ─────────────────────────────────────────────────────────────────
 
-@router.get("/projects")
+@router.get("/projects", response_model=list[AdminProjectOut])
 async def list_projects(
     skip: int = 0, limit: int = 50,
     search: str | None = None,

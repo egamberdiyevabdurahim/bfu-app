@@ -49,7 +49,15 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text(f"UPDATE users SET role = 'super_admin' WHERE telegram_id = {settings.DEVELOPER_ID};"))
             except Exception as e:
                 print(f"Auto-admin assignment notice: {e}")
-                
+
+    # Seed regions/schools/learning-centers if the DB is empty (idempotent).
+    # Without this, the registration "location" step has nothing to pick.
+    try:
+        from seed_db import seed_data
+        await seed_data()
+    except Exception as e:
+        print(f"Seed-on-startup notice: {e}")
+
     yield
 
 

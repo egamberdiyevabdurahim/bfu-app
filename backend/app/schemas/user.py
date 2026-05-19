@@ -25,6 +25,8 @@ class UserResponse(BaseModel):
     phone_number: str | None
     region_id: int | None
     about: str | None
+    latitude: float | None = None
+    longitude: float | None = None
     is_registered: bool
     checked: bool
     open_to_work: bool
@@ -52,6 +54,8 @@ class UserUpdate(BaseModel):
     is_registered: bool | None = None
     school_id: int | None = None
     learning_center_ids: list[int] | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 class UserPublic(BaseModel):
     """Full public profile — shown when clicking on a user."""

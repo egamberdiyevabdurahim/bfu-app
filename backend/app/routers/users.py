@@ -1,6 +1,9 @@
+import time
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,8 +14,26 @@ from app.models.region import LearningCenter, School
 from app.models.user import User, UserLearningCenter, UserSchool
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save
+from app.services.notify import send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+# Per-user AI cooldown (cost control). Single uvicorn worker → in-process is fine.
+_AI_COOLDOWN_S = 60
+_last_ai: dict[int, float] = {}
+
+
+def _ai_on_cooldown(uid: int) -> bool:
+    now = time.monotonic()
+    last = _last_ai.get(uid, 0.0)
+    if now - last < _AI_COOLDOWN_S:
+        return True
+    _last_ai[uid] = now
+    return False
+
+
+class ReferralIn(BaseModel):
+    code: int
 
 
 # ── Helper: set Telegram name tag ─────────────────────────────────────────────
@@ -99,7 +120,7 @@ async def update_me(
 
     # Auto-reanalyze if bio changed
     new_about = current_user.about
-    if new_about and new_about != old_about:
+    if new_about and new_about != old_about and not _ai_on_cooldown(current_user.id):
         try:
             await analyze_and_save(db, current_user.id, new_about)
         except Exception:
@@ -115,6 +136,8 @@ async def analyze_bio(
 ):
     if not current_user.about:
         raise HTTPException(status_code=400, detail="about field is empty")
+    if _ai_on_cooldown(current_user.id):
+        raise HTTPException(status_code=429, detail="Please wait a moment before re-analyzing")
     tags = await analyze_and_save(db, current_user.id, current_user.about)
     return tags
 
@@ -214,9 +237,34 @@ async def finalize_registration(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark user as fully registered and set name tags in all their groups."""
+    was_registered = current_user.is_registered
     current_user.is_registered = True
     await db.commit()
     await db.refresh(current_user)
+
+    # Analytics + referral payoff (only on the first time they finish)
+    if not was_registered:
+        if settings.ADMIN_GROUP_ID:
+            await send_telegram(
+                settings.ADMIN_GROUP_ID,
+                f"✅ <b>New registered user</b>: {current_user.display_name}"
+                + (f" (@{current_user.tg_username})" if current_user.tg_username else ""),
+            )
+        if current_user.referred_by:
+            referrer = await db.get(User, current_user.referred_by)
+            if referrer and referrer.telegram_id:
+                cnt = await db.scalar(
+                    select(func.count(User.id)).where(
+                        User.referred_by == referrer.id,
+                        User.is_registered == True,
+                        User.is_deleted == False,
+                    )
+                )
+                await send_telegram(
+                    referrer.telegram_id,
+                    f"🎁 Someone you invited just completed registration!\n"
+                    f"Your total invites: <b>{cnt or 0}</b>. Keep sharing your link!",
+                )
 
     # Set name tag in all groups the user belongs to
     tag = _build_tag(current_user)
@@ -292,6 +340,47 @@ async def update_name_tags(
         await _set_member_tag(chat_id, tg_id, tag)
 
     return {"tag": tag, "updated_in": len(groups_to_tag)}
+
+
+# ── Invite / referral ──────────────────────────────────────────────────────────
+
+@router.get("/me/invite", response_model=dict)
+async def my_invite(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    count = await db.scalar(
+        select(func.count(User.id)).where(
+            User.referred_by == current_user.id,
+            User.is_registered == True,
+            User.is_deleted == False,
+        )
+    )
+    return {
+        "code": current_user.id,
+        "link": f"https://t.me/{settings.BOT_USERNAME}?startapp=ref_{current_user.id}",
+        "invited_count": count or 0,
+    }
+
+
+@router.post("/me/referral", response_model=dict)
+async def set_referral(
+    body: ReferralIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record who invited this user. Settable once, before finishing
+    registration; only a fully-registered invitee counts toward prizes."""
+    if current_user.referred_by is not None or current_user.is_registered:
+        return {"ok": False, "reason": "already_set"}
+    if body.code == current_user.id:
+        return {"ok": False, "reason": "self"}
+    referrer = await db.get(User, body.code)
+    if not referrer or referrer.is_deleted:
+        return {"ok": False, "reason": "invalid"}
+    current_user.referred_by = body.code
+    await db.commit()
+    return {"ok": True}
 
 
 # ── Discover ───────────────────────────────────────────────────────────────────

@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     TG_GLOBAL_GROUP_LINK: str = ""
     TG_OFFICIAL_CHANNEL_ID: int = 0
     TG_OFFICIAL_CHANNEL_LINK: str = ""
+    # Notification groups
+    ADMIN_GROUP_ID: int = 0
+    DEVELOPER_GROUP_ID: int = 0
+    BOT_USERNAME: str = "BrightFuturesUzbekistan_bot"
 
     @property
     def is_dev(self) -> bool:

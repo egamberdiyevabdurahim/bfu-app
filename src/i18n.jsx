@@ -283,6 +283,25 @@ const STRINGS = {
   "admin.create": { en: "Create", uz: "Yaratish", ru: "Создать" },
   "admin.creating": { en: "Creating…", uz: "Yaratilmoqda…", ru: "Создание…" },
   "admin.createFailed": { en: "Failed to create: {msg}", uz: "Yaratib bo‘lmadi: {msg}", ru: "Не удалось создать: {msg}" },
+  "admin.useBotLoc": { en: "📍 Use my Telegram location", uz: "📍 Telegram joylashuvimdan foydalanish", ru: "📍 Использовать мою локацию из Telegram" },
+  "admin.botLocNone": { en: "No location shared with the bot yet. Send a location to the bot first.", uz: "Botga hali joylashuv yuborilmagan. Avval botga joylashuv yuboring.", ru: "Локация боту ещё не отправлена. Сначала отправьте локацию боту." },
+
+  // ── Invite / referral ─────────────────────────────────────────────────────
+  "invite.title": { en: "Invite friends", uz: "Do‘stlarni taklif qiling", ru: "Пригласить друзей" },
+  "invite.desc": { en: "Share your link. When someone you invite completes registration, it counts toward your rewards.", uz: "Havolangizni ulashing. Taklif qilgan insoningiz ro‘yxatdan to‘liq o‘tsa, bu mukofotlaringizga hisoblanadi.", ru: "Поделитесь ссылкой. Когда приглашённый завершит регистрацию, это засчитается к вашим наградам." },
+  "invite.count": { en: "Invited (completed): {n}", uz: "Taklif qilingan (yakunlagan): {n}", ru: "Приглашено (завершили): {n}" },
+  "invite.copy": { en: "Copy link", uz: "Havolani nusxalash", ru: "Копировать ссылку" },
+  "invite.copied": { en: "Copied!", uz: "Nusxalandi!", ru: "Скопировано!" },
+  "invite.share": { en: "Share", uz: "Ulashish", ru: "Поделиться" },
+  "invite.shareText": { en: "Join me on Bright Futures Uzbekistan 🇺🇿", uz: "Bright Futures Uzbekistan’ga qo‘shiling 🇺🇿", ru: "Присоединяйся к Bright Futures Uzbekistan 🇺🇿" },
+
+  // ── Location capture ──────────────────────────────────────────────────────
+  "loc.label": { en: "Your location (optional)", uz: "Joylashuvingiz (ixtiyoriy)", ru: "Ваша локация (необязательно)" },
+  "loc.why": { en: "Helps us connect you with nearby people and opportunities.", uz: "Sizni yaqin atrofdagi odamlar va imkoniyatlar bilan bog‘lashga yordam beradi.", ru: "Помогает связать вас с людьми и возможностями поблизости." },
+  "loc.share": { en: "📍 Share my location", uz: "📍 Joylashuvni ulashish", ru: "📍 Поделиться локацией" },
+  "loc.sharing": { en: "Getting location…", uz: "Joylashuv olinmoqda…", ru: "Определение локации…" },
+  "loc.shared": { en: "✓ Location added", uz: "✓ Joylashuv qo‘shildi", ru: "✓ Локация добавлена" },
+  "loc.failed": { en: "Couldn't get location. You can skip this.", uz: "Joylashuvni olib bo‘lmadi. Buni o‘tkazib yuborishingiz mumkin.", ru: "Не удалось определить локацию. Можно пропустить." },
   "admin.act.deleteSchool": { en: "delete this school", uz: "bu maktabni o‘chirish", ru: "удалить эту школу" },
   "admin.act.deleteLc": { en: "delete this learning center", uz: "bu o‘quv markazini o‘chirish", ru: "удалить этот учебный центр" },
   "admin.groupIdPh": { en: "Group ID (e.g. -100…)", uz: "Guruh ID (masalan, -100…)", ru: "ID группы (напр. -100…)" },

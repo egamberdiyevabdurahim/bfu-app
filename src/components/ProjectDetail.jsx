@@ -3,6 +3,7 @@ import { Icon } from "./Icons";
 import { projects, regions, users } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 const FitBadge = ({ isFit }) => {
   const { t } = useT();
@@ -152,7 +153,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
 
   const handleApply = async () => {
     if (!project.is_fit) {
-      alert(t("pd.notQualified"));
+      tgAlert(t("pd.notQualified"));
       return;
     }
     setLoading(true);
@@ -162,7 +163,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
       setProject(updated);
       if (onUpdate) onUpdate(updated);
     } catch (e) {
-      alert(e.message);
+      tgAlert(e.message);
     }
     setLoading(false);
   };
@@ -175,13 +176,13 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
       setProject(updated);
       if (onUpdate) onUpdate(updated);
     } catch (e) {
-      alert(e.message);
+      tgAlert(e.message);
     }
     setLoading(false);
   };
 
   const handleLeave = async () => {
-    if (!window.confirm(t("pd.confirmLeave"))) return;
+    if (!await tgConfirm(t("pd.confirmLeave"))) return;
     setLoading(true);
     try {
       await projects.leave(project.id);
@@ -189,7 +190,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
       setProject(updated);
       if (onUpdate) onUpdate(updated);
     } catch (e) {
-      alert(e.message);
+      tgAlert(e.message);
     }
     setLoading(false);
   };

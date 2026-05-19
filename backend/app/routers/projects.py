@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.deps import get_current_user
+from app.services.notify import send_telegram
 from app.database import get_db
 from app.models.project import (
     Project,
@@ -156,6 +157,25 @@ _NOTIFY = {
 }
 
 
+_DECISION = {
+    "en": {
+        "accepted": "🎉 <b>You're in!</b>\nYour application to <b>{p}</b> was accepted.",
+        "declined": "Your application to <b>{p}</b> was not accepted this time. Keep exploring other projects!",
+        "btn": "🚀 Open BFU",
+    },
+    "uz": {
+        "accepted": "🎉 <b>Tabriklaymiz!</b>\n<b>{p}</b> loyihasiga arizangiz qabul qilindi.",
+        "declined": "Afsuski, <b>{p}</b> loyihasiga arizangiz bu safar qabul qilinmadi. Boshqa loyihalarni ko‘rib chiqing!",
+        "btn": "🚀 BFU’ni ochish",
+    },
+    "ru": {
+        "accepted": "🎉 <b>Поздравляем!</b>\nВаша заявка в <b>{p}</b> принята.",
+        "declined": "К сожалению, ваша заявка в <b>{p}</b> в этот раз не принята. Посмотрите другие проекты!",
+        "btn": "🚀 Открыть BFU",
+    },
+}
+
+
 async def _notify_founder(
     founder_telegram_id: int,
     applicant_name: str,
@@ -215,7 +235,7 @@ async def list_projects(
     q = (
         select(Project)
         .options(*_PROJECT_OPTIONS)
-        .where(Project.is_deleted == False)
+        .where(Project.is_deleted == False, Project.is_approved == True)
     )
     if type:
         q = q.where(Project.type == type)
@@ -264,6 +284,13 @@ async def create_project(
 
     await _set_requirements(db, project, body.req_region_ids, body.req_skills, body.req_knowledges)
     await db.commit()
+
+    if settings.ADMIN_GROUP_ID:
+        await send_telegram(
+            settings.ADMIN_GROUP_ID,
+            f"🆕 <b>New {body.type}</b>: {project.name}\nby {current_user.display_name}"
+            f" — awaiting approval (Admin → Projects).",
+        )
 
     loaded = await _reload_project(db, project.id)
     return _project_response(loaded, current_user)
@@ -508,6 +535,22 @@ async def review_application(
         app.status = "declined"
 
     await db.commit()
+
+    # Notify the applicant of the decision
+    applicant_res = await db.execute(select(User).where(User.id == app.applicant_id))
+    applicant = applicant_res.scalar_one_or_none()
+    if applicant and applicant.telegram_id:
+        lang = (applicant.language or "en") if (applicant.language or "en") in _DECISION else "en"
+        msg = _DECISION[lang]["accepted" if app.status == "accepted" else "declined"]
+        await send_telegram(
+            applicant.telegram_id,
+            msg.format(p=project.name),
+            reply_markup={"inline_keyboard": [[{
+                "text": _DECISION[lang]["btn"],
+                "web_app": {"url": settings.WEBAPP_URL},
+            }]]},
+        )
+
     return {"status": app.status}
 
 

@@ -6,6 +6,7 @@ import { ProjectForm } from "../components/ProjectForm";
 import { ProjectDetail } from "../components/ProjectDetail";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 const PAGE_SIZE = 10;
 
@@ -80,7 +81,7 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
       setOffset(off + res.length);
       setHasMore(res.length === PAGE_SIZE);
     } catch (e) {
-      alert(t("board.loadFailed", { msg: e.message }));
+      tgAlert(t("board.loadFailed", { msg: e.message }));
     }
     setLoading(false); setLoadingMore(false);
   };
@@ -93,7 +94,7 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
       setHasMore(false); 
     }
     catch (e) {
-      alert(t("board.loadFailed", { msg: e.message }));
+      tgAlert(t("board.loadFailed", { msg: e.message }));
     }
     setLoading(false);
   };
@@ -105,7 +106,7 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
       setRequestsList(res); 
     }
     catch (e) {
-      alert(t("board.loadFailed", { msg: e.message }));
+      tgAlert(t("board.loadFailed", { msg: e.message }));
     }
     setReqLoading(false);
   };
@@ -114,7 +115,7 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
     try {
       await projects.reviewApplication(projectId, appId, action);
       await loadRequests();
-    } catch (e) { alert(e.message); }
+    } catch (e) { tgAlert(e.message); }
   };
 
   const handleProjectUpdate = (updated) => {

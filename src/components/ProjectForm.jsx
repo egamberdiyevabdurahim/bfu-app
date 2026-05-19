@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { regions, projects } from "../api";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 const PREDEFINED_SKILLS = [
   "Frontend", "Backend", "Fullstack", "React", "Python", "Node.js", "Java", "C++", 
@@ -36,7 +37,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
   const handleSubmit = async () => {
     if (!form.name || !form.goal || !form.about) {
-      alert(t("pf.validation"));
+      tgAlert(t("pf.validation"));
       return;
     }
     
@@ -60,7 +61,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
       
       if (onSuccess) onSuccess();
     } catch (e) {
-      alert(e.message || t("pf.createFailed"));
+      tgAlert(e.message || t("pf.createFailed"));
     }
     setLoading(false);
   };

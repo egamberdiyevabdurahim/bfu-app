@@ -10,16 +10,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      window.onerror = function(message, source, lineno, colno, error) {
-        document.body.innerHTML += '<div style="color: red; padding: 20px; font-family: monospace; z-index: 9999; position: relative;">' + 
-          '<h3>JS Error:</h3>' + message + '<br>' + source + ':' + lineno + 
-          '<br><br><pre>' + (error && error.stack ? error.stack : '') + '</pre></div>';
-      };
-      window.addEventListener("unhandledrejection", function(event) {
-        document.body.innerHTML += '<div style="color: red; padding: 20px; font-family: monospace; z-index: 9999; position: relative;">' + 
-          '<h3>Promise Error:</h3>' + event.reason + '</div>';
-      });
-    </script>
   </body>
 </html>

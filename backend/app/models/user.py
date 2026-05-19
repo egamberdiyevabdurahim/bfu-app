@@ -28,6 +28,7 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     denied_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     open_to_work: Mapped[bool] = mapped_column(Boolean, default=False)
     open_to_volunteering: Mapped[bool] = mapped_column(Boolean, default=False)
+    referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")
@@ -50,6 +51,16 @@ class UserLearningCenter(Base):
 
     user = relationship("User", back_populates="learning_centers")
     learning_center = relationship("LearningCenter", back_populates="users")
+
+
+class PendingLocation(Base):
+    """Last geo-location an admin shared with the Telegram bot.
+    Used to auto-fill a school/LC position from the web admin."""
+    __tablename__ = "pending_locations"
+
+    telegram_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
 
 
 class UserSchool(Base):

@@ -3,6 +3,7 @@ import { admin } from "../api";
 import { Icon } from "../components/Icons";
 import { AvatarEl } from "../components/Shared";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 export const AdminScreen = ({ user, onBack }) => {
   const { t } = useT();
@@ -43,18 +44,18 @@ export const AdminScreen = ({ user, onBack }) => {
       }
     } catch (e) {
       console.error("Admin load error:", e);
-      alert(t("admin.loadError", { msg: e.message }));
+      tgAlert(t("admin.loadError", { msg: e.message }));
     }
     setLoading(false);
   };
 
   const handleAction = async (action, fn, ...args) => {
-    if (!window.confirm(t("admin.confirm", { action }))) return;
+    if (!await tgConfirm(t("admin.confirm", { action }))) return;
     try {
       await fn(...args);
       loadData(activeTab, search);
     } catch (e) {
-      alert(t("admin.actionFailed", { msg: e.message }));
+      tgAlert(t("admin.actionFailed", { msg: e.message }));
     }
   };
 
@@ -259,7 +260,7 @@ const AddLocation = ({ type, regions = [], onCreated }) => {
   const regionLabel = (r) => r[`name_${lang}`] || r.name_en;
 
   const handleCreate = async () => {
-    if (!form.name.trim() || !form.region_id) { alert(t("ep.required")); return; }
+    if (!form.name.trim() || !form.region_id) { tgAlert(t("ep.required")); return; }
     setSaving(true);
     try {
       const payload = {
@@ -273,7 +274,7 @@ const AddLocation = ({ type, regions = [], onCreated }) => {
       if (type === "school") await admin.createSchool(payload);
       else await admin.createLC(payload);
       setForm(empty); setOpen(false); onCreated();
-    } catch (e) { alert(t("admin.createFailed", { msg: e.message })); }
+    } catch (e) { tgAlert(t("admin.createFailed", { msg: e.message })); }
     setSaving(false);
   };
 
@@ -303,6 +304,13 @@ const AddLocation = ({ type, regions = [], onCreated }) => {
         <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
         <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
       </div>
+      <button type="button" onClick={async () => {
+        try {
+          const r = await admin.myBotLocation();
+          if (r.latitude == null) { tgAlert(t("admin.botLocNone")); return; }
+          setForm(f => ({ ...f, latitude: String(r.latitude), longitude: String(r.longitude) }));
+        } catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
+      }} style={{ width: "100%", marginBottom: 12, padding: 8, background: "var(--surface-3)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--accent)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>{t("admin.useBotLoc")}</button>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => { setForm(empty); setOpen(false); }} style={{ flex: 1, padding: 8, background: "var(--surface-3)", borderRadius: "var(--radius-sm)", color: "var(--text-2)" }}>{t("common.cancel")}</button>
         <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: 8, background: "var(--accent)", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600 }}>{saving ? t("admin.creating") : t("admin.create")}</button>
@@ -330,7 +338,7 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
   const hasPos = item.latitude != null && item.longitude != null;
 
   const handleSave = async () => {
-    if (!form.name.trim()) { alert(t("ep.required")); return; }
+    if (!form.name.trim()) { tgAlert(t("ep.required")); return; }
     setSaving(true);
     try {
       const payload = {
@@ -345,19 +353,19 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
       else await admin.updateLC(item.id, payload);
       setEditing(false);
       onSaved();
-    } catch(e) { alert(t("admin.saveFailed")); }
+    } catch(e) { tgAlert(t("admin.saveFailed")); }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     const actKey = type === "school" ? "admin.act.deleteSchool" : "admin.act.deleteLc";
-    if (!window.confirm(t("admin.confirm", { action: t(actKey) }))) return;
+    if (!await tgConfirm(t("admin.confirm", { action: t(actKey) }))) return;
     setDeleting(true);
     try {
       if (type === "school") await admin.deleteSchool(item.id);
       else await admin.deleteLC(item.id);
       onSaved();
-    } catch (e) { alert(t("admin.actionFailed", { msg: e.message })); }
+    } catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
     setDeleting(false);
   };
 
@@ -379,6 +387,13 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
           <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
           <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
         </div>
+        <button type="button" onClick={async () => {
+          try {
+            const r = await admin.myBotLocation();
+            if (r.latitude == null) { tgAlert(t("admin.botLocNone")); return; }
+            setForm(f => ({ ...f, latitude: String(r.latitude), longitude: String(r.longitude) }));
+          } catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
+        }} style={{ width: "100%", marginBottom: 12, padding: 8, background: "var(--surface-3)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--accent)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>{t("admin.useBotLoc")}</button>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setEditing(false)} style={{ flex: 1, padding: 8, background: "var(--surface-3)", borderRadius: "var(--radius-sm)", color: "var(--text-2)" }}>{t("common.cancel")}</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 8, background: "var(--accent)", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600 }}>{saving ? t("common.saving") : t("common.save")}</button>

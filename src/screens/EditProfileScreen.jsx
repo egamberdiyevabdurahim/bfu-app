@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "../components/Icons";
 import { users, regions } from "../api";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const phoneRegex = /^\+?[0-9]{7,15}$/;
@@ -80,7 +81,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       if (onSaved) await onSaved();
       onBack();
     } catch (e) {
-      alert(t("ep.saveFailed", { msg: e.message }));
+      tgAlert(t("ep.saveFailed", { msg: e.message }));
     }
     setLoading(false);
   };
@@ -92,10 +93,10 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       if (res.tg_username) {
         set("tg_username", res.tg_username);
       } else {
-        alert(t("ep.noTgUsername"));
+        tgAlert(t("ep.noTgUsername"));
       }
     } catch (e) {
-      alert(t("ep.fetchFailed", { msg: e.message }));
+      tgAlert(t("ep.fetchFailed", { msg: e.message }));
     }
     setFetchingUsername(false);
   };

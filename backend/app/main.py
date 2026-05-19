@@ -1,11 +1,14 @@
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import Base, engine
 from app.routers import admin, auth, projects, regions, users
+from app.services.notify import send_telegram
 
 # Import all models so Base.metadata knows about every table
 import app.models  # noqa: F401
@@ -19,9 +22,10 @@ async def lifespan(app: FastAPI):
         
         from sqlalchemy import text
         
-        # [TEMP] Clean up duplicate users and enforce unique telegram_id
+        # Enforce unique telegram_id (idempotent, non-destructive). The old
+        # boot-time "DELETE duplicate users" was removed — the constraint
+        # prevents dupes, so the destructive sweep is no longer needed.
         try:
-            await conn.execute(text("DELETE FROM users WHERE id NOT IN (SELECT MAX(id) FROM users GROUP BY telegram_id);"))
             await conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_user_telegram_id;"))
             await conn.execute(text("ALTER TABLE users ADD CONSTRAINT uq_user_telegram_id UNIQUE (telegram_id);"))
         except Exception as e:
@@ -40,12 +44,26 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE schools ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
             "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;",
             "ALTER TABLE learning_centers ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT;",
         ]
         for ddl in new_columns:
             try:
                 await conn.execute(text(ddl))
             except Exception as e:
                 print(f"Column migration notice: {e}")
+
+        # One-time moderation backfill: grandfather every project that
+        # existed before the approval gate shipped, so enabling moderation
+        # doesn't hide current content. Fixed cutoff = idempotent.
+        try:
+            await conn.execute(text(
+                "UPDATE projects SET is_approved = true "
+                "WHERE is_approved = false AND created_at < TIMESTAMP '2026-05-21 00:00:00';"
+            ))
+        except Exception as e:
+            print(f"Moderation backfill notice: {e}")
                 
         # Grant super_admin to DEVELOPER_ID
         if settings.DEVELOPER_ID:
@@ -80,11 +98,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import time as _time
+from collections import deque
+
+_RL_WINDOW = 60
+_RL_MAX = 30  # per IP per window for sensitive auth endpoints
+_rl_hits: dict[str, deque] = {}
+
+
+@app.middleware("http")
+async def _rate_limit(request: Request, call_next):
+    if request.url.path == "/auth/telegram":
+        ip = (request.headers.get("cf-connecting-ip")
+              or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "unknown"))
+        now = _time.monotonic()
+        dq = _rl_hits.setdefault(ip, deque())
+        while dq and now - dq[0] > _RL_WINDOW:
+            dq.popleft()
+        if len(dq) >= _RL_MAX:
+            return JSONResponse(status_code=429, content={"detail": "Too many requests"})
+        dq.append(now)
+    return await call_next(request)
+
+
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(regions.router)
 app.include_router(admin.router)
+
+@app.exception_handler(Exception)
+async def _report_unhandled(request: Request, exc: Exception):
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-2500:]
+    if settings.DEVELOPER_GROUP_ID:
+        await send_telegram(
+            settings.DEVELOPER_GROUP_ID,
+            f"🐞 <b>Unhandled error</b>\n<code>{request.method} {request.url.path}</code>\n"
+            f"<pre>{tb}</pre>",
+        )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 @app.get("/health")
 async def health():

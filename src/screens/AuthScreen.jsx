@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "../components/Icons";
 import { auth, health, makeDevInitData, storage, regions, users } from "../api";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm, getStartParam } from "../tg";
 
 const LANGUAGES = [
   { label: "English", code: "en" },
@@ -34,7 +35,9 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     region_id: "", school_id: "", lc_ids: [],
     about: "",
     open_to_work: false, open_to_volunteering: false,
+    latitude: null, longitude: null,
   });
+  const [locStatus, setLocStatus] = useState(""); // "" | sharing | shared | failed
   const [selectedSkills] = useState([]);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [lcSearch, setLcSearch] = useState("");
@@ -56,6 +59,10 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     try {
       const res = await auth.telegram(initData);
       storage.setTokens(res.access_token, res.refresh_token);
+      // Capture referral (only sticks if not yet registered)
+      const sp = getStartParam();
+      const refM = sp && String(sp).match(/^ref_(\d+)$/);
+      if (refM) { users.setReferral(Number(refM[1])).catch(() => {}); }
       if (res.is_registered) {
         onComplete(false);
       } else {
@@ -63,7 +70,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         setScreen("register");
       }
     } catch (err) {
-      alert(t("auth.authFailed", { msg: err.message }));
+      tgAlert(t("auth.authFailed", { msg: err.message }));
     }
     setLoading(false);
   };
@@ -92,13 +99,26 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const shareLocation = () => {
+    if (!navigator.geolocation) { setLocStatus("failed"); return; }
+    setLocStatus("sharing");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+        setLocStatus("shared");
+      },
+      () => setLocStatus("failed"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const refreshGroupStatus = async () => {
     setCheckingGroups(true);
     try {
       const data = await users.checkGroups();
       setGroupStatuses(data);
     } catch (e) {
-      alert(t("auth.groups.checkFailed", { msg: e.message }));
+      tgAlert(t("auth.groups.checkFailed", { msg: e.message }));
     }
     setCheckingGroups(false);
   };
@@ -134,6 +154,8 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         region_id: parseInt(form.region_id) || null,
         school_id: parseInt(form.school_id) || null,
         learning_center_ids: form.lc_ids,
+        latitude: form.latitude,
+        longitude: form.longitude,
         about: form.about,
         open_to_work: form.open_to_work,
         open_to_volunteering: form.open_to_volunteering,
@@ -143,7 +165,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
       await users.finalize();
       onComplete(true);
     } catch (err) {
-      alert(t("auth.registerFailed", { msg: err.message }));
+      tgAlert(t("auth.registerFailed", { msg: err.message }));
       setLoading(false);
     }
   };
@@ -331,6 +353,23 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
               </div>
             )}
             {dbLCs.length === 0 && <span style={{ fontSize: 12, color: "var(--text-3)", display: "block", marginTop: 6 }}>{t("auth.selectRegionFirst")}</span>}
+          </div>
+
+          <div>
+            <div className="section-label">{t("loc.label")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 8 }}>{t("loc.why")}</div>
+            <button type="button" onClick={shareLocation} disabled={locStatus === "sharing"} style={{
+              width: "100%", background: locStatus === "shared" ? "rgba(78,205,196,0.12)" : "var(--surface-2)",
+              border: `1px solid ${locStatus === "shared" ? "rgba(78,205,196,0.5)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)", padding: "12px",
+              color: locStatus === "shared" ? "#4ECDC4" : "var(--text)",
+              fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>
+              {locStatus === "sharing" ? t("loc.sharing")
+                : locStatus === "shared" ? t("loc.shared")
+                : t("loc.share")}
+            </button>
+            {locStatus === "failed" && <div style={{ fontSize: 11, color: "#FFB347", marginTop: 6 }}>{t("loc.failed")}</div>}
           </div>
         </div>
       ),

@@ -5,6 +5,55 @@ import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
 import { useT } from "../i18n";
+import { shareUrl } from "../tg";
+
+const InviteCard = () => {
+  const { t } = useT();
+  const [data, setData] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { users.invite().then(setData).catch(() => {}); }, []);
+  if (!data) return null;
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(data.link); }
+    catch { /* clipboard blocked */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, var(--accent-dim), var(--surface-2))",
+      border: "1px solid var(--accent)", borderRadius: "var(--radius)",
+      padding: 16, marginBottom: 12,
+    }}>
+      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
+        🎁 {t("invite.title")}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 12 }}>
+        {t("invite.desc")}
+      </div>
+      <div style={{
+        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+        padding: "10px 12px", fontSize: 12, color: "var(--text-2)", wordBreak: "break-all", marginBottom: 10,
+      }}>{data.link}</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <button onClick={copy} style={{
+          flex: 1, padding: 10, background: "var(--surface-3)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)", color: "var(--text)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+        }}>{copied ? t("invite.copied") : t("invite.copy")}</button>
+        <button onClick={() => shareUrl(data.link, t("invite.shareText"))} style={{
+          flex: 1, padding: 10, background: "var(--accent)", border: "none",
+          borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer",
+        }}>{t("invite.share")}</button>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textAlign: "center" }}>
+        {t("invite.count", { n: data.invited_count })}
+      </div>
+    </div>
+  );
+};
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF" },
@@ -134,6 +183,8 @@ export const SettingsScreen = () => {
             )}
           </div>
         )}
+
+        <InviteCard />
 
         {/* Edit Profile Button */}
         <button onClick={() => setEditOpen(true)} style={{

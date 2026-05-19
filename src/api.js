@@ -91,6 +91,8 @@ export const users = {
   checkGroups:     ()       => req("/users/me/groups"),
   finalize:        ()       => req("/users/me/finalize", { method: "POST" }),
   updateTags:      ()       => req("/users/me/update-tags", { method: "POST" }),
+  invite:          ()       => req("/users/me/invite"),
+  setReferral:     (code)   => req("/users/me/referral", { method: "POST", body: JSON.stringify({ code }) }),
   getProfile:      (id)     => req(`/users/${id}`),
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),
 };
@@ -131,6 +133,7 @@ export const admin = {
   approveProject:    (id)     => req(`/admin/projects/${id}/approve`, { method: "PATCH" }),
   deleteProject:     (id)     => req(`/admin/projects/${id}`, { method: "DELETE" }),
   hardDeleteProject: (id)     => req(`/admin/projects/${id}/hard`, { method: "DELETE" }),
+  myBotLocation:     ()       => req("/admin/my-bot-location"),
   getRegions:        ()       => req("/admin/regions"),
   getSchools:        ()       => req("/admin/schools"),
   createSchool:      (d)      => req("/admin/schools", { method: "POST", body: JSON.stringify(d) }),

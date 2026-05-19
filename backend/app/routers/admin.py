@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, PendingLocation
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
 from app.schemas.user import AdminUserOut
@@ -191,12 +191,42 @@ async def hard_delete_project(
 
 # ── Locations ────────────────────────────────────────────────────────────────
 
-@router.get("/regions")
+class RegionOut(BaseModel):
+    id: int
+    name_en: str
+    name_uz: str
+    name_ru: str
+    model_config = {"from_attributes": True}
+
+class PlaceOut(BaseModel):
+    id: int
+    name: str
+    region_id: int
+    group_id: int | None = None
+    group_link: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    model_config = {"from_attributes": True}
+
+
+@router.get("/my-bot-location", response_model=dict)
+async def my_bot_location(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """The most recent location this admin shared with the Telegram bot."""
+    loc = await db.get(PendingLocation, admin.telegram_id)
+    if not loc:
+        return {"latitude": None, "longitude": None}
+    return {"latitude": loc.latitude, "longitude": loc.longitude}
+
+
+@router.get("/regions", response_model=list[RegionOut])
 async def list_regions(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Region).order_by(Region.id))
+    res = await db.execute(select(Region).where(Region.is_deleted == False).order_by(Region.id))
     return res.scalars().all()
 
-@router.get("/schools")
+@router.get("/schools", response_model=list[PlaceOut])
 async def list_schools(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(School).where(School.is_deleted == False).order_by(School.id))
     return res.scalars().all()
@@ -265,7 +295,7 @@ async def delete_school(
     await db.commit()
     return {"detail": "School deleted"}
 
-@router.get("/learning-centers")
+@router.get("/learning-centers", response_model=list[PlaceOut])
 async def list_lcs(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(LearningCenter).where(LearningCenter.is_deleted == False).order_by(LearningCenter.id))
     return res.scalars().all()

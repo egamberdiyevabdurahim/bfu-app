@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Page, AvatarEl } from "../components/Shared";
+import { Page, AvatarEl, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { users } from "../api";
 import { UserProfileModal } from "../components/UserProfileModal";
@@ -12,7 +12,7 @@ export const DiscoverScreen = () => {
   const [loading, setLoading] = useState(true);
   const [viewingUserId, setViewingUserId] = useState(null);
 
-  const filters = ["All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
+  const filters = ["ForYou", "All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
 
   useEffect(() => { loadUsers(); }, [activeFilter]);
 
@@ -20,7 +20,8 @@ export const DiscoverScreen = () => {
     setLoading(true);
     try {
       const q = {};
-      if (activeFilter !== "All") q.skill = activeFilter.toLowerCase();
+      if (activeFilter === "ForYou") q.match = true;
+      else if (activeFilter !== "All") q.skill = activeFilter.toLowerCase();
       const res = await users.discover(q);
       setPeople(res);
     } catch (e) { }
@@ -47,7 +48,7 @@ export const DiscoverScreen = () => {
                 borderRadius: 20, padding: "7px 16px", fontSize: 13, fontWeight: 500,
                 cursor: "pointer", transition: "all 0.2s", fontFamily: "var(--font-display)",
               }}>
-                {f === "All" ? t("filter.all") : f}
+                {f === "All" ? t("filter.all") : f === "ForYou" ? `✨ ${t("discover.forYou")}` : f}
               </button>
             ))}
           </div>
@@ -55,7 +56,7 @@ export const DiscoverScreen = () => {
 
         <div style={{ padding: "0 20px 100px", display: "flex", flexDirection: "column", gap: 12 }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}><Icon name="loader" size={24} /></div>
+            <SkeletonList count={5} />
           ) : people.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("discover.noUsers")}</div>
           ) : people.map((p, i) => {
@@ -68,8 +69,9 @@ export const DiscoverScreen = () => {
                   <AvatarEl name={[p.name, p.surname].filter(Boolean).join(" ") || p.display_name} size={48} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16 }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, display: "flex", alignItems: "center", gap: 5 }}>
                         {[p.name, p.surname].filter(Boolean).join(" ") || p.display_name}
+                        {p.checked && <span title={t("common.verified")} style={{ color: "var(--accent)", fontSize: 13 }}>✓</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         {p.open_to_work && <span style={{ fontSize: 10, background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>{t("discover.badge.startup")}</span>}

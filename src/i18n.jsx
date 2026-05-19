@@ -302,6 +302,32 @@ const STRINGS = {
   "loc.sharing": { en: "Getting location…", uz: "Joylashuv olinmoqda…", ru: "Определение локации…" },
   "loc.shared": { en: "✓ Location added", uz: "✓ Joylashuv qo‘shildi", ru: "✓ Локация добавлена" },
   "loc.failed": { en: "Couldn't get location. You can skip this.", uz: "Joylashuvni olib bo‘lmadi. Buni o‘tkazib yuborishingiz mumkin.", ru: "Не удалось определить локацию. Можно пропустить." },
+
+  // ── Discover / match / verified ───────────────────────────────────────────
+  "discover.forYou": { en: "For you", uz: "Siz uchun", ru: "Для вас" },
+  "common.verified": { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
+
+  // ── Connect / report ──────────────────────────────────────────────────────
+  "intro.btn": { en: "👋 Request intro", uz: "👋 Tanishuv so‘rash", ru: "👋 Познакомиться" },
+  "intro.sending": { en: "Sending…", uz: "Yuborilmoqda…", ru: "Отправка…" },
+  "intro.sent": { en: "✓ Intro sent — they'll get a Telegram message.", uz: "✓ So‘rov yuborildi — ular Telegram orqali xabar oladi.", ru: "✓ Запрос отправлен — придёт сообщение в Telegram." },
+  "intro.noUsername": { en: "Set a Telegram @username in your profile so they can reply.", uz: "Ular javob bera olishi uchun profilingizda Telegram @username o‘rnating.", ru: "Укажите Telegram @username в профиле, чтобы вам могли ответить." },
+  "report.btn": { en: "Report", uz: "Shikoyat", ru: "Пожаловаться" },
+  "report.prompt": { en: "Report this — describe the problem (optional):", uz: "Shikoyat — muammoni yozing (ixtiyoriy):", ru: "Пожаловаться — опишите проблему (необязательно):" },
+  "report.sent": { en: "✓ Reported. Thank you.", uz: "✓ Shikoyat yuborildi. Rahmat.", ru: "✓ Жалоба отправлена. Спасибо." },
+
+  // ── Invite leaderboard ────────────────────────────────────────────────────
+  "invite.leaderboard": { en: "🏆 Top inviters", uz: "🏆 Eng faol takliflar", ru: "🏆 Лидеры приглашений" },
+  "invite.you": { en: "You", uz: "Siz", ru: "Вы" },
+  "invite.noLeaders": { en: "Be the first — invite a friend!", uz: "Birinchi bo‘ling — do‘stingizni taklif qiling!", ru: "Будьте первым — пригласите друга!" },
+
+  // ── Admin reports ─────────────────────────────────────────────────────────
+  "admin.tab.reports": { en: "Reports", uz: "Shikoyatlar", ru: "Жалобы" },
+  "admin.report.row": { en: "{type} #{id} — by user {by}", uz: "{type} #{id} — {by} foydalanuvchidan", ru: "{type} #{id} — от пользователя {by}" },
+  "admin.report.resolve": { en: "Resolve", uz: "Hal qilish", ru: "Решить" },
+  "admin.report.reopen": { en: "Reopen", uz: "Qayta ochish", ru: "Открыть" },
+  "admin.report.resolved": { en: "Resolved", uz: "Hal qilingan", ru: "Решено" },
+  "admin.report.none": { en: "No reports.", uz: "Shikoyatlar yo‘q.", ru: "Жалоб нет." },
   "admin.act.deleteSchool": { en: "delete this school", uz: "bu maktabni o‘chirish", ru: "удалить эту школу" },
   "admin.act.deleteLc": { en: "delete this learning center", uz: "bu o‘quv markazini o‘chirish", ru: "удалить этот учебный центр" },
   "admin.groupIdPh": { en: "Group ID (e.g. -100…)", uz: "Guruh ID (masalan, -100…)", ru: "ID группы (напр. -100…)" },

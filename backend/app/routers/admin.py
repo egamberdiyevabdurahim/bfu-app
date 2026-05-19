@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db
-from app.models.user import User, PendingLocation
+from app.models.user import User, PendingLocation, Report
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
 from app.schemas.user import AdminUserOut
@@ -132,6 +132,39 @@ async def hard_delete_user(
     await db.delete(user)
     await db.commit()
     return {"detail": "User hard deleted"}
+
+class ReportOut(BaseModel):
+    id: int
+    reporter_id: int
+    target_type: str
+    target_id: int
+    reason: str | None = None
+    resolved: bool
+    model_config = {"from_attributes": True}
+
+
+@router.get("/reports", response_model=list[ReportOut])
+async def list_reports(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(Report).order_by(Report.id.desc()).limit(100))
+    return res.scalars().all()
+
+
+@router.patch("/reports/{report_id}/resolve")
+async def resolve_report(
+    report_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    r = await db.get(Report, report_id)
+    if not r:
+        raise HTTPException(404, "Report not found")
+    r.resolved = not r.resolved
+    await db.commit()
+    return {"resolved": r.resolved}
+
 
 # ── Projects ─────────────────────────────────────────────────────────────────
 

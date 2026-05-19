@@ -53,6 +53,17 @@ class UserLearningCenter(Base):
     learning_center = relationship("LearningCenter", back_populates="users")
 
 
+class Report(TimestampMixin, Base):
+    __tablename__ = "reports"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    reporter_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    target_type: Mapped[str] = mapped_column(String(16))  # "user" | "project"
+    target_id: Mapped[int] = mapped_column(BigInteger)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
 class PendingLocation(Base):
     """Last geo-location an admin shared with the Telegram bot.
     Used to auto-fill a school/LC position from the web admin."""

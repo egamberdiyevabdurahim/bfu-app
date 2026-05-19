@@ -63,6 +63,7 @@ class UserPublic(BaseModel):
     telegram_id: int
     tg_username: str | None = None
     role: str
+    checked: bool = False
     display_name: str
     name: str | None
     surname: str | None

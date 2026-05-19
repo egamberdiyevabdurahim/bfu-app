@@ -10,9 +10,13 @@ import { shareUrl } from "../tg";
 const InviteCard = () => {
   const { t } = useT();
   const [data, setData] = useState(null);
+  const [board, setBoard] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { users.invite().then(setData).catch(() => {}); }, []);
+  useEffect(() => {
+    users.invite().then(setData).catch(() => {});
+    users.leaderboard().then(setBoard).catch(() => {});
+  }, []);
   if (!data) return null;
 
   const copy = async () => {
@@ -48,9 +52,28 @@ const InviteCard = () => {
           borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer",
         }}>{t("invite.share")}</button>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textAlign: "center" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textAlign: "center", marginBottom: board?.top?.length ? 14 : 0 }}>
         {t("invite.count", { n: data.invited_count })}
       </div>
+      {board && (
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginBottom: 8 }}>
+            {t("invite.leaderboard")}
+          </div>
+          {board.top?.length ? board.top.map((r) => (
+            <div key={r.rank} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "5px 0", fontSize: 13,
+              color: r.is_me ? "var(--accent)" : "var(--text-2)", fontWeight: r.is_me ? 700 : 500,
+            }}>
+              <span>{r.rank}. {r.name}{r.is_me ? ` (${t("invite.you")})` : ""}</span>
+              <span>{r.count}</span>
+            </div>
+          )) : (
+            <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("invite.noLeaders")}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

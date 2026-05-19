@@ -181,6 +181,14 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
     setLoading(false);
   };
 
+  const doReport = async () => {
+    if (!await tgConfirm(t("report.prompt"))) return;
+    try {
+      await users.report({ target_type: "project", target_id: project.id });
+      tgAlert(t("report.sent"));
+    } catch (e) { tgAlert(e.message); }
+  };
+
   const handleLeave = async () => {
     if (!await tgConfirm(t("pd.confirmLeave"))) return;
     setLoading(true);
@@ -208,7 +216,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
           position: "absolute", bottom: 0, left: 0, right: 0,
           maxWidth: 430, margin: "0 auto",
           background: "var(--surface)", borderRadius: "24px 24px 0 0",
-          maxHeight: "92vh", display: "flex", flexDirection: "column",
+          maxHeight: "92dvh", display: "flex", flexDirection: "column",
           animation: "slideUp 0.3s ease",
         }}>
           <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
@@ -341,11 +349,16 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
               </div>
             )}
 
+            <button onClick={doReport} style={{
+              background: "none", border: "none", color: "var(--text-3)",
+              fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: "4px 0",
+            }}>{t("report.btn")}</button>
+
             <div style={{ height: 100 }} />
           </div>
 
           {/* Apply CTA */}
-          <div style={{ padding: "16px 24px 36px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+          <div style={{ padding: "16px 24px calc(24px + var(--safe-b))", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
             <StatusButton
               project={projectWithFlag}
               onApply={handleApply}

@@ -39,8 +39,11 @@ export const AdminScreen = ({ user, onBack }) => {
         setData({ 
           regions: Array.isArray(r) ? r : [], 
           schools: Array.isArray(s) ? s : [], 
-          lcs: Array.isArray(lc) ? lc : [] 
+          lcs: Array.isArray(lc) ? lc : []
         });
+      } else if (tab === "Reports") {
+        const res = await admin.getReports();
+        setData(Array.isArray(res) ? res : []);
       }
     } catch (e) {
       console.error("Admin load error:", e);
@@ -182,6 +185,34 @@ export const AdminScreen = ({ user, onBack }) => {
     );
   };
 
+  const renderReports = () => {
+    if (!data || !Array.isArray(data)) return null;
+    if (data.length === 0) return <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("admin.report.none")}</div>;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {data.map(r => (
+          <div key={r.id} style={{
+            background: "var(--surface-2)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius)", padding: 12, opacity: r.resolved ? 0.55 : 1,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>
+              {t("admin.report.row", { type: r.target_type, id: r.target_id, by: r.reporter_id })}
+            </div>
+            {r.reason && <div style={{ fontSize: 12, color: "var(--text-2)", margin: "6px 0", lineHeight: 1.5 }}>{r.reason}</div>}
+            <button onClick={async () => {
+              try { await admin.resolveReport(r.id); loadData("Reports"); }
+              catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
+            }} style={{
+              marginTop: 6, padding: "6px 12px", borderRadius: "var(--radius-sm)", fontSize: 12, fontWeight: 600,
+              background: r.resolved ? "var(--surface-3)" : "var(--accent)", color: r.resolved ? "var(--text-2)" : "#fff",
+              border: "none", cursor: "pointer",
+            }}>{r.resolved ? t("admin.report.reopen") : t("admin.report.resolve")}</button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderLocations = () => {
     if (!data || !data.schools || !Array.isArray(data.schools)) return null;
     return (
@@ -201,7 +232,7 @@ export const AdminScreen = ({ user, onBack }) => {
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
       {/* Header */}
       <div style={{ padding: "52px 24px 16px", flexShrink: 0, borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -223,7 +254,7 @@ export const AdminScreen = ({ user, onBack }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", overflowX: "auto", padding: "12px 24px", gap: 8, flexShrink: 0, borderBottom: "1px solid var(--border)", scrollbarWidth: "none" }}>
-        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"]].map(([tab, key]) => (
+        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Reports","admin.tab.reports"]].map(([tab, key]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSearch(""); }} style={{
             flexShrink: 0, padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600,
             background: activeTab === tab ? "var(--accent)" : "var(--surface-2)",
@@ -243,6 +274,7 @@ export const AdminScreen = ({ user, onBack }) => {
             {activeTab === "Users" && renderUsers()}
             {activeTab === "Projects" && renderProjects()}
             {activeTab === "Locations" && renderLocations()}
+            {activeTab === "Reports" && renderReports()}
           </>
         )}
       </div>
@@ -301,8 +333,8 @@ const AddLocation = ({ type, regions = [], onCreated }) => {
       <input className="input-field" placeholder={t("admin.groupLinkPh")} value={form.group_link} onChange={e => setForm({...form, group_link: e.target.value})} style={{ marginBottom: 12 }} />
       <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.position")}</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
-        <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
+        <input className="input-field" type="text" inputMode="decimal" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
+        <input className="input-field" type="text" inputMode="decimal" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
       </div>
       <button type="button" onClick={async () => {
         try {
@@ -384,8 +416,8 @@ const LocationItem = ({ item, type, regions = [], onSaved }) => {
         <input className="input-field" placeholder={t("admin.groupLinkPh")} value={form.group_link} onChange={e => setForm({...form, group_link: e.target.value})} style={{ marginBottom: 12 }} />
         <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>{t("admin.position")}</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <input className="input-field" type="number" step="any" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
-          <input className="input-field" type="number" step="any" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
+          <input className="input-field" type="text" inputMode="decimal" placeholder={t("admin.latitude")} value={form.latitude} onChange={e => setForm({...form, latitude: e.target.value})} />
+          <input className="input-field" type="text" inputMode="decimal" placeholder={t("admin.longitude")} value={form.longitude} onChange={e => setForm({...form, longitude: e.target.value})} />
         </div>
         <button type="button" onClick={async () => {
           try {

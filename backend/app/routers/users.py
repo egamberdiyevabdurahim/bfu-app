@@ -11,7 +11,7 @@ from app.config import settings
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.region import LearningCenter, School
-from app.models.user import User, UserLearningCenter, UserSchool
+from app.models.user import User, UserLearningCenter, UserSchool, Report
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save
 from app.services.notify import send_telegram
@@ -34,6 +34,12 @@ def _ai_on_cooldown(uid: int) -> bool:
 
 class ReferralIn(BaseModel):
     code: int
+
+
+class ReportIn(BaseModel):
+    target_type: str  # "user" | "project"
+    target_id: int
+    reason: str | None = None
 
 
 # ── Helper: set Telegram name tag ─────────────────────────────────────────────
@@ -383,6 +389,89 @@ async def set_referral(
     return {"ok": True}
 
 
+@router.get("/leaderboard", response_model=dict)
+async def leaderboard(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(
+        select(User.referred_by, func.count(User.id))
+        .where(User.referred_by.is_not(None), User.is_registered == True, User.is_deleted == False)
+        .group_by(User.referred_by)
+        .order_by(func.count(User.id).desc())
+        .limit(10)
+    )).all()
+    ids = [r[0] for r in rows]
+    names: dict[int, str] = {}
+    if ids:
+        for u in (await db.execute(select(User).where(User.id.in_(ids)))).scalars().all():
+            names[u.id] = u.display_name
+    top = [
+        {"rank": i + 1, "name": names.get(rid, f"User #{rid}"),
+         "count": c, "is_me": rid == current_user.id}
+        for i, (rid, c) in enumerate(rows)
+    ]
+    my = await db.scalar(
+        select(func.count(User.id)).where(
+            User.referred_by == current_user.id,
+            User.is_registered == True, User.is_deleted == False,
+        )
+    )
+    return {"top": top, "my_count": my or 0}
+
+
+@router.post("/reports", response_model=dict)
+async def create_report(
+    body: ReportIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.target_type not in ("user", "project"):
+        raise HTTPException(status_code=400, detail="invalid target_type")
+    db.add(Report(
+        reporter_id=current_user.id, target_type=body.target_type,
+        target_id=body.target_id, reason=(body.reason or "")[:1000],
+    ))
+    await db.commit()
+    if settings.ADMIN_GROUP_ID:
+        await send_telegram(
+            settings.ADMIN_GROUP_ID,
+            f"🚩 <b>Report</b>: {body.target_type} #{body.target_id}\n"
+            f"by {current_user.display_name}\n{(body.reason or '')[:300]}",
+        )
+    return {"ok": True}
+
+
+_last_intro: dict[int, float] = {}
+
+
+@router.post("/{user_id}/intro", response_model=dict)
+async def request_intro(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot intro yourself")
+    now = time.monotonic()
+    if now - _last_intro.get(current_user.id, 0.0) < 30:
+        raise HTTPException(status_code=429, detail="Please wait before sending another intro")
+    _last_intro[current_user.id] = now
+    target = await db.get(User, user_id)
+    if not target or target.is_deleted or not target.is_registered:
+        raise HTTPException(status_code=404, detail="User not found")
+    txt = f"👋 <b>{current_user.display_name}</b> wants to connect with you on BFU."
+    if current_user.about:
+        txt += f"\n\n<i>{current_user.about[:300]}</i>"
+    mk = None
+    if current_user.tg_username:
+        mk = {"inline_keyboard": [[{"text": "💬 Message back",
+                                    "url": f"https://t.me/{current_user.tg_username}"}]]}
+    if target.telegram_id:
+        await send_telegram(target.telegram_id, txt, reply_markup=mk)
+    return {"ok": True, "has_username": bool(current_user.tg_username)}
+
+
 # ── Discover ───────────────────────────────────────────────────────────────────
 
 @router.get("/discover", response_model=list[UserPublic])
@@ -392,6 +481,7 @@ async def discover(
     region_id: int | None = None,
     open_to_work: bool | None = None,
     open_to_volunteering: bool | None = None,
+    match: bool | None = None,
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
@@ -408,6 +498,24 @@ async def discover(
         q = q.where(User.open_to_work == open_to_work)
     if open_to_volunteering is not None:
         q = q.where(User.open_to_volunteering == open_to_volunteering)
+
+    _CATS = ("skills", "knowledges", "interests", "preparations", "goals")
+
+    if match and current_user.analysis:
+        def _tags(a):
+            s = set()
+            for c in _CATS:
+                s.update(x.lower() for x in (getattr(a, c, None) or []))
+            return s
+        my_tags = _tags(current_user.analysis)
+        pool = (await db.execute(q.limit(300))).scalars().all()
+        ranked = sorted(
+            pool,
+            key=lambda u: (len(my_tags & _tags(u.analysis)) if u.analysis else 0,
+                           1 if u.checked else 0),
+            reverse=True,
+        )
+        return ranked[offset:offset + limit]
 
     q = q.limit(limit).offset(offset)
     result = await db.execute(q)

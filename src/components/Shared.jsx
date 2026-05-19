@@ -28,7 +28,7 @@ export const BottomNav = ({ active, onChange }) => {
       background: "rgba(13,13,20,0.95)", backdropFilter: "blur(20px)",
       borderTop: "1px solid var(--border)",
       display: "flex", alignItems: "center",
-      padding: "8px 4px 20px",
+      padding: "8px 4px calc(14px + var(--safe-b))",
       zIndex: 100,
     }}>
       {tabs.map(t => (
@@ -56,9 +56,24 @@ export const BottomNav = ({ active, onChange }) => {
   );
 };
 
+export const SkeletonList = ({ count = 4 }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 20px" }}>
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="card" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="skeleton" style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0 }} />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="skeleton" style={{ height: 14, width: "55%" }} />
+          <div className="skeleton" style={{ height: 11, width: "85%" }} />
+          <div className="skeleton" style={{ height: 11, width: "40%" }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 export const Page = ({ children, style = {} }) => (
   <div style={{
-    height: "100vh", overflowY: "auto", overflowX: "hidden",
+    height: "100dvh", overflowY: "auto", overflowX: "hidden",
     paddingBottom: 90,
     animation: "fadeUp 0.35s ease",
     ...style,
@@ -85,9 +100,11 @@ export const FontLoader = () => (
       --mint: #4ECDC4;
       --amber: #FFB347;
       --text: #F0F0FF;
-      --text-2: #9090A8;
-      --text-3: #5A5A70;
+      --text-2: #A6A6C0;
+      --text-3: #83839B;
       --border: rgba(255,255,255,0.07);
+      --app-h: 100dvh;
+      --safe-b: env(safe-area-inset-bottom, 0px);
       --radius: 16px;
       --radius-sm: 10px;
       --radius-xs: 6px;
@@ -95,14 +112,19 @@ export const FontLoader = () => (
       --font-body: 'DM Sans', sans-serif;
     }
 
+    html, body, #root { height: var(--app-h); }
+
     body {
       background: var(--bg);
       color: var(--text);
       font-family: var(--font-body);
       -webkit-font-smoothing: antialiased;
       overflow: hidden;
-      height: 100vh;
+      overscroll-behavior: none;
     }
+
+    button, a, [role="button"], input, select, textarea { touch-action: manipulation; }
+    button, [role="button"] { min-height: 36px; }
 
     ::-webkit-scrollbar { width: 0px; }
 
@@ -182,7 +204,7 @@ export const FontLoader = () => (
       border-radius: var(--radius-sm);
       color: var(--text);
       font-family: var(--font-body);
-      font-size: 15px;
+      font-size: 16px;
       padding: 13px 16px;
       width: 100%;
       outline: none;
@@ -196,6 +218,14 @@ export const FontLoader = () => (
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
+    }
+
+    @keyframes shimmer { 100% { background-position: -200% 0; } }
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+      background-size: 200% 100%;
+      animation: shimmer 1.3s ease-in-out infinite;
+      border-radius: var(--radius-sm);
     }
 
     .avatar {

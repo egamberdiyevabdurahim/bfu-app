@@ -80,7 +80,7 @@ export default function App() {
     return (
       <>
         <FontLoader />
-        <div style={{ maxWidth: 430, margin: "0 auto", height: "100vh", background: "var(--bg)",
+        <div style={{ maxWidth: 430, margin: "0 auto", height: "100dvh", background: "var(--bg)",
           display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ color: "var(--text-3)", fontSize: 13 }}>{t("common.loading")}</div>
         </div>
@@ -91,7 +91,7 @@ export default function App() {
   return (
     <>
       <FontLoader />
-      <div style={{ maxWidth: 430, margin: "0 auto", height: "100vh", position: "relative",
+      <div style={{ maxWidth: 430, margin: "0 auto", height: "100dvh", position: "relative",
         background: "var(--bg)", overflow: "hidden" }}>
         {(authed === false || authed === "register") ? (
           <AuthScreen

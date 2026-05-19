@@ -108,7 +108,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
   ];
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
       <div style={{ padding: "52px 24px 16px", flexShrink: 0, borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -273,7 +273,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       </div>
 
       {/* Save */}
-      <div style={{ padding: "12px 24px 36px", flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div style={{ padding: "12px 24px calc(24px + var(--safe-b))", flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
         <button className="btn-primary" onClick={handleSave} disabled={loading || updatingTags}>
           {updatingTags ? t("ep.updatingTags") : loading ? t("common.saving") : t("ep.saveChanges")}
         </button>

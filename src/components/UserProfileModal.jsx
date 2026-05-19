@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { users } from "../api";
 import { useT } from "../i18n";
+import { tgAlert, tgConfirm } from "../tg";
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF", label: "Skills" },
@@ -41,6 +42,26 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const { t } = useT();
   const [user, setUser] = useState(propUser || null);
   const [loading, setLoading] = useState(!propUser && !!userId);
+  const [introSending, setIntroSending] = useState(false);
+
+  const doIntro = async () => {
+    if (!user) return;
+    setIntroSending(true);
+    try {
+      const r = await users.requestIntro(user.id);
+      tgAlert(r.has_username ? t("intro.sent") : t("intro.sent") + "\n" + t("intro.noUsername"));
+    } catch (e) { tgAlert(e.message); }
+    setIntroSending(false);
+  };
+
+  const doReport = async () => {
+    if (!user) return;
+    if (!await tgConfirm(t("report.prompt"))) return;
+    try {
+      await users.report({ target_type: "user", target_id: user.id });
+      tgAlert(t("report.sent"));
+    } catch (e) { tgAlert(e.message); }
+  };
 
   useEffect(() => {
     if (!propUser && userId) {
@@ -72,7 +93,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
         position: "absolute", bottom: 0, left: 0, right: 0,
         maxWidth: 430, margin: "0 auto",
         background: "var(--surface)", borderRadius: "24px 24px 0 0",
-        maxHeight: "88vh", display: "flex", flexDirection: "column",
+        maxHeight: "88dvh", display: "flex", flexDirection: "column",
         animation: "slideUp 0.3s ease",
       }}>
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
@@ -98,8 +119,11 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
             <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
               <Avatar name={fullName || user?.display_name || "?"} size={64} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
                   {fullName || user?.display_name}
+                  {user?.checked && (
+                    <span title={t("common.verified")} style={{ color: "var(--accent)", fontSize: 15 }}>✓</span>
+                  )}
                 </h2>
                 {user?.tg_username && (
                   <a href={`https://t.me/${user.tg_username}`} target="_blank" rel="noopener noreferrer"
@@ -120,6 +144,20 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Connect actions */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <button onClick={doIntro} disabled={introSending} style={{
+                flex: 1, padding: "11px", background: "var(--accent)", border: "none",
+                borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
+                cursor: "pointer", fontFamily: "var(--font-display)",
+              }}>{introSending ? t("intro.sending") : t("intro.btn")}</button>
+              <button onClick={doReport} title={t("report.btn")} style={{
+                padding: "11px 14px", background: "rgba(255,107,107,0.1)",
+                border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",
+                color: "#FF6B6B", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>{t("report.btn")}</button>
             </div>
 
             {/* Intentions */}

@@ -308,7 +308,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
                     borderRadius: "var(--radius-sm)", marginTop: 4, maxHeight: 160,
                     overflowY: "auto", padding: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {filteredSchools.map(s => (
-                      <button key={s.id} onClick={() => { set("school_id", s.id.toString()); setSchoolSearch(""); }}
+                      <button key={s.id} onMouseDown={e => e.preventDefault()} onClick={() => { set("school_id", s.id.toString()); setSchoolSearch(""); }}
                         style={{ background: "var(--surface-3)", border: "none", borderRadius: 20,
                           color: "var(--text)", padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
                         + {s.name}
@@ -344,7 +344,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
                 borderRadius: "var(--radius-sm)", marginTop: 4, maxHeight: 160,
                 overflowY: "auto", padding: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {filteredLCs.map(lc => (
-                  <button key={lc.id} onClick={() => { set("lc_ids", [...form.lc_ids, lc.id]); setLcSearch(""); }}
+                  <button key={lc.id} onMouseDown={e => e.preventDefault()} onClick={() => { set("lc_ids", [...form.lc_ids, lc.id]); setLcSearch(""); }}
                     style={{ background: "var(--surface-3)", border: "none", borderRadius: 20,
                       color: "var(--text)", padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
                     + {lc.name}
@@ -471,7 +471,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   // ── WELCOME ──────────────────────────────────────────────────────────────────
   if (screen === "welcome") return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 300, height: 300, background: "radial-gradient(circle, rgba(123,111,255,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 28px", textAlign: "center", gap: 24 }}>
         <div style={{ animation: "cardFloat 3s ease-in-out infinite" }}>
@@ -498,7 +498,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   // ── REGISTER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: "52px 24px 0", flexShrink: 0 }}>
         {(!forceRegister || regStep > 0) && (
           <button onClick={() => regStep === 0 ? setScreen("welcome") : setRegStep(r => r - 1)}
@@ -526,7 +526,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         <div style={{ height: 20 }} />
       </div>
 
-      <div style={{ padding: "12px 24px 36px", flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div style={{ padding: "12px 24px calc(24px + var(--safe-b))", flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
         <button className="btn-primary" onClick={goNext}
           disabled={loading || !canContinue}
           style={{ opacity: !canContinue ? 0.5 : 1 }}>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { regions, projects } from "../api";
 import { Icon } from "./Icons";
+import { useT } from "../i18n";
 
 const PREDEFINED_SKILLS = [
   "Frontend", "Backend", "Fullstack", "React", "Python", "Node.js", "Java", "C++", 
@@ -11,6 +12,7 @@ const PREDEFINED_SKILLS = [
 ];
 
 export const ProjectForm = ({ type, onSuccess }) => {
+  const { t } = useT();
   const [form, setForm] = useState({
     name: "",
     goal: "",
@@ -34,7 +36,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
   const handleSubmit = async () => {
     if (!form.name || !form.goal || !form.about) {
-      alert("Name, One-liner, and About fields are required!");
+      alert(t("pf.validation"));
       return;
     }
     
@@ -58,7 +60,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
       
       if (onSuccess) onSuccess();
     } catch (e) {
-      alert(e.message || "Failed to create project");
+      alert(e.message || t("pf.createFailed"));
     }
     setLoading(false);
   };
@@ -88,18 +90,18 @@ export const ProjectForm = ({ type, onSuccess }) => {
   return (
     <div className="card" style={{ animation: "fadeUp 0.3s ease", marginBottom: 20 }}>
       <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 20 }}>
-        Post {type === "startup" ? "Startup" : "Volunteering Project"}
+        {type === "startup" ? t("pf.postStartup") : t("pf.postProject")}
       </h3>
       
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         
         {/* Basic Info */}
         <div>
-          <div className="section-label">Basic Info</div>
+          <div className="section-label">{t("pf.basicInfo")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input className="input-field" placeholder="Project Name *" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-            <input className="input-field" placeholder="One-liner description *" value={form.goal} onChange={e => setForm({...form, goal: e.target.value})} />
-            <textarea className="input-field" rows={4} placeholder="Detailed description: What are you building and why? *" style={{ resize: "none" }} value={form.about} onChange={e => setForm({...form, about: e.target.value})} />
+            <input className="input-field" placeholder={t("pf.namePh")} value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+            <input className="input-field" placeholder={t("pf.goalPh")} value={form.goal} onChange={e => setForm({...form, goal: e.target.value})} />
+            <textarea className="input-field" rows={4} placeholder={t("pf.aboutPh")} style={{ resize: "none" }} value={form.about} onChange={e => setForm({...form, about: e.target.value})} />
           </div>
         </div>
 
@@ -107,21 +109,21 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
         {/* Contact */}
         <div>
-          <div className="section-label">Contact</div>
-          <input className="input-field" placeholder="Telegram Channel or Group Link (optional)" value={form.channel} onChange={e => setForm({...form, channel: e.target.value})} />
+          <div className="section-label">{t("pf.contact")}</div>
+          <input className="input-field" placeholder={t("pf.channelPh")} value={form.channel} onChange={e => setForm({...form, channel: e.target.value})} />
         </div>
 
         <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "4px 0" }} />
 
         {/* Requirements */}
         <div>
-          <div className="section-label">Requirements & Filters (Optional)</div>
+          <div className="section-label">{t("pf.requirements")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             
             {/* Age Dual Slider */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: "var(--text-2)" }}>Age Range</span>
+                <span style={{ fontSize: 13, color: "var(--text-2)" }}>{t("pf.ageRange")}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {ageEnabled && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>{ageRange[0]} – {ageRange[1]}</span>}
                   <button onClick={() => setAgeEnabled(e => !e)} style={{
@@ -129,7 +131,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
                     border: "none", borderRadius: 99, padding: "4px 12px",
                     color: ageEnabled ? "#fff" : "var(--text-3)", fontSize: 12, fontWeight: 600, cursor: "pointer"
                   }}>
-                    {ageEnabled ? "On" : "Off"}
+                    {ageEnabled ? t("pf.on") : t("pf.off")}
                   </button>
                 </div>
               </div>
@@ -157,17 +159,17 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>Gender</div>
+                <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>{t("pf.genderLabel")}</div>
                 <select className="input-field" value={form.gender_req} onChange={e => setForm({...form, gender_req: e.target.value})} style={{ appearance: "none", cursor: "pointer" }}>
-                  <option value="Any">Any</option>
-                  <option value="Male">Male only</option>
-                  <option value="Female">Female only</option>
+                  <option value="Any">{t("pf.genderAny")}</option>
+                  <option value="Male">{t("pf.genderMale")}</option>
+                  <option value="Female">{t("pf.genderFemale")}</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>Target Regions</div>
+              <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>{t("pf.targetRegions")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {dbRegions.map(r => {
                   const selected = form.req_region_ids.includes(r.id);
@@ -187,7 +189,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>Required Skills</div>
+              <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 6 }}>{t("pf.requiredSkills")}</div>
               
               {/* Selected Skills Chips */}
               {selectedSkills.length > 0 && (
@@ -203,7 +205,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
               {/* Search Bar */}
               <input 
                 className="input-field" 
-                placeholder="Search skills (e.g. React, Marketing)..." 
+                placeholder={t("pf.searchSkills")} 
                 value={skillSearch} 
                 onChange={e => setSkillSearch(e.target.value)} 
                 onKeyDown={e => {
@@ -223,7 +225,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
                 }}>
                   {filteredSkills.length === 0 ? (
                     <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--text-3)" }}>
-                      Press enter to add "{skillSearch}" as custom skill
+                      {t("pf.addCustomSkill", { q: skillSearch })}
                     </div>
                   ) : (
                     filteredSkills.map(s => (
@@ -243,7 +245,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
         </div>
         
         <button className="btn-primary" style={{ marginTop: 10 }} onClick={handleSubmit} disabled={loading}>
-          {loading ? "Saving..." : `Publish ${type === "startup" ? "Startup" : "Project"}`}
+          {loading ? t("common.saving") : (type === "startup" ? t("pf.publishStartup") : t("pf.publishProject"))}
         </button>
 
       </div>

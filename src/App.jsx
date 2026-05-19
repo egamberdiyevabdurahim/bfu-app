@@ -6,8 +6,10 @@ import { StartupScreen } from "./screens/StartupScreen";
 import { VolunteerScreen } from "./screens/VolunteerScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { storage, users } from "./api";
+import { useT } from "./i18n";
 
 export default function App() {
+  const { t, setLang } = useT();
   // null = loading, false = not authed, true = authed+registered
   const [authed, setAuthed] = useState(null);
   const [activeTab, setActiveTab] = useState("discover");
@@ -31,6 +33,7 @@ export default function App() {
     }
     users.me()
       .then(user => {
+        if (user.language) setLang(user.language);
         if (user.is_registered) {
           setAuthed(true);
           _parseDeepLink(true);
@@ -79,7 +82,7 @@ export default function App() {
         <FontLoader />
         <div style={{ maxWidth: 430, margin: "0 auto", height: "100vh", background: "var(--bg)",
           display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ color: "var(--text-3)", fontSize: 13 }}>Loading…</div>
+          <div style={{ color: "var(--text-3)", fontSize: 13 }}>{t("common.loading")}</div>
         </div>
       </>
     );

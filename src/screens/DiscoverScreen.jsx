@@ -3,8 +3,10 @@ import { Page, AvatarEl } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { users } from "../api";
 import { UserProfileModal } from "../components/UserProfileModal";
+import { useT } from "../i18n";
 
 export const DiscoverScreen = () => {
+  const { t } = useT();
   const [activeFilter, setActiveFilter] = useState("All");
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,8 +33,8 @@ export const DiscoverScreen = () => {
         <div style={{ padding: "20px 20px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <div>
-              <p style={{ color: "var(--text-3)", fontSize: 12, fontFamily: "var(--font-display)", fontWeight: 600, letterSpacing: "0.1em" }}>DISCOVER</p>
-              <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800 }}>People</h1>
+              <p style={{ color: "var(--text-3)", fontSize: 12, fontFamily: "var(--font-display)", fontWeight: 600, letterSpacing: "0.1em" }}>{t("discover.kicker")}</p>
+              <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800 }}>{t("discover.title")}</h1>
             </div>
           </div>
 
@@ -45,7 +47,7 @@ export const DiscoverScreen = () => {
                 borderRadius: 20, padding: "7px 16px", fontSize: 13, fontWeight: 500,
                 cursor: "pointer", transition: "all 0.2s", fontFamily: "var(--font-display)",
               }}>
-                {f}
+                {f === "All" ? t("filter.all") : f}
               </button>
             ))}
           </div>
@@ -55,7 +57,7 @@ export const DiscoverScreen = () => {
           {loading ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}><Icon name="loader" size={24} /></div>
           ) : people.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>No users found</div>
+            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("discover.noUsers")}</div>
           ) : people.map((p, i) => {
             const age = p.birth_year ? new Date().getFullYear() - p.birth_year : null;
             return (
@@ -70,14 +72,14 @@ export const DiscoverScreen = () => {
                         {[p.name, p.surname].filter(Boolean).join(" ") || p.display_name}
                       </div>
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        {p.open_to_work && <span style={{ fontSize: 10, background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>Startup</span>}
-                        {p.open_to_volunteering && <span style={{ fontSize: 10, background: "rgba(78,205,196,0.15)", color: "#4ECDC4", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>Volunteer</span>}
+                        {p.open_to_work && <span style={{ fontSize: 10, background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>{t("discover.badge.startup")}</span>}
+                        {p.open_to_volunteering && <span style={{ fontSize: 10, background: "rgba(78,205,196,0.15)", color: "#4ECDC4", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>{t("discover.badge.volunteer")}</span>}
                       </div>
                     </div>
                     {(age || p.gender) && (
                       <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 4, display: "flex", gap: 8 }}>
-                        {age && <span>🎂 {age} y/o</span>}
-                        {p.gender && <span>{p.gender === "Male" ? "♂" : "♀"} {p.gender}</span>}
+                        {age && <span>🎂 {t("common.yo", { n: age })}</span>}
+                        {p.gender && <span>{p.gender === "Male" ? `♂ ${t("common.male")}` : `♀ ${t("common.female")}`}</span>}
                       </div>
                     )}
                     {p.about && <div style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 8 }}>{p.about.slice(0, 80)}{p.about.length > 80 ? "..." : ""}</div>}

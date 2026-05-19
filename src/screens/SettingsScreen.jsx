@@ -4,6 +4,7 @@ import { Icon } from "../components/Icons";
 import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
+import { useT } from "../i18n";
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF" },
@@ -13,12 +14,10 @@ const TAG_COLORS = {
   goals:        { bg: "rgba(255,107,107,0.15)",  color: "#FF6B6B" },
 };
 
-const TAG_LABELS = {
-  skills: "Skills", knowledges: "Knowledge", interests: "Interests",
-  preparations: "Preparing For", goals: "Goals",
-};
+const TAG_KEYS = ["skills", "knowledges", "interests", "preparations", "goals"];
 
 export const SettingsScreen = () => {
+  const { t } = useT();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
@@ -63,7 +62,7 @@ export const SettingsScreen = () => {
   return (
     <Page>
       <div style={{ padding: "20px 20px 100px" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 20 }}>Profile</h1>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 20 }}>{t("settings.title")}</h1>
 
         {/* Profile Card */}
         <div style={{
@@ -83,12 +82,12 @@ export const SettingsScreen = () => {
               <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                 {age && (
                   <span style={{ fontSize: 11, color: "var(--text-3)", background: "var(--surface-3)", borderRadius: 99, padding: "2px 8px" }}>
-                    🎂 {age} y/o
+                    🎂 {t("common.yo", { n: age })}
                   </span>
                 )}
                 {user.gender && (
                   <span style={{ fontSize: 11, color: "var(--text-3)", background: "var(--surface-3)", borderRadius: 99, padding: "2px 8px" }}>
-                    {user.gender === "Male" ? "♂" : "♀"} {user.gender}
+                    {user.gender === "Male" ? `♂ ${t("common.male")}` : `♀ ${t("common.female")}`}
                   </span>
                 )}
                 <span style={{ fontSize: 11, color: "var(--text-3)", background: "var(--surface-3)", borderRadius: 99, padding: "2px 8px" }}>
@@ -103,13 +102,13 @@ export const SettingsScreen = () => {
           )}
 
           {/* Tags */}
-          {analysis && Object.entries(TAG_LABELS).map(([key, label]) => {
+          {analysis && TAG_KEYS.map((key) => {
             const tags = analysis[key];
             if (!tags?.length) return null;
             const { bg, color } = TAG_COLORS[key];
             return (
               <div key={key} style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--text-3)", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--text-3)", textTransform: "uppercase", marginBottom: 6 }}>{t(`tag.${key}`)}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {tags.map(t => (
                     <span key={t} style={{ background: bg, color, borderRadius: 99, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>{t}</span>
@@ -125,12 +124,12 @@ export const SettingsScreen = () => {
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {user.open_to_work && (
               <span style={{ background: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 99, padding: "6px 14px", fontSize: 12, fontWeight: 600 }}>
-                ⚡ Open to Startups
+                {t("settings.openStartups")}
               </span>
             )}
             {user.open_to_volunteering && (
               <span style={{ background: "rgba(78,205,196,0.15)", border: "1px solid rgba(78,205,196,0.3)", color: "#4ECDC4", borderRadius: 99, padding: "6px 14px", fontSize: 12, fontWeight: 600 }}>
-                🤝 Open to Volunteer
+                {t("settings.openVolunteer")}
               </span>
             )}
           </div>
@@ -145,7 +144,7 @@ export const SettingsScreen = () => {
           boxShadow: "0 4px 24px rgba(123,111,255,0.35)", marginBottom: 10,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
         }}>
-          <Icon name="edit" size={16} color="#fff" /> Edit Profile
+          <Icon name="edit" size={16} color="#fff" /> {t("settings.editProfile")}
         </button>
 
         {/* Admin Dashboard */}
@@ -157,7 +156,7 @@ export const SettingsScreen = () => {
             fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15,
             marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
-            🛠️ Admin Dashboard
+            {t("settings.adminDashboard")}
           </button>
         )}
 
@@ -167,7 +166,7 @@ export const SettingsScreen = () => {
           borderRadius: "var(--radius-sm)", padding: "12px", cursor: "pointer",
           color: "#FF6B6B", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
         }}>
-          Sign Out
+          {t("settings.signOut")}
         </button>
       </div>
     </Page>

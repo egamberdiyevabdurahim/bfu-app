@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { users } from "../api";
+import { useT } from "../i18n";
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF", label: "Skills" },
@@ -37,6 +38,7 @@ const TagChip = ({ label, category }) => {
 };
 
 export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
+  const { t } = useT();
   const [user, setUser] = useState(propUser || null);
   const [loading, setLoading] = useState(!propUser && !!userId);
 
@@ -88,7 +90,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
 
         {loading ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-            <div style={{ color: "var(--text-3)", fontSize: 13 }}>Loading profile…</div>
+            <div style={{ color: "var(--text-3)", fontSize: 13 }}>{t("common.loadingProfile")}</div>
           </div>
         ) : (
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 48px" }}>
@@ -108,12 +110,12 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                   {age && (
                     <span style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", borderRadius: 99, padding: "3px 9px" }}>
-                      🎂 {age} y/o
+                      🎂 {t("common.yo", { n: age })}
                     </span>
                   )}
                   {user?.gender && (
                     <span style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", borderRadius: 99, padding: "3px 9px" }}>
-                      {user.gender === "Male" ? "♂" : "♀"} {user.gender}
+                      {user.gender === "Male" ? `♂ ${t("common.male")}` : `♀ ${t("common.female")}`}
                     </span>
                   )}
                 </div>
@@ -125,12 +127,12 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 {user.open_to_work && (
                   <span style={{ background: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 99, padding: "5px 12px", fontSize: 12, fontWeight: 600 }}>
-                    ⚡ Open to Startups
+                    {t("um.openStartups")}
                   </span>
                 )}
                 {user.open_to_volunteering && (
                   <span style={{ background: "rgba(78,205,196,0.15)", border: "1px solid rgba(78,205,196,0.3)", color: "#4ECDC4", borderRadius: 99, padding: "5px 12px", fontSize: 12, fontWeight: 600 }}>
-                    🤝 Open to Volunteer
+                    {t("um.openVolunteer")}
                   </span>
                 )}
               </div>
@@ -139,7 +141,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
             {/* About */}
             {user?.about && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">About</div>
+                <div className="section-label">{t("um.about")}</div>
                 <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7 }}>{user.about}</p>
               </div>
             )}
@@ -152,7 +154,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                   if (!tags || tags.length === 0) return null;
                   return (
                     <div key={key}>
-                      <div className="section-label">{style.label}</div>
+                      <div className="section-label">{t(`tag.${key}`)}</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {tags.map(tag => <TagChip key={tag} label={tag} category={key} />)}
                       </div>
@@ -164,7 +166,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
 
             {!user?.about && !hasAnyTags && (
               <div style={{ textAlign: "center", padding: 20, color: "var(--text-3)", fontSize: 13 }}>
-                This user hasn't filled in their profile yet.
+                {t("um.empty")}
               </div>
             )}
           </div>

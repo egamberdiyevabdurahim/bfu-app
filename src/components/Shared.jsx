@@ -1,4 +1,5 @@
 import { Icon } from "./Icons";
+import { useT } from "../i18n";
 
 export const AvatarEl = ({ name = "?", size = 40 }) => {
   const safeName = name?.trim() || "?";
@@ -13,11 +14,12 @@ export const AvatarEl = ({ name = "?", size = 40 }) => {
 };
 
 export const BottomNav = ({ active, onChange }) => {
+  const { t } = useT();
   const tabs = [
-    { id: "discover", icon: "compass", label: "Discover" },
-    { id: "startups", icon: "rocket", label: "Startups" },
-    { id: "volunteer", icon: "heart", label: "Volunteer" },
-    { id: "settings", icon: "settings", label: "Profile" },
+    { id: "discover", icon: "compass", label: t("nav.discover") },
+    { id: "startups", icon: "rocket", label: t("nav.startups") },
+    { id: "volunteer", icon: "heart", label: t("nav.volunteer") },
+    { id: "settings", icon: "settings", label: t("nav.profile") },
   ];
   return (
     <nav style={{

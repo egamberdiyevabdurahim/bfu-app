@@ -2,18 +2,22 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { projects, regions, users } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
+import { useT } from "../i18n";
 
-const FitBadge = ({ isFit }) => (
-  <span style={{
-    display: "inline-flex", alignItems: "center", gap: 4,
-    background: isFit ? "rgba(78,205,196,0.15)" : "rgba(255,99,99,0.12)",
-    color: isFit ? "#4ECDC4" : "#FF6363",
-    border: `1px solid ${isFit ? "rgba(78,205,196,0.3)" : "rgba(255,99,99,0.25)"}`,
-    borderRadius: 99, padding: "4px 12px", fontSize: 12, fontWeight: 700,
-  }}>
-    {isFit ? "✓ Fit" : "✗ Not Fit"}
-  </span>
-);
+const FitBadge = ({ isFit }) => {
+  const { t } = useT();
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      background: isFit ? "rgba(78,205,196,0.15)" : "rgba(255,99,99,0.12)",
+      color: isFit ? "#4ECDC4" : "#FF6363",
+      border: `1px solid ${isFit ? "rgba(78,205,196,0.3)" : "rgba(255,99,99,0.25)"}`,
+      borderRadius: 99, padding: "4px 12px", fontSize: 12, fontWeight: 700,
+    }}>
+      {isFit ? t("badge.fit") : t("badge.notFit")}
+    </span>
+  );
+};
 
 const MemberAvatar = ({ name = "?", size = 36 }) => {
   const initials = (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -32,6 +36,7 @@ const MemberAvatar = ({ name = "?", size = 36 }) => {
 };
 
 const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
+  const { t } = useT();
   const s = project.my_application_status;
   const isCreator = project._is_creator;
 
@@ -41,7 +46,7 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
       borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
       color: "var(--text-3)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
     }}>
-      👑 Your Project
+      {t("pd.yourProject")}
     </div>
   );
 
@@ -52,13 +57,13 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
         borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
         color: "var(--accent)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
       }}>
-        ✓ You're a Member
+        {t("pd.youreMember")}
       </div>
       <button onClick={onLeave} disabled={loading} style={{
         background: "rgba(255,99,99,0.1)", border: "1px solid rgba(255,99,99,0.25)",
         borderRadius: "var(--radius-sm)", padding: "14px 16px", cursor: "pointer",
         color: "#FF6363", fontSize: 13,
-      }}>Leave</button>
+      }}>{t("pd.leave")}</button>
     </div>
   );
 
@@ -69,14 +74,14 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
         borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
         color: "#FFB347", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
       }}>
-        ⏳ Pending Review
+        {t("pd.pendingReview")}
       </div>
       <button onClick={onCancel} disabled={loading} style={{
         background: "var(--surface-2)", border: "1px solid var(--border)",
         borderRadius: "var(--radius-sm)", padding: "14px 16px", cursor: "pointer",
         color: "var(--text-3)", fontSize: 13,
       }}>
-        Withdraw
+        {t("pd.withdraw")}
       </button>
     </div>
   );
@@ -87,7 +92,7 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
       borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
       color: "#4ECDC4", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
     }}>
-      ✓ Application Accepted
+      {t("pd.accepted")}
     </div>
   );
 
@@ -97,7 +102,7 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
       borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
       color: "#FF6363", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
     }}>
-      ✗ Application Declined
+      {t("pd.declined")}
     </div>
   );
 
@@ -106,7 +111,7 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
       width: "100%", background: "var(--surface-3)", borderRadius: "var(--radius-sm)", padding: "14px",
       textAlign: "center", color: "var(--text-3)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
     }}>
-      Not Currently Hiring
+      {t("pd.notHiring")}
     </div>
   );
 
@@ -121,12 +126,13 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
       boxShadow: project.is_fit ? "0 4px 24px rgba(123,111,255,0.35)" : "none",
       opacity: loading ? 0.7 : 1, transition: "all 0.2s",
     }}>
-      {loading ? "Submitting..." : (project.is_fit ? "⚡ Apply to Join" : "✗ Requirements Not Met")}
+      {loading ? t("pd.submitting") : (project.is_fit ? t("pd.apply") : t("pd.reqNotMet"))}
     </button>
   );
 };
 
 export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
+  const { t } = useT();
   const [project, setProject] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [regionMap, setRegionMap] = useState({});
@@ -146,7 +152,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
 
   const handleApply = async () => {
     if (!project.is_fit) {
-      alert("You don't meet the requirements for this project.");
+      alert(t("pd.notQualified"));
       return;
     }
     setLoading(true);
@@ -175,7 +181,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
   };
 
   const handleLeave = async () => {
-    if (!window.confirm("Are you sure you want to leave this project?")) return;
+    if (!window.confirm(t("pd.confirmLeave"))) return;
     setLoading(true);
     try {
       await projects.leave(project.id);
@@ -225,7 +231,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
                 {project.type}
               </span>
               {!isCreator && <FitBadge isFit={project.is_fit} />}
-              {isCreator && <span style={{ background: "rgba(255,179,71,0.15)", color: "#FFB347", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>👑 Your Project</span>}
+              {isCreator && <span style={{ background: "rgba(255,179,71,0.15)", color: "#FFB347", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{t("pd.yourProject")}</span>}
             </div>
 
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
@@ -241,14 +247,14 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-3)" }}>
                 <Icon name="users" size={14} />
-                {project.member_count} member{project.member_count !== 1 ? "s" : ""}
+                {t("board.membersN", { n: project.member_count })}
               </div>
               {project.age_from && project.age_to && (
-                <div style={{ fontSize: 13, color: "var(--text-3)" }}>🎂 Ages {project.age_from}–{project.age_to}</div>
+                <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("pd.ages", { a: project.age_from, b: project.age_to })}</div>
               )}
               {project.gender_req && (
                 <div style={{ fontSize: 13, color: "var(--text-3)" }}>
-                  {project.gender_req === "Male" ? "♂ Male only" : "♀ Female only"}
+                  {project.gender_req === "Male" ? t("pd.maleOnly") : t("pd.femaleOnly")}
                 </div>
               )}
             </div>
@@ -256,7 +262,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             {/* About */}
             {project.about && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">About</div>
+                <div className="section-label">{t("pd.about")}</div>
                 <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7 }}>{project.about}</p>
               </div>
             )}
@@ -264,7 +270,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             {/* Skills */}
             {project.req_skills?.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">Required Skills</div>
+                <div className="section-label">{t("pd.requiredSkills")}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {project.req_skills.map(s => (
                     <span key={s.skill_name} className="chip">{s.skill_name}</span>
@@ -276,11 +282,11 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             {/* Regions — now with real names */}
             {project.req_regions?.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">Target Regions</div>
+                <div className="section-label">{t("pd.targetRegions")}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {project.req_regions.map(r => (
                     <span key={r.region_id} className="chip">
-                      📍 {regionMap[r.region_id] || `Region ${r.region_id}`}
+                      📍 {regionMap[r.region_id] || t("pd.regionN", { n: r.region_id })}
                     </span>
                   ))}
                 </div>
@@ -290,7 +296,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             {/* Members section */}
             {project.members?.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">Team ({project.member_count})</div>
+                <div className="section-label">{t("pd.team", { n: project.member_count })}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {project.members.map(m => {
                     const isFounder = m.user_id === project.creator_id;
@@ -310,7 +316,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
                             {displayName}
                           </div>
                           <div style={{ fontSize: 11, color: isFounder ? "#FFB347" : "var(--text-3)", fontWeight: 600, marginTop: 2 }}>
-                            {isFounder ? "👑 Founder" : "Co-founder"}
+                            {isFounder ? t("pd.founder") : t("pd.cofounder")}
                           </div>
                         </div>
                         <Icon name="chevron_right" size={14} color="var(--text-3)" />
@@ -324,7 +330,7 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             {/* Channel */}
             {project.channel && (
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label">Contact</div>
+                <div className="section-label">{t("pd.contact")}</div>
                 <a href={project.channel} target="_blank" rel="noreferrer" style={{
                   display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14,
                   color: "var(--accent)", textDecoration: "none",

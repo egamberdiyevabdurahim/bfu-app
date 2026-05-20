@@ -5,6 +5,16 @@ import App from './App.jsx'
 import { LanguageProvider } from './i18n.jsx'
 import { initTelegram } from './tg'
 
+// Browser visitors hitting "/" go straight to the static marketing landing —
+// faster than rendering React first. Telegram users always have initData, so
+// they skip this redirect and boot the Mini App normally.
+(() => {
+  const inTelegram = !!window.Telegram?.WebApp?.initData
+  if (!inTelegram && window.location.pathname === '/') {
+    window.location.replace('/landing/index.html')
+  }
+})()
+
 initTelegram()
 
 class ErrorBoundary extends Component {

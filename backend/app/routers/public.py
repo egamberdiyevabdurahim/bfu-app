@@ -1,8 +1,8 @@
 """Unauthenticated landing endpoints — no JWT needed. Used by the public
 marketing site at brightfuturesuzbekistan.uz/ and /r/<id>."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,12 +34,54 @@ class PublicProject(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublicStats(BaseModel):
+    members: int
+    projects: int
+    regions: int
+    verified: int
+
+
+class PublicLeader(BaseModel):
+    rank: int
+    name: str
+    initials: str
+    region: str | None = None
+    invites: int
+
+
+@router.get("/stats", response_model=PublicStats)
+async def public_stats(db: AsyncSession = Depends(get_db)):
+    """Site-wide counts shown on the landing hero. Counts only registered,
+    non-deleted users; projects must be approved + non-draft to count."""
+    members = await db.scalar(
+        select(func.count(User.id)).where(
+            User.is_registered == True, User.is_deleted == False
+        )
+    ) or 0
+    verified = await db.scalar(
+        select(func.count(User.id)).where(
+            User.is_registered == True, User.is_deleted == False, User.checked == True
+        )
+    ) or 0
+    projects = await db.scalar(
+        select(func.count(Project.id)).where(
+            Project.is_deleted == False,
+            Project.is_approved == True,
+            Project.is_draft == False,
+        )
+    ) or 0
+    regions = await db.scalar(
+        select(func.count(Region.id)).where(Region.is_deleted == False)
+    ) or 0
+    return PublicStats(members=members, projects=projects, regions=regions, verified=verified)
+
+
 @router.get("/regions", response_model=list[PublicRegion])
 async def list_public_regions(db: AsyncSession = Depends(get_db)):
+    """Per-region member and project counts for the landing's map + strip."""
     regs = (await db.execute(
         select(Region).where(Region.is_deleted == False).order_by(Region.id)
     )).scalars().all()
-    # Per-region counts (small loops — only 14 regions).
     out = []
     for r in regs:
         m = await db.scalar(
@@ -47,8 +89,12 @@ async def list_public_regions(db: AsyncSession = Depends(get_db)):
                 User.region_id == r.id, User.is_registered == True, User.is_deleted == False
             )
         )
+        # Projects per region = projects whose creator lives in that region.
         p = await db.scalar(
-            select(func.count(Project.id)).where(
+            select(func.count(Project.id))
+            .join(User, User.id == Project.creator_id)
+            .where(
+                User.region_id == r.id,
                 Project.is_deleted == False,
                 Project.is_approved == True,
                 Project.is_draft == False,
@@ -88,3 +134,67 @@ async def region_landing(region_id: int, db: AsyncSession = Depends(get_db)):
             for p in proj_rows
         ],
     }
+
+
+@router.get("/leaderboard", response_model=list[PublicLeader])
+async def public_leaderboard(
+    period: str = Query("week", pattern="^(week|month|all)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Top inviters. Public version of /users/leaderboard — privacy-safe:
+    shows first-name + initial + region. Used on the landing page."""
+    now = datetime.utcnow()
+    since = None
+    if period == "week":
+        since = now - timedelta(days=7)
+    elif period == "month":
+        since = now - timedelta(days=30)
+
+    q = (
+        select(User.referred_by, func.count(User.id).label("c"))
+        .where(
+            User.referred_by.is_not(None),
+            User.is_registered == True,
+            User.is_deleted == False,
+        )
+    )
+    if since is not None:
+        q = q.where(User.created_at >= since)
+    rows = (await db.execute(
+        q.group_by(User.referred_by).order_by(func.count(User.id).desc()).limit(5)
+    )).all()
+    if not rows:
+        return []
+
+    ids = [r[0] for r in rows]
+    users = (await db.execute(
+        select(User).where(User.id.in_(ids))
+    )).scalars().all()
+    by_id = {u.id: u for u in users}
+
+    region_names: dict[int, str] = {}
+    region_ids = {u.region_id for u in users if u.region_id}
+    if region_ids:
+        regs = (await db.execute(
+            select(Region).where(Region.id.in_(region_ids))
+        )).scalars().all()
+        region_names = {r.id: r.name_uz for r in regs}
+
+    out: list[PublicLeader] = []
+    for i, (rid, count) in enumerate(rows):
+        u = by_id.get(rid)
+        if not u:
+            continue
+        first = (u.name or "").strip().capitalize() or "Member"
+        last = (u.surname or "").strip()
+        last_initial = (last[0].upper() + ".") if last else ""
+        display = f"{first} {last_initial}".strip()
+        initials = (first[0] if first else "?") + (last[0] if last else "")
+        out.append(PublicLeader(
+            rank=i + 1,
+            name=display,
+            initials=initials.upper()[:2],
+            region=region_names.get(u.region_id) if u.region_id else None,
+            invites=int(count),
+        ))
+    return out

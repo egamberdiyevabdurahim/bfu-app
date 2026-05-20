@@ -1,0 +1,14 @@
+const D = globalThis.ReactDOM;
+if (!D) throw new Error('ReactDOM UMD must load before this shim');
+export default D;
+export const createPortal = D.createPortal;
+export const findDOMNode = D.findDOMNode;
+export const flushSync = D.flushSync;
+export const hydrate = D.hydrate;
+export const render = D.render;
+export const unmountComponentAtNode = D.unmountComponentAtNode;
+export const unstable_batchedUpdates = D.unstable_batchedUpdates;
+export const unstable_renderSubtreeIntoContainer = D.unstable_renderSubtreeIntoContainer;
+export const version = D.version;
+export const createRoot = D.createRoot;
+export const hydrateRoot = D.hydrateRoot;

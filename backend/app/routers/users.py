@@ -552,12 +552,13 @@ async def request_intro(
     txt = f"👋 <b>{current_user.display_name}</b> wants to connect with you on BFU."
     if current_user.about:
         txt += f"\n\n<i>{current_user.about[:300]}</i>"
-    # Always provide a chat URL — falls back to tg://user?id= when the
-    # requester has no @username (works inside Telegram clients).
+    # Always provide a chat URL — falls back to tg://openmessage?user_id=
+    # when the requester has no @username: unlike tg://user?id=, it opens
+    # the chat directly even if the user is unknown to the clicker's client.
     chat_url = (
         f"https://t.me/{current_user.tg_username}"
         if current_user.tg_username
-        else f"tg://user?id={current_user.telegram_id}"
+        else f"tg://openmessage?user_id={current_user.telegram_id}"
     )
     mk = {"inline_keyboard": [[{"text": "💬 Message back", "url": chat_url}]]}
     if target.telegram_id:
@@ -589,7 +590,7 @@ async def soft_interest(
         chat_url = (
             f"https://t.me/{current_user.tg_username}"
             if current_user.tg_username
-            else f"tg://user?id={current_user.telegram_id}"
+            else f"tg://openmessage?user_id={current_user.telegram_id}"
         )
         await send_telegram(
             target.telegram_id,

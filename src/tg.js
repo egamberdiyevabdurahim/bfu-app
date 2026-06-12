@@ -27,9 +27,11 @@ export function initTelegram() {
 }
 
 // Build a Telegram chat URL that works even without a @username.
+// tg://openmessage?user_id= opens the chat directly on mobile clients,
+// unlike tg://user?id= which fails when the user isn't "known" to the client.
 export function tgChatUrl(user) {
   if (user?.tg_username) return `https://t.me/${user.tg_username}`;
-  if (user?.telegram_id) return `tg://user?id=${user.telegram_id}`;
+  if (user?.telegram_id) return `tg://openmessage?user_id=${user.telegram_id}`;
   return null;
 }
 

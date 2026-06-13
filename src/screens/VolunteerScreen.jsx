@@ -280,6 +280,12 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
                 {v.age_from && v.age_to && <span className="tag">🎂 {v.age_from}–{v.age_to}</span>}
               </div>
 
+              {active === "my volunteering" && (
+                <div style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600, marginBottom: 4 }}>
+                  {t("myproj.stats", { views: v.view_count || 0, pending: v.pending_applications_count || 0 })}
+                </div>
+              )}
+
               {v.is_member && active === "browse" && (
                 <div style={{
                   width: "100%", background: "var(--accent-dim)", border: "1px solid var(--accent)",

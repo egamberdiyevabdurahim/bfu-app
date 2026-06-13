@@ -72,6 +72,7 @@ class UserPublic(BaseModel):
     checked: bool = False
     display_name: str
     photo_url: str | None = None
+    badges: list[str] = []
     name: str | None
     surname: str | None
     gender: str | None

@@ -4,6 +4,13 @@ import { users } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
 
+export const BADGE_META = {
+  verified:      { emoji: "✓",  color: "#7B6FFF", key: "badge.verified" },
+  early_adopter: { emoji: "🌱", color: "#4ECDC4", key: "badge.early" },
+  connector:     { emoji: "🤝", color: "#FFB347", key: "badge.connector" },
+  top_inviter:   { emoji: "🏆", color: "#FFB347", key: "badge.topInviter" },
+};
+
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF", label: "Skills" },
   knowledges:   { bg: "rgba(78,205,196,0.15)",  color: "#4ECDC4", label: "Knowledge" },
@@ -194,6 +201,19 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                     style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none" }}>
                     @{user.tg_username}
                   </a>
+                )}
+                {user?.badges?.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {user.badges.map(b => {
+                      const m = BADGE_META[b]; if (!m) return null;
+                      return (
+                        <span key={b} title={t(m.key)} style={{
+                          fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99,
+                          background: `${m.color}1f`, color: m.color, border: `1px solid ${m.color}55`,
+                        }}>{m.emoji} {t(m.key)}</span>
+                      );
+                    })}
+                  </div>
                 )}
                 <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                   {age && (

@@ -1027,4 +1027,13 @@ async def get_user_profile(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    # Inject the richer invite-based badge (one query, only on profile view).
+    invited = await db.scalar(
+        select(func.count(User.id)).where(
+            User.referred_by == user_id, User.is_registered == True, User.is_deleted == False
+        )
+    ) or 0
+    out = UserPublic.model_validate(user)
+    if invited >= 3 and "connector" not in out.badges:
+        out.badges = out.badges + ["connector"]
+    return out

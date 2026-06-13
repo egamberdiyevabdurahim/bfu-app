@@ -461,6 +461,11 @@ const STRINGS = {
   "events.type.other": { en: "Event", uz: "Tadbir", ru: "Мероприятие" },
   "events.filterAll": { en: "All", uz: "Hammasi", ru: "Все" },
   "events.foryou": { en: "✨ For You", uz: "✨ Siz uchun", ru: "✨ Для вас" },
+  "badge.verified":   { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
+  "badge.early":      { en: "Early", uz: "Boshlang‘ich", ru: "Первые" },
+  "badge.connector":  { en: "Connector", uz: "Bog‘lovchi", ru: "Коннектор" },
+  "badge.topInviter": { en: "Top Inviter", uz: "Eng faol taklifchi", ru: "Топ-приглашающий" },
+  "myproj.stats": { en: "👁 {views} · {pending} pending", uz: "👁 {views} · {pending} kutilmoqda", ru: "👁 {views} · {pending} в ожидании" },
   "events.matches": { en: "Matches your: {tags}", uz: "Sizga mos: {tags}", ru: "Подходит вам: {tags}" },
 
   "settings.events": { en: "📅 Events", uz: "📅 Tadbirlar", ru: "📅 Мероприятия" },

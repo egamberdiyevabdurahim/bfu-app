@@ -61,14 +61,15 @@ _PROJECT_LIST_OPTIONS = [
 
 async def _bulk_list_extras(
     db: AsyncSession, project_ids: list[int], current_user_id: int,
-) -> tuple[dict[int, int], dict[int, str], set[int]]:
-    """Grouped per-page aggregates for the slim list path:
-    member counts, the caller's own application statuses, and the set of
-    project ids the caller is a MEMBER of (membership is independent of
-    applications — the creator is auto-added as a member with no application).
-    Returns (member_count_by_pid, my_status_by_pid, my_member_pids)."""
+) -> tuple[dict[int, int], dict[int, str], set[int], dict[int, int]]:
+    """Grouped per-page aggregates for the slim list path: member counts, the
+    caller's own application statuses, the set of project ids the caller is a
+    MEMBER of (membership is independent of applications — the creator is
+    auto-added with no application), and pending-application counts (for the
+    founder's own list). Returns (member_count, my_status, my_member_pids,
+    pending_count)."""
     if not project_ids:
-        return {}, {}, set()
+        return {}, {}, set(), {}
     mc_rows = (await db.execute(
         select(ProjectMember.project_id, func.count(ProjectMember.user_id))
         .where(ProjectMember.project_id.in_(project_ids))
@@ -90,7 +91,14 @@ async def _bulk_list_extras(
         )
     )).all()
     my_status = {pid: status for pid, status in my_rows}
-    return member_count, my_status, my_member_pids
+    pend_rows = (await db.execute(
+        select(ProjectApplication.project_id, func.count(ProjectApplication.id))
+        .where(ProjectApplication.project_id.in_(project_ids),
+               ProjectApplication.status == "pending")
+        .group_by(ProjectApplication.project_id)
+    )).all()
+    pending_count = {pid: c for pid, c in pend_rows}
+    return member_count, my_status, my_member_pids, pending_count
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -200,6 +208,7 @@ def _project_list_response(
     my_application_status: str | None,
     is_member: bool = False,
     fav_set: set | None = None,
+    pending_count: int = 0,
 ) -> ProjectResponse:
     """Slim card payload — no `members` list, no pending count, no past
     applications. Server-coalesces `goal` ?? `about[:200]` so frontend's
@@ -244,7 +253,7 @@ def _project_list_response(
         about=None,
         members=[],
         member_count=member_count,
-        pending_applications_count=0,
+        pending_applications_count=pending_count,
         is_favorited=bool(fav_set and project.id in fav_set),
         is_member=is_member,
         is_fit=is_fit,
@@ -375,14 +384,15 @@ async def list_projects(
         ]
 
     pids = [p.id for p in projects]
-    member_count_by, my_status_by, my_member_pids = await _bulk_list_extras(db, pids, current_user.id)
+    member_count_by, my_status_by, my_member_pids, pending_by = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
     return [
         _project_list_response(p, current_user,
                                member_count_by.get(p.id, 0),
                                my_status_by.get(p.id),
                                p.id in my_member_pids,
-                               fav_set)
+                               fav_set,
+                               pending_by.get(p.id, 0))
         for p in projects
     ]
 
@@ -445,14 +455,15 @@ async def my_projects(
         q = q.where(Project.type == type)
     projects = (await db.execute(q)).scalars().all()
     pids = [p.id for p in projects]
-    member_count_by, my_status_by, my_member_pids = await _bulk_list_extras(db, pids, current_user.id)
+    member_count_by, my_status_by, my_member_pids, pending_by = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
     return [
         _project_list_response(p, current_user,
                                member_count_by.get(p.id, 0),
                                my_status_by.get(p.id),
                                p.id in my_member_pids,
-                               fav_set)
+                               fav_set,
+                               pending_by.get(p.id, 0))
         for p in projects
     ]
 

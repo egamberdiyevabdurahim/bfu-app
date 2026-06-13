@@ -282,6 +282,12 @@ export const StartupScreen = ({ deepLinkAppId }) => {
                 {s.age_from && s.age_to && <span className="tag">🎂 {s.age_from}–{s.age_to}</span>}
               </div>
 
+              {active === "my startups" && (
+                <div style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600, marginBottom: 4 }}>
+                  {t("myproj.stats", { views: s.view_count || 0, pending: s.pending_applications_count || 0 })}
+                </div>
+              )}
+
               {s.is_member && active === "browse" && (
                 <div style={{
                   width: "100%", background: "var(--accent-dim)", border: "1px solid var(--accent)",

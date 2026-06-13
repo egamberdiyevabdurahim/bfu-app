@@ -58,6 +58,17 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
         from app.services.signing import avatar_url
         return avatar_url(self.id, self.photo_file_id)
 
+    @property
+    def badges(self) -> list[str]:
+        """Cheap, query-free achievement badges (frontend renders label+emoji).
+        Richer badges (e.g. top_inviter) are injected by specific endpoints."""
+        out: list[str] = []
+        if self.checked:
+            out.append("verified")
+        if self.id and self.id <= 100:  # first 100 registered members
+            out.append("early_adopter")
+        return out
+
 
 class UserLearningCenter(Base):
     __tablename__ = "user_learning_centers"

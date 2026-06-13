@@ -655,6 +655,12 @@ async def apply_to_project(
         raise HTTPException(status_code=409, detail="Application already submitted")
     await db.refresh(app)
 
+    # Inbox item for the founder.
+    from app.services.notifications import add_notification
+    add_notification(db, project.creator_id, "application",
+                     actor_id=current_user.id, project_id=project_id)
+    await db.commit()
+
     # Notify founder via Telegram bot
     founder_res = await db.execute(select(User).where(User.id == project.creator_id))
     founder = founder_res.scalar_one_or_none()
@@ -724,6 +730,10 @@ async def review_application(
         app.status = "declined"
 
     app.decided_at = dt.datetime.utcnow()
+    from app.services.notifications import add_notification
+    add_notification(db, app.applicant_id,
+                     "accepted" if app.status == "accepted" else "declined",
+                     actor_id=current_user.id, project_id=project_id)
     await db.commit()
 
     # Notify the applicant of the decision

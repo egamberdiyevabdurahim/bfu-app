@@ -100,6 +100,21 @@ class Interest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class Notification(Base):
+    """In-app inbox item. Structured (type + actor + project) so the frontend
+    renders the text in the user's own language. type ∈ interest | mutual |
+    intro | application | accepted | declined."""
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)         # recipient
+    type: Mapped[str] = mapped_column(String(32))
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # who triggered
+    project_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class AuditLog(Base):
     """Append-only record of admin actions for accountability."""
     __tablename__ = "audit_logs"

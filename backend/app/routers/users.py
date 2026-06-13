@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,8 @@ from app.config import settings
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.region import LearningCenter, Region, School
-from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation
+from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
+from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, translate_bio_async
 from app.services.geo import nearest_region_id
@@ -127,6 +128,100 @@ async def get_me(
         except Exception:
             await db.rollback()
     return current_user
+
+
+@router.get("/me/notifications", response_model=dict)
+async def my_notifications(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Inbox: recent notifications with actor + project hydrated. Text is
+    rendered client-side (localized) from type/actor/project."""
+    rows = (await db.execute(
+        select(Notification).where(Notification.user_id == current_user.id)
+        .order_by(Notification.id.desc()).limit(min(limit, 100))
+    )).scalars().all()
+
+    actor_ids = {n.actor_id for n in rows if n.actor_id}
+    proj_ids = {n.project_id for n in rows if n.project_id}
+    actors = {}
+    if actor_ids:
+        from app.routers.public import avatar_url  # signed url helper
+        for u in (await db.execute(select(User).where(User.id.in_(actor_ids)))).scalars().all():
+            actors[u.id] = {"id": u.id, "display_name": u.display_name,
+                            "photo_url": u.photo_url}
+    projects_map = {}
+    if proj_ids:
+        from app.models.project import Project
+        for p in (await db.execute(select(Project).where(Project.id.in_(proj_ids)))).scalars().all():
+            projects_map[p.id] = {"id": p.id, "name": p.name, "type": p.type}
+
+    unread = await db.scalar(
+        select(func.count(Notification.id)).where(
+            Notification.user_id == current_user.id, Notification.is_read == False
+        )
+    ) or 0
+    return {
+        "unread": unread,
+        "items": [
+            {"id": n.id, "type": n.type, "is_read": n.is_read,
+             "created_at": n.created_at.isoformat() if n.created_at else None,
+             "actor": actors.get(n.actor_id), "project": projects_map.get(n.project_id)}
+            for n in rows
+        ],
+    }
+
+
+@router.get("/me/notifications/unread-count", response_model=dict)
+async def unread_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    n = await db.scalar(
+        select(func.count(Notification.id)).where(
+            Notification.user_id == current_user.id, Notification.is_read == False
+        )
+    ) or 0
+    return {"unread": n}
+
+
+@router.get("/me/connections", response_model=list[UserPublic])
+async def my_connections(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """People I have a MUTUAL interest with (both pinged each other)."""
+    i_like = set((await db.execute(
+        select(Interest.to_user_id).where(Interest.from_user_id == current_user.id)
+    )).scalars().all())
+    like_me = set((await db.execute(
+        select(Interest.from_user_id).where(Interest.to_user_id == current_user.id)
+    )).scalars().all())
+    mutual_ids = i_like & like_me
+    if not mutual_ids:
+        return []
+    users = (await db.execute(
+        select(User).options(selectinload(User.analysis)).where(
+            User.id.in_(mutual_ids), User.is_deleted == False, User.is_registered == True
+        )
+    )).scalars().all()
+    return users
+
+
+@router.post("/me/notifications/read", response_model=dict)
+async def mark_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark all of the caller's notifications read."""
+    await db.execute(
+        update(Notification).where(
+            Notification.user_id == current_user.id, Notification.is_read == False
+        ).values(is_read=True)
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -619,6 +714,8 @@ async def request_intro(
         buttons = [{"text": "👀 See profile", "web_app": {
             "url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}}]
     mk = {"inline_keyboard": [buttons]}
+    add_notification(db, user_id, "intro", actor_id=current_user.id)
+    await db.commit()
     if target.telegram_id:
         await send_telegram(target.telegram_id, txt, reply_markup=mk)
     return {"ok": True, "has_username": bool(current_user.tg_username)}
@@ -657,7 +754,6 @@ async def soft_interest(
     if not target or target.is_deleted or not target.is_registered:
         raise HTTPException(status_code=404, detail="User not found")
     db.add(Interest(from_user_id=current_user.id, to_user_id=user_id))
-    await db.commit()
 
     # Mutual? Did the target ever express interest in the current user?
     mutual = bool(await db.scalar(
@@ -666,6 +762,14 @@ async def soft_interest(
             Interest.to_user_id == current_user.id,
         )
     ))
+
+    # Inbox items: a mutual match notifies both; otherwise just the target.
+    if mutual:
+        add_notification(db, user_id, "mutual", actor_id=current_user.id)
+        add_notification(db, current_user.id, "mutual", actor_id=user_id)
+    else:
+        add_notification(db, user_id, "interest", actor_id=current_user.id)
+    await db.commit()
 
     if mutual:
         # Celebrate to BOTH sides — this is the conversation-starting moment.

@@ -2,7 +2,7 @@ import datetime as dt
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -421,10 +421,14 @@ async def get_project(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Bump view count for everyone except the creator.
+    # Bump view count for everyone except the creator — one atomic UPDATE
+    # instead of mutating the loaded ORM object + full-session commit.
     if project.creator_id != current_user.id:
-        project.view_count = (project.view_count or 0) + 1
         try:
+            await db.execute(
+                update(Project).where(Project.id == project.id)
+                .values(view_count=Project.view_count + 1)
+            )
             await db.commit()
         except Exception:
             await db.rollback()

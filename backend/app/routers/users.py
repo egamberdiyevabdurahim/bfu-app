@@ -716,15 +716,16 @@ async def discover(
         )
         return ranked[offset:offset + limit]
 
-    q = q.limit(limit).offset(offset)
-    result = await db.execute(q)
-    users = result.scalars().all()
-
     if skill or knowledge:
+        # The skill/knowledge tags live in a JSON column, so we filter in
+        # Python — but over a capped pool fetched BEFORE pagination, then
+        # slice. Previously the filter ran AFTER limit/offset, so a chip
+        # filter showed "No users found" while matches existed deeper.
         skill_lower = skill.lower() if skill else None
         knowledge_lower = knowledge.lower() if knowledge else None
+        pool = (await db.execute(q.limit(300))).scalars().all()
         filtered = []
-        for u in users:
+        for u in pool:
             if not u.analysis:
                 continue
             if skill_lower and skill_lower not in [s.lower() for s in (u.analysis.skills or [])]:
@@ -732,9 +733,11 @@ async def discover(
             if knowledge_lower and knowledge_lower not in [k.lower() for k in (u.analysis.knowledges or [])]:
                 continue
             filtered.append(u)
-        return filtered
+        return filtered[offset:offset + limit]
 
-    return users
+    q = q.limit(limit).offset(offset)
+    result = await db.execute(q)
+    return result.scalars().all()
 
 
 # ── Public profile ─────────────────────────────────────────────────────────────

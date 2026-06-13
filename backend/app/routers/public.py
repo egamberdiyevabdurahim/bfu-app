@@ -1,8 +1,9 @@
 """Unauthenticated landing endpoints — no JWT needed. Used by the public
 marketing site at brightfuturesuzbekistan.uz/ and /r/<id>."""
+import time
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,28 @@ from app.models.region import Region
 from app.models.user import User
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+# Landing counts change slowly but the page fetches them on every anonymous
+# visit. A tiny in-process TTL cache means the DB is hit at most once per TTL
+# regardless of traffic; Cache-Control lets Vercel/CDN/browser cache too.
+_CACHE_TTL = 120  # seconds
+_cache: dict[str, tuple[float, object]] = {}
+
+
+def _cache_get(key: str):
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < _CACHE_TTL:
+        return hit[1]
+    return None
+
+
+def _cache_put(key: str, value):
+    _cache[key] = (time.monotonic(), value)
+    return value
+
+
+def _set_cache_headers(response: Response):
+    response.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=600"
 
 
 class PublicRegion(BaseModel):
@@ -50,9 +73,13 @@ class PublicLeader(BaseModel):
 
 
 @router.get("/stats", response_model=PublicStats)
-async def public_stats(db: AsyncSession = Depends(get_db)):
+async def public_stats(response: Response, db: AsyncSession = Depends(get_db)):
     """Site-wide counts shown on the landing hero. Counts only registered,
     non-deleted users; projects must be approved + non-draft to count."""
+    _set_cache_headers(response)
+    cached = _cache_get("stats")
+    if cached is not None:
+        return cached
     members = await db.scalar(
         select(func.count(User.id)).where(
             User.is_registered == True, User.is_deleted == False
@@ -73,38 +100,51 @@ async def public_stats(db: AsyncSession = Depends(get_db)):
     regions = await db.scalar(
         select(func.count(Region.id)).where(Region.is_deleted == False)
     ) or 0
-    return PublicStats(members=members, projects=projects, regions=regions, verified=verified)
+    return _cache_put("stats", PublicStats(
+        members=members, projects=projects, regions=regions, verified=verified))
 
 
 @router.get("/regions", response_model=list[PublicRegion])
-async def list_public_regions(db: AsyncSession = Depends(get_db)):
-    """Per-region member and project counts for the landing's map + strip."""
+async def list_public_regions(response: Response, db: AsyncSession = Depends(get_db)):
+    """Per-region member and project counts for the landing's map + strip.
+    Three grouped queries total (was 1 + 2×N)."""
+    _set_cache_headers(response)
+    cached = _cache_get("regions")
+    if cached is not None:
+        return cached
+
     regs = (await db.execute(
         select(Region).where(Region.is_deleted == False).order_by(Region.id)
     )).scalars().all()
-    out = []
-    for r in regs:
-        m = await db.scalar(
-            select(func.count(User.id)).where(
-                User.region_id == r.id, User.is_registered == True, User.is_deleted == False
-            )
-        )
-        # Projects per region = projects whose creator lives in that region.
-        p = await db.scalar(
-            select(func.count(Project.id))
-            .join(User, User.id == Project.creator_id)
-            .where(
-                User.region_id == r.id,
-                Project.is_deleted == False,
-                Project.is_approved == True,
-                Project.is_draft == False,
-            )
-        )
-        out.append(PublicRegion(
+
+    # members per region — one grouped query
+    member_rows = (await db.execute(
+        select(User.region_id, func.count(User.id))
+        .where(User.is_registered == True, User.is_deleted == False,
+               User.region_id.is_not(None))
+        .group_by(User.region_id)
+    )).all()
+    members_by_region = {rid: cnt for rid, cnt in member_rows}
+
+    # projects per creator-region — one grouped query
+    proj_rows = (await db.execute(
+        select(User.region_id, func.count(Project.id))
+        .join(Project, Project.creator_id == User.id)
+        .where(Project.is_deleted == False, Project.is_approved == True,
+               Project.is_draft == False, User.region_id.is_not(None))
+        .group_by(User.region_id)
+    )).all()
+    projects_by_region = {rid: cnt for rid, cnt in proj_rows}
+
+    out = [
+        PublicRegion(
             id=r.id, name_en=r.name_en, name_uz=r.name_uz, name_ru=r.name_ru,
-            member_count=m or 0, project_count=p or 0,
-        ))
-    return out
+            member_count=members_by_region.get(r.id, 0),
+            project_count=projects_by_region.get(r.id, 0),
+        )
+        for r in regs
+    ]
+    return _cache_put("regions", out)
 
 
 @router.get("/regions/{region_id}", response_model=dict)
@@ -138,11 +178,16 @@ async def region_landing(region_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/leaderboard", response_model=list[PublicLeader])
 async def public_leaderboard(
+    response: Response,
     period: str = Query("week", pattern="^(week|month|all)$"),
     db: AsyncSession = Depends(get_db),
 ):
     """Top inviters. Public version of /users/leaderboard — privacy-safe:
     shows first-name + initial + region. Used on the landing page."""
+    _set_cache_headers(response)
+    cached = _cache_get(f"lb:{period}")
+    if cached is not None:
+        return cached
     now = datetime.utcnow()
     since = None
     if period == "week":
@@ -197,4 +242,4 @@ async def public_leaderboard(
             region=region_names.get(u.region_id) if u.region_id else None,
             invites=int(count),
         ))
-    return out
+    return _cache_put(f"lb:{period}", out)

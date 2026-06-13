@@ -7,22 +7,24 @@ const SPLINE_MAP_URL  = 'SPLINE_MAP_URL';  // swap me
 window.SPLINE_HERO_URL = SPLINE_HERO_URL;
 window.SPLINE_MAP_URL  = SPLINE_MAP_URL;
 
-const HEADLINE_WORDS = ['Where', 'young', 'Uzbekistan', 'builds', 'the', 'future.'];
-
 function HeroHeadline({ reduced }) {
+  const [lang] = useBFULang();
+  const headline = BFU_T('hero.headline');
+  const words = headline.split(/\s+/).filter(Boolean);
   const { motion } = window.FramerMotion || {};
   if (!motion) {
     return (
       <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em]">
-        Where young Uzbekistan builds the future.
+        {headline}
       </h1>
     );
   }
   return (
     <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em] text-sweep">
-      {HEADLINE_WORDS.map((w, i) => (
+      {words.map((w, i) => (
         <motion.span
-          key={`${w}-${i}`}
+          // key includes lang so the word-by-word reveal replays on switch
+          key={`${lang}-${w}-${i}`}
           initial={reduced ? false : { opacity: 0, y: 22, filter: 'blur(8px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 0.7, delay: i * 0.06, ease: [0.2, 0.7, 0.2, 1] }}
@@ -73,6 +75,7 @@ function StatTile({ value, suffix = '', label, start }) {
 }
 
 function StatTiles() {
+  useBFULang(); // re-render labels on language change
   const [ref, inView] = useInView({ threshold: 0.4 });
   const live = (window.useBFUStats && window.useBFUStats()) || null;
   // Live counts with a small safety floor so the page never looks empty before
@@ -82,9 +85,9 @@ function StatTiles() {
   const regions  = live ? live.regions  : 14;
   return (
     <div ref={ref} className="grid grid-cols-3 gap-6 sm:gap-10 max-w-[520px]">
-      <StatTile value={members}  suffix={members  >= 100 ? '+' : ''} label="Members"  start={inView} />
-      <StatTile value={projects} suffix={projects >= 50  ? '+' : ''} label="Projects" start={inView} />
-      <StatTile value={regions}                                       label="Regions"  start={inView} />
+      <StatTile value={members}  suffix={members  >= 100 ? '+' : ''} label={BFU_T('stat.members')}  start={inView} />
+      <StatTile value={projects} suffix={projects >= 50  ? '+' : ''} label={BFU_T('stat.projects')} start={inView} />
+      <StatTile value={regions}                                       label={BFU_T('stat.regions')}  start={inView} />
     </div>
   );
 }
@@ -150,6 +153,7 @@ function FloatingPhone({ reduced }) {
 }
 
 function Hero({ reduced }) {
+  useBFULang(); // re-render kicker / subhead / CTAs / chips on language change
   const splineRef = useRef(null);
   const [splineFailed, setSplineFailed] = useState(false);
   useEffect(() => {
@@ -175,27 +179,36 @@ function Hero({ reduced }) {
         <div className="grid lg:grid-cols-[1.05fr_auto] gap-12 lg:gap-8 items-center">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-[#4ECDC4] font-semibold mb-5">
-              Bright Futures Uzbekistan
+              {BFU_T('hero.kicker')}
             </div>
 
             <HeroHeadline reduced={reduced} />
 
             <p className="mt-6 max-w-[560px] text-[16px] sm:text-[18px] leading-[1.5] text-text-2">
-              Find your co-founders, your team, your next opportunity —
-              <span className="text-text-1"> inside Telegram, in your language.</span>
+              {BFU_T('hero.subhead.a')}
+              <span className="text-text-1"> {BFU_T('hero.subhead.b')}</span>
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="lg">
-                <span className="text-[16px]">🚀</span> Open in Telegram
+                <span className="text-[16px]">🚀</span> {BFU_T('cta.telegram')}
               </PrimaryCTA>
               <GhostCTA onClick={(e) => { e.preventDefault(); smoothScrollTo('#film'); }} href="#film">
-                See what's inside <span className="opacity-60">↓</span>
+                {BFU_T('cta.inside')} <span className="opacity-60">↓</span>
               </GhostCTA>
             </div>
 
             <div className="mt-8">
-              <ChipRow items={['14 regions', 'Trilingual', 'AI-matched', 'Verified members', 'Free']} delayBase={0.9} />
+              <ChipRow
+                items={[
+                  BFU_T('chip.regions'),
+                  BFU_T('chip.trilingual'),
+                  BFU_T('chip.aiMatched'),
+                  BFU_T('chip.verified'),
+                  BFU_T('chip.free'),
+                ]}
+                delayBase={0.9}
+              />
             </div>
 
             <div className="mt-12">

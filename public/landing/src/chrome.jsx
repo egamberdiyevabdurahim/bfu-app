@@ -25,16 +25,20 @@ function LogoMark({ size = 36 }) {
   );
 }
 
-function LangPills({ value, onChange }) {
-  const langs = ['EN', 'UZ', 'RU'];
+function LangPills({ className = '' }) {
+  // Real, wired language switcher. Codes are lowercase internally (en/uz/ru),
+  // shown uppercase. Backed by the i18n layer in src/i18n-landing.js.
+  const [lang, setLang] = useBFULang();
+  const langs = ['en', 'uz', 'ru'];
   return (
-    <div className="flex items-center gap-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] p-0.5">
+    <div className={`flex items-center gap-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] p-0.5 ${className}`}>
       {langs.map(l => (
         <button
           key={l}
-          onClick={() => onChange(l)}
-          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide transition ${value === l ? 'bg-white/10 text-white' : 'text-text-3 hover:text-text-1'}`}
-        >{l}</button>
+          onClick={() => setLang(l)}
+          aria-pressed={lang === l}
+          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide transition ${lang === l ? 'bg-white/10 text-white' : 'text-text-3 hover:text-text-1'}`}
+        >{l.toUpperCase()}</button>
       ))}
     </div>
   );
@@ -73,7 +77,8 @@ function GhostCTA({ children, href, onClick, className = '' }) {
 }
 
 function Topbar() {
-  const [lang, setLang] = useState('EN');
+  // Subscribe so nav labels + CTA re-render when the language changes.
+  useBFULang();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
@@ -84,10 +89,10 @@ function Topbar() {
   }, []);
 
   const nav = [
-    { label: 'Features', href: '#features' },
-    { label: 'Regions',  href: '#regions' },
-    { label: 'Events',   href: '#events' },
-    { label: 'Partners', href: '#partners' },
+    { label: BFU_T('nav.features'), href: '#features' },
+    { label: BFU_T('nav.regions'),  href: '#regions' },
+    { label: BFU_T('nav.events'),   href: '#events' },
+    { label: BFU_T('nav.partners'), href: '#partners' },
   ];
 
   return (
@@ -101,7 +106,7 @@ function Topbar() {
         <nav className="hidden lg:flex items-center gap-7 text-[13px] text-text-2">
           {nav.map(n => (
             <a
-              key={n.label}
+              key={n.href}
               href={n.href}
               onClick={(e) => { e.preventDefault(); smoothScrollTo(n.href); }}
               className="hover:text-text-1 transition relative"
@@ -110,11 +115,10 @@ function Topbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          {/* Language pills removed until the landing is fully trilingual —
-              a switcher that doesn't switch is worse than none. The Mini App
-              itself is uz/ru/en. */}
+          {/* Real, wired trilingual switcher (en / uz / ru). */}
+          <LangPills />
           <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="sm">
-            Open in Telegram <span className="opacity-90">→</span>
+            {BFU_T('cta.telegram')} <span className="opacity-90">→</span>
           </PrimaryCTA>
         </div>
 
@@ -128,14 +132,15 @@ function Topbar() {
         <div className="md:hidden border-t border-white/[0.05] bg-[#0A0A0F]/95 backdrop-blur-xl px-5 py-4 space-y-3">
           {nav.map(n => (
             <a
-              key={n.label}
+              key={n.href}
               href={n.href}
               onClick={(e) => { e.preventDefault(); smoothScrollTo(n.href); setMobileOpen(false); }}
               className="block text-text-2 text-[14px]"
             >{n.label}</a>
           ))}
-          <div className="flex items-center gap-3 pt-2">
-            <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="sm" magnetic={false}>Open in Telegram →</PrimaryCTA>
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="sm" magnetic={false}>{BFU_T('cta.telegram')} →</PrimaryCTA>
+            <LangPills />
           </div>
         </div>
       )}

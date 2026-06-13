@@ -13,6 +13,8 @@ const STRINGS = {
   "common.cancel": { en: "Cancel", uz: "Bekor qilish", ru: "Отмена" },
   "common.back": { en: "Back", uz: "Orqaga", ru: "Назад" },
   "common.previous": { en: "Previous", uz: "Oldingi", ru: "Назад" },
+  "common.loadError": { en: "Couldn't load. Check your connection.", uz: "Yuklab bo‘lmadi. Internetni tekshiring.", ru: "Не удалось загрузить. Проверьте соединение." },
+  "common.retry": { en: "Retry", uz: "Qayta urinish", ru: "Повторить" },
   "common.continue": { en: "Continue →", uz: "Davom etish →", ru: "Продолжить →" },
   "common.viewProfile": { en: "View Profile", uz: "Profilni ko‘rish", ru: "Профиль" },
   "common.yo": { en: "{n} y/o", uz: "{n} yosh", ru: "{n} лет" },

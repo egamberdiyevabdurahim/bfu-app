@@ -59,6 +59,16 @@ function MiniApp() {
     }
     users.me()
       .then(user => {
+        // Guard against a stale session leaking across Telegram account
+        // switches on a shared device: localStorage is per-client, not
+        // per-account, so a token for user A must not be trusted when a
+        // different Telegram account (B) opens the app.
+        const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+        if (tgId && user.telegram_id && Number(tgId) !== Number(user.telegram_id)) {
+          storage.clear();
+          setAuthed(false);
+          return;
+        }
         setMe(user);
         if (user.language) setLang(user.language);
         if (user.is_registered) {
@@ -68,11 +78,30 @@ function MiniApp() {
           setAuthed("register");
         }
       })
-      .catch(() => {
-        storage.clear();
-        setAuthed(false);
+      .catch((e) => {
+        // Only force re-auth on a real auth failure. A network blip / 5xx /
+        // Railway cold-start shouldn't nuke a valid session.
+        if (e?.message === "Session expired") {
+          storage.clear();
+          setAuthed(false);
+        } else {
+          setAuthed(false);
+        }
       });
   }, []);
+
+  // Keep App's `me` fresh when a child (EditProfile) saves — otherwise the
+  // denied-fields lock + banner stay stuck until the app is killed/reopened.
+  useEffect(() => {
+    const refresh = () => users.me().then(setMe).catch(() => {});
+    window.addEventListener("bfu:me-updated", refresh);
+    return () => window.removeEventListener("bfu:me-updated", refresh);
+  }, []);
+
+  const _hasStartParam = () => !!(
+    window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+    new URLSearchParams(window.location.search).get("startapp")
+  );
 
   const _parseDeepLink = (isAuthed) => {
     const startParam =
@@ -103,8 +132,13 @@ function MiniApp() {
   const handleAuthComplete = (isNewRegistration = false) => {
     setAuthed(true);
     users.me().then(setMe).catch(() => {});
-    if (deepLink) setActiveTab(deepLink.tab);
-    else if (!isNewRegistration) setActiveTab("discover");
+    // Parse + apply the start param NOW. Previously deep links were only
+    // parsed on the already-logged-in mount path, so first-time and
+    // returning-after-expiry users (exactly the ones bot re-engagement
+    // buttons target) landed on Discover and the event/project/profile
+    // link was silently dropped.
+    _parseDeepLink(true);
+    if (!isNewRegistration && !_hasStartParam()) setActiveTab("discover");
   };
 
   const deniedFields = (() => {

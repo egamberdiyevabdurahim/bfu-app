@@ -2,7 +2,14 @@
  * BFU API Client — all backend endpoints, JWT auto-refresh, dev helpers.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+// Use the configured API URL; "" means same-origin (the prod default, since
+// Vercel rewrites proxy to the backend). Only fall back to localhost in dev —
+// `??` alone would keep an empty-string prod value, but defaulting to
+// localhost in a prod build would be worse, so treat "" as same-origin.
+const _envBase = import.meta.env.VITE_API_URL;
+const BASE = _envBase !== undefined
+  ? _envBase
+  : (import.meta.env.DEV ? "http://localhost:8000" : "");
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 export const storage = {

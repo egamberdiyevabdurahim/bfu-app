@@ -85,6 +85,9 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       }
 
       if (onSaved) await onSaved();
+      // Tell App to re-fetch `me` so the denied-fields lock/banner lifts
+      // in-session once the flagged field has been corrected.
+      window.dispatchEvent(new Event("bfu:me-updated"));
       onBack();
     } catch (e) {
       tgAlert(t("ep.saveFailed", { msg: e.message }));

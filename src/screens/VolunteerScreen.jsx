@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { projects, users } from "../api";
@@ -66,49 +66,57 @@ export const VolunteerScreen = ({ deepLinkAppId }) => {
     users.me().then(setMe).catch(() => {});
   }, []);
 
+  // Bumped on every tab switch; loaders ignore their result if a newer load
+  // started, so a slow response can't overwrite the now-active tab's list.
+  const loadSeq = useRef(0);
+
   useEffect(() => {
+    const seq = ++loadSeq.current;
     setList([]); setOffset(0); setHasMore(true);
-    if (active === "browse") loadProjects(0, true);
-    else if (active === "my volunteering") loadMine();
-    else if (active === "requests") loadRequests();
+    if (active === "browse") loadProjects(0, true, seq);
+    else if (active === "my volunteering") loadMine(seq);
+    else if (active === "requests") loadRequests(seq);
   }, [active]);
 
-  const loadProjects = async (off = 0, replace = false) => {
+  const loadProjects = async (off = 0, replace = false, seq = loadSeq.current) => {
     if (off === 0) setLoading(true); else setLoadingMore(true);
     try {
       const res = await projects.list({ type: "volunteering", limit: PAGE_SIZE, offset: off });
+      if (loadSeq.current !== seq) return;
       if (replace) setList(res); else setList(prev => [...prev, ...res]);
       setOffset(off + res.length);
       setHasMore(res.length === PAGE_SIZE);
     } catch (e) {
-      tgAlert(t("board.loadFailed", { msg: e.message }));
+      if (loadSeq.current === seq) tgAlert(t("board.loadFailed", { msg: e.message }));
     }
-    setLoading(false); setLoadingMore(false);
+    if (loadSeq.current === seq) { setLoading(false); setLoadingMore(false); }
   };
 
-  const loadMine = async () => {
+  const loadMine = async (seq = loadSeq.current) => {
     setLoading(true);
-    try { 
-      const res = await projects.mine({ type: "volunteering" }); 
-      setList(res); 
-      setHasMore(false); 
+    try {
+      const res = await projects.mine({ type: "volunteering" });
+      if (loadSeq.current !== seq) return;
+      setList(res);
+      setHasMore(false);
     }
     catch (e) {
-      tgAlert(t("board.loadFailed", { msg: e.message }));
+      if (loadSeq.current === seq) tgAlert(t("board.loadFailed", { msg: e.message }));
     }
-    setLoading(false);
+    if (loadSeq.current === seq) setLoading(false);
   };
 
-  const loadRequests = async () => {
+  const loadRequests = async (seq = loadSeq.current) => {
     setReqLoading(true);
-    try { 
-      const res = await projects.myRequests({ type: "volunteering" }); 
-      setRequestsList(res); 
+    try {
+      const res = await projects.myRequests({ type: "volunteering" });
+      if (loadSeq.current !== seq) return;
+      setRequestsList(res);
     }
     catch (e) {
-      tgAlert(t("board.loadFailed", { msg: e.message }));
+      if (loadSeq.current === seq) tgAlert(t("board.loadFailed", { msg: e.message }));
     }
-    setReqLoading(false);
+    if (loadSeq.current === seq) setReqLoading(false);
   };
 
   const handleReview = async (projectId, appId, action) => {

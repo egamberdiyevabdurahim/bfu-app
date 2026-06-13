@@ -508,13 +508,16 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: "52px 24px 0", flexShrink: 0 }}>
-        {(!forceRegister || regStep > 0) && (
-          <button onClick={() => regStep === 0 ? setScreen("welcome") : setRegStep(r => r - 1)}
+        {/* Only show "Previous" past step 0. The old step-0 "Back" went to the
+            welcome screen, whose only action (dev login) is hidden in prod —
+            stranding mid-registration users until they killed the app. */}
+        {regStep > 0 && (
+          <button onClick={() => setRegStep(r => r - 1)}
             style={{ background: "none", border: "none", color: "var(--text-2)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 20 }}>
-            <Icon name="arrow_left" size={18} /> {regStep === 0 ? t("common.back") : t("common.previous")}
+            <Icon name="arrow_left" size={18} /> {t("common.previous")}
           </button>
         )}
-        {(forceRegister && regStep === 0) && <div style={{ marginBottom: 20 }} />}
+        {regStep === 0 && <div style={{ marginBottom: 20 }} />}
         <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 99, marginBottom: 6, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, var(--accent), #A78BFA)", borderRadius: 99, transition: "width 0.4s ease" }} />
         </div>

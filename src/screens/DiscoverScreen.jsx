@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Page, AvatarEl, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { users } from "../api";
@@ -12,23 +12,30 @@ export const DiscoverScreen = () => {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
+  const loadSeq = useRef(0);
 
   const filters = ["ForYou", "All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
 
   useEffect(() => { loadUsers(); }, [activeFilter, sort, verifiedOnly]);
 
   const loadUsers = async () => {
-    setLoading(true);
+    const seq = ++loadSeq.current;
+    setLoading(true); setLoadError(false);
     try {
       const q = { sort };
       if (verifiedOnly) q.verified = true;
       if (activeFilter === "ForYou") q.match = true;
       else if (activeFilter !== "All") q.skill = activeFilter.toLowerCase();
       const res = await users.discover(q);
+      if (loadSeq.current !== seq) return;  // a newer filter/sort won the race
       setPeople(res);
-    } catch (e) { }
-    setLoading(false);
+    } catch (e) {
+      // Don't masquerade a load failure as "no users" — show a retry instead.
+      if (loadSeq.current === seq) setLoadError(true);
+    }
+    if (loadSeq.current === seq) setLoading(false);
   };
 
   return (
@@ -78,6 +85,15 @@ export const DiscoverScreen = () => {
         <div style={{ padding: "0 20px 100px", display: "flex", flexDirection: "column", gap: 12 }}>
           {loading ? (
             <SkeletonList count={5} />
+          ) : loadError ? (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>
+              <div style={{ marginBottom: 12 }}>{t("common.loadError")}</div>
+              <button onClick={loadUsers} style={{
+                background: "var(--surface-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)", padding: "8px 18px", color: "var(--text)",
+                fontWeight: 600, cursor: "pointer",
+              }}>{t("common.retry")}</button>
+            </div>
           ) : people.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("discover.noUsers")}</div>
           ) : people.map((p, i) => {

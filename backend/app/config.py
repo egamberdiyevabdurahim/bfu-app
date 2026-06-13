@@ -25,10 +25,26 @@ class Settings(BaseSettings):
     ADMIN_GROUP_ID: int = 0
     DEVELOPER_GROUP_ID: int = 0
     BOT_USERNAME: str = "BrightFuturesUzbekistan_bot"
+    # Public HTTPS base of THIS backend. Used to build absolute URLs (e.g. the
+    # Story card) that Telegram must fetch over HTTPS. request.base_url is
+    # unreliable behind Railway's proxy (reports http://), so prefer this.
+    # Railway injects RAILWAY_PUBLIC_DOMAIN automatically; PUBLIC_API_URL can
+    # override it explicitly.
+    PUBLIC_API_URL: str = ""
+    RAILWAY_PUBLIC_DOMAIN: str = ""
 
     @property
     def is_dev(self) -> bool:
         return self.ENVIRONMENT == "development"
+
+    @property
+    def api_base_url(self) -> str:
+        """Absolute https base for this backend, no trailing slash."""
+        if self.PUBLIC_API_URL:
+            return self.PUBLIC_API_URL.rstrip("/")
+        if self.RAILWAY_PUBLIC_DOMAIN:
+            return f"https://{self.RAILWAY_PUBLIC_DOMAIN}"
+        return ""
 
 
 settings = Settings()

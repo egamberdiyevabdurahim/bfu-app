@@ -61,17 +61,27 @@ _PROJECT_LIST_OPTIONS = [
 
 async def _bulk_list_extras(
     db: AsyncSession, project_ids: list[int], current_user_id: int,
-) -> tuple[dict[int, int], dict[int, str]]:
-    """One grouped query for member counts, one for the caller's own
-    application statuses. Returns (member_count_by_pid, my_status_by_pid)."""
+) -> tuple[dict[int, int], dict[int, str], set[int]]:
+    """Grouped per-page aggregates for the slim list path:
+    member counts, the caller's own application statuses, and the set of
+    project ids the caller is a MEMBER of (membership is independent of
+    applications — the creator is auto-added as a member with no application).
+    Returns (member_count_by_pid, my_status_by_pid, my_member_pids)."""
     if not project_ids:
-        return {}, {}
+        return {}, {}, set()
     mc_rows = (await db.execute(
         select(ProjectMember.project_id, func.count(ProjectMember.user_id))
         .where(ProjectMember.project_id.in_(project_ids))
         .group_by(ProjectMember.project_id)
     )).all()
     member_count = {pid: cnt for pid, cnt in mc_rows}
+    my_member_rows = (await db.execute(
+        select(ProjectMember.project_id).where(
+            ProjectMember.project_id.in_(project_ids),
+            ProjectMember.user_id == current_user_id,
+        )
+    )).scalars().all()
+    my_member_pids = set(my_member_rows)
     my_rows = (await db.execute(
         select(ProjectApplication.project_id, ProjectApplication.status)
         .where(
@@ -80,7 +90,7 @@ async def _bulk_list_extras(
         )
     )).all()
     my_status = {pid: status for pid, status in my_rows}
-    return member_count, my_status
+    return member_count, my_status, my_member_pids
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -188,18 +198,16 @@ def _project_list_response(
     current_user: User | None,
     member_count: int,
     my_application_status: str | None,
+    is_member: bool = False,
     fav_set: set | None = None,
 ) -> ProjectResponse:
     """Slim card payload — no `members` list, no pending count, no past
     applications. Server-coalesces `goal` ?? `about[:200]` so frontend's
-    `goal || about` fallback keeps showing something on cards with no goal."""
-    is_member = False
+    `goal || about` fallback keeps showing something on cards with no goal.
+    `is_member` is passed in (from a membership query) because the creator is
+    a member without any application row."""
     is_fit = True
     if current_user:
-        # member fit comes from the precomputed member_count check below;
-        # we still need to know if THIS user is in it for the badge state.
-        # Cheap: my_application_status == "accepted" implies membership.
-        is_member = my_application_status == "accepted"
         if project.gender_req and project.gender_req != "Any":
             if current_user.gender != project.gender_req:
                 is_fit = False
@@ -367,12 +375,13 @@ async def list_projects(
         ]
 
     pids = [p.id for p in projects]
-    member_count_by, my_status_by = await _bulk_list_extras(db, pids, current_user.id)
+    member_count_by, my_status_by, my_member_pids = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
     return [
         _project_list_response(p, current_user,
                                member_count_by.get(p.id, 0),
                                my_status_by.get(p.id),
+                               p.id in my_member_pids,
                                fav_set)
         for p in projects
     ]
@@ -436,12 +445,13 @@ async def my_projects(
         q = q.where(Project.type == type)
     projects = (await db.execute(q)).scalars().all()
     pids = [p.id for p in projects]
-    member_count_by, my_status_by = await _bulk_list_extras(db, pids, current_user.id)
+    member_count_by, my_status_by, my_member_pids = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
     return [
         _project_list_response(p, current_user,
                                member_count_by.get(p.id, 0),
                                my_status_by.get(p.id),
+                               p.id in my_member_pids,
                                fav_set)
         for p in projects
     ]

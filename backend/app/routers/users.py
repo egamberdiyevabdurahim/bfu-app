@@ -446,9 +446,15 @@ async def my_card(
     current_user: User = Depends(get_current_user),
 ):
     """Returns the absolute, Telegram-fetchable URL of the user's Story card
-    plus their referral link (for the shareToStory widget)."""
+    plus their referral link (for the shareToStory widget).
+
+    The card_url MUST be https — Telegram's shareToStory silently refuses
+    non-https media. request.base_url reports http:// behind Railway's proxy,
+    so prefer the configured public base and force https as a last resort."""
     from app.routers.public import card_sig
-    base = str(request.base_url).rstrip("/")
+    base = settings.api_base_url or str(request.base_url).rstrip("/")
+    if base.startswith("http://"):
+        base = "https://" + base[len("http://"):]
     return {
         "card_url": f"{base}/public/card.png?u={current_user.id}&sig={card_sig(current_user.id)}",
         "ref_link": f"https://t.me/{settings.BOT_USERNAME}?startapp=ref_{current_user.id}",

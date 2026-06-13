@@ -18,6 +18,21 @@ from app.models.user_analysis import UserAnalysis
 
 logger = logging.getLogger(__name__)
 
+# Hard limits so a degraded Anthropic incident can never hang a request for
+# the SDK default of 600s (which would pin profile-save / finalize on the
+# single worker). 15s + one retry, then the keyword/None fallback kicks in.
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        import anthropic
+        _client = anthropic.AsyncAnthropic(
+            api_key=settings.ANTHROPIC_API_KEY, timeout=15.0, max_retries=1
+        )
+    return _client
+
 _SYSTEM_PROMPT = (
     "You analyze a short self-description written by a young student in "
     "Uzbek, Russian, or English. Extract structured tags. Respond with a "
@@ -104,7 +119,7 @@ async def analyze_about_async(text: str) -> dict[str, list[str]]:
         return _keyword_fallback(text)
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = _get_client()
         resp = await client.messages.create(
             model=settings.AI_MODEL,
             max_tokens=512,
@@ -134,8 +149,7 @@ async def translate_bio_async(text: str, target_lang: str) -> str | None:
     if not name:
         return None
     try:
-        import anthropic
-        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = _get_client()
         resp = await client.messages.create(
             model=settings.AI_MODEL,
             max_tokens=400,

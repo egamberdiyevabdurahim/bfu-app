@@ -580,12 +580,24 @@ async def soft_interest(
     key = (current_user.id, user_id)
     if now - _last_interest.get(key, 0.0) < 60 * 60 * 24:
         raise HTTPException(status_code=429, detail="Already pinged in the last 24h")
+    # Claim the cooldown slot BEFORE any await so a concurrent double-tap
+    # can't slip a second row + duplicate DM through the gap.
+    _last_interest[key] = now
+    # DB-level 24h guard (survives worker restarts, which wipe the dict).
+    recent = await db.scalar(
+        select(func.count(Interest.id)).where(
+            Interest.from_user_id == current_user.id,
+            Interest.to_user_id == user_id,
+            Interest.created_at >= datetime.utcnow() - timedelta(hours=24),
+        )
+    )
+    if recent:
+        raise HTTPException(status_code=429, detail="Already pinged in the last 24h")
     target = await db.get(User, user_id)
     if not target or target.is_deleted or not target.is_registered:
         raise HTTPException(status_code=404, detail="User not found")
     db.add(Interest(from_user_id=current_user.id, to_user_id=user_id))
     await db.commit()
-    _last_interest[key] = now
     if target.telegram_id:
         lang = (target.language or "en") if (target.language or "en") in _INTEREST_MSG else "en"
         # Chat button only when a t.me link exists — tg://openmessage is
@@ -628,6 +640,11 @@ async def translate_bio(
     )).scalar_one_or_none()
     if cached and cached.source_hash == h:
         return {"translated": cached.text, "cached": True}
+    # Cache miss → a billable Claude call. Gate it behind the per-caller
+    # cooldown (same as /me/analyze) so nobody can sweep user_ids × langs and
+    # drain the AI budget. Cached hits above stay unthrottled.
+    if _ai_on_cooldown(current_user.id):
+        raise HTTPException(status_code=429, detail="Please wait a moment before translating again")
     out = await translate_bio_async(target.about, lang)
     if not out:
         return {"translated": None}

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -114,6 +115,7 @@ async def toggle_user_check(
     if not user:
         raise HTTPException(404, "User not found")
     user.checked = not user.checked
+    await log_action(db, admin.id, "user.toggle_check", "user", user_id, {"checked": user.checked})
     await db.commit()
     return {"checked": user.checked}
 
@@ -133,6 +135,7 @@ async def deny_user_fields(
     user.denied_fields = json.dumps(sorted(set(body.fields)))
     user.denied_note = (body.note or "")[:500] or None
     user.checked = False
+    await log_action(db, admin.id, "user.deny", "user", user_id, {"fields": body.fields})
     await db.commit()
     if user.telegram_id:
         lang = (user.language or "en") if (user.language or "en") in _DENY_NOTIFY else "en"
@@ -158,6 +161,7 @@ async def verify_user(
     user.checked = True
     user.denied_fields = None
     user.denied_note = None
+    await log_action(db, admin.id, "user.verify", "user", user_id)
     await db.commit()
     if user.telegram_id:
         lang = (user.language or "en") if (user.language or "en") in _VERIFY_NOTIFY else "en"
@@ -188,6 +192,7 @@ async def pin_project(
     if not p:
         raise HTTPException(404, "Project not found")
     p.is_pinned = not p.is_pinned
+    await log_action(db, admin.id, "project.pin", "project", project_id, {"is_pinned": p.is_pinned})
     await db.commit()
     return {"is_pinned": p.is_pinned}
 
@@ -205,6 +210,7 @@ async def update_user_role(
     if body.role not in ("user", "admin", "super_admin"):
         raise HTTPException(400, "Invalid role")
     user.role = body.role
+    await log_action(db, super_admin.id, "user.role", "user", user_id, {"role": body.role})
     await db.commit()
     return {"role": user.role}
 
@@ -221,6 +227,7 @@ async def soft_delete_user(
     # Admin removal is a ban: without this flag /auth/telegram auto-restores
     # the user the next time they open the Mini App.
     user.banned = True
+    await log_action(db, admin.id, "user.ban", "user", user_id)
     await db.commit()
     return {"detail": "User banned"}
 
@@ -236,6 +243,7 @@ async def restore_user(
         raise HTTPException(404, "User not found")
     user.banned = False
     user.is_deleted = False
+    await log_action(db, admin.id, "user.restore", "user", user_id)
     await db.commit()
     return {"detail": "User restored"}
 
@@ -248,8 +256,24 @@ async def hard_delete_user(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    # Refuse if the user owns projects: creator_id is NOT NULL, so a bare
+    # ORM delete would try to null it and 500 with IntegrityError. Ban
+    # (soft-delete) instead, or remove their projects first.
+    owns = await db.scalar(
+        select(func.count(Project.id)).where(Project.creator_id == user_id)
+    )
+    if owns:
+        raise HTTPException(
+            409,
+            "User owns projects — ban them instead, or delete their projects first.",
+        )
+    await log_action(db, super_admin.id, "user.hard_delete", "user", user_id)
     await db.delete(user)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "User still referenced by other records; ban instead.")
     return {"detail": "User hard deleted"}
 
 class EventBody(BaseModel):
@@ -343,6 +367,7 @@ async def resolve_report(
     if not r:
         raise HTTPException(404, "Report not found")
     r.resolved = not r.resolved
+    await log_action(db, admin.id, "report.resolve", "report", report_id, {"resolved": r.resolved})
     await db.commit()
     return {"resolved": r.resolved}
 
@@ -374,6 +399,7 @@ async def approve_project(
     if not p:
         raise HTTPException(404, "Project not found")
     p.is_approved = not p.is_approved
+    await log_action(db, admin.id, "project.approve", "project", project_id, {"is_approved": p.is_approved})
     await db.commit()
     return {"is_approved": p.is_approved}
 
@@ -387,6 +413,7 @@ async def soft_delete_project(
     if not p:
         raise HTTPException(404, "Project not found")
     p.is_deleted = True
+    await log_action(db, admin.id, "project.delete", "project", project_id)
     await db.commit()
     return {"detail": "Project soft deleted"}
 
@@ -399,6 +426,7 @@ async def hard_delete_project(
     p = await db.get(Project, project_id)
     if not p:
         raise HTTPException(404, "Project not found")
+    await log_action(db, super_admin.id, "project.hard_delete", "project", project_id)
     await db.delete(p)
     await db.commit()
     return {"detail": "Project hard deleted"}

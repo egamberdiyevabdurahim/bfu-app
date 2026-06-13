@@ -3,6 +3,7 @@ import datetime as dt
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -521,7 +522,13 @@ async def apply_to_project(
 
     app = ProjectApplication(project_id=project_id, applicant_id=current_user.id, status="pending")
     db.add(app)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent double-tap raced past the in-Python check; the unique
+        # constraint caught it. Treat as the same "already applied" outcome.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Application already submitted")
     await db.refresh(app)
 
     # Notify founder via Telegram bot
@@ -572,6 +579,12 @@ async def review_application(
     if body.action not in ("accept", "decline"):
         raise HTTPException(status_code=400, detail="action must be 'accept' or 'decline'")
 
+    # Only a pending application can be decided. Without this, declining an
+    # already-accepted application flips its status to 'declined' but leaves
+    # the ProjectMember row in place (and re-sends a contradictory DM).
+    if app.status != "pending":
+        raise HTTPException(status_code=409, detail="Application already reviewed")
+
     if body.action == "accept":
         app.status = "accepted"
         # Check not already a member
@@ -614,22 +627,25 @@ async def cancel_application(
     db: AsyncSession = Depends(get_db),
 ):
     """Withdraw a pending application."""
+    # .all() (not scalar_one_or_none) so legacy duplicate rows don't raise
+    # MultipleResultsFound and 500 the withdraw forever.
     result = await db.execute(
         select(ProjectApplication).where(
             ProjectApplication.project_id == project_id,
             ProjectApplication.applicant_id == current_user.id,
         )
     )
-    app = result.scalar_one_or_none()
-    if not app:
+    apps = result.scalars().all()
+    if not apps:
         raise HTTPException(status_code=404, detail="No application found")
-    if app.status != "pending":
+    if any(a.status != "pending" for a in apps):
         # Once accepted the user is a member — they must use "leave" instead.
         raise HTTPException(
             status_code=409,
             detail="Cannot withdraw an application that was already reviewed",
         )
-    await db.delete(app)
+    for a in apps:
+        await db.delete(a)
     await db.commit()
 
 

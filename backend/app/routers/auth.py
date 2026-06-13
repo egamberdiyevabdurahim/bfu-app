@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
@@ -63,7 +64,19 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
         user.tg_username = tg_username
         db.add(user)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Telegram Mini Apps commonly fire auth twice on cold start; two
+        # concurrent first-logins both insert and the loser hits the unique
+        # telegram_id constraint. Recover by re-selecting the winner's row.
+        await db.rollback()
+        user = (await db.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )).scalar_one()
+        if user.banned:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+        is_new = False
     await db.refresh(user)
 
     return TokenResponse(

@@ -57,12 +57,12 @@ async def _nudge_abandoned(session, now: datetime) -> int:
     sent = 0
     for u in rows:
         lang = (u.language or "en") if (u.language or "en") in ABANDONED else "en"
-        try:
-            await send_telegram(u.telegram_id, ABANDONED[lang], reply_markup=_btn())
+        # Only consume the one-shot nudge if Telegram actually accepted it —
+        # send_telegram returns False on 400/403/429 instead of raising.
+        ok = await send_telegram(u.telegram_id, ABANDONED[lang], reply_markup=_btn())
+        if ok:
             u.last_nudged_at = now
             sent += 1
-        except Exception as exc:
-            log.warning("abandoned uid=%s failed: %s", u.id, exc)
         await asyncio.sleep(0.05)
     await session.commit()
     log.info("abandoned sent=%d (pool=%d)", sent, len(rows))
@@ -86,12 +86,10 @@ async def _nudge_inactive(session, now: datetime) -> int:
     sent = 0
     for u in rows:
         lang = (u.language or "en") if (u.language or "en") in INACTIVE else "en"
-        try:
-            await send_telegram(u.telegram_id, INACTIVE[lang], reply_markup=_btn())
+        ok = await send_telegram(u.telegram_id, INACTIVE[lang], reply_markup=_btn())
+        if ok:
             u.last_nudged_at = now
             sent += 1
-        except Exception as exc:
-            log.warning("inactive uid=%s failed: %s", u.id, exc)
         await asyncio.sleep(0.05)
     await session.commit()
     log.info("inactive sent=%d (pool=%d)", sent, len(rows))

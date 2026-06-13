@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -82,6 +82,9 @@ class ProjectReqKnowledge(Base):
 class ProjectApplication(Base):
     """Pending/Accepted/Declined join requests — replaces direct join."""
     __tablename__ = "project_applications"
+    __table_args__ = (
+        UniqueConstraint("project_id", "applicant_id", name="uq_application_project_applicant"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     project_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("projects.id", ondelete="CASCADE"))

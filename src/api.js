@@ -106,6 +106,7 @@ export const users = {
   unreadCount:     ()       => req("/users/me/notifications/unread-count"),
   markRead:        ()       => req("/users/me/notifications/read", { method: "POST" }),
   connections:     ()       => req("/users/me/connections"),
+  coach:           (kind, text) => req("/users/me/coach", { method: "POST", body: JSON.stringify({ kind, text }) }),
   requestIntro:    (id)     => req(`/users/${id}/intro`, { method: "POST" }),
   interest:        (id)     => req(`/users/${id}/interest`, { method: "POST" }),
   translateBio:    (id, lang) => req(`/users/${id}/bio/translate${qs({ lang })}`),

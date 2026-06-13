@@ -42,6 +42,20 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const [improvingBio, setImprovingBio] = useState(false);
+  const improveBio = async () => {
+    if (improvingBio || !form.about.trim()) return;
+    setImprovingBio(true);
+    try {
+      const r = await users.coach("bio", form.about);
+      if (r?.improved) {
+        const ok = await tgConfirm(t("coach.apply", { text: r.improved }));
+        if (ok) set("about", r.improved);
+      } else { tgAlert(t("coach.failed")); }
+    } catch (e) { tgAlert(e.message); }
+    setImprovingBio(false);
+  };
+
   const validate = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = t("ep.required");
@@ -286,7 +300,13 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
 
           {/* Bio */}
           <div>
-            <div className="section-label">{t("ep.bio")}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="section-label">{t("ep.bio")}</div>
+              <button type="button" onClick={improveBio} disabled={improvingBio || !form.about.trim()} style={{
+                background: "none", border: "none", color: "#4ECDC4", fontSize: 12, fontWeight: 700,
+                cursor: "pointer", padding: 0, opacity: improvingBio || !form.about.trim() ? 0.5 : 1,
+              }}>{improvingBio ? t("coach.thinking") : t("coach.improve")}</button>
+            </div>
             <textarea className="input-field" rows={5} value={form.about}
               onChange={e => set("about", e.target.value)}
               placeholder={t("ep.bioPh")}

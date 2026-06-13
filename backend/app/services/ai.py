@@ -243,6 +243,42 @@ async def generate_match_reason(
         return None
 
 
+_COACH_SYS = {
+    "bio": (
+        "You are a friendly writing coach for a youth networking app. Rewrite the "
+        "user's self-description to be clearer, warmer and more specific WITHOUT "
+        "inventing facts. Keep it first-person, 2-4 short sentences, in {lang}. "
+        "Reply with ONLY the improved text — no preamble, no quotes."
+    ),
+    "project": (
+        "You are a writing coach. Rewrite this project description to be crisp and "
+        "compelling for potential teammates WITHOUT inventing facts. 2-4 sentences, "
+        "in {lang}. Reply with ONLY the improved text — no preamble, no quotes."
+    ),
+}
+
+
+async def improve_text(kind: str, text: str, lang: str = "en") -> str | None:
+    """Polish a bio or project description (kind ∈ 'bio'|'project'). Returns the
+    improved text, or None on failure (caller keeps the original)."""
+    text = (text or "").strip()
+    if not text or not settings.ANTHROPIC_API_KEY:
+        return None
+    target = _ICEBREAKER_LANG.get(lang, "English")
+    sys = _COACH_SYS.get(kind, _COACH_SYS["bio"]).format(lang=target)
+    try:
+        client = _get_client()
+        resp = await client.messages.create(
+            model=settings.AI_MODEL, max_tokens=400, system=sys,
+            messages=[{"role": "user", "content": text[:2000]}],
+        )
+        out = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        return out.strip('"') or None
+    except Exception as exc:
+        logger.warning("improve_text failed: %s", exc)
+        return None
+
+
 async def analyze_and_save(db: AsyncSession, user_id: int, text: str) -> dict[str, list[str]]:
     """Run analysis and upsert into user_analyses. Returns the tag dict."""
     data = await analyze_about_async(text)

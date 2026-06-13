@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { regions, projects } from "../api";
+import { regions, projects, users } from "../api";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
@@ -30,10 +30,24 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
   const [dbRegions, setDbRegions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [polishing, setPolishing] = useState(false);
 
   useEffect(() => {
     regions.list().then(setDbRegions).catch(console.error);
   }, []);
+
+  const polishAbout = async () => {
+    if (polishing || !form.about.trim()) return;
+    setPolishing(true);
+    try {
+      const r = await users.coach("project", form.about);
+      if (r?.improved) {
+        const ok = await tgConfirm(t("coach.apply", { text: r.improved }));
+        if (ok) setForm(f => ({ ...f, about: r.improved }));
+      } else { tgAlert(t("coach.failed")); }
+    } catch (e) { tgAlert(e.message); }
+    setPolishing(false);
+  };
 
   const handleSubmit = async (asDraft = false) => {
     if (!form.name || !form.goal || !form.about) {
@@ -104,6 +118,11 @@ export const ProjectForm = ({ type, onSuccess }) => {
             <input className="input-field" placeholder={t("pf.namePh")} value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
             <input className="input-field" placeholder={t("pf.goalPh")} value={form.goal} onChange={e => setForm({...form, goal: e.target.value})} />
             <textarea className="input-field" rows={4} placeholder={t("pf.aboutPh")} style={{ resize: "none" }} value={form.about} onChange={e => setForm({...form, about: e.target.value})} />
+            <button type="button" onClick={polishAbout} disabled={polishing || !form.about.trim()} style={{
+              alignSelf: "flex-start", background: "none", border: "none", color: "#4ECDC4",
+              fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0,
+              opacity: polishing || !form.about.trim() ? 0.5 : 1,
+            }}>{polishing ? t("coach.thinking") : t("coach.improve")}</button>
           </div>
         </div>
 

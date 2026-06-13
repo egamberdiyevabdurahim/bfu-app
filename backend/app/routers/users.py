@@ -16,7 +16,7 @@ from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
-from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, translate_bio_async
+from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, send_telegram
 
@@ -207,6 +207,28 @@ async def my_connections(
         )
     )).scalars().all()
     return users
+
+
+class CoachBody(BaseModel):
+    kind: str  # "bio" | "project"
+    text: str
+
+
+@router.post("/me/coach", response_model=dict)
+async def ai_coach(
+    body: CoachBody,
+    current_user: User = Depends(get_current_user),
+):
+    """AI writing coach — polish a bio or project description draft. Returns the
+    improved text for the user to accept/edit. AI-cooldown gated."""
+    if body.kind not in ("bio", "project"):
+        raise HTTPException(status_code=400, detail="invalid kind")
+    if not (body.text or "").strip():
+        raise HTTPException(status_code=400, detail="empty text")
+    if _ai_on_cooldown(current_user.id):
+        raise HTTPException(status_code=429, detail="Please wait a moment")
+    improved = await improve_text(body.kind, body.text, current_user.language or "en")
+    return {"improved": improved}
 
 
 @router.post("/me/notifications/read", response_model=dict)

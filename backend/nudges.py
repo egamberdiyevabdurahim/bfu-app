@@ -31,7 +31,7 @@ ABANDONED = {
 }
 INACTIVE = {
     "en": "📬 BFU misses you! New projects and people have arrived this week — take a look.",
-    "uz": "📬 BFU sizni qo‘mssadi! Bu hafta yangi loyihalar va odamlar qo‘shildi — bir ko‘ring.",
+    "uz": "📬 BFU sizni sog‘indi! Bu hafta yangi loyihalar va odamlar qo‘shildi — bir ko‘ring.",
     "ru": "📬 BFU соскучился! На этой неделе появились новые проекты и люди — загляните.",
 }
 

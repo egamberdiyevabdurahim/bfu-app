@@ -337,10 +337,10 @@ async def finalize_registration(
                         User.is_deleted == False,
                     )
                 )
+                rlang = (referrer.language or "en") if (referrer.language or "en") in _REFERRAL_PAYOFF else "en"
                 await send_telegram(
                     referrer.telegram_id,
-                    f"🎁 Someone you invited just completed registration!\n"
-                    f"Your total invites: <b>{cnt or 0}</b>. Keep sharing your link!",
+                    _REFERRAL_PAYOFF[rlang].format(count=cnt or 0),
                 )
 
     # Set name tag in all groups the user belongs to
@@ -529,8 +529,14 @@ _last_interest: dict[tuple[int, int], float] = {}  # (from, to) → ts
 
 _INTEREST_MSG = {
     "en": "💜 <b>{name}</b> is interested in your profile on BFU.",
-    "uz": "💜 <b>{name}</b> sizning BFU profilingiz bilan qiziqdi.",
+    "uz": "💜 <b>{name}</b> profilingizga qiziqish bildirdi (BFU).",
     "ru": "💜 <b>{name}</b> заинтересовался(-ась) вашим профилем в BFU.",
+}
+
+_REFERRAL_PAYOFF = {
+    "en": "🎁 Someone you invited just completed registration!\nYour total invites: <b>{count}</b>. Keep sharing your link!",
+    "uz": "🎁 Siz taklif qilgan inson ro‘yxatdan o‘tdi!\nJami takliflaringiz: <b>{count}</b>. Havolangizni ulashishda davom eting!",
+    "ru": "🎁 Приглашённый вами человек завершил регистрацию!\nВсего приглашений: <b>{count}</b>. Продолжайте делиться ссылкой!",
 }
 
 

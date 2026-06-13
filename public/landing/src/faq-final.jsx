@@ -132,8 +132,7 @@ function Footer() {
                 ['Open in Telegram', 'https://t.me/BrightFuturesUzbekistan_bot'],
                 ['Regions', '#regions'],
                 ['Events', '#events'],
-                ['Privacy', '#'],
-                ['Terms', '#'],
+                ['Partners', '#partners'],
               ].map(([t, h]) => (
                 <li key={t}>
                   <a href={h} target={h.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className="text-text-2 hover:text-text-1 transition">{t}</a>

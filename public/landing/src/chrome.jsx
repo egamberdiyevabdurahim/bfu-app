@@ -110,7 +110,9 @@ function Topbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <LangPills value={lang} onChange={setLang} />
+          {/* Language pills removed until the landing is fully trilingual —
+              a switcher that doesn't switch is worse than none. The Mini App
+              itself is uz/ru/en. */}
           <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="sm">
             Open in Telegram <span className="opacity-90">→</span>
           </PrimaryCTA>
@@ -133,7 +135,6 @@ function Topbar() {
             >{n.label}</a>
           ))}
           <div className="flex items-center gap-3 pt-2">
-            <LangPills value={lang} onChange={setLang} />
             <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="sm" magnetic={false}>Open in Telegram →</PrimaryCTA>
           </div>
         </div>

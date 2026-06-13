@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE projects ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0;",
         "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT false;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_file_id VARCHAR(255);",
         # --- indexes on hot filter/FK columns (Postgres doesn't auto-index FKs) ---
         "CREATE INDEX IF NOT EXISTS ix_users_region_id ON users (region_id);",
         "CREATE INDEX IF NOT EXISTS ix_users_referred_by ON users (referred_by);",

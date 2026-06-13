@@ -32,6 +32,7 @@ class UserResponse(BaseModel):
     open_to_work: bool
     open_to_volunteering: bool
     display_name: str
+    photo_url: str | None = None
     analysis: AnalysisOut | None = None
     created_at: datetime
     role: str
@@ -70,6 +71,7 @@ class UserPublic(BaseModel):
     role: str
     checked: bool = False
     display_name: str
+    photo_url: str | None = None
     name: str | None
     surname: str | None
     gender: str | None

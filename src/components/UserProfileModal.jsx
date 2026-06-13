@@ -12,10 +12,18 @@ const TAG_COLORS = {
   goals:        { bg: "rgba(255,107,107,0.15)",  color: "#FF6B6B", label: "Goals" },
 };
 
-const Avatar = ({ name = "?", size = 64 }) => {
+const Avatar = ({ name = "?", size = 64, photoUrl = null }) => {
   const initials = (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const colors = ["#7B6FFF", "#FF6B6B", "#4ECDC4", "#FFB347", "#A78BFA", "#34D399"];
   const bg = colors[(name.charCodeAt(0) || 0) % colors.length];
+  const [failed, setFailed] = useState(false);
+  if (photoUrl && !failed) {
+    return (
+      <img src={photoUrl} alt={initials} onError={() => setFailed(true)}
+        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover",
+                 border: `3px solid ${bg}55`, flexShrink: 0 }} />
+    );
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
@@ -158,7 +166,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 48px" }}>
             {/* Header */}
             <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
-              <Avatar name={fullName || user?.display_name || "?"} size={64} />
+              <Avatar name={fullName || user?.display_name || "?"} size={64} photoUrl={user?.photo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
                   {fullName || user?.display_name}

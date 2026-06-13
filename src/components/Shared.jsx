@@ -1,11 +1,24 @@
+import { useState } from "react";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
 
-export const AvatarEl = ({ name = "?", size = 40 }) => {
+export const AvatarEl = ({ name = "?", size = 40, photoUrl = null }) => {
   const safeName = name?.trim() || "?";
   const initials = safeName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const colors = ["#7B6FFF", "#FF6B6B", "#4ECDC4", "#FFB347", "#A78BFA", "#34D399"];
   const bg = colors[(safeName.charCodeAt(0) || 0) % colors.length];
+  const [failed, setFailed] = useState(false);
+  if (photoUrl && !failed) {
+    return (
+      <img
+        src={photoUrl}
+        alt={initials}
+        onError={() => setFailed(true)}
+        className="avatar"
+        style={{ width: size, height: size, objectFit: "cover", border: `2px solid ${bg}44` }}
+      />
+    );
+  }
   return (
     <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.38, background: `${bg}22`, border: `2px solid ${bg}44`, color: bg }}>
       {initials}

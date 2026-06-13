@@ -208,7 +208,7 @@ export const SettingsScreen = () => {
           padding: "20px", marginBottom: 12,
         }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-            <AvatarEl name={user.display_name} size={60} />
+            <AvatarEl name={user.display_name} size={60} photoUrl={user.photo_url} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18 }}>
                 {[user.name, user.surname].filter(Boolean).join(" ") || user.display_name}

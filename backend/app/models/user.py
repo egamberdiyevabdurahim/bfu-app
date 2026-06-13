@@ -36,6 +36,9 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # Admin removal. Unlike is_deleted (which /auth/telegram auto-restores
     # for users who come back), banned users are refused at login.
     banned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Telegram profile-photo file_id (stable; file_path expires so we re-resolve
+    # via getFile on demand). Refreshed on each login. None = no photo / private.
+    photo_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")
@@ -47,6 +50,13 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
         name = self.name.capitalize() if self.name else ""
         initial = f"{self.surname[0].upper()}" if self.surname else ""
         return f"{name}. {initial}" if initial else name
+
+    @property
+    def photo_url(self) -> str | None:
+        """Signed avatar URL (None if no Telegram photo). Read by UserPublic
+        via from_attributes; the frontend falls back to initials on error."""
+        from app.services.signing import avatar_url
+        return avatar_url(self.id, self.photo_file_id)
 
 
 class UserLearningCenter(Base):

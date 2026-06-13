@@ -1,6 +1,5 @@
 """Unauthenticated landing endpoints — no JWT needed. Used by the public
 marketing site at brightfuturesuzbekistan.uz/ and /r/<id>."""
-import hashlib
 import hmac
 import time
 from datetime import datetime, timedelta
@@ -18,11 +17,8 @@ from app.models.region import Region
 from app.models.user import User
 
 
-def card_sig(user_id: int) -> str:
-    """Stable signature so the public card endpoint can't be enumerated for
-    arbitrary users (it still only exposes already-public profile data)."""
-    return hmac.new(settings.SECRET_KEY.encode(),
-                    f"card:{user_id}".encode(), hashlib.sha256).hexdigest()[:20]
+# Re-exported from the shared signing module (importable by ORM models too).
+from app.services.signing import avatar_sig, card_sig  # noqa: E402,F401
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -289,10 +285,35 @@ async def profile_card(
                     seen.add(k); tags.append(tg)
 
     from app.services.card import render_card_png
+    photo_bytes = None
+    if user.photo_file_id:
+        from app.services.telegram_media import download_photo
+        photo_bytes = await download_photo(user.photo_file_id)
     png = render_card_png(
         name=(user.name or "BFU member").capitalize(),
         region=region_name, age=age, gender=user.gender,
-        checked=bool(user.checked), tags=tags,
+        checked=bool(user.checked), tags=tags, photo_bytes=photo_bytes,
     )
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "public, max-age=600"})
+
+
+@router.get("/avatar")
+async def profile_avatar(
+    u: int = Query(..., description="user id"),
+    sig: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream a user's Telegram profile photo (signed, cached). 404 if none —
+    the frontend falls back to initials on error."""
+    if not hmac.compare_digest(sig, avatar_sig(u)):
+        raise HTTPException(status_code=403, detail="Bad signature")
+    user = await db.get(User, u)
+    if not user or user.is_deleted or not user.photo_file_id:
+        raise HTTPException(status_code=404, detail="No photo")
+    from app.services.telegram_media import download_photo
+    blob = await download_photo(user.photo_file_id)
+    if not blob:
+        raise HTTPException(status_code=404, detail="No photo")
+    return Response(content=blob, media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=86400"})

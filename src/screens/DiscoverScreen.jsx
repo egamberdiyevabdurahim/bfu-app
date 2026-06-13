@@ -103,7 +103,7 @@ export const DiscoverScreen = () => {
                 onClick={() => setViewingUserId(p.id)}
                 style={{ animation: `fadeUp ${0.1 + i * 0.08}s ease`, cursor: "pointer" }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <AvatarEl name={[p.name, p.surname].filter(Boolean).join(" ") || p.display_name} size={48} />
+                  <AvatarEl name={[p.name, p.surname].filter(Boolean).join(" ") || p.display_name} size={48} photoUrl={p.photo_url} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, display: "flex", alignItems: "center", gap: 5 }}>

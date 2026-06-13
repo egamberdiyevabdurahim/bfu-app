@@ -64,6 +64,17 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
         user.tg_username = tg_username
         db.add(user)
 
+    # Refresh the profile-photo file_id on login (cheap, infrequent). Best
+    # effort — never block auth on it.
+    try:
+        from app.services.telegram_media import fetch_photo_file_id
+        fid = await fetch_photo_file_id(telegram_id)
+        if fid and user.photo_file_id != fid:
+            user.photo_file_id = fid
+            db.add(user)
+    except Exception:
+        pass
+
     try:
         await db.commit()
     except IntegrityError:

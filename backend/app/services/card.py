@@ -139,11 +139,14 @@ def render_card_png(
         y += chip_h + gap
 
     # --- footer CTA ---
-    draw.text((cx, 1610), "Join me on BFU", font=_font(_SYNE, 56, 800), fill=TEXT, anchor="mm")
-    draw.text((cx, 1672), "Find your team, co-founders & opportunities",
-              font=_font(_DM, 34, 500), fill=TEXT2, anchor="mm")
-    draw.rounded_rectangle([340, 1740, 740, 1820], radius=40, fill=ACCENT)
-    draw.text((cx, 1780), "Open in Telegram →", font=_font(_DM, 36, 700), fill=(255, 255, 255), anchor="mm")
+    # The bot handle is printed ON the card so the story drives discovery even
+    # for non-Premium users (Telegram's tappable widget_link is Premium-only).
+    draw.text((cx, 1600), "Join me on BFU", font=_font(_SYNE, 56, 800), fill=TEXT, anchor="mm")
+    draw.text((cx, 1662), "Find your team, co-founders & opportunities",
+              font=_font(_DM, 32, 500), fill=TEXT2, anchor="mm")
+    draw.rounded_rectangle([200, 1730, 880, 1814], radius=42, fill=ACCENT)
+    draw.text((cx, 1772), "t.me/BrightFuturesUzbekistan_bot",
+              font=_font(_DM, 34, 700), fill=(255, 255, 255), anchor="mm")
 
     out = io.BytesIO()
     img.save(out, format="PNG", optimize=True)

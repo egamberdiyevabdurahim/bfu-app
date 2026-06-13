@@ -24,7 +24,7 @@ from app.config import settings
 from app.database import AsyncSessionLocal, engine
 from app.models.project import Project
 from app.models.user import User
-from app.services.notify import send_telegram
+from app.services.notify import esc, send_telegram
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("digest")
@@ -75,7 +75,7 @@ async def _send_for(session, user: User, since: datetime) -> None:
             Project.created_at >= since,
         ).order_by(Project.created_at.desc()).limit(3)
     )).all()
-    titles = "\n".join(f"• {row[0]}" for row in titles_rows)
+    titles = "\n".join(f"• {esc(row[0])}" for row in titles_rows)
     tpl = DIGEST_TEMPLATES.get((user.language or "en"), DIGEST_TEMPLATES["en"])
     txt = tpl.format(projects=proj_count, users=user_count, titles=titles or "")
     try:

@@ -68,7 +68,6 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         surname: form.surname.trim(),
         birth_year: parseInt(form.birth_year) || null,
         gender: form.gender || null,
-        tg_username: form.tg_username.replace("@", "") || null,
         language: form.language,
         about: form.about,
         phone_number: form.phone_number || null,
@@ -246,9 +245,12 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
             <div style={{ display: "flex", gap: 8 }}>
               <div style={{ position: "relative", flex: 1 }}>
                 <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", fontSize: 14 }}>@</span>
+                {/* Read-only: the username is verified against Telegram
+                    (login initData or the Auto button) — free editing would
+                    let users point chat links at someone else's account. */}
                 <input className="input-field" value={form.tg_username.replace("@", "")}
-                  onChange={e => set("tg_username", e.target.value.replace("@", ""))}
-                  style={{ paddingLeft: 28 }} placeholder={t("ep.tgUsernamePh")} />
+                  readOnly disabled
+                  style={{ paddingLeft: 28, opacity: 0.7 }} placeholder={t("ep.tgUsernamePh")} />
               </div>
               <button onClick={handleFetchUsername} disabled={fetchingUsername} style={{
                 background: "var(--accent-dim)", border: "1px solid var(--accent)",

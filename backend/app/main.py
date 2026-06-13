@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
 from app.routers import admin, auth, events, projects, public, regions, users
-from app.services.notify import send_telegram
+from app.services.notify import esc, send_telegram
 
 # Import all models so Base.metadata knows about every table
 import app.models  # noqa: F401
@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_draft BOOLEAN DEFAULT false;",
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0;",
             "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT false;",
         ]
         for ddl in new_columns:
             try:
@@ -153,10 +154,12 @@ async def _report_unhandled(request: Request, exc: Exception):
     except Exception:
         pass
     if settings.DEVELOPER_GROUP_ID:
+        # Tracebacks routinely contain '<' (<module>, <lambda>, object reprs);
+        # Telegram rejects unescaped angle brackets even inside <pre>.
         await send_telegram(
             settings.DEVELOPER_GROUP_ID,
-            f"🐞 <b>Unhandled error</b>\n<code>{request.method} {request.url.path}</code>\n"
-            f"<pre>{tb}</pre>",
+            f"🐞 <b>Unhandled error</b>\n<code>{esc(f'{request.method} {request.url.path}')}</code>\n"
+            f"<pre>{esc(tb)}</pre>",
         )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 

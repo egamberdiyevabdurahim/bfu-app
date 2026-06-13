@@ -42,8 +42,12 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    # tg_username and is_registered are intentionally NOT updatable here:
+    # tg_username only comes from validated initData (/auth/telegram) or the
+    # getChat-verified /me/fetch-tg-username (else users could point chat
+    # links at someone else's account); is_registered only via /me/finalize
+    # (else referral payoff + admin notify are skipped).
     language: str | None = None
-    tg_username: str | None = None
     name: str | None = None
     surname: str | None = None
     gender: str | None = None
@@ -53,7 +57,6 @@ class UserUpdate(BaseModel):
     about: str | None = None
     open_to_work: bool | None = None
     open_to_volunteering: bool | None = None
-    is_registered: bool | None = None
     school_id: int | None = None
     learning_center_ids: list[int] | None = None
     latitude: float | None = None

@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.deps import get_current_user
-from app.services.notify import send_telegram
+from app.services.notify import esc, send_telegram
 from app.database import get_db
 from app.models.project import (
     Project,
@@ -310,7 +310,7 @@ async def create_project(
     if settings.ADMIN_GROUP_ID and not project.is_draft:
         await send_telegram(
             settings.ADMIN_GROUP_ID,
-            f"🆕 <b>New {body.type}</b>: {project.name}\nby {current_user.display_name}"
+            f"🆕 <b>New {body.type}</b>: {esc(project.name)}\nby {esc(current_user.display_name)}"
             f" — awaiting approval (Admin → Projects).",
         )
 
@@ -597,7 +597,7 @@ async def review_application(
         msg = _DECISION[lang]["accepted" if app.status == "accepted" else "declined"]
         await send_telegram(
             applicant.telegram_id,
-            msg.format(p=project.name),
+            msg.format(p=esc(project.name)),
             reply_markup={"inline_keyboard": [[{
                 "text": _DECISION[lang]["btn"],
                 "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=project_{project_id}"},

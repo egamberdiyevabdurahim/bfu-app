@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { users } from "../api";
 import { useT } from "../i18n";
-import { tgAlert, tgConfirm, tgChatUrl } from "../tg";
+import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
 
 const TAG_COLORS = {
   skills:       { bg: "rgba(123,111,255,0.15)", color: "#7B6FFF", label: "Skills" },
@@ -177,12 +177,12 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 cursor: "pointer", fontFamily: "var(--font-display)",
               }}>{introSending ? t("intro.sending") : t("intro.btn")}</button>
               {tgChatUrl(user) && (
-                <a href={tgChatUrl(user)} target="_blank" rel="noopener noreferrer" style={{
+                <button onClick={() => openChat(user)} style={{
                   flex: "1 1 auto", minWidth: 100, padding: "11px", textAlign: "center",
                   background: "var(--surface-2)", border: "1px solid var(--border)",
                   borderRadius: "var(--radius-sm)", color: "var(--text)", fontWeight: 600, fontSize: 13,
-                  textDecoration: "none", fontFamily: "var(--font-display)",
-                }}>💬 {user?.tg_username ? `@${user.tg_username}` : t("intro.btn").replace("👋 ", "")}</a>
+                  cursor: "pointer", fontFamily: "var(--font-display)",
+                }}>💬 {user?.tg_username ? `@${user.tg_username}` : t("intro.btn").replace("👋 ", "")}</button>
               )}
               <button onClick={doInterest} style={{
                 padding: "11px 14px", background: "rgba(167,139,250,0.12)",

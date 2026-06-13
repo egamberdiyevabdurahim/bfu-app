@@ -32,3 +32,12 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Fail fast: with the default secret anyone can forge a super-admin JWT.
+# A missing/misnamed SECRET_KEY env var must never boot in production.
+if not settings.is_dev and settings.SECRET_KEY in ("", "change-me"):
+    raise RuntimeError(
+        "SECRET_KEY is unset or default in production. "
+        "Set a strong SECRET_KEY env var (e.g. python -c "
+        '"import secrets; print(secrets.token_urlsafe(48))").'
+    )

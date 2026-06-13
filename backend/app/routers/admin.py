@@ -7,7 +7,7 @@ from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db
 import json
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
-from app.services.notify import send_telegram
+from app.services.notify import esc, send_telegram
 from app.services.audit import log_action
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
@@ -138,7 +138,7 @@ async def deny_user_fields(
         lang = (user.language or "en") if (user.language or "en") in _DENY_NOTIFY else "en"
         await send_telegram(
             user.telegram_id,
-            _DENY_NOTIFY[lang].format(fields=", ".join(body.fields), note=user.denied_note or ""),
+            _DENY_NOTIFY[lang].format(fields=", ".join(body.fields), note=esc(user.denied_note or "")),
             reply_markup={"inline_keyboard": [[{
                 "text": "✏️ Open BFU", "web_app": {"url": settings.WEBAPP_URL},
             }]]},
@@ -218,8 +218,26 @@ async def soft_delete_user(
     if not user:
         raise HTTPException(404, "User not found")
     user.is_deleted = True
+    # Admin removal is a ban: without this flag /auth/telegram auto-restores
+    # the user the next time they open the Mini App.
+    user.banned = True
     await db.commit()
-    return {"detail": "User soft deleted"}
+    return {"detail": "User banned"}
+
+
+@router.post("/users/{user_id}/restore")
+async def restore_user(
+    user_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.banned = False
+    user.is_deleted = False
+    await db.commit()
+    return {"detail": "User restored"}
 
 @router.delete("/users/{user_id}/hard")
 async def hard_delete_user(

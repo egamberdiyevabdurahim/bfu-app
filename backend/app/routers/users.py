@@ -17,7 +17,7 @@ from app.models.user import User, UserLearningCenter, UserSchool, Report, Intere
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save, translate_bio_async
 from app.services.geo import nearest_region_id
-from app.services.notify import send_telegram
+from app.services.notify import esc, send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -159,7 +159,7 @@ async def update_me(
                 link = f"https://t.me/{settings.BOT_USERNAME}?startapp=user_{current_user.id}"
                 await send_telegram(
                     settings.ADMIN_GROUP_ID,
-                    f"✅ <b>Ready for re-review</b>: {current_user.display_name}\n{link}",
+                    f"✅ <b>Ready for re-review</b>: {esc(current_user.display_name)}\n{link}",
                 )
 
     if school_id is not None:
@@ -325,7 +325,7 @@ async def finalize_registration(
             handle = f" (@{current_user.tg_username})" if current_user.tg_username else ""
             await send_telegram(
                 settings.ADMIN_GROUP_ID,
-                f"✅ <b>New registered user</b>: {current_user.display_name}{handle}\n{link}",
+                f"✅ <b>New registered user</b>: {esc(current_user.display_name)}{esc(handle)}\n{link}",
             )
         if current_user.referred_by:
             referrer = await db.get(User, current_user.referred_by)
@@ -518,7 +518,7 @@ async def create_report(
         await send_telegram(
             settings.ADMIN_GROUP_ID,
             f"🚩 <b>Report</b>: {body.target_type} #{body.target_id}\n"
-            f"by {current_user.display_name}\n{(body.reason or '')[:300]}",
+            f"by {esc(current_user.display_name)}\n{esc((body.reason or '')[:300])}",
         )
     return {"ok": True}
 
@@ -549,18 +549,19 @@ async def request_intro(
     target = await db.get(User, user_id)
     if not target or target.is_deleted or not target.is_registered:
         raise HTTPException(status_code=404, detail="User not found")
-    txt = f"👋 <b>{current_user.display_name}</b> wants to connect with you on BFU."
+    txt = f"👋 <b>{esc(current_user.display_name)}</b> wants to connect with you on BFU."
     if current_user.about:
-        txt += f"\n\n<i>{current_user.about[:300]}</i>"
-    # Always provide a chat URL — falls back to tg://openmessage?user_id=
-    # when the requester has no @username: unlike tg://user?id=, it opens
-    # the chat directly even if the user is unknown to the clicker's client.
-    chat_url = (
-        f"https://t.me/{current_user.tg_username}"
-        if current_user.tg_username
-        else f"tg://openmessage?user_id={current_user.telegram_id}"
-    )
-    mk = {"inline_keyboard": [[{"text": "💬 Message back", "url": chat_url}]]}
+        txt += f"\n\n<i>{esc(current_user.about[:300])}</i>"
+    # "Message back" as a url button only when a t.me link exists.
+    # tg://openmessage is Android-only (dead button on iOS/Desktop), so for
+    # no-username requesters we send a web_app button to their profile —
+    # the profile sheet handles chat with platform-aware fallbacks.
+    if current_user.tg_username:
+        buttons = [{"text": "💬 Message back", "url": f"https://t.me/{current_user.tg_username}"}]
+    else:
+        buttons = [{"text": "👀 See profile", "web_app": {
+            "url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}}]
+    mk = {"inline_keyboard": [buttons]}
     if target.telegram_id:
         await send_telegram(target.telegram_id, txt, reply_markup=mk)
     return {"ok": True, "has_username": bool(current_user.tg_username)}
@@ -587,18 +588,19 @@ async def soft_interest(
     _last_interest[key] = now
     if target.telegram_id:
         lang = (target.language or "en") if (target.language or "en") in _INTEREST_MSG else "en"
-        chat_url = (
-            f"https://t.me/{current_user.tg_username}"
-            if current_user.tg_username
-            else f"tg://openmessage?user_id={current_user.telegram_id}"
-        )
+        # Chat button only when a t.me link exists — tg://openmessage is
+        # Android-only and renders a dead button on iOS/Desktop. Without a
+        # username the web_app profile button is the reliable path (the
+        # profile sheet has its own platform-aware chat affordances).
+        buttons = [
+            {"text": "👀 See profile", "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}},
+        ]
+        if current_user.tg_username:
+            buttons.append({"text": "💬 Chat", "url": f"https://t.me/{current_user.tg_username}"})
         await send_telegram(
             target.telegram_id,
-            _INTEREST_MSG[lang].format(name=current_user.display_name),
-            reply_markup={"inline_keyboard": [[
-                {"text": "👀 See profile", "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}},
-                {"text": "💬 Chat", "url": chat_url},
-            ]]},
+            _INTEREST_MSG[lang].format(name=esc(current_user.display_name)),
+            reply_markup={"inline_keyboard": [buttons]},
         )
     return {"ok": True}
 

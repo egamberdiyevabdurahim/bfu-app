@@ -49,6 +49,10 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
             tg_username=tg_username,
         )
         db.add(user)
+    elif user.banned:
+        # Admin-banned: do NOT auto-restore. Without this check a banned
+        # user is silently reinstated just by reopening the Mini App.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
     elif user.is_deleted:
         # Restore deleted user if they come back
         user.is_deleted = False
@@ -77,7 +81,11 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     user_id = int(payload["sub"])
-    result = await db.execute(select(User).where(User.id == user_id, User.is_deleted == False))
+    result = await db.execute(
+        select(User).where(
+            User.id == user_id, User.is_deleted == False, User.banned == False
+        )
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")

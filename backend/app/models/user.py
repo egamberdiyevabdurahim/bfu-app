@@ -33,6 +33,9 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_nudged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Admin removal. Unlike is_deleted (which /auth/telegram auto-restores
+    # for users who come back), banned users are refused at login.
+    banned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

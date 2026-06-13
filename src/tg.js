@@ -27,12 +27,35 @@ export function initTelegram() {
 }
 
 // Build a Telegram chat URL that works even without a @username.
-// tg://openmessage?user_id= opens the chat directly on mobile clients,
-// unlike tg://user?id= which fails when the user isn't "known" to the client.
+// tg://openmessage?user_id= opens the chat directly — but ONLY on the
+// Android client; iOS and Desktop silently ignore the scheme, so we only
+// emit it there. (tg://user?id= is worse: it fails everywhere unless the
+// target is already known to the clicker's client.)
 export function tgChatUrl(user) {
   if (user?.tg_username) return `https://t.me/${user.tg_username}`;
-  if (user?.telegram_id) return `tg://openmessage?user_id=${user.telegram_id}`;
+  const platform = wa()?.platform;
+  if (user?.telegram_id && platform === "android") {
+    return `tg://openmessage?user_id=${user.telegram_id}`;
+  }
   return null;
+}
+
+// Open a chat link safely from inside the Mini App webview.
+// Custom tg:// schemes must be navigated via location.href — window.open /
+// target=_blank on a custom scheme is unreliable in the iOS WKWebView.
+export function openChat(user) {
+  const url = tgChatUrl(user);
+  if (!url) return false;
+  if (url.startsWith("tg://")) {
+    window.location.href = url;
+    return true;
+  }
+  const w = wa();
+  if (w && typeof w.openTelegramLink === "function") {
+    try { w.openTelegramLink(url); return true; } catch { /* fall through */ }
+  }
+  window.open(url, "_blank", "noopener");
+  return true;
 }
 
 export function tgAlert(message) {

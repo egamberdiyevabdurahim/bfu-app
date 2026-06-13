@@ -2,7 +2,7 @@ import datetime as dt
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -39,6 +39,7 @@ class _ReviewBody(_BM):
 
 # ── Eager-load options ─────────────────────────────────────────────────────────
 
+# Full graph for GET /projects/{id} and after-mutation reloads.
 _PROJECT_OPTIONS = [
     selectinload(Project.members).selectinload(ProjectMember.user),
     selectinload(Project.req_regions),
@@ -46,6 +47,40 @@ _PROJECT_OPTIONS = [
     selectinload(Project.req_knowledges),
     selectinload(Project.applications),
 ]
+
+# Slim graph for LIST endpoints — drops the relationships that grow without
+# bound (members→user, applications) and that the frontend cards don't read.
+# Per-page aggregates (member_count, my_application_status) are computed via
+# two grouped subqueries instead.
+_PROJECT_LIST_OPTIONS = [
+    selectinload(Project.req_regions),
+    selectinload(Project.req_skills),
+    selectinload(Project.req_knowledges),
+]
+
+
+async def _bulk_list_extras(
+    db: AsyncSession, project_ids: list[int], current_user_id: int,
+) -> tuple[dict[int, int], dict[int, str]]:
+    """One grouped query for member counts, one for the caller's own
+    application statuses. Returns (member_count_by_pid, my_status_by_pid)."""
+    if not project_ids:
+        return {}, {}
+    mc_rows = (await db.execute(
+        select(ProjectMember.project_id, func.count(ProjectMember.user_id))
+        .where(ProjectMember.project_id.in_(project_ids))
+        .group_by(ProjectMember.project_id)
+    )).all()
+    member_count = {pid: cnt for pid, cnt in mc_rows}
+    my_rows = (await db.execute(
+        select(ProjectApplication.project_id, ProjectApplication.status)
+        .where(
+            ProjectApplication.project_id.in_(project_ids),
+            ProjectApplication.applicant_id == current_user_id,
+        )
+    )).all()
+    my_status = {pid: status for pid, status in my_rows}
+    return member_count, my_status
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -146,6 +181,67 @@ def _project_response(project: Project, current_user: User | None = None, fav_se
 async def _load_fav_set(db: AsyncSession, user_id: int) -> set[int]:
     rows = await db.execute(select(Favorite.project_id).where(Favorite.user_id == user_id))
     return set(rows.scalars().all())
+
+
+def _project_list_response(
+    project: Project,
+    current_user: User | None,
+    member_count: int,
+    my_application_status: str | None,
+    fav_set: set | None = None,
+) -> ProjectResponse:
+    """Slim card payload — no `members` list, no pending count, no past
+    applications. Server-coalesces `goal` ?? `about[:200]` so frontend's
+    `goal || about` fallback keeps showing something on cards with no goal."""
+    is_member = False
+    is_fit = True
+    if current_user:
+        # member fit comes from the precomputed member_count check below;
+        # we still need to know if THIS user is in it for the badge state.
+        # Cheap: my_application_status == "accepted" implies membership.
+        is_member = my_application_status == "accepted"
+        if project.gender_req and project.gender_req != "Any":
+            if current_user.gender != project.gender_req:
+                is_fit = False
+        if project.age_from or project.age_to:
+            if not current_user.birth_year:
+                is_fit = False
+            else:
+                age = dt.datetime.now().year - current_user.birth_year
+                if project.age_from and age < project.age_from:
+                    is_fit = False
+                if project.age_to and age > project.age_to:
+                    is_fit = False
+        if project.req_regions:
+            if current_user.region_id not in [r.region_id for r in project.req_regions]:
+                is_fit = False
+
+    computed_fields = {"is_member", "is_fit", "member_count",
+                       "my_application_status", "members",
+                       "pending_applications_count", "is_favorited", "goal", "about"}
+    orm_data = {
+        c: getattr(project, c)
+        for c in ProjectResponse.model_fields
+        if c not in computed_fields and hasattr(project, c)
+    }
+
+    # Frontend cards render `goal || about` (StartupScreen.jsx:275 et al), so
+    # coalesce on the server. `about` is dropped from the slim payload to keep
+    # the card response tight.
+    goal_text = project.goal or (project.about[:200] if project.about else None)
+
+    return ProjectResponse(
+        **orm_data,
+        goal=goal_text,
+        about=None,
+        members=[],
+        member_count=member_count,
+        pending_applications_count=0,
+        is_favorited=bool(fav_set and project.id in fav_set),
+        is_member=is_member,
+        is_fit=is_fit,
+        my_application_status=my_application_status,
+    )
 
 
 async def _reload_project(db: AsyncSession, project_id: int) -> Project:
@@ -249,7 +345,7 @@ async def list_projects(
 ):
     q = (
         select(Project)
-        .options(*_PROJECT_OPTIONS)
+        .options(*_PROJECT_LIST_OPTIONS)
         .where(
             Project.is_deleted == False,
             Project.is_approved == True,
@@ -260,10 +356,8 @@ async def list_projects(
         q = q.where(Project.type == type)
     if is_hiring is not None:
         q = q.where(Project.is_hiring == is_hiring)
-    # Pinned items first, then newest. is_pinned desc puts True (1) on top.
     q = q.order_by(Project.is_pinned.desc(), Project.created_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(q)
-    projects = result.scalars().all()
+    projects = (await db.execute(q)).scalars().all()
 
     rid = region_id or (current_user.region_id if near else None)
     if rid:
@@ -272,8 +366,16 @@ async def list_projects(
             if any(r.region_id == rid for r in p.req_regions) or not p.req_regions
         ]
 
+    pids = [p.id for p in projects]
+    member_count_by, my_status_by = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
-    return [_project_response(p, current_user, fav_set) for p in projects]
+    return [
+        _project_list_response(p, current_user,
+                               member_count_by.get(p.id, 0),
+                               my_status_by.get(p.id),
+                               fav_set)
+        for p in projects
+    ]
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -327,14 +429,22 @@ async def my_projects(
 ):
     q = (
         select(Project)
-        .options(*_PROJECT_OPTIONS)
+        .options(*_PROJECT_LIST_OPTIONS)
         .where(Project.creator_id == current_user.id, Project.is_deleted == False)
     )
     if type:
         q = q.where(Project.type == type)
-    result = await db.execute(q)
+    projects = (await db.execute(q)).scalars().all()
+    pids = [p.id for p in projects]
+    member_count_by, my_status_by = await _bulk_list_extras(db, pids, current_user.id)
     fav_set = await _load_fav_set(db, current_user.id)
-    return [_project_response(p, current_user, fav_set) for p in result.scalars().all()]
+    return [
+        _project_list_response(p, current_user,
+                               member_count_by.get(p.id, 0),
+                               my_status_by.get(p.id),
+                               fav_set)
+        for p in projects
+    ]
 
 
 @router.get("/my-requests", response_model=list[ApplicationOut])

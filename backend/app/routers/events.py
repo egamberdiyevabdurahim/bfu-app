@@ -45,7 +45,7 @@ async def list_events(
     me: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(Event).where(Event.is_deleted == False)
+    q = select(Event).where(Event.is_deleted == False, Event.is_approved == True)
     if type:
         q = q.where(Event.type == type)
     # near=true → user's region OR region-agnostic events.
@@ -75,7 +75,7 @@ async def opportunities_for_me(
 
     events = (await db.execute(
         select(Event).where(
-            Event.is_deleted == False,
+            Event.is_deleted == False, Event.is_approved == True,
             (Event.deadline.is_(None)) | (Event.deadline >= now),
         ).order_by(Event.deadline.asc().nullslast(), Event.created_at.desc()).limit(100)
     )).scalars().all()

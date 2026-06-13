@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { events } from "../api";
+import { PartnersModal } from "../components/PartnersModal";
 import { useT } from "../i18n";
 
 const TYPES = ["foryou", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
@@ -11,6 +12,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState("foryou");
+  const [partnersOpen, setPartnersOpen] = useState(false);
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
 
@@ -41,10 +43,15 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
               cursor: "pointer", color: "var(--text-2)",
             }}><Icon name="arrow_left" size={16} /></button>
           )}
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ color: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.1em" }}>{t("events.kicker")}</p>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800 }}>{t("events.title")}</h1>
           </div>
+          <button onClick={() => setPartnersOpen(true)} style={{
+            background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
+            padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
+            cursor: "pointer", color: "var(--text)", fontSize: 13, fontWeight: 600, flexShrink: 0,
+          }}><Icon name="briefcase" size={15} /> {t("partners.title")}</button>
         </div>
       </div>
 
@@ -103,6 +110,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
           </div>
         )}
       </div>
+      {partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
     </div>
   );
 };

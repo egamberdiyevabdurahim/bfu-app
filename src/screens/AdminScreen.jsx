@@ -15,6 +15,7 @@ export const AdminScreen = ({ user, onBack }) => {
   const [bcText, setBcText] = useState("");
   const [bcVerified, setBcVerified] = useState(false);
   const [bcSending, setBcSending] = useState(false);
+  const [pForm, setPForm] = useState({ name: "", about: "", website: "", logo_url: "", owner_user_id: "" });
 
   const isSuper = user.role === "super_admin";
 
@@ -58,6 +59,50 @@ export const AdminScreen = ({ user, onBack }) => {
     </div>
   );
 
+  const renderPartners = () => {
+    const partners = Array.isArray(data) ? data : [];
+    const submit = async () => {
+      if (!pForm.name.trim()) return;
+      try {
+        await admin.createPartner({
+          name: pForm.name.trim(), about: pForm.about || null, website: pForm.website || null,
+          logo_url: pForm.logo_url || null,
+          owner_user_id: pForm.owner_user_id ? parseInt(pForm.owner_user_id) : null,
+        });
+        setPForm({ name: "", about: "", website: "", logo_url: "", owner_user_id: "" });
+        loadData("Partners");
+      } catch (e) { tgAlert(e.message); }
+    };
+    return (
+      <div>
+        <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, marginBottom: 10, fontFamily: "var(--font-display)" }}>{t("admin.pt.add")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <input className="input-field" placeholder={t("admin.pt.name")} value={pForm.name} onChange={e => setPForm({ ...pForm, name: e.target.value })} />
+            <textarea className="input-field" rows={2} placeholder={t("admin.pt.about")} style={{ resize: "none" }} value={pForm.about} onChange={e => setPForm({ ...pForm, about: e.target.value })} />
+            <input className="input-field" placeholder={t("admin.pt.website")} value={pForm.website} onChange={e => setPForm({ ...pForm, website: e.target.value })} />
+            <input className="input-field" placeholder={t("admin.pt.logo")} value={pForm.logo_url} onChange={e => setPForm({ ...pForm, logo_url: e.target.value })} />
+            <input className="input-field" placeholder={t("admin.pt.owner")} value={pForm.owner_user_id} onChange={e => setPForm({ ...pForm, owner_user_id: e.target.value })} />
+            <button onClick={submit} disabled={!pForm.name.trim()} style={{ padding: 11, background: "var(--accent)", border: "none", borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, cursor: "pointer", opacity: pForm.name.trim() ? 1 : 0.6 }}>{t("admin.pt.create")}</button>
+          </div>
+        </div>
+        {partners.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("admin.pt.none")}</div>
+        ) : partners.map(p => (
+          <div key={p.id} className="card" style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700 }}>{p.name} {p.verified && <span style={{ color: "var(--accent)" }}>✓</span>}</div>
+              <div style={{ fontSize: 12, color: "var(--text-3)" }}>
+                {p.owner_user_id ? t("admin.pt.ownerN", { id: p.owner_user_id }) : t("admin.pt.noOwner")}
+              </div>
+            </div>
+            <button onClick={() => handleAction(t("admin.pt.del"), admin.deletePartner, p.id)} style={{ background: "rgba(255,107,107,0.1)", border: "1px solid rgba(255,107,107,0.25)", color: "#FF6B6B", borderRadius: "var(--radius-sm)", padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{t("admin.pt.del")}</button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const loadData = async (tab, query = "") => {
     setLoading(true);
     setData(null);
@@ -87,6 +132,9 @@ export const AdminScreen = ({ user, onBack }) => {
       } else if (tab === "Events") {
         const [evs, regs] = await Promise.all([admin.getEvents(), admin.getRegions()]);
         setData({ events: Array.isArray(evs) ? evs : [], regions: Array.isArray(regs) ? regs : [] });
+      } else if (tab === "Partners") {
+        const res = await admin.getPartners();
+        setData(Array.isArray(res) ? res : []);
       }
     } catch (e) {
       console.error("Admin load error:", e);
@@ -235,14 +283,27 @@ export const AdminScreen = ({ user, onBack }) => {
         <EventAdminForm regions={data.regions || []} onCreated={() => loadData("Events")} />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
           {data.events.map(ev => (
-            <div key={ev.id} className="card" style={{ opacity: ev.is_deleted ? 0.5 : 1 }}>
+            <div key={ev.id} className="card" style={{ opacity: ev.is_deleted ? 0.5 : 1, border: ev.is_approved === false ? "1px solid #FFB347" : undefined }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.title}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {ev.title}
+                    {ev.is_approved === false && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#FFB347", background: "rgba(255,179,71,0.15)", borderRadius: 6, padding: "2px 6px" }}>{t("admin.ev.pending")}</span>}
+                    {ev.partner_id && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--accent)", background: "var(--accent-dim)", borderRadius: 6, padding: "2px 6px" }}>{t("admin.ev.partner")}</span>}
+                  </div>
                   <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
                     {ev.type}{ev.deadline ? ` · ${new Date(ev.deadline).toLocaleDateString()}` : ""}
                   </div>
                 </div>
+                {ev.is_approved === false && !ev.is_deleted && (
+                  <button onClick={async () => {
+                    try { await admin.approveEvent(ev.id); loadData("Events"); }
+                    catch (e) { tgAlert(t("admin.actionFailed", { msg: e.message })); }
+                  }} style={{
+                    padding: "4px 10px", borderRadius: 6, background: "var(--accent)",
+                    color: "#fff", border: "none", fontSize: 12, fontWeight: 600, marginRight: 6,
+                  }}>{t("admin.ev.approve")}</button>
+                )}
                 {!ev.is_deleted && (
                   <button onClick={async () => {
                     if (!await tgConfirm(t("admin.confirm", { action: t("admin.delete") }))) return;
@@ -330,7 +391,7 @@ export const AdminScreen = ({ user, onBack }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", overflowX: "auto", padding: "12px 24px", gap: 8, flexShrink: 0, borderBottom: "1px solid var(--border)", scrollbarWidth: "none" }}>
-        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"],...(isSuper ? [["Broadcast","admin.tab.broadcast"]] : [])].map(([tab, key]) => (
+        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Partners","admin.tab.partners"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"],...(isSuper ? [["Broadcast","admin.tab.broadcast"]] : [])].map(([tab, key]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSearch(""); }} style={{
             flexShrink: 0, padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600,
             background: activeTab === tab ? "var(--accent)" : "var(--surface-2)",
@@ -352,6 +413,7 @@ export const AdminScreen = ({ user, onBack }) => {
             {activeTab === "Locations" && renderLocations()}
             {activeTab === "Reports" && renderReports()}
             {activeTab === "Events" && renderEvents()}
+            {activeTab === "Partners" && renderPartners()}
             {activeTab === "Broadcast" && renderBroadcast()}
           </>
         )}

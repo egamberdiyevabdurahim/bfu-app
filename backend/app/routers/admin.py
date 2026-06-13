@@ -14,6 +14,7 @@ from app.services.audit import log_action
 from app.models.project import Project
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
+from app.models.partner import Partner
 from datetime import datetime
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
@@ -374,6 +375,7 @@ class EventBody(BaseModel):
     cover_url: str | None = None
     deadline: datetime | None = None
     region_id: int | None = None
+    partner_id: int | None = None
 
 
 class EventOut(BaseModel):
@@ -385,14 +387,38 @@ class EventOut(BaseModel):
     cover_url: str | None = None
     deadline: datetime | None = None
     region_id: int | None = None
+    partner_id: int | None = None
+    is_approved: bool = True
     is_deleted: bool
     model_config = {"from_attributes": True}
 
 
 @router.get("/events", response_model=list[EventOut])
 async def admin_list_events(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Event).order_by(Event.id.desc()).limit(200))
+    # Pending (partner-submitted) events float to the top for the queue.
+    res = await db.execute(
+        select(Event).order_by(Event.is_approved.asc(), Event.id.desc()).limit(200)
+    )
     return res.scalars().all()
+
+
+@router.patch("/events/{event_id}/approve", response_model=EventOut)
+async def admin_approve_event(event_id: int, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    was = e.is_approved
+    e.is_approved = True
+    await log_action(db, admin.id, "event.approve", "event", event_id)
+    await db.commit(); await db.refresh(e)
+    if not was:
+        deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
+        await _broadcast_to_group(
+            f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
+            + (f"\n{esc((e.description or '')[:200])}" if e.description else "") + deadline,
+            f"event_{e.id}",
+        )
+    return e
 
 
 @router.post("/events", response_model=EventOut, status_code=status.HTTP_201_CREATED)
@@ -403,6 +429,7 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         type=body.type, title=body.title.strip(), description=body.description,
         link=body.link, cover_url=body.cover_url, deadline=body.deadline,
         region_id=body.region_id, created_by=admin.id,
+        partner_id=body.partner_id, is_approved=True,
     )
     db.add(e); await db.commit(); await db.refresh(e)
     # Announce the new event to the global group with a deep link.
@@ -414,6 +441,76 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         f"event_{e.id}",
     )
     return e
+
+
+# ── Partner organisations ─────────────────────────────────────────────────────
+
+class PartnerBody(BaseModel):
+    name: str
+    about: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    region_id: int | None = None
+    owner_user_id: int | None = None
+    verified: bool = True
+
+
+class PartnerOut(BaseModel):
+    id: int
+    name: str
+    about: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    region_id: int | None = None
+    owner_user_id: int | None = None
+    verified: bool
+    is_deleted: bool
+    model_config = {"from_attributes": True}
+
+
+@router.get("/partners", response_model=list[PartnerOut])
+async def admin_list_partners(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(
+        select(Partner).where(Partner.is_deleted == False).order_by(Partner.id.desc())
+    )
+    return res.scalars().all()
+
+
+@router.post("/partners", response_model=PartnerOut, status_code=status.HTTP_201_CREATED)
+async def admin_create_partner(body: PartnerBody, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    if not body.name.strip():
+        raise HTTPException(400, "Name required")
+    p = Partner(
+        name=body.name.strip(), about=body.about, website=body.website,
+        logo_url=body.logo_url, region_id=body.region_id,
+        owner_user_id=body.owner_user_id, verified=body.verified,
+    )
+    db.add(p)
+    await log_action(db, admin.id, "partner.create", "partner", None, {"name": body.name})
+    await db.commit(); await db.refresh(p)
+    return p
+
+
+@router.patch("/partners/{partner_id}", response_model=PartnerOut)
+async def admin_update_partner(partner_id: int, body: PartnerBody, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    p = await db.get(Partner, partner_id)
+    if not p or p.is_deleted:
+        raise HTTPException(404, "Partner not found")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(p, k, v)
+    await db.commit(); await db.refresh(p)
+    return p
+
+
+@router.delete("/partners/{partner_id}")
+async def admin_delete_partner(partner_id: int, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+    p = await db.get(Partner, partner_id)
+    if not p:
+        raise HTTPException(404, "Partner not found")
+    p.is_deleted = True
+    await log_action(db, admin.id, "partner.delete", "partner", partner_id)
+    await db.commit()
+    return {"detail": "Partner deleted"}
 
 
 @router.patch("/events/{event_id}", response_model=EventOut)

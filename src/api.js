@@ -145,6 +145,13 @@ export const events = {
   forMe: () => req("/events/for-me"),
 };
 
+export const partners = {
+  list:    ()  => req("/partners"),
+  mine:    ()  => req("/partners/mine"),
+  profile: (id) => req(`/partners/${id}`),
+  submit:  (d) => req("/partners/mine/opportunity", { method: "POST", body: JSON.stringify(d) }),
+};
+
 // ── Region endpoints ──────────────────────────────────────────────────────────
 export const regions = {
   list:    ()   => req("/regions"),
@@ -179,7 +186,12 @@ export const admin = {
   getEvents:         ()       => req("/admin/events"),
   createEvent:       (d)      => req("/admin/events", { method: "POST", body: JSON.stringify(d) }),
   updateEvent:       (id, d)  => req(`/admin/events/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
+  approveEvent:      (id)     => req(`/admin/events/${id}/approve`, { method: "PATCH" }),
   deleteEvent:       (id)     => req(`/admin/events/${id}`, { method: "DELETE" }),
+  getPartners:       ()       => req("/admin/partners"),
+  createPartner:     (d)      => req("/admin/partners", { method: "POST", body: JSON.stringify(d) }),
+  updatePartner:     (id, d)  => req(`/admin/partners/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
+  deletePartner:     (id)     => req(`/admin/partners/${id}`, { method: "DELETE" }),
   getRegions:        ()       => req("/admin/regions"),
   getSchools:        ()       => req("/admin/schools"),
   createSchool:      (d)      => req("/admin/schools", { method: "POST", body: JSON.stringify(d) }),

@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
-from app.routers import admin, auth, events, projects, public, regions, search, users
+from app.routers import admin, auth, events, partners, projects, public, regions, search, users
 from app.services.notify import esc, send_telegram
 
 # Import all models so Base.metadata knows about every table
@@ -70,6 +70,10 @@ async def lifespan(app: FastAPI):
         # notifications inbox indexes (table itself created by create_all)
         "CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications (user_id);",
         "CREATE INDEX IF NOT EXISTS ix_notifications_unread ON notifications (user_id, is_read);",
+        # partner orgs + event moderation
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS partner_id BIGINT;",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT true;",
+        "CREATE INDEX IF NOT EXISTS ix_events_partner_id ON events (partner_id);",
         # --- indexes on hot filter/FK columns (Postgres doesn't auto-index FKs) ---
         "CREATE INDEX IF NOT EXISTS ix_users_region_id ON users (region_id);",
         "CREATE INDEX IF NOT EXISTS ix_users_referred_by ON users (referred_by);",
@@ -150,6 +154,7 @@ app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(regions.router)
 app.include_router(events.router)
+app.include_router(partners.router)
 app.include_router(public.router)
 app.include_router(search.router)
 app.include_router(admin.router)

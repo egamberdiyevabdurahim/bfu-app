@@ -28,8 +28,9 @@ _last_ai: dict[int, float] = {}
 
 def _ai_on_cooldown(uid: int) -> bool:
     now = time.monotonic()
-    last = _last_ai.get(uid, 0.0)
-    if now - last < _AI_COOLDOWN_S:
+    last = _last_ai.get(uid)  # None = never → not on cooldown (don't compare
+    # against a 0.0 sentinel, which is < now and falsely trips right after boot)
+    if last is not None and now - last < _AI_COOLDOWN_S:
         return True
     _last_ai[uid] = now
     return False
@@ -598,7 +599,8 @@ async def request_intro(
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot intro yourself")
     now = time.monotonic()
-    if now - _last_intro.get(current_user.id, 0.0) < 30:
+    _li = _last_intro.get(current_user.id)
+    if _li is not None and now - _li < 30:
         raise HTTPException(status_code=429, detail="Please wait before sending another intro")
     _last_intro[current_user.id] = now
     target = await db.get(User, user_id)
@@ -633,12 +635,15 @@ async def soft_interest(
         raise HTTPException(status_code=400, detail="Cannot mark yourself")
     now = time.monotonic()
     key = (current_user.id, user_id)
-    if now - _last_interest.get(key, 0.0) < 60 * 60 * 24:
+    # In-process gate (None = never; do NOT use a 0.0 sentinel, which is < now
+    # and would falsely 429 the first-ever ping while the worker is up <24h).
+    # Claimed synchronously BEFORE any await so a concurrent double-tap can't
+    # slip a second row + duplicate DM through.
+    last = _last_interest.get(key)
+    if last is not None and now - last < 60 * 60 * 24:
         raise HTTPException(status_code=429, detail="Already pinged in the last 24h")
-    # Claim the cooldown slot BEFORE any await so a concurrent double-tap
-    # can't slip a second row + duplicate DM through the gap.
     _last_interest[key] = now
-    # DB-level 24h guard (survives worker restarts, which wipe the dict).
+    # Authoritative 24h guard via the DB (survives worker restarts).
     recent = await db.scalar(
         select(func.count(Interest.id)).where(
             Interest.from_user_id == current_user.id,

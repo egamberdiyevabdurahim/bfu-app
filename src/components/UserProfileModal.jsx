@@ -45,12 +45,30 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [introSending, setIntroSending] = useState(false);
   const [translated, setTranslated] = useState(null);
   const [translating, setTranslating] = useState(false);
+  const [openers, setOpeners] = useState(null);
+  const [loadingOpeners, setLoadingOpeners] = useState(false);
+
+  const doIcebreakers = async () => {
+    if (!user || loadingOpeners) return;
+    if (openers) { setOpeners(null); return; }
+    setLoadingOpeners(true);
+    try {
+      const r = await users.icebreakers(user.id, lang);
+      setOpeners(r?.icebreakers?.length ? r.icebreakers : []);
+    } catch (e) { tgAlert(e.message); }
+    setLoadingOpeners(false);
+  };
+
+  const copyOpener = async (text) => {
+    try { await navigator.clipboard?.writeText(text); tgAlert(t("ice.copied")); }
+    catch { tgAlert(text); }
+  };
 
   const doInterest = async () => {
     if (!user) return;
     try {
-      await users.interest(user.id);
-      tgAlert(t("interest.sent"));
+      const r = await users.interest(user.id);
+      tgAlert(r?.mutual ? t("interest.matched") : t("interest.sent"));
     } catch (e) { tgAlert(e.message); }
   };
 
@@ -194,6 +212,30 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",
                 color: "#FF6B6B", fontWeight: 600, fontSize: 13, cursor: "pointer",
               }}>{t("report.btn")}</button>
+            </div>
+
+            {/* AI icebreakers — kills the blank-message freeze before chatting */}
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={doIcebreakers} disabled={loadingOpeners} style={{
+                width: "100%", padding: "10px", background: "rgba(78,205,196,0.1)",
+                border: "1px solid rgba(78,205,196,0.3)", borderRadius: "var(--radius-sm)",
+                color: "#4ECDC4", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>
+                {loadingOpeners ? t("ice.thinking") : openers ? t("ice.hide") : t("ice.btn")}
+              </button>
+              {openers && (
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {openers.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "var(--text-3)", textAlign: "center" }}>{t("ice.none")}</div>
+                  ) : openers.map((o, i) => (
+                    <button key={i} onClick={() => copyOpener(o)} style={{
+                      textAlign: "left", padding: "10px 12px", background: "var(--surface-2)",
+                      border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                      color: "var(--text)", fontSize: 13, lineHeight: 1.5, cursor: "pointer",
+                    }}>{o} <span style={{ color: "var(--text-3)", fontSize: 11 }}>· {t("ice.tapCopy")}</span></button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Intentions */}

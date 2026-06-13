@@ -20,6 +20,20 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+
+async def _broadcast_to_group(text: str, start_param: str) -> None:
+    """Post a card with a deep-link button into the global Telegram group.
+    Approval/new-event become distribution: the app feeds the groups, the
+    groups feed the app. Best-effort — never raises into the request."""
+    if not settings.TG_GLOBAL_GROUP_ID:
+        return
+    url = f"https://t.me/{settings.BOT_USERNAME}?startapp={start_param}"
+    await send_telegram(
+        settings.TG_GLOBAL_GROUP_ID, text,
+        reply_markup={"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]},
+    )
+
+
 class StatsOut(BaseModel):
     users: int
     projects: int
@@ -315,6 +329,14 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         region_id=body.region_id, created_by=admin.id,
     )
     db.add(e); await db.commit(); await db.refresh(e)
+    # Announce the new event to the global group with a deep link.
+    deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
+    await _broadcast_to_group(
+        f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
+        + (f"\n{esc((e.description or '')[:200])}" if e.description else "")
+        + deadline,
+        f"event_{e.id}",
+    )
     return e
 
 
@@ -398,9 +420,18 @@ async def approve_project(
     p = await db.get(Project, project_id)
     if not p:
         raise HTTPException(404, "Project not found")
+    was_approved = p.is_approved
     p.is_approved = not p.is_approved
     await log_action(db, admin.id, "project.approve", "project", project_id, {"is_approved": p.is_approved})
     await db.commit()
+    # On first approval, announce it to the global group with a deep link.
+    if p.is_approved and not was_approved:
+        kind = "Startup" if p.type == "startup" else "Volunteer project"
+        await _broadcast_to_group(
+            f"✨ <b>New {kind}</b>\n<b>{esc(p.name)}</b>"
+            + (f"\n{esc((p.goal or '')[:160])}" if p.goal else ""),
+            f"project_{p.id}",
+        )
     return {"is_approved": p.is_approved}
 
 @router.delete("/projects/{project_id}")

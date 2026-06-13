@@ -15,7 +15,7 @@ from app.database import get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
-from app.services.ai import analyze_and_save, translate_bio_async
+from app.services.ai import analyze_and_save, generate_icebreakers, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, send_telegram
 
@@ -539,6 +539,23 @@ _REFERRAL_PAYOFF = {
     "ru": "🎁 Приглашённый вами человек завершил регистрацию!\nВсего приглашений: <b>{count}</b>. Продолжайте делиться ссылкой!",
 }
 
+# Fired to BOTH users when interest is reciprocated.
+_MUTUAL_MSG = {
+    "en": "🎉 <b>It's a match!</b>\nYou and <b>{name}</b> are both interested. Say hi 👋",
+    "uz": "🎉 <b>Mos keldingiz!</b>\nSiz va <b>{name}</b> bir-biringizga qiziqdingiz. Salom yozing 👋",
+    "ru": "🎉 <b>Взаимный интерес!</b>\nВы и <b>{name}</b> заинтересованы друг в друге. Напишите 👋",
+}
+
+
+def _connect_buttons(other: User) -> dict:
+    """Inline keyboard to reach `other`: a web_app profile button (always
+    works) plus a t.me chat button when they have a @username."""
+    btns = [{"text": "👀 See profile",
+             "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=user_{other.id}"}}]
+    if other.tg_username:
+        btns.append({"text": "💬 Chat", "url": f"https://t.me/{other.tg_username}"})
+    return {"inline_keyboard": [btns]}
+
 
 @router.post("/{user_id}/intro", response_model=dict)
 async def request_intro(
@@ -604,23 +621,39 @@ async def soft_interest(
         raise HTTPException(status_code=404, detail="User not found")
     db.add(Interest(from_user_id=current_user.id, to_user_id=user_id))
     await db.commit()
-    if target.telegram_id:
+
+    # Mutual? Did the target ever express interest in the current user?
+    mutual = bool(await db.scalar(
+        select(func.count(Interest.id)).where(
+            Interest.from_user_id == user_id,
+            Interest.to_user_id == current_user.id,
+        )
+    ))
+
+    if mutual:
+        # Celebrate to BOTH sides — this is the conversation-starting moment.
+        if target.telegram_id:
+            tl = (target.language or "en") if (target.language or "en") in _MUTUAL_MSG else "en"
+            await send_telegram(
+                target.telegram_id,
+                _MUTUAL_MSG[tl].format(name=esc(current_user.display_name)),
+                reply_markup=_connect_buttons(current_user),
+            )
+        if current_user.telegram_id:
+            cl = (current_user.language or "en") if (current_user.language or "en") in _MUTUAL_MSG else "en"
+            await send_telegram(
+                current_user.telegram_id,
+                _MUTUAL_MSG[cl].format(name=esc(target.display_name)),
+                reply_markup=_connect_buttons(target),
+            )
+    elif target.telegram_id:
         lang = (target.language or "en") if (target.language or "en") in _INTEREST_MSG else "en"
-        # Chat button only when a t.me link exists — tg://openmessage is
-        # Android-only and renders a dead button on iOS/Desktop. Without a
-        # username the web_app profile button is the reliable path (the
-        # profile sheet has its own platform-aware chat affordances).
-        buttons = [
-            {"text": "👀 See profile", "web_app": {"url": f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}"}},
-        ]
-        if current_user.tg_username:
-            buttons.append({"text": "💬 Chat", "url": f"https://t.me/{current_user.tg_username}"})
         await send_telegram(
             target.telegram_id,
             _INTEREST_MSG[lang].format(name=esc(current_user.display_name)),
-            reply_markup={"inline_keyboard": [buttons]},
+            reply_markup=_connect_buttons(current_user),
         )
-    return {"ok": True}
+    return {"ok": True, "mutual": mutual}
 
 
 @router.get("/{user_id}/bio/translate", response_model=dict)
@@ -662,6 +695,45 @@ async def translate_bio(
         db.add(BioTranslation(user_id=user_id, lang=lang, source_hash=h, text=out))
     await db.commit()
     return {"translated": out, "cached": False}
+
+
+def _flat_tags(analysis) -> list[str]:
+    if not analysis:
+        return []
+    out: list[str] = []
+    for c in ("skills", "knowledges", "interests", "preparations", "goals"):
+        out.extend(getattr(analysis, c, None) or [])
+    return out
+
+
+@router.get("/{user_id}/icebreakers", response_model=dict)
+async def icebreakers(
+    user_id: int,
+    lang: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """2-3 Claude-written openers grounded in shared interests, to kill the
+    blank-message freeze before opening a chat. Gated by the AI cooldown."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot icebreak yourself")
+    use_lang = lang if lang in {"en", "uz", "ru"} else (current_user.language or "en")
+    target = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    me = (await db.execute(
+        select(User).options(selectinload(User.analysis)).where(User.id == current_user.id)
+    )).scalar_one()
+    if _ai_on_cooldown(current_user.id):
+        raise HTTPException(status_code=429, detail="Please wait a moment")
+    lines = await generate_icebreakers(
+        _flat_tags(me.analysis), _flat_tags(target.analysis),
+        target.display_name, use_lang,
+    )
+    return {"icebreakers": lines}
 
 
 # ── Discover ───────────────────────────────────────────────────────────────────

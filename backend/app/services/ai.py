@@ -166,6 +166,50 @@ async def translate_bio_async(text: str, target_lang: str) -> str | None:
         return None
 
 
+_ICEBREAKER_LANG = {"en": "English", "uz": "Uzbek (Latin script)", "ru": "Russian"}
+
+
+async def generate_icebreakers(
+    my_tags: list[str], their_tags: list[str], their_name: str, lang: str = "en"
+) -> list[str]:
+    """2–3 short opener messages grounded in shared/related interests, written
+    in `lang` from the viewer's POV. Returns [] on any failure (caller hides
+    the feature). Kills the blank-message freeze that stalls intros."""
+    target = _ICEBREAKER_LANG.get(lang, "English")
+    if not settings.ANTHROPIC_API_KEY:
+        return []
+    shared = sorted(set(t.lower() for t in my_tags) & set(t.lower() for t in their_tags))
+    context = (
+        f"You are: {', '.join(my_tags[:15]) or 'a BFU member'}.\n"
+        f"They ({their_name}) are: {', '.join(their_tags[:15]) or 'a BFU member'}.\n"
+        f"Shared: {', '.join(shared) or 'none obvious'}."
+    )
+    try:
+        client = _get_client()
+        resp = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=300,
+            system=(
+                f"Write 2-3 short, warm, specific opening messages in {target} that "
+                f"a young person could send to start a conversation, grounded in the "
+                f"shared/related interests below. Each under 18 words, friendly, no "
+                f"emojis-only lines. Reply as a JSON array of strings, nothing else."
+            ),
+            messages=[{"role": "user", "content": context}],
+        )
+        raw = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            if raw.lower().startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        data = json.loads(raw)
+        return [str(x).strip() for x in data if str(x).strip()][:3] if isinstance(data, list) else []
+    except Exception as exc:
+        logger.warning("icebreakers failed: %s", exc)
+        return []
+
+
 async def analyze_and_save(db: AsyncSession, user_id: int, text: str) -> dict[str, list[str]]:
     """Run analysis and upsert into user_analyses. Returns the tag dict."""
     data = await analyze_about_async(text)

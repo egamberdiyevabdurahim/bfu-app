@@ -140,6 +140,7 @@ export const projects = {
 // ── Events ────────────────────────────────────────────────────────────────────
 export const events = {
   list: (p = {}) => req(`/events${qs(p)}`),
+  forMe: () => req("/events/for-me"),
 };
 
 // ── Region endpoints ──────────────────────────────────────────────────────────

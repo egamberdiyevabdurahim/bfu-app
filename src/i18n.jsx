@@ -460,6 +460,8 @@ const STRINGS = {
   "events.type.meetup": { en: "Meetup", uz: "Uchrashuv", ru: "Встреча" },
   "events.type.other": { en: "Event", uz: "Tadbir", ru: "Мероприятие" },
   "events.filterAll": { en: "All", uz: "Hammasi", ru: "Все" },
+  "events.foryou": { en: "✨ For You", uz: "✨ Siz uchun", ru: "✨ Для вас" },
+  "events.matches": { en: "Matches your: {tags}", uz: "Sizga mos: {tags}", ru: "Подходит вам: {tags}" },
 
   "settings.events": { en: "📅 Events", uz: "📅 Tadbirlar", ru: "📅 Мероприятия" },
 

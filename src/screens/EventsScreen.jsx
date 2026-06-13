@@ -4,21 +4,22 @@ import { Icon } from "../components/Icons";
 import { events } from "../api";
 import { useT } from "../i18n";
 
-const TYPES = ["all", "hackathon", "grant", "scholarship", "meetup", "other"];
+const TYPES = ["foryou", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
 export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null }) => {
   const { t } = useT();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState("all");
+  const [type, setType] = useState("foryou");
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const q = type === "all" ? {} : { type };
-      const res = await events.list(q);
+      let res;
+      if (type === "foryou") res = await events.forMe();      // Opportunity Radar
+      else res = await events.list(type === "all" ? {} : { type });
       setList(Array.isArray(res) ? res : []);
     } catch (e) { setList([]); }
     setLoading(false);
@@ -54,7 +55,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
             background: type === ty ? "var(--accent)" : "var(--surface-2)",
             color: type === ty ? "#fff" : "var(--text-2)",
             border: type === ty ? "none" : "1px solid var(--border)", cursor: "pointer",
-          }}>{ty === "all" ? t("events.filterAll") : t(`events.type.${ty}`)}</button>
+          }}>{ty === "all" ? t("events.filterAll") : ty === "foryou" ? t("events.foryou") : t(`events.type.${ty}`)}</button>
         ))}
       </div>
 
@@ -84,6 +85,11 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
                   )}
                 </div>
                 <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{ev.title}</h3>
+                {ev.matched?.length > 0 && (
+                  <div style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 600, marginBottom: 6 }}>
+                    ✨ {t("events.matches", { tags: ev.matched.join(", ") })}
+                  </div>
+                )}
                 {ev.description && (
                   <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, marginBottom: 8 }}>{ev.description}</p>
                 )}

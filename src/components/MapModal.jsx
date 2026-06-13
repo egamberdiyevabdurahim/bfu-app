@@ -2,48 +2,56 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { users } from "../api";
 import { useT } from "../i18n";
+import { UZ_REGIONS, UZ_VIEWBOX } from "./uzGeo";
 
-// Stylized region coordinates (880×460 viewBox) — shared with the landing map.
-const REGION_LAYOUT = [
-  { name: "Karakalpakstan", x: 165, y: 165, m: ["karakalpak"] },
-  { name: "Khorezm", x: 235, y: 215, m: ["khorezm", "xorazm"] },
-  { name: "Navoiy", x: 360, y: 240, m: ["navoiy", "navoi"] },
-  { name: "Bukhara", x: 380, y: 290, m: ["bukhara", "buxoro"] },
-  { name: "Qashqadaryo", x: 470, y: 320, m: ["qashqa", "kashka"] },
-  { name: "Surxondaryo", x: 530, y: 360, m: ["surxon", "surkhan"] },
-  { name: "Samarqand", x: 510, y: 270, m: ["samar"] },
-  { name: "Jizzax", x: 565, y: 240, m: ["jizz", "jizak"] },
-  { name: "Sirdaryo", x: 605, y: 235, m: ["sirdar", "syrdar"] },
-  { name: "Tashkent region", x: 660, y: 215, m: ["tashkent region", "toshkent region"] },
-  { name: "Tashkent city", x: 690, y: 200, m: ["tashkent city", "toshkent city", "toshkent shahri"], cap: true },
-  { name: "Namangan", x: 740, y: 215, m: ["namangan"] },
-  { name: "Fergana", x: 770, y: 245, m: ["fergana", "farg"] },
-  { name: "Andijon", x: 805, y: 230, m: ["andijon", "andijan"] },
-];
-
-const UZ_PATH = `M 95 155 C 130 110, 200 95, 260 130 C 310 155, 360 145, 410 170 C 460 195, 510 175, 570 195 C 620 210, 660 195, 690 180 C 715 167, 740 175, 780 195 C 815 215, 840 235, 825 265 C 815 285, 790 290, 760 280 C 730 270, 705 285, 685 270 C 660 250, 625 255, 590 245 C 555 235, 520 280, 490 305 C 460 330, 425 340, 405 320 C 385 300, 365 305, 350 295 C 330 280, 300 285, 275 270 C 250 255, 215 265, 190 250 C 160 235, 135 230, 115 215 C 95 200, 85 180, 95 155 Z`;
+// Fragments to match a geo region (ADM1_EN) to a /public/regions row (name_en).
+const FRAGMENTS = {
+  "Republic of Karakalpakstan": ["karakalpak"],
+  "Khorezm region": ["khorezm", "xorazm"],
+  "Navoi region": ["navoi"],
+  "Bukhara region": ["bukhara", "buxoro"],
+  "Kashkadarya province": ["qashqa", "kashka"],
+  "Surkhandarya region": ["surkhan", "surxon"],
+  "Samarkand region": ["samar"],
+  "Jizzakh region": ["jizz", "jizak"],
+  "Syrdarya region": ["sirdar", "syrdar"],
+  "Tashkent region": ["tashkent region", "toshkent region", "tashkent reg"],
+  "Tashkent city": ["tashkent city", "toshkent city", "toshkent shahri"],
+  "Namangan region": ["namangan"],
+  "Fergana region": ["fergana", "farg"],
+  "Andijan region": ["andijan", "andijon"],
+};
 
 export const MapModal = ({ onClose }) => {
   const { t, lang } = useT();
   const [live, setLive] = useState(null);
   const [sel, setSel] = useState(null);
 
-  useEffect(() => {
-    users.regionsPublic().then(setLive).catch(() => setLive([]));
-  }, []);
+  useEffect(() => { users.regionsPublic().then(setLive).catch(() => setLive([])); }, []);
 
-  const regions = REGION_LAYOUT.map(r => {
+  const rows = UZ_REGIONS.map(g => {
     let hit = null;
     if (Array.isArray(live)) {
-      for (const frag of r.m) {
-        hit = live.find(x => (x.name_en || "").toLowerCase().includes(frag));
+      const frags = FRAGMENTS[g.en] || [g.en.toLowerCase()];
+      for (const f of frags) {
+        hit = live.find(x => (x.name_en || "").toLowerCase().includes(f));
         if (hit) break;
       }
     }
-    return { ...r, members: hit?.member_count || 0, projects: hit?.project_count || 0,
-             label: hit ? (hit[`name_${lang}`] || hit.name_en) : r.name };
+    return {
+      ...g,
+      members: hit?.member_count || 0,
+      projects: hit?.project_count || 0,
+      label: g[lang] || g.en,
+    };
   });
-  const maxM = Math.max(1, ...regions.map(r => r.members));
+  const maxM = Math.max(1, ...rows.map(r => r.members));
+
+  const fill = (m, active) => {
+    const ratio = m / maxM;                       // 0..1
+    const a = 0.12 + ratio * 0.72;                // opacity ramp
+    return active ? "rgba(78,205,196,0.95)" : `rgba(123,111,255,${a.toFixed(3)})`;
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
@@ -58,23 +66,16 @@ export const MapModal = ({ onClose }) => {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", background: "linear-gradient(135deg,#13131A,#0c0c14)", border: "1px solid var(--border)" }}>
-          <svg viewBox="0 0 880 460" style={{ width: "100%", height: "auto" }}>
-            <defs>
-              <radialGradient id="pinG" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.55" />
-                <stop offset="100%" stopColor="#A78BFA" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <path d={UZ_PATH} fill="#1C1C28" stroke="#7B6FFF" strokeOpacity="0.4" strokeWidth="1.5" />
-            {regions.map(r => {
-              const rad = 5 + (r.members / maxM) * 14;
-              const active = sel?.name === r.name;
+        <div style={{ borderRadius: 20, overflow: "hidden", background: "linear-gradient(135deg,#13131A,#0c0c14)", border: "1px solid var(--border)", padding: 6 }}>
+          <svg viewBox={UZ_VIEWBOX} style={{ width: "100%", height: "auto" }}>
+            {rows.map(r => {
+              const active = sel?.en === r.en;
               return (
-                <g key={r.name} transform={`translate(${r.x},${r.y})`} onClick={() => setSel(r)} style={{ cursor: "pointer" }}>
-                  <circle r={rad + 8} fill="url(#pinG)" opacity={active ? 1 : 0.5} />
-                  <circle r={rad} fill={r.cap ? "#4ECDC4" : "#7B6FFF"} stroke="#fff" strokeOpacity="0.85" strokeWidth="1" />
-                </g>
+                <path key={r.en} d={r.path} onClick={() => setSel(r)}
+                  fill={fill(r.members, active)}
+                  stroke={active ? "#4ECDC4" : "rgba(167,139,250,0.55)"}
+                  strokeWidth={active ? 2 : 0.8}
+                  style={{ cursor: "pointer", transition: "fill 0.2s" }} />
               );
             })}
           </svg>

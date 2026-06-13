@@ -10,6 +10,21 @@ function syncViewport() {
   }
 }
 
+// Telegram's close / collapse buttons sit in a reserved strip at the top.
+// Bot API 8.0 exposes contentSafeAreaInset (space below Telegram's own UI) and
+// safeAreaInset (device notch). Use their sum so our headers never sit under
+// those buttons. Fall back to a sensible constant on older clients.
+function syncSafeArea() {
+  const w = wa();
+  if (!w) return;
+  const content = w.contentSafeAreaInset?.top ?? 0;
+  const device = w.safeAreaInset?.top ?? 0;
+  let top = content + device;
+  // Older clients report 0 but still overlap; give expanded apps a floor.
+  if (!top && w.isExpanded) top = 56;
+  document.documentElement.style.setProperty("--safe-t", `${top}px`);
+}
+
 export function initTelegram() {
   const w = wa();
   if (!w) return;
@@ -20,8 +35,11 @@ export function initTelegram() {
     if (typeof w.setHeaderColor === "function") w.setHeaderColor("#0A0A0F");
     if (typeof w.setBackgroundColor === "function") w.setBackgroundColor("#0A0A0F");
     syncViewport();
+    syncSafeArea();
     if (typeof w.onEvent === "function") {
       w.onEvent("viewportChanged", syncViewport);
+      w.onEvent("safeAreaChanged", syncSafeArea);
+      w.onEvent("contentSafeAreaChanged", syncSafeArea);
     }
   } catch { /* older SDKs */ }
 }

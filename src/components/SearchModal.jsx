@@ -36,7 +36,7 @@ export const SearchModal = ({ onClose }) => {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
-      <div style={{ padding: "52px 16px 12px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: "calc(var(--safe-t) + 18px) 16px 12px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid var(--border)" }}>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99, padding: "8px 14px" }}>
           <Icon name="search" size={16} />
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}

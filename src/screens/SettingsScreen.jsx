@@ -196,7 +196,7 @@ export const SettingsScreen = () => {
 
   return (
     <Page>
-      <div style={{ padding: "20px 20px 100px" }}>
+      <div style={{ padding: "calc(var(--safe-t) + 16px) 20px 100px" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 14 }}>{t("settings.title")}</h1>
 
         <CompletenessMeter user={user} onClick={() => setEditOpen(true)} />

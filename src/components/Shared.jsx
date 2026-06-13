@@ -121,6 +121,10 @@ export const FontLoader = () => (
       --border: rgba(255,255,255,0.07);
       --app-h: 100dvh;
       --safe-b: env(safe-area-inset-bottom, 0px);
+      /* Telegram content-safe-area top (set by initTelegram); keeps headers
+         clear of Telegram's own close / collapse buttons. Falls back to the
+         CSS env inset, then 0. */
+      --safe-t: env(safe-area-inset-top, 0px);
       --radius: 16px;
       --radius-sm: 10px;
       --radius-xs: 6px;

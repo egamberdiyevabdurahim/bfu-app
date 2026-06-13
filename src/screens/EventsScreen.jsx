@@ -32,7 +32,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
 
   return (
     <div style={{ height: "var(--app-h, 100dvh)", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
-      <div style={{ padding: embedded ? "20px 24px 12px" : "52px 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: embedded ? "calc(var(--safe-t) + 14px) 24px 12px" : "calc(var(--safe-t) + 18px) 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {!embedded && (
             <button onClick={onBack} style={{

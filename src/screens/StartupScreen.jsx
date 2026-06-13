@@ -134,7 +134,7 @@ export const StartupScreen = ({ deepLinkAppId }) => {
 
   return (
     <Page>
-      <div style={{ padding: "20px 20px 0" }}>
+      <div style={{ padding: "calc(var(--safe-t) + 16px) 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <p style={{ color: "var(--text-3)", fontSize: 12, fontFamily: "var(--font-display)", fontWeight: 600, letterSpacing: "0.1em" }}>{t("startup.kicker")}</p>

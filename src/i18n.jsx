@@ -412,6 +412,14 @@ const STRINGS = {
 
   // ── Admin reports ─────────────────────────────────────────────────────────
   "admin.tab.reports": { en: "Reports", uz: "Shikoyatlar", ru: "Жалобы" },
+  "admin.tab.broadcast": { en: "Broadcast", uz: "E'lon", ru: "Рассылка" },
+  "admin.bc.desc": { en: "Send a message to all registered members via the bot.", uz: "Bot orqali barcha ro'yxatdan o'tgan a'zolarga xabar yuboring.", ru: "Отправьте сообщение всем зарегистрированным участникам через бота." },
+  "admin.bc.placeholder": { en: "Your announcement…", uz: "E'loningiz…", ru: "Ваше объявление…" },
+  "admin.bc.verifiedOnly": { en: "Verified members only", uz: "Faqat tasdiqlangan a'zolar", ru: "Только проверенные участники" },
+  "admin.bc.send": { en: "📣 Send broadcast", uz: "📣 E'lon yuborish", ru: "📣 Отправить рассылку" },
+  "admin.bc.sending": { en: "Sending…", uz: "Yuborilmoqda…", ru: "Отправка…" },
+  "admin.bc.confirm": { en: "Send this message to {n} members? This cannot be undone.", uz: "Bu xabar {n} a'zoga yuborilsinmi? Buni bekor qilib bo'lmaydi.", ru: "Отправить это сообщение {n} участникам? Это нельзя отменить." },
+  "admin.bc.queued": { en: "✓ Broadcast queued to {n} members. You'll get a summary when it finishes.", uz: "✓ E'lon {n} a'zoga navbatga qo'yildi. Tugagach, xulosa olasiz.", ru: "✓ Рассылка поставлена в очередь для {n} участников. По завершении придёт сводка." },
   "admin.report.row": { en: "{type} #{id} — by user {by}", uz: "{type} #{id} — {by} foydalanuvchidan", ru: "{type} #{id} — от пользователя {by}" },
   "admin.report.resolve": { en: "Resolve", uz: "Hal qilish", ru: "Решить" },
   "admin.report.reopen": { en: "Reopen", uz: "Qayta ochish", ru: "Открыть" },

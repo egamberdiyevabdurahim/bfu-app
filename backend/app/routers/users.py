@@ -105,11 +105,22 @@ async def get_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Lazy last_seen_at refresh (cheap; throttled to once / 5 min).
+    # Lazy last_seen_at refresh (cheap; throttled to once / 5 min). On the same
+    # stale path, backfill the profile photo for users who don't have one yet
+    # (existing users won't re-login for up to 7 days), so avatars/cards light
+    # up within a session instead of waiting for the next /auth/telegram.
     now = datetime.utcnow()
     if (not current_user.last_seen_at
             or now - current_user.last_seen_at > timedelta(minutes=5)):
         current_user.last_seen_at = now
+        if not current_user.photo_file_id and current_user.telegram_id:
+            try:
+                from app.services.telegram_media import fetch_photo_file_id
+                fid = await fetch_photo_file_id(current_user.telegram_id)
+                if fid:
+                    current_user.photo_file_id = fid
+            except Exception:
+                pass
         try:
             await db.commit()
         except Exception:

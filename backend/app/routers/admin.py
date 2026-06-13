@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.deps import get_admin_user, get_super_admin_user
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
+import asyncio
 import json
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
 from app.services.notify import esc, send_telegram
@@ -32,6 +33,81 @@ async def _broadcast_to_group(text: str, start_param: str) -> None:
         settings.TG_GLOBAL_GROUP_ID, text,
         reply_markup={"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]},
     )
+
+
+class BroadcastBody(BaseModel):
+    text: str
+    region_id: int | None = None
+    verified_only: bool = False
+    dry_run: bool = False
+
+
+def _broadcast_query(body: BroadcastBody):
+    q = select(User).where(
+        User.is_deleted == False, User.banned == False,
+        User.is_registered == True, User.telegram_id.is_not(None),
+    )
+    if body.region_id:
+        q = q.where(User.region_id == body.region_id)
+    if body.verified_only:
+        q = q.where(User.checked == True)
+    return q
+
+
+async def _run_broadcast(recipients: list[tuple[int, str]], text: str, admin_id: int) -> None:
+    """Background sender. recipients = [(telegram_id, lang), ...]. Paces at
+    ~25/s (Telegram limit) and DMs the initiator a summary at the end."""
+    body_html = esc(text)
+    sent = 0
+    cta = {"inline_keyboard": [[{"text": "🚀 Open BFU",
+            "web_app": {"url": settings.WEBAPP_URL}}]]}
+    for tg_id, _lang in recipients:
+        if await send_telegram(tg_id, body_html, reply_markup=cta):
+            sent += 1
+        await asyncio.sleep(0.04)
+    # Report completion to the initiator (best effort).
+    try:
+        async with AsyncSessionLocal() as s:
+            admin = await s.get(User, admin_id)
+            if admin and admin.telegram_id:
+                await send_telegram(
+                    admin.telegram_id,
+                    f"📣 Broadcast finished: delivered to <b>{sent}</b> / {len(recipients)} members.",
+                )
+    except Exception:
+        pass
+
+
+@router.post("/broadcast")
+async def broadcast(
+    body: BroadcastBody,
+    super_admin: User = Depends(get_super_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Super-admin announcement to all (optionally filtered) members.
+    Two-step: call with dry_run=true to get the recipient count, then again
+    with dry_run=false to actually send (runs in the background, paced)."""
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "Message is empty")
+    if len(text) > 3500:
+        raise HTTPException(400, "Message too long (max 3500 chars)")
+
+    if body.dry_run:
+        count = await db.scalar(
+            select(func.count()).select_from(_broadcast_query(body).subquery())
+        ) or 0
+        return {"dry_run": True, "count": count}
+
+    rows = (await db.execute(_broadcast_query(body))).scalars().all()
+    recipients = [(u.telegram_id, u.language or "en") for u in rows if u.telegram_id]
+    await log_action(db, super_admin.id, "broadcast", None, None,
+                     {"count": len(recipients), "region_id": body.region_id,
+                      "verified_only": body.verified_only})
+    await db.commit()
+    # Fire-and-forget so the request returns immediately (10k msgs ≈ minutes).
+    asyncio.create_task(_run_broadcast(recipients, text, super_admin.id))
+    return {"queued": len(recipients)}
 
 
 class StatsOut(BaseModel):

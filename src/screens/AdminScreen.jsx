@@ -11,12 +11,52 @@ export const AdminScreen = ({ user, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
+  // Broadcast form
+  const [bcText, setBcText] = useState("");
+  const [bcVerified, setBcVerified] = useState(false);
+  const [bcSending, setBcSending] = useState(false);
 
   const isSuper = user.role === "super_admin";
 
   useEffect(() => {
+    if (activeTab === "Broadcast") { setLoading(false); return; }
     loadData(activeTab);
   }, [activeTab]);
+
+  const sendBroadcast = async () => {
+    const text = bcText.trim();
+    if (!text) return;
+    setBcSending(true);
+    try {
+      const preview = await admin.broadcast({ text, verified_only: bcVerified, dry_run: true });
+      const ok = await tgConfirm(t("admin.bc.confirm", { n: preview.count }));
+      if (!ok) { setBcSending(false); return; }
+      const res = await admin.broadcast({ text, verified_only: bcVerified, dry_run: false });
+      tgAlert(t("admin.bc.queued", { n: res.queued }));
+      setBcText("");
+    } catch (e) { tgAlert(e.message); }
+    setBcSending(false);
+  };
+
+  const renderBroadcast = () => (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 12 }}>
+        {t("admin.bc.desc")}
+      </p>
+      <textarea className="input-field" value={bcText} onChange={e => setBcText(e.target.value)}
+        rows={5} maxLength={3500} placeholder={t("admin.bc.placeholder")}
+        style={{ width: "100%", resize: "vertical", marginBottom: 10 }} />
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)", marginBottom: 14, cursor: "pointer" }}>
+        <input type="checkbox" checked={bcVerified} onChange={e => setBcVerified(e.target.checked)} />
+        {t("admin.bc.verifiedOnly")}
+      </label>
+      <button onClick={sendBroadcast} disabled={bcSending || !bcText.trim()} style={{
+        width: "100%", padding: 13, background: "var(--accent)", border: "none",
+        borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 14,
+        cursor: "pointer", fontFamily: "var(--font-display)", opacity: bcSending || !bcText.trim() ? 0.6 : 1,
+      }}>{bcSending ? t("admin.bc.sending") : t("admin.bc.send")}</button>
+    </div>
+  );
 
   const loadData = async (tab, query = "") => {
     setLoading(true);
@@ -290,7 +330,7 @@ export const AdminScreen = ({ user, onBack }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", overflowX: "auto", padding: "12px 24px", gap: 8, flexShrink: 0, borderBottom: "1px solid var(--border)", scrollbarWidth: "none" }}>
-        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"]].map(([tab, key]) => (
+        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"],...(isSuper ? [["Broadcast","admin.tab.broadcast"]] : [])].map(([tab, key]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSearch(""); }} style={{
             flexShrink: 0, padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600,
             background: activeTab === tab ? "var(--accent)" : "var(--surface-2)",
@@ -312,6 +352,7 @@ export const AdminScreen = ({ user, onBack }) => {
             {activeTab === "Locations" && renderLocations()}
             {activeTab === "Reports" && renderReports()}
             {activeTab === "Events" && renderEvents()}
+            {activeTab === "Broadcast" && renderBroadcast()}
           </>
         )}
       </div>

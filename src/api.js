@@ -166,6 +166,7 @@ export const admin = {
   myBotLocation:     ()       => req("/admin/my-bot-location"),
   getReports:        ()       => req("/admin/reports"),
   resolveReport:     (id)     => req(`/admin/reports/${id}/resolve`, { method: "PATCH" }),
+  broadcast:         (d)      => req("/admin/broadcast", { method: "POST", body: JSON.stringify(d) }),
   getEvents:         ()       => req("/admin/events"),
   createEvent:       (d)      => req("/admin/events", { method: "POST", body: JSON.stringify(d) }),
   updateEvent:       (id, d)  => req(`/admin/events/${id}`, { method: "PATCH", body: JSON.stringify(d) }),

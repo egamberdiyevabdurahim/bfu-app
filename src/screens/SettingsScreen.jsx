@@ -5,13 +5,14 @@ import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
 import { useT } from "../i18n";
-import { shareUrl } from "../tg";
+import { shareUrl, shareToStory, canShareStory, tgAlert } from "../tg";
 
 const InviteCard = () => {
   const { t } = useT();
   const [data, setData] = useState(null);
   const [board, setBoard] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [sharingStory, setSharingStory] = useState(false);
 
   useEffect(() => {
     users.invite().then(setData).catch(() => {});
@@ -24,6 +25,20 @@ const InviteCard = () => {
     catch { /* clipboard blocked */ }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const shareStory = async () => {
+    setSharingStory(true);
+    try {
+      const c = await users.card();
+      const ok = shareToStory(c.card_url, {
+        text: t("invite.storyText"),
+        linkUrl: c.ref_link,
+        linkName: "Bright Futures",
+      });
+      if (!ok) tgAlert(t("invite.storyUnsupported"));
+    } catch (e) { tgAlert(e.message); }
+    setSharingStory(false);
   };
 
   return (
@@ -52,6 +67,14 @@ const InviteCard = () => {
           borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer",
         }}>{t("invite.share")}</button>
       </div>
+      {canShareStory() && (
+        <button onClick={shareStory} disabled={sharingStory} style={{
+          width: "100%", padding: 11, marginBottom: 10,
+          background: "linear-gradient(135deg, #7B6FFF, #A78BFA)", border: "none",
+          borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
+          cursor: "pointer", fontFamily: "var(--font-display)",
+        }}>{sharingStory ? t("invite.storyMaking") : t("invite.storyBtn")}</button>
+      )}
       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textAlign: "center", marginBottom: board?.top?.length ? 14 : 0 }}>
         {t("invite.count", { n: data.invited_count })}
       </div>

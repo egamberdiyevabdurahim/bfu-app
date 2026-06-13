@@ -99,6 +99,7 @@ export const users = {
   finalize:        ()       => req("/users/me/finalize", { method: "POST" }),
   updateTags:      ()       => req("/users/me/update-tags", { method: "POST" }),
   invite:          ()       => req("/users/me/invite"),
+  card:            ()       => req("/users/me/card"),
   setReferral:     (code)   => req("/users/me/referral", { method: "POST", body: JSON.stringify({ code }) }),
   leaderboard:     (period = "week") => req(`/users/leaderboard${qs({ period })}`),
   requestIntro:    (id)     => req(`/users/${id}/intro`, { method: "POST" }),

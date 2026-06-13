@@ -1,5 +1,7 @@
 """Unauthenticated landing endpoints — no JWT needed. Used by the public
 marketing site at brightfuturesuzbekistan.uz/ and /r/<id>."""
+import hashlib
+import hmac
 import time
 from datetime import datetime, timedelta
 
@@ -7,11 +9,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import get_db
 from app.models.project import Project
 from app.models.region import Region
 from app.models.user import User
+
+
+def card_sig(user_id: int) -> str:
+    """Stable signature so the public card endpoint can't be enumerated for
+    arbitrary users (it still only exposes already-public profile data)."""
+    return hmac.new(settings.SECRET_KEY.encode(),
+                    f"card:{user_id}".encode(), hashlib.sha256).hexdigest()[:20]
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -243,3 +254,45 @@ async def public_leaderboard(
             invites=int(count),
         ))
     return _cache_put(f"lb:{period}", out)
+
+
+@router.get("/card.png")
+async def profile_card(
+    u: int = Query(..., description="user id"),
+    sig: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a user's shareable BFU Story card as PNG. Public (Telegram
+    fetches it for shareToStory) but signed so it can't be enumerated."""
+    if not hmac.compare_digest(sig, card_sig(u)):
+        raise HTTPException(status_code=403, detail="Bad signature")
+    user = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == u, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    region_name = None
+    if user.region_id:
+        r = await db.get(Region, user.region_id)
+        region_name = r.name_uz if r else None
+    age = (datetime.utcnow().year - user.birth_year) if user.birth_year else None
+
+    tags: list[str] = []
+    if user.analysis:
+        seen = set()
+        for cat in ("skills", "interests", "preparations", "goals"):
+            for tg in (getattr(user.analysis, cat, None) or []):
+                k = tg.lower()
+                if k not in seen:
+                    seen.add(k); tags.append(tg)
+
+    from app.services.card import render_card_png
+    png = render_card_png(
+        name=(user.name or "BFU member").capitalize(),
+        region=region_name, age=age, gender=user.gender,
+        checked=bool(user.checked), tags=tags,
+    )
+    return Response(content=png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=600"})

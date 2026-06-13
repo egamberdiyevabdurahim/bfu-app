@@ -97,6 +97,27 @@ export function shareUrl(url, text = "") {
   window.open(share, "_blank");
 }
 
+// True when the running Telegram client supports shareToStory (Bot API 7.8+).
+export function canShareStory() {
+  const w = wa();
+  return !!(w && typeof w.shareToStory === "function");
+}
+
+// Push an image (the BFU Card) to the user's Telegram Story with their
+// referral link as a tappable widget. Returns false if unsupported.
+export function shareToStory(mediaUrl, { text = "", linkUrl = "", linkName = "" } = {}) {
+  const w = wa();
+  if (!w || typeof w.shareToStory !== "function") return false;
+  try {
+    const params = { text };
+    if (linkUrl) params.widget_link = { url: linkUrl, name: linkName || "Open" };
+    w.shareToStory(mediaUrl, params);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function haptic(kind = "impact") {
   const h = wa()?.HapticFeedback;
   try {

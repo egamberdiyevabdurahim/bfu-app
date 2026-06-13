@@ -297,6 +297,10 @@ const STRINGS = {
   "invite.copied": { en: "Copied!", uz: "Nusxalandi!", ru: "Скопировано!" },
   "invite.share": { en: "Share", uz: "Ulashish", ru: "Поделиться" },
   "invite.shareText": { en: "Join me on Bright Futures Uzbekistan 🇺🇿", uz: "Bright Futures Uzbekistan’ga qo‘shiling 🇺🇿", ru: "Присоединяйся к Bright Futures Uzbekistan 🇺🇿" },
+  "invite.storyBtn": { en: "📸 Share to Story", uz: "📸 Storyga ulashish", ru: "📸 Поделиться в Истории" },
+  "invite.storyMaking": { en: "Making your card…", uz: "Kartangiz tayyorlanmoqda…", ru: "Готовим карточку…" },
+  "invite.storyText": { en: "My Bright Futures Uzbekistan card 🇺🇿", uz: "Mening Bright Futures Uzbekistan kartam 🇺🇿", ru: "Моя карточка Bright Futures Uzbekistan 🇺🇿" },
+  "invite.storyUnsupported": { en: "Update Telegram to share to Story.", uz: "Storyga ulashish uchun Telegramni yangilang.", ru: "Обновите Telegram, чтобы делиться в Истории." },
 
   // ── Location capture ──────────────────────────────────────────────────────
   "loc.label": { en: "Your location (optional)", uz: "Joylashuvingiz (ixtiyoriy)", ru: "Ваша локация (необязательно)" },

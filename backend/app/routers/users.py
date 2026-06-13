@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -437,6 +437,21 @@ async def my_invite(
         "code": current_user.id,
         "link": f"https://t.me/{settings.BOT_USERNAME}?startapp=ref_{current_user.id}",
         "invited_count": count or 0,
+    }
+
+
+@router.get("/me/card", response_model=dict)
+async def my_card(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Returns the absolute, Telegram-fetchable URL of the user's Story card
+    plus their referral link (for the shareToStory widget)."""
+    from app.routers.public import card_sig
+    base = str(request.base_url).rstrip("/")
+    return {
+        "card_url": f"{base}/public/card.png?u={current_user.id}&sig={card_sig(current_user.id)}",
+        "ref_link": f"https://t.me/{settings.BOT_USERNAME}?startapp=ref_{current_user.id}",
     }
 
 

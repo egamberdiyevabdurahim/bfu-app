@@ -87,11 +87,16 @@ def render_card_png(
     f_init = _font(_SYNE, 92, 800)
     draw.text((cx, cy - 6), _initials(name), font=f_init, fill=col, anchor="mm")
 
-    # name (+ verified)
+    # name (+ verified) — shrink the font to fit before ever truncating
     disp = (name or "BFU member").strip()
-    f_name = _font(_SYNE, 76, 800)
-    while _text_w(draw, disp, f_name) > 760 and len(disp) > 4:
-        disp = disp[:-2]
+    max_w = 720 if checked else 800
+    size = 76
+    f_name = _font(_SYNE, size, 800)
+    while _text_w(draw, disp, f_name) > max_w and size > 44:
+        size -= 4
+        f_name = _font(_SYNE, size, 800)
+    while _text_w(draw, disp, f_name) > max_w and len(disp) > 4:
+        disp = disp[:-2] + "…"
     name_w = _text_w(draw, disp, f_name)
     nx = cx - name_w // 2
     draw.text((cx, 790), disp, font=f_name, fill=TEXT, anchor="mm")

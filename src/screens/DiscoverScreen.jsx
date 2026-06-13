@@ -4,6 +4,8 @@ import { Icon } from "../components/Icons";
 import { users } from "../api";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { InboxModal } from "../components/InboxModal";
+import { SearchModal } from "../components/SearchModal";
+import { MapModal } from "../components/MapModal";
 import { useT } from "../i18n";
 
 export const DiscoverScreen = () => {
@@ -16,6 +18,8 @@ export const DiscoverScreen = () => {
   const [loadError, setLoadError] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const loadSeq = useRef(0);
 
@@ -58,20 +62,29 @@ export const DiscoverScreen = () => {
               <p style={{ color: "var(--text-3)", fontSize: 12, fontFamily: "var(--font-display)", fontWeight: 600, letterSpacing: "0.1em" }}>{t("discover.kicker")}</p>
               <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800 }}>{t("discover.title")}</h1>
             </div>
-            <button onClick={() => { setInboxOpen(true); setUnread(0); }} aria-label={t("inbox.title")} style={{
-              position: "relative", background: "var(--surface-2)", border: "1px solid var(--border)",
-              borderRadius: 99, width: 40, height: 40, display: "flex", alignItems: "center",
-              justifyContent: "center", cursor: "pointer", color: "var(--text)", flexShrink: 0,
-            }}>
-              <Icon name="bell" size={18} />
-              {unread > 0 && (
-                <span style={{
-                  position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px",
-                  background: "#FF6B6B", color: "#fff", borderRadius: 99, fontSize: 11, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg)",
-                }}>{unread > 9 ? "9+" : unread}</span>
-              )}
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["search", () => setSearchOpen(true)], ["map", () => setMapOpen(true)]].map(([icon, onClick]) => (
+                <button key={icon} onClick={onClick} aria-label={icon} style={{
+                  background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
+                  width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", color: "var(--text)", flexShrink: 0,
+                }}><Icon name={icon} size={18} /></button>
+              ))}
+              <button onClick={() => { setInboxOpen(true); setUnread(0); }} aria-label={t("inbox.title")} style={{
+                position: "relative", background: "var(--surface-2)", border: "1px solid var(--border)",
+                borderRadius: 99, width: 40, height: 40, display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", color: "var(--text)", flexShrink: 0,
+              }}>
+                <Icon name="bell" size={18} />
+                {unread > 0 && (
+                  <span style={{
+                    position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px",
+                    background: "#FF6B6B", color: "#fff", borderRadius: 99, fontSize: 11, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg)",
+                  }}>{unread > 9 ? "9+" : unread}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
@@ -162,6 +175,8 @@ export const DiscoverScreen = () => {
         <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />
       )}
       {inboxOpen && <InboxModal onClose={() => setInboxOpen(false)} />}
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
+      {mapOpen && <MapModal onClose={() => setMapOpen(false)} />}
     </>
   );
 };

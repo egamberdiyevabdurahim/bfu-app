@@ -115,6 +115,8 @@ export const users = {
   report:          (d)      => req("/users/reports", { method: "POST", body: JSON.stringify(d) }),
   getProfile:      (id)     => req(`/users/${id}`),
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),
+  search:          (q)      => req(`/search${qs({ q })}`),
+  regionsPublic:   ()       => req("/public/regions"),
 };
 
 // ── Project endpoints ─────────────────────────────────────────────────────────

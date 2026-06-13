@@ -55,6 +55,21 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [translating, setTranslating] = useState(false);
   const [openers, setOpeners] = useState(null);
   const [loadingOpeners, setLoadingOpeners] = useState(false);
+  const [matchReason, setMatchReason] = useState(null);
+  const [loadingMatch, setLoadingMatch] = useState(false);
+
+  const doWhyMatch = async () => {
+    if (!user || loadingMatch) return;
+    if (matchReason) { setMatchReason(null); return; }
+    setLoadingMatch(true);
+    try {
+      const r = await users.whyMatch(user.id, lang);
+      setMatchReason(r?.reason || (r?.shared?.length
+        ? t("match.shared", { tags: r.shared.join(", ") })
+        : t("match.none")));
+    } catch (e) { tgAlert(e.message); }
+    setLoadingMatch(false);
+  };
 
   const doIcebreakers = async () => {
     if (!user || loadingOpeners) return;
@@ -220,6 +235,24 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)",
                 color: "#FF6B6B", fontWeight: 600, fontSize: 13, cursor: "pointer",
               }}>{t("report.btn")}</button>
+            </div>
+
+            {/* Why you match — one-line AI reason grounded in shared interests */}
+            <div style={{ marginBottom: 10 }}>
+              <button onClick={doWhyMatch} disabled={loadingMatch} style={{
+                width: "100%", padding: "10px", background: "rgba(167,139,250,0.1)",
+                border: "1px solid rgba(167,139,250,0.3)", borderRadius: "var(--radius-sm)",
+                color: "#A78BFA", fontWeight: 600, fontSize: 13, cursor: "pointer",
+              }}>
+                {loadingMatch ? t("match.thinking") : matchReason ? t("match.hide") : t("match.btn")}
+              </button>
+              {matchReason && (
+                <div style={{
+                  marginTop: 10, padding: "12px 14px", background: "var(--surface-2)",
+                  border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                  color: "var(--text)", fontSize: 14, lineHeight: 1.6,
+                }}>✨ {matchReason}</div>
+              )}
             </div>
 
             {/* AI icebreakers — kills the blank-message freeze before chatting */}

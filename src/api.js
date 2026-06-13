@@ -106,6 +106,7 @@ export const users = {
   interest:        (id)     => req(`/users/${id}/interest`, { method: "POST" }),
   translateBio:    (id, lang) => req(`/users/${id}/bio/translate${qs({ lang })}`),
   icebreakers:     (id, lang) => req(`/users/${id}/icebreakers${qs({ lang })}`),
+  whyMatch:        (id, lang) => req(`/users/${id}/why-match${qs({ lang })}`),
   report:          (d)      => req("/users/reports", { method: "POST", body: JSON.stringify(d) }),
   getProfile:      (id)     => req(`/users/${id}`),
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),

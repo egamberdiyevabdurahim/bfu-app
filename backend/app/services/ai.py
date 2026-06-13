@@ -210,6 +210,39 @@ async def generate_icebreakers(
         return []
 
 
+async def generate_match_reason(
+    my_tags: list[str], their_tags: list[str], their_name: str, lang: str = "en"
+) -> str | None:
+    """One short sentence explaining why two members are a good match, in
+    `lang`, from the viewer's POV. None on failure (caller hides it)."""
+    target = _ICEBREAKER_LANG.get(lang, "English")
+    if not settings.ANTHROPIC_API_KEY:
+        return None
+    shared = sorted(set(t.lower() for t in my_tags) & set(t.lower() for t in their_tags))
+    context = (
+        f"You: {', '.join(my_tags[:15]) or 'a BFU member'}.\n"
+        f"{their_name}: {', '.join(their_tags[:15]) or 'a BFU member'}.\n"
+        f"Shared: {', '.join(shared) or 'none obvious'}."
+    )
+    try:
+        client = _get_client()
+        resp = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=120,
+            system=(
+                f"In ONE warm sentence (max 22 words) in {target}, tell the viewer why "
+                f"{their_name} is worth connecting with, grounded in their shared/related "
+                f"interests. Address the viewer as 'you'. Reply with only the sentence."
+            ),
+            messages=[{"role": "user", "content": context}],
+        )
+        out = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        return out or None
+    except Exception as exc:
+        logger.warning("match reason failed: %s", exc)
+        return None
+
+
 async def analyze_and_save(db: AsyncSession, user_id: int, text: str) -> dict[str, list[str]]:
     """Run analysis and upsert into user_analyses. Returns the tag dict."""
     data = await analyze_about_async(text)

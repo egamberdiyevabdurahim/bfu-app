@@ -15,7 +15,7 @@ from app.database import get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
-from app.services.ai import analyze_and_save, generate_icebreakers, translate_bio_async
+from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, send_telegram
 
@@ -766,6 +766,36 @@ async def icebreakers(
         target.display_name, use_lang,
     )
     return {"icebreakers": lines}
+
+
+@router.get("/{user_id}/why-match", response_model=dict)
+async def why_match(
+    user_id: int,
+    lang: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """One-sentence Claude explanation of why this person is worth connecting
+    with, grounded in shared interests. Also returns the shared tags (free).
+    AI-cooldown gated."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot match yourself")
+    use_lang = lang if lang in {"en", "uz", "ru"} else (current_user.language or "en")
+    target = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    me = (await db.execute(
+        select(User).options(selectinload(User.analysis)).where(User.id == current_user.id)
+    )).scalar_one()
+    my_tags, their_tags = _flat_tags(me.analysis), _flat_tags(target.analysis)
+    shared = sorted(set(t.lower() for t in my_tags) & set(t.lower() for t in their_tags))
+    if _ai_on_cooldown(current_user.id):
+        raise HTTPException(status_code=429, detail="Please wait a moment")
+    reason = await generate_match_reason(my_tags, their_tags, target.display_name, use_lang)
+    return {"reason": reason, "shared": shared}
 
 
 # ── Discover ───────────────────────────────────────────────────────────────────

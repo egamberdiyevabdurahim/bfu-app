@@ -6,11 +6,12 @@ import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
 
 export const AdminScreen = ({ user, onBack }) => {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
+  const [activeDays, setActiveDays] = useState(30);
   // Broadcast form
   const [bcText, setBcText] = useState("");
   const [bcVerified, setBcVerified] = useState(false);
@@ -23,6 +24,11 @@ export const AdminScreen = ({ user, onBack }) => {
     if (activeTab === "Broadcast") { setLoading(false); return; }
     loadData(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "Analytics") loadData("Analytics");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDays]);
 
   const sendBroadcast = async () => {
     const text = bcText.trim();
@@ -111,6 +117,11 @@ export const AdminScreen = ({ user, onBack }) => {
       if (tab === "Dashboard") {
         const res = await admin.getStats();
         setData(res);
+      } else if (tab === "Analytics") {
+        const [ret, reg, gap] = await Promise.all([
+          admin.retention(activeDays), admin.regionStats(), admin.skillGap(),
+        ]);
+        setData({ retention: ret, regions: reg, skillGap: gap });
       } else if (tab === "Users") {
         const res = await admin.getUsers(p);
         setData(Array.isArray(res) ? res : []);
@@ -172,6 +183,95 @@ export const AdminScreen = ({ user, onBack }) => {
             <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4, fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+    );
+  };
+
+  const renderAnalytics = () => {
+    if (!data || !data.retention) return null;
+    const ret = data.retention;
+    const reg = data.regions;
+    const gap = data.skillGap;
+    const maxMembers = Math.max(1, ...(reg?.regions || []).map(r => r.members));
+    const maxDS = Math.max(1, ...(gap?.skills || []).flatMap(s => [s.demand, s.supply]));
+
+    const Bar = ({ frac, color }) => (
+      <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden", flex: 1 }}>
+        <div style={{ height: "100%", width: `${Math.round(frac * 100)}%`, minWidth: frac > 0 ? 3 : 0, background: color, borderRadius: 99 }} />
+      </div>
+    );
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+        {/* Retention */}
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "var(--font-display)" }}>{t("an.retention.title")}</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 10 }}>{t("an.retention.sub")}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {[30, 60, 90].map(d => (
+              <button key={d} onClick={() => setActiveDays(d)} style={{
+                padding: "5px 12px", borderRadius: 99, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                background: activeDays === d ? "var(--accent)" : "var(--surface-2)",
+                color: activeDays === d ? "#fff" : "var(--text-2)",
+                border: activeDays === d ? "none" : "1px solid var(--border)",
+              }}>{t("an.retention.days", { n: d })}</button>
+            ))}
+          </div>
+          {ret.cohorts.map(row => (
+            <div key={row.month} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ width: 64, fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>
+                {row.month === "older" ? t("an.retention.older") : row.month}
+              </span>
+              <Bar frac={row.retention_pct / 100} color="#4ECDC4" />
+              <span style={{ width: 90, fontSize: 11, color: "var(--text-3)", textAlign: "right" }}>
+                {row.active}/{row.total} · {row.retention_pct}%
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Region heatmap */}
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "var(--font-display)" }}>{t("an.regions.title")}</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 10 }}>{t("an.regions.sub")}</div>
+          {(reg.regions || []).map(r => (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ width: 90, fontSize: 12, color: "var(--text-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r[`name_${lang}`] || r.name_en}
+              </span>
+              <Bar frac={r.members / maxMembers} color="#7B6FFF" />
+              <span style={{ width: 110, fontSize: 11, color: "var(--text-3)", textAlign: "right" }}>
+                {r.members} · {r.projects}p · {r.open_projects} {t("an.regions.open").toLowerCase()}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Skill gap */}
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "var(--font-display)" }}>{t("an.skill.title")}</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 10 }}>{t("an.skill.sub")}</div>
+          {(gap.skills || []).length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("an.skill.none")}</div>
+          ) : (gap.skills || []).map(s => (
+            <div key={s.skill} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                <span style={{ fontWeight: 600, color: "var(--text)" }}>{s.skill}</span>
+                <span style={{ fontWeight: 700, color: s.gap > 0 ? "#FF6B6B" : "var(--text-3)" }}>
+                  {t("an.skill.gap")}: {s.gap > 0 ? `+${s.gap}` : s.gap}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 60, fontSize: 10, color: "var(--text-3)" }}>{t("an.skill.demand")} {s.demand}</span>
+                <Bar frac={s.demand / maxDS} color="#FFB347" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
+                <span style={{ width: 60, fontSize: 10, color: "var(--text-3)" }}>{t("an.skill.supply")} {s.supply}</span>
+                <Bar frac={s.supply / maxDS} color="#4ECDC4" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -391,7 +491,7 @@ export const AdminScreen = ({ user, onBack }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", overflowX: "auto", padding: "12px 24px", gap: 8, flexShrink: 0, borderBottom: "1px solid var(--border)", scrollbarWidth: "none" }}>
-        {[["Dashboard","admin.tab.dashboard"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Partners","admin.tab.partners"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"],...(isSuper ? [["Broadcast","admin.tab.broadcast"]] : [])].map(([tab, key]) => (
+        {[["Dashboard","admin.tab.dashboard"],["Analytics","admin.tab.analytics"],["Users","admin.tab.users"],["Projects","admin.tab.projects"],["Partners","admin.tab.partners"],["Locations","admin.tab.locations"],["Events","admin.tab.events"],["Reports","admin.tab.reports"],...(isSuper ? [["Broadcast","admin.tab.broadcast"]] : [])].map(([tab, key]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSearch(""); }} style={{
             flexShrink: 0, padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600,
             background: activeTab === tab ? "var(--accent)" : "var(--surface-2)",
@@ -408,6 +508,7 @@ export const AdminScreen = ({ user, onBack }) => {
         ) : (
           <>
             {activeTab === "Dashboard" && renderDashboard()}
+            {activeTab === "Analytics" && renderAnalytics()}
             {activeTab === "Users" && renderUsers()}
             {activeTab === "Projects" && renderProjects()}
             {activeTab === "Locations" && renderLocations()}

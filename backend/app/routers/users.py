@@ -22,18 +22,22 @@ from app.services.notify import esc, send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-# Per-user AI cooldown (cost control). Single uvicorn worker → in-process is fine.
-_AI_COOLDOWN_S = 60
-_last_ai: dict[int, float] = {}
+# Per-user, per-action AI cooldown (cost control). Single uvicorn worker →
+# in-process is fine. Keyed by (uid, action) so distinct AI features don't
+# block each other — e.g. tapping "icebreakers" right after "analyze" no longer
+# trips a shared timer. Each action has its own short window.
+_AI_COOLDOWN_S = 20
+_last_ai: dict[tuple[int, str], float] = {}
 
 
-def _ai_on_cooldown(uid: int) -> bool:
+def _ai_on_cooldown(uid: int, action: str = "default") -> bool:
     now = time.monotonic()
-    last = _last_ai.get(uid)  # None = never → not on cooldown (don't compare
+    key = (uid, action)
+    last = _last_ai.get(key)  # None = never → not on cooldown (don't compare
     # against a 0.0 sentinel, which is < now and falsely trips right after boot)
     if last is not None and now - last < _AI_COOLDOWN_S:
         return True
-    _last_ai[uid] = now
+    _last_ai[key] = now
     return False
 
 
@@ -225,7 +229,7 @@ async def ai_coach(
         raise HTTPException(status_code=400, detail="invalid kind")
     if not (body.text or "").strip():
         raise HTTPException(status_code=400, detail="empty text")
-    if _ai_on_cooldown(current_user.id):
+    if _ai_on_cooldown(current_user.id, "improve"):
         raise HTTPException(status_code=429, detail="Please wait a moment")
     improved = await improve_text(body.kind, body.text, current_user.language or "en")
     return {"improved": improved}
@@ -314,7 +318,7 @@ async def update_me(
 
     # Auto-reanalyze if bio changed
     new_about = current_user.about
-    if new_about and new_about != old_about and not _ai_on_cooldown(current_user.id):
+    if new_about and new_about != old_about and not _ai_on_cooldown(current_user.id, "analyze"):
         try:
             await analyze_and_save(db, current_user.id, new_about)
         except Exception:
@@ -330,7 +334,7 @@ async def analyze_bio(
 ):
     if not current_user.about:
         raise HTTPException(status_code=400, detail="about field is empty")
-    if _ai_on_cooldown(current_user.id):
+    if _ai_on_cooldown(current_user.id, "analyze"):
         raise HTTPException(status_code=429, detail="Please wait a moment before re-analyzing")
     tags = await analyze_and_save(db, current_user.id, current_user.about)
     return tags
@@ -845,7 +849,7 @@ async def translate_bio(
     # Cache miss → a billable Claude call. Gate it behind the per-caller
     # cooldown (same as /me/analyze) so nobody can sweep user_ids × langs and
     # drain the AI budget. Cached hits above stay unthrottled.
-    if _ai_on_cooldown(current_user.id):
+    if _ai_on_cooldown(current_user.id, "translate"):
         raise HTTPException(status_code=429, detail="Please wait a moment before translating again")
     out = await translate_bio_async(target.about, lang)
     if not out:
@@ -890,7 +894,7 @@ async def icebreakers(
     me = (await db.execute(
         select(User).options(selectinload(User.analysis)).where(User.id == current_user.id)
     )).scalar_one()
-    if _ai_on_cooldown(current_user.id):
+    if _ai_on_cooldown(current_user.id, "icebreakers"):
         raise HTTPException(status_code=429, detail="Please wait a moment")
     lines = await generate_icebreakers(
         _flat_tags(me.analysis), _flat_tags(target.analysis),
@@ -923,7 +927,7 @@ async def why_match(
     )).scalar_one()
     my_tags, their_tags = _flat_tags(me.analysis), _flat_tags(target.analysis)
     shared = sorted(set(t.lower() for t in my_tags) & set(t.lower() for t in their_tags))
-    if _ai_on_cooldown(current_user.id):
+    if _ai_on_cooldown(current_user.id, "whymatch"):
         raise HTTPException(status_code=429, detail="Please wait a moment")
     reason = await generate_match_reason(my_tags, their_tags, target.display_name, use_lang)
     return {"reason": reason, "shared": shared}

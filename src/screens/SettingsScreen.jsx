@@ -5,6 +5,7 @@ import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
 import { ProfileExtras } from "../components/ProfileExtras";
+import { AchievementsSection } from "../components/AchievementsSection";
 import { useT } from "../i18n";
 import { shareUrl, shareToStory, canShareStory, tgAlert } from "../tg";
 import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
@@ -296,6 +297,8 @@ export const SettingsScreen = () => {
         <div style={{ marginBottom: 12 }}>
           <ProfileExtras user={user} />
         </div>
+
+        <AchievementsSection />
 
         <InviteCard />
 

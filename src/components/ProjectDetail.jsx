@@ -4,7 +4,7 @@ import { projects, regions, users } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
 import { FollowButton } from "./FollowButton";
 import { useT } from "../i18n";
-import { tgAlert, tgConfirm } from "../tg";
+import { tgAlert, tgConfirm, openProjectChat } from "../tg";
 
 const FitBadge = ({ isFit }) => {
   const { t } = useT();
@@ -133,7 +133,7 @@ const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
   );
 };
 
-export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
+export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUpdate }) => {
   const { t } = useT();
   const [project, setProject] = useState(initial);
   const [loading, setLoading] = useState(false);
@@ -144,7 +144,12 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
   const [updateText, setUpdateText] = useState("");
   const [posting, setPosting] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
-  const [roleText, setRoleText] = useState("");
+  const [roleText, setRoleText] = useState(prefillRole || "");
+  const [rolesList, setRolesList] = useState(null);
+  const [newRole, setNewRole] = useState("");
+  const [addingRole, setAddingRole] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
+  const [editingLink, setEditingLink] = useState(false);
 
   const isCreator = me && project.creator_id === me.id;
   const projectWithFlag = { ...project, _is_creator: isCreator };
@@ -165,6 +170,10 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
 
   useEffect(() => {
     projects.updates(project.id).then(r => setUpdates(r.updates || [])).catch(() => setUpdates([]));
+  }, [project.id]);
+
+  useEffect(() => {
+    projects.roles(project.id).then(r => setRolesList(r.roles || [])).catch(() => setRolesList([]));
   }, [project.id]);
 
   const postUpdate = async () => {
@@ -239,6 +248,40 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
       tgAlert(e.message);
     }
     setLoading(false);
+  };
+
+  const addRole = async () => {
+    const name = newRole.trim();
+    if (addingRole || !name) return;
+    setAddingRole(true);
+    try {
+      const r = await projects.addRole(project.id, name);
+      setRolesList(list => [{ id: r.id, name, is_filled: false }, ...(list || [])]);
+      setNewRole("");
+    } catch (e) { tgAlert(e.message === "Role already listed" ? t("roles.dup") : e.message); }
+    setAddingRole(false);
+  };
+
+  const toggleRole = async (role) => {
+    try {
+      await projects.setRoleFilled(project.id, role.id, !role.is_filled);
+      setRolesList(list => list.map(r => r.id === role.id ? { ...r, is_filled: !r.is_filled } : r));
+    } catch (e) { tgAlert(e.message); }
+  };
+
+  const removeRole = async (role) => {
+    try {
+      await projects.deleteRole(project.id, role.id);
+      setRolesList(list => list.filter(r => r.id !== role.id));
+    } catch (e) { tgAlert(e.message); }
+  };
+
+  const saveLink = async () => {
+    try {
+      const updated = await projects.update(project.id, { group_link: linkDraft.trim() });
+      setEditingLink(false);
+      setProject(p => ({ ...p, group_link: updated.group_link }));
+    } catch (e) { tgAlert(e.message?.includes("t.me") ? t("chat.invalid") : e.message); }
   };
 
   return (
@@ -466,6 +509,82 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
                 </a>
               </div>
             )}
+
+            {/* Open roles */}
+            {(rolesList?.length > 0 || isCreator) && (
+              <div style={{ marginBottom: 20 }}>
+                <div className="section-label">{t("roles.sectionTitle")}</div>
+                {isCreator && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <input value={newRole} onChange={e => setNewRole(e.target.value)}
+                      placeholder={t("roles.addPh")} style={{
+                        flex: 1, padding: "10px 12px", background: "var(--surface-2)",
+                        border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                        color: "var(--text)", fontSize: 13 }} />
+                    <button onClick={addRole} disabled={addingRole} style={{
+                      padding: "10px 14px", background: "var(--accent)", border: "none",
+                      borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700,
+                      fontSize: 13, cursor: "pointer" }}>{t("roles.add")}</button>
+                  </div>
+                )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {(rolesList || []).map(r => (
+                    <span key={r.id} style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                      borderRadius: 99, fontSize: 12, fontWeight: 600,
+                      background: r.is_filled ? "var(--surface-3)" : "rgba(78,205,196,0.15)",
+                      color: r.is_filled ? "var(--text-3)" : "#4ECDC4",
+                      border: "1px solid var(--border)" }}>
+                      {r.name}{r.is_filled ? ` · ${t("roles.filled")}` : ""}
+                      {isCreator && (
+                        <>
+                          <button onClick={() => toggleRole(r)} title={r.is_filled ? t("roles.markOpen") : t("roles.markFilled")}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 12 }}>
+                            {r.is_filled ? "↺" : "✓"}
+                          </button>
+                          <button onClick={() => removeRole(r)} title={t("roles.remove")}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 12 }}>×</button>
+                        </>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Project chat */}
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-label">{t("chat.title")}</div>
+              {project.group_link ? (
+                <button onClick={() => openProjectChat(project)} style={{
+                  width: "100%", padding: "11px", background: "var(--accent)", border: "none",
+                  borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer" }}>{t("chat.join")}</button>
+              ) : isCreator ? (
+                editingLink ? (
+                  <div>
+                    <input value={linkDraft} onChange={e => setLinkDraft(e.target.value)}
+                      placeholder={t("chat.linkPh")} style={{
+                        width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "var(--surface-2)",
+                        border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                        color: "var(--text)", fontSize: 13, marginBottom: 8 }} />
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8 }}>{t("chat.howto")}</div>
+                    <button onClick={saveLink} style={{
+                      padding: "9px 14px", background: "var(--accent)", border: "none",
+                      borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700,
+                      fontSize: 13, cursor: "pointer" }}>{t("common.save")}</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setLinkDraft(""); setEditingLink(true); }} style={{
+                    width: "100%", padding: "11px", background: "var(--surface-2)",
+                    border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                    color: "var(--text-2)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                    {t("chat.linkBtn")}</button>
+                )
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("chat.none")}</div>
+              )}
+            </div>
 
             {isCreator && stats && (
               <div style={{

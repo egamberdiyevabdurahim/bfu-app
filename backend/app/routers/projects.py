@@ -20,6 +20,7 @@ from app.models.project import (
     ProjectReqSkill,
 )
 from app.models.trust import ProjectRating
+from app.models.connection import Follow
 from app.models.user import User, Favorite, Notification
 from app.schemas.project import (
     ApplicationOut,
@@ -570,7 +571,22 @@ async def get_project(
                                Favorite.project_id == project.id)
     )
     fav_set = {project.id} if fav_row.scalar_one_or_none() else set()
-    return _project_response(project, current_user, fav_set)
+    follower_count = await db.scalar(
+        select(func.count(Follow.id)).where(
+            Follow.target_type == "project", Follow.target_id == project.id
+        )
+    ) or 0
+    is_following = bool(await db.scalar(
+        select(func.count(Follow.id)).where(
+            Follow.follower_id == current_user.id,
+            Follow.target_type == "project",
+            Follow.target_id == project.id,
+        )
+    ))
+    resp = _project_response(project, current_user, fav_set)
+    resp.follower_count = int(follower_count)
+    resp.is_following = is_following
+    return resp
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)

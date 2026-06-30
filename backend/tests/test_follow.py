@@ -176,3 +176,16 @@ async def test_my_following_lists_both(make_user, as_user, db):
     body = res.json()
     assert {x["id"] for x in body["users"]} == {u.id}
     assert {x["id"] for x in body["projects"]} == {p.id}
+
+
+async def test_project_response_follow_fields(make_user, as_user, db):
+    founder = await make_user(name="Founder")
+    me = await make_user(name="Me")
+    p = await _mk_project(db, founder.id, "Proj")
+    c = as_user(me)
+    await c.post("/follow", json={"target_type": "project", "target_id": p.id})
+    res = await c.get(f"/projects/{p.id}")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["follower_count"] == 1
+    assert body["is_following"] is True

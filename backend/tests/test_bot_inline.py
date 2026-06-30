@@ -64,3 +64,40 @@ async def test_inline_empty_query_includes_own_profile_link(make_user, db):
     )
     # Default set leads with the typist's own profile deep link.
     assert f"user_{me.id}" in blob
+
+
+async def test_inline_handler_calls_answer(make_user, db, monkeypatch):
+    """The @dp.inline_query handler answers with the built results."""
+    import bot as botmod
+
+    owner = await make_user(name="Owner")
+    await _mk_project(db, owner.id, "Solar Farm", about="Clean energy")
+
+    # Point the handler's session factory at the test session so it reads our row.
+    class _CtxFactory:
+        def __call__(self):
+            outer = self
+            class _Ctx:
+                async def __aenter__(self_inner):
+                    return db
+                async def __aexit__(self_inner, *a):
+                    return False
+            return _Ctx()
+    monkeypatch.setattr(botmod, "AsyncSessionLocal", _CtxFactory())
+
+    captured = {}
+
+    class _FakeUser:
+        id = owner.telegram_id
+
+    class _FakeQuery:
+        query = "solar"
+        from_user = _FakeUser()
+        async def answer(self, results, **kwargs):
+            captured["results"] = results
+            captured["kwargs"] = kwargs
+
+    await botmod.inline_query_handler(_FakeQuery())
+    assert "results" in captured
+    assert len(captured["results"]) >= 1
+    assert captured["kwargs"].get("is_personal") is True

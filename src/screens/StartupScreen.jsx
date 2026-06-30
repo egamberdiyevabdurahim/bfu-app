@@ -5,6 +5,7 @@ import { projects, users } from "../api";
 import { ProjectForm } from "../components/ProjectForm";
 import { ProjectDetail } from "../components/ProjectDetail";
 import { UserProfileModal } from "../components/UserProfileModal";
+import { FounderFunnel } from "../components/FounderFunnel";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
 
@@ -57,6 +58,9 @@ export const StartupScreen = ({ deepLinkAppId }) => {
   const [requestsList, setRequestsList] = useState([]);
   const [reqLoading, setReqLoading] = useState(false);
   const [highlightedAppId] = useState(deepLinkAppId ? Number(deepLinkAppId) : null);
+
+  // Founder funnel (my startups tab)
+  const [showFunnel, setShowFunnel] = useState(false);
 
   // Modals
   const [selectedProject, setSelectedProject] = useState(null);
@@ -248,6 +252,24 @@ export const StartupScreen = ({ deepLinkAppId }) => {
 
       ) : (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12, paddingBottom: 100 }}>
+          {active === "my startups" && (
+            <>
+              <button onClick={() => setShowFunnel(v => !v)} style={{
+                width: "100%", padding: "10px 14px", textAlign: "left",
+                background: "var(--surface-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)", color: "var(--accent)", fontWeight: 700,
+                fontSize: 13, cursor: "pointer", display: "flex", justifyContent: "space-between",
+              }}>
+                <span>📊 {t("funnel.title")}</span>
+                <span style={{ color: "var(--text-3)" }}>{showFunnel ? "−" : "+"}</span>
+              </button>
+              {showFunnel && (
+                <div style={{ marginBottom: 4 }}>
+                  <FounderFunnel />
+                </div>
+              )}
+            </>
+          )}
           {loading ? (
             <SkeletonList count={4} />
           ) : list.length === 0 ? (

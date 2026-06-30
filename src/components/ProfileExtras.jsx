@@ -43,6 +43,7 @@ export const ProfileExtras = ({ user, onOpenProject, onOpenProfile }) => {
   const hasProjects = founded.length > 0 || member.length > 0;
   const rating = user.rating || { average: null, count: 0 };
   const mutual = user.mutual_connections || { count: 0, preview: [] };
+  const collaborators = user.collaborators || { count: 0, preview: [] };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 4 }}>
@@ -86,6 +87,34 @@ export const ProfileExtras = ({ user, onOpenProject, onOpenProfile }) => {
                   {(m.display_name || "?").slice(0, 1).toUpperCase()}
                 </span>
                 {m.display_name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Frequent collaborators */}
+      {collaborators.count > 0 && (
+        <div>
+          <div className="section-label">{t("collab.title")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {collaborators.preview.map(c => (
+              <button key={c.id} onClick={() => onOpenProfile?.(c.id)} style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+                background: "var(--surface-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)", padding: "8px 12px", cursor: "pointer" }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden",
+                  background: "var(--surface-3)", flexShrink: 0, display: "flex",
+                  alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--text-2)" }}>
+                  {c.photo_url ? <img src={c.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (c.display_name?.[0] || "?")}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.display_name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+                    {c.shared === 1 ? t("collab.sharedOne") : t("collab.shared", { n: c.shared })}
+                  </div>
+                </div>
               </button>
             ))}
           </div>

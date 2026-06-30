@@ -2,7 +2,7 @@
 import os
 
 os.environ.setdefault("ENVIRONMENT", "production")
-os.environ.setdefault("BOT_TOKEN", "test:token")
+os.environ.setdefault("BOT_TOKEN", "123456:test-token-for-pytest")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-ci-only")
 
 from app.core.security import (  # noqa: E402

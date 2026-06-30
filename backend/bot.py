@@ -4,11 +4,15 @@ import sys
 
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command, CommandStart
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from sqlalchemy import select
+from aiogram.types import (
+    InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery,
+    InlineQueryResultArticle, InputTextMessageContent, WebAppInfo,
+)
+from sqlalchemy import or_, select
 
 from app.config import settings
 from app.database import AsyncSessionLocal
+from app.models.project import Project
 from app.models.user import PendingLocation, User
 
 # Initialize Bot and Dispatcher
@@ -80,6 +84,85 @@ async def command_me_handler(message: types.Message) -> None:
         inline_keyboard=[[InlineKeyboardButton(text=tr["btn"], web_app=WebAppInfo(url=webapp_url))]]
     )
     await message.answer("👤", reply_markup=markup)
+
+
+def _deep(param: str) -> str:
+    """Telegram deep link into the Mini App with a start parameter."""
+    return f"https://t.me/{settings.BOT_USERNAME}?startapp={param}"
+
+
+async def build_inline_results(query: str, tg_user_id: int, db) -> list:
+    """Inline-mode results for `query`. Returns InlineQueryResultArticle objects.
+
+    Pulled out of the handler so it is unit-testable without the polling loop.
+    - Non-empty query: ILIKE on approved/non-draft/non-deleted project name+about.
+    - Empty query: the typist's own profile link (if they're a BFU user) + recent
+      approved projects.
+    """
+    q = (query or "").strip()
+    results: list = []
+
+    # On an empty query, lead with the typist's own shareable profile link.
+    if not q:
+        me = (await db.execute(
+            select(User).where(User.telegram_id == tg_user_id,
+                               User.is_deleted == False, User.is_registered == True)
+        )).scalar_one_or_none()
+        if me is not None:
+            link = _deep(f"user_{me.id}")
+            results.append(InlineQueryResultArticle(
+                id=f"me_{me.id}",
+                title="📇 Share my BFU profile",
+                description="Send a link to your Bright Futures profile",
+                url=link,
+                input_message_content=InputTextMessageContent(
+                    message_text=f"My Bright Futures Uzbekistan profile 👉 {link}",
+                    disable_web_page_preview=False,
+                ),
+            ))
+
+    stmt = (
+        select(Project)
+        .where(Project.is_approved == True, Project.is_draft == False,
+               Project.is_deleted == False)
+        .order_by(Project.created_at.desc())
+        .limit(12)
+    )
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(or_(Project.name.ilike(like), Project.about.ilike(like)))
+
+    projects = (await db.execute(stmt)).scalars().all()
+    for p in projects:
+        link = _deep(f"project_{p.id}")
+        teaser = (p.about or "").strip().replace("\n", " ")
+        if len(teaser) > 120:
+            teaser = teaser[:117] + "…"
+        kind = "Startup" if p.type == "startup" else "Volunteering"
+        results.append(InlineQueryResultArticle(
+            id=f"proj_{p.id}",
+            title=p.name,
+            description=(teaser or kind),
+            url=link,
+            input_message_content=InputTextMessageContent(
+                message_text=(f"🚀 {p.name}\n{teaser}\n\nOpen on BFU 👉 {link}"
+                              if teaser else f"🚀 {p.name}\n\nOpen on BFU 👉 {link}"),
+                disable_web_page_preview=False,
+            ),
+        ))
+    return results
+
+
+@dp.inline_query()
+async def inline_query_handler(query: InlineQuery) -> None:
+    """`@BrightFuturesUzbekistan_bot <text>` in any chat → shareable project /
+    profile cards that deep-link into the Mini App.
+
+    Requires inline mode enabled in BotFather (FOUNDER STEP 1)."""
+    async with AsyncSessionLocal() as session:
+        results = await build_inline_results(query.query, query.from_user.id, session)
+    # is_personal: results include the typist's own profile → never cross-cache.
+    await query.answer(results, cache_time=15, is_personal=True)
 
 
 _LOC = {

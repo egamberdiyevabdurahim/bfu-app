@@ -26,7 +26,7 @@ import os
 # production mode here too: auth is handled via a dependency override, and the
 # SECRET_KEY prod guard is satisfied because we supply a strong key.
 os.environ.setdefault("ENVIRONMENT", "production")
-os.environ.setdefault("BOT_TOKEN", "test:token")
+os.environ.setdefault("BOT_TOKEN", "123456:test-token-for-pytest")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-suite-only-not-real")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
 os.environ.setdefault("ADMIN_GROUP_ID", "0")

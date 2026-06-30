@@ -572,6 +572,8 @@ const STRINGS = {
   "trust.noVouches": { en: "No vouches yet", uz: "Hali tavsiya yo‘q", ru: "Пока нет отзывов" },
   "trust.sharePublic": { en: "Share public profile", uz: "Ommaviy profilni ulashish", ru: "Поделиться профилем" },
   "trust.copied": { en: "Link copied", uz: "Havola nusxalandi", ru: "Ссылка скопирована" },
+  "resume.download": { en: "Download CV", uz: "CV’ni yuklash", ru: "Скачать резюме" },
+  "resume.failed": { en: "Couldn’t generate CV", uz: "CV yaratib bo‘lmadi", ru: "Не удалось создать резюме" },
   "rate.title": { en: "Rate your teammates", uz: "Jamoadoshlaringizni baholang", ru: "Оцените команду" },
   "rate.note": { en: "Note (optional)", uz: "Izoh (ixtiyoriy)", ru: "Заметка (необязательно)" },
   "rate.submit": { en: "Submit rating", uz: "Bahoni yuborish", ru: "Отправить оценку" },

@@ -99,6 +99,7 @@ _PROFILE_EXTRAS_FIELDS = {
     "currently_building", "currently_building_source", "portfolio_links",
     "founded_projects", "member_projects", "stats",
     "endorsements", "vouches", "vouch_count", "rating", "mutual_connections",
+    "mentor", "follower_count", "following_count", "is_following",
 }
 
 
@@ -416,6 +417,9 @@ async def get_me(
         setattr(out, k, v)
     trust = await _trust_extras(db, current_user, current_user)
     for k, v in trust.items():
+        setattr(out, k, v)
+    conn = await _connection_extras(db, current_user, current_user)
+    for k, v in conn.items():
         setattr(out, k, v)
     return out
 
@@ -1441,5 +1445,8 @@ async def get_user_profile(
         setattr(out, k, v)
     trust = await _trust_extras(db, user, current_user)
     for k, v in trust.items():
+        setattr(out, k, v)
+    conn = await _connection_extras(db, user, current_user)
+    for k, v in conn.items():
         setattr(out, k, v)
     return out

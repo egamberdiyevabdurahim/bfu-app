@@ -60,3 +60,30 @@ async def test_connection_extras_non_mentor_default(make_user, db):
     u = await make_user(name="U")
     extras = await _connection_extras(db, u, None)
     assert extras["mentor"] == {"is_mentor": False, "bio": None, "topics": []}
+
+
+async def test_get_user_profile_includes_connection(make_user, as_user, db):
+    from app.models.connection import Follow
+    target = await make_user(name="Target")
+    viewer = await make_user(name="Viewer")
+    db.add(Follow(follower_id=viewer.id, target_type="user", target_id=target.id))
+    await db.commit()
+
+    c = as_user(viewer)
+    res = await c.get(f"/users/{target.id}")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["follower_count"] == 1
+    assert body["is_following"] is True
+    assert body["mentor"] == {"is_mentor": False, "bio": None, "topics": []}
+
+
+async def test_get_me_includes_connection(make_user, as_user, db):
+    me = await make_user(name="Me")
+    c = as_user(me)
+    res = await c.get("/users/me")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["follower_count"] == 0
+    assert body["is_following"] is False
+    assert "mentor" in body

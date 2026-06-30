@@ -617,7 +617,7 @@ async def my_connections(
             User.id.in_(mutual_ids), User.is_deleted == False, User.is_registered == True
         )
     )).scalars().all()
-    return users
+    return [_validate_from_user(UserPublic, u) for u in users]
 
 
 @router.get("/me/following", response_model=dict)
@@ -1690,7 +1690,7 @@ async def discover(
                            1 if u.checked else 0),
             reverse=True,
         )
-        return ranked[offset:offset + limit]
+        return [_validate_from_user(UserPublic, u) for u in ranked[offset:offset + limit]]
 
     if skill or knowledge:
         # The skill/knowledge tags live in a JSON column, so we filter in
@@ -1709,11 +1709,11 @@ async def discover(
             if knowledge_lower and knowledge_lower not in [k.lower() for k in (u.analysis.knowledges or [])]:
                 continue
             filtered.append(u)
-        return filtered[offset:offset + limit]
+        return [_validate_from_user(UserPublic, u) for u in filtered[offset:offset + limit]]
 
     q = q.limit(limit).offset(offset)
     result = await db.execute(q)
-    return result.scalars().all()
+    return [_validate_from_user(UserPublic, u) for u in result.scalars().all()]
 
 
 # ── Public profile ─────────────────────────────────────────────────────────────

@@ -621,6 +621,11 @@ async def update_project(
     req_region_ids = data.pop("req_region_ids", None)
     req_skills = data.pop("req_skills", None)
     req_knowledges = data.pop("req_knowledges", None)
+    # group_link needs validation (must be a t.me link) and "" → None clearing,
+    # which exclude_none alone can't express (an explicit "" survives the dump
+    # but plain assignment would store the empty string verbatim).
+    if "group_link" in data:
+        project.group_link = _clean_group_link(data.pop("group_link"))
 
     for field, value in data.items():
         setattr(project, field, value)
@@ -740,6 +745,17 @@ async def _load_owned_project(db: AsyncSession, project_id: int, user_id: int) -
     if project.creator_id != user_id:
         raise HTTPException(status_code=403, detail="Not your project")
     return project
+
+
+def _clean_group_link(raw: str | None) -> str | None:
+    """Normalize a project group link: empty → None; must be a Telegram URL."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    low = s.lower()
+    if not (low.startswith("https://t.me/") or low.startswith("https://telegram.me/")):
+        raise HTTPException(status_code=422, detail="group_link must be a https://t.me/ link")
+    return s[:512]
 
 
 @router.get("/{project_id}/roles", response_model=dict)

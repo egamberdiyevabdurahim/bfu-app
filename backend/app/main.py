@@ -67,6 +67,8 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT false;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_file_id VARCHAR(255);",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS currently_building TEXT;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS portfolio_links TEXT;",
         # notifications inbox indexes (table itself created by create_all)
         "CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications (user_id);",
         "CREATE INDEX IF NOT EXISTS ix_notifications_unread ON notifications (user_id, is_read);",

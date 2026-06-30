@@ -27,6 +27,10 @@ class Project(SoftDeleteMixin, TimestampMixin, Base):
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Batch D — founder-pasted Telegram group invite link for the project chat.
+    # Bots can't create groups; the founder makes the group, adds the bot, and
+    # pastes its t.me invite here. Mirrors schools.group_link / learning_centers.
+    group_link: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     creator = relationship("User", backref="created_projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")

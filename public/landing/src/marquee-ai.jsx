@@ -54,18 +54,19 @@ function MarqueeRow({ direction = 'left', bubbles }) {
 }
 
 function BotMarquee() {
+  useBFULang(); // re-render on language change
   const rowA = BUBBLES;
   const rowB = [...BUBBLES.slice(5), ...BUBBLES.slice(0, 5)];
   return (
     <section id="events" className="relative py-24 lg:py-32 overflow-hidden">
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8 mb-10">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">Telegram-native</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">{BFU_T('marquee.kicker')}</div>
         <div className="grid lg:grid-cols-[1fr_0.9fr] gap-8 items-end">
           <h2 className="font-display font-bold text-[36px] sm:text-[46px] lg:text-[58px] leading-[1.04] tracking-[-0.025em]">
-            Notifications where you already are.
+            {BFU_T('marquee.h2')}
           </h2>
           <p className="text-[16px] text-text-2 max-w-[460px] lg:pb-2">
-            Applications, invites, weekly digests, verifications — BFU pings you inside the bot. No separate inbox to check.
+            {BFU_T('marquee.p')}
           </p>
         </div>
       </div>
@@ -129,6 +130,7 @@ function HighlightedBio({ text, revealed }) {
 }
 
 function AIMatchingDemo({ reduced }) {
+  useBFULang(); // re-render on language change
   const [ref, inView] = useInView({ threshold: 0.35 });
   const [typed, done] = useTyping(BIO_TEXT, { speed: 30, start: inView, startDelay: 200 });
   const [revealStep, setRevealStep] = useState(0);
@@ -160,12 +162,12 @@ function AIMatchingDemo({ reduced }) {
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full bg-[#7B6FFF]/[0.06] blur-[140px] -z-10" />
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8">
         <div className="max-w-[720px] mb-14">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-[#4ECDC4] font-semibold mb-4">AI matching</div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[#4ECDC4] font-semibold mb-4">{BFU_T('ai.kicker')}</div>
           <h2 className="font-display font-bold text-[36px] sm:text-[46px] lg:text-[58px] leading-[1.04] tracking-[-0.025em]">
-            Your bio, read by Claude.
+            {BFU_T('ai.h2')}
           </h2>
           <p className="mt-5 text-[16px] text-text-2 max-w-[600px]">
-            Drop a sentence about yourself. Anthropic Claude tags it across five dimensions — then we surface the people whose tags overlap with yours.
+            {BFU_T('ai.p')}
           </p>
         </div>
 
@@ -173,10 +175,10 @@ function AIMatchingDemo({ reduced }) {
           {/* LEFT: bio + chip groups */}
           <div className="rounded-3xl bg-[#13131A] border border-white/[0.06] p-6 lg:p-8">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-text-3 font-semibold">Your bio</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-text-3 font-semibold">{BFU_T('ai.yourBio')}</div>
               <div className="flex items-center gap-1.5 text-[10px] text-[#4ECDC4]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#4ECDC4] soft-pulse" />
-                Claude is reading
+                {BFU_T('ai.reading')}
               </div>
             </div>
             <div className="rounded-xl bg-bg/60 border border-white/[0.05] p-4 min-h-[110px] text-[15px] leading-[1.6] text-white/90">
@@ -189,7 +191,7 @@ function AIMatchingDemo({ reduced }) {
                 const tagsForGroup = TAG_MAP.filter(t => t.group === g && revealedPhrases.includes(t.phrase));
                 return (
                   <div key={g} className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 min-h-[110px]">
-                    <div className="text-[9px] uppercase tracking-[0.18em] text-text-3 font-semibold mb-2">{g}</div>
+                    <div className="text-[9px] uppercase tracking-[0.18em] text-text-3 font-semibold mb-2">{(BFU_T('ai.groups')[gi]) || g}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {motion ? tagsForGroup.map(t => (
                         <motion.span
@@ -214,7 +216,7 @@ function AIMatchingDemo({ reduced }) {
 
           {/* RIGHT: match results */}
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-text-3 font-semibold mb-4">Matches — ranked</div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-text-3 font-semibold mb-4">{BFU_T('ai.matchesRanked')}</div>
             <div className="space-y-3">
               {matches.map((m, i) => {
                 const inMatch = revealStep >= TAG_MAP.length;
@@ -248,7 +250,7 @@ function AIMatchingDemo({ reduced }) {
               })}
             </div>
             <div className="mt-4 text-[12px] text-text-3 leading-relaxed">
-              Match · ranked by overlap across <span className="text-white">skills, knowledges, interests, preparations & goals</span> — not by who posted last.
+              {BFU_T('ai.footer.a')}<span className="text-white">{BFU_T('ai.footer.hl')}</span>{BFU_T('ai.footer.b')}
             </div>
           </div>
         </div>

@@ -39,9 +39,11 @@ function ConfettiBurst({ trigger }) {
 }
 
 function LeaderboardSection({ reduced }) {
+  useBFULang(); // re-render on language change
   const [ref, inView] = useInView({ threshold: 0.3 });
   const [tab, setTab] = useState('weekly');
   const { motion } = window.FramerMotion || {};
+  const tabLabel = { 'weekly': BFU_T('lead.tab.weekly'), 'monthly': BFU_T('lead.tab.monthly'), 'all-time': BFU_T('lead.tab.allTime') };
 
   // tab → API period
   const period = tab === 'weekly' ? 'week' : tab === 'monthly' ? 'month' : 'all';
@@ -61,12 +63,12 @@ function LeaderboardSection({ reduced }) {
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8">
         <div className="grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">Invites & referrals</div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">{BFU_T('lead.kicker')}</div>
             <h2 className="font-display font-bold text-[36px] sm:text-[46px] lg:text-[58px] leading-[1.04] tracking-[-0.025em]">
-              Build the future <span className="bg-gradient-to-br from-[#A78BFA] to-[#7B6FFF] bg-clip-text text-transparent">together</span> — bring a friend.
+              {BFU_T('lead.h2a')}<span className="bg-gradient-to-br from-[#A78BFA] to-[#7B6FFF] bg-clip-text text-transparent">{BFU_T('lead.h2hl')}</span>{BFU_T('lead.h2b')}
             </h2>
             <p className="mt-6 text-[16px] text-text-2 max-w-[500px] leading-[1.55]">
-              Every BFU member has a unique invite link. When the people you bring complete registration, they count toward your spot on the weekly and monthly leaderboards — and toward real prizes.
+              {BFU_T('lead.p')}
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-2.5">
@@ -79,18 +81,18 @@ function LeaderboardSection({ reduced }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[12px] font-semibold px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white no-underline"
-              >Get yours</a>
+              >{BFU_T('lead.getYours')}</a>
             </div>
           </div>
 
           <div className="rounded-3xl bg-[#13131A] border border-white/[0.06] p-5 lg:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-[13px] font-semibold text-white">Top inviters</div>
+              <div className="text-[13px] font-semibold text-white">{BFU_T('lead.topInviters')}</div>
               <div className="flex items-center gap-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] p-0.5">
                 {['weekly', 'monthly', 'all-time'].map(t => (
                   <button key={t} onClick={() => setTab(t)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize transition ${tab === t ? 'bg-white/10 text-white' : 'text-text-3 hover:text-text-2'}`}
-                  >{t}</button>
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${tab === t ? 'bg-white/10 text-white' : 'text-text-3 hover:text-text-2'}`}
+                  >{tabLabel[t]}</button>
                 ))}
               </div>
             </div>
@@ -98,13 +100,13 @@ function LeaderboardSection({ reduced }) {
             <div className="space-y-2">
               {loaded && leaders.length === 0 && (
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-8 text-center">
-                  <div className="text-[13px] text-white font-semibold mb-1">No invites this {tab === 'all-time' ? 'time' : period} yet.</div>
-                  <div className="text-[11px] text-text-3">Be the first to share your link — your name will appear here.</div>
+                  <div className="text-[13px] text-white font-semibold mb-1">{BFU_T('lead.noInvites')}</div>
+                  <div className="text-[11px] text-text-3">{BFU_T('lead.beFirst')}</div>
                 </div>
               )}
               {!loaded && (
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-8 text-center">
-                  <div className="text-[12px] text-text-3">Loading top inviters…</div>
+                  <div className="text-[12px] text-text-3">{BFU_T('lead.loading')}</div>
                 </div>
               )}
               {leaders.map((l, i) => (
@@ -139,7 +141,7 @@ function LeaderboardSection({ reduced }) {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-display font-bold text-[18px] tracking-[-0.02em] text-white">{l.invites}</div>
-                    <div className="text-[9px] text-text-3 uppercase tracking-[0.18em]">invites</div>
+                    <div className="text-[9px] text-text-3 uppercase tracking-[0.18em]">{BFU_T('lead.invites')}</div>
                   </div>
                 </div>
               ))}
@@ -147,7 +149,7 @@ function LeaderboardSection({ reduced }) {
 
             <div className="mt-4 flex items-center gap-3 text-[11px] text-text-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#4ECDC4] soft-pulse" />
-              Live from BFU · weekly resets each Monday, Tashkent time
+              {BFU_T('lead.liveNote')}
             </div>
           </div>
         </div>
@@ -158,48 +160,38 @@ function LeaderboardSection({ reduced }) {
 
 // ---- Trust & safety ----
 function TrustSafety() {
-  const items = [
-    {
-      title: 'Verified by humans.',
-      body: 'Admins review every new profile. Verified members get a ✓ that other members can see.',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 2 L18 5 V11 C18 16 14.5 19 11 20 C7.5 19 4 16 4 11 V5 Z" />
-          <path d="M8 11.5 L10.5 14 L14.5 9.5" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Your data, your call.',
-      body: 'Your location is never shown to other members. You control what your profile says, when, and to whom.',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="9" width="14" height="10" rx="2" />
-          <path d="M7 9V6.5 a4 4 0 0 1 8 0 V9" />
-          <circle cx="11" cy="14" r="1.2" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Reportable & accountable.',
-      body: 'Every project and member is reportable; every admin action is logged. A small team, but a fair one.',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 4h6l1.5 2H19v11H3z" />
-          <path d="M11 10v3M11 15.5v0.5" />
-        </svg>
-      ),
-    },
+  useBFULang(); // re-render on language change
+  const icons = [
+    (
+      <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 2 L18 5 V11 C18 16 14.5 19 11 20 C7.5 19 4 16 4 11 V5 Z" />
+        <path d="M8 11.5 L10.5 14 L14.5 9.5" />
+      </svg>
+    ),
+    (
+      <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="9" width="14" height="10" rx="2" />
+        <path d="M7 9V6.5 a4 4 0 0 1 8 0 V9" />
+        <circle cx="11" cy="14" r="1.2" fill="currentColor" />
+      </svg>
+    ),
+    (
+      <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 4h6l1.5 2H19v11H3z" />
+        <path d="M11 10v3M11 15.5v0.5" />
+      </svg>
+    ),
   ];
+  const items = BFU_T('trust.items');
   return (
     <section className="relative py-24">
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-8 text-center">Trust & safety</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-8 text-center">{BFU_T('trust.kicker')}</div>
         <div className="grid md:grid-cols-3 gap-5 lg:gap-8">
           {items.map((it, i) => (
             <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.05] p-6 flex flex-col items-start">
               <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-[#A78BFA] mb-4">
-                {it.icon}
+                {icons[i]}
               </div>
               <h4 className="font-display font-bold text-[18px] text-white tracking-[-0.01em]">{it.title}</h4>
               <p className="mt-2 text-[13.5px] text-text-2 leading-[1.55]">{it.body}</p>

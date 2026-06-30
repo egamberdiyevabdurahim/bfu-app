@@ -66,12 +66,12 @@ function FeatureCard({ idx, title, body, inView, IconSVG }) {
 }
 
 function FeatureGrid() {
+  useBFULang(); // re-render on language change
   const [ref, inView] = useInView({ threshold: 0.25 });
+  const cardCopy = BFU_T('features.cards');
 
   const cards = [
     {
-      title: 'Discover people who match.',
-      body: '"For You" feed, verified ✓ badges, multi-sort search by skill, region, or readiness.',
       IconSVG: ({ inView }) => (
         <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
           <CircleDraw cx="10" cy="9" r="5" inView={inView} />
@@ -80,8 +80,6 @@ function FeatureGrid() {
       ),
     },
     {
-      title: 'Build or join a project.',
-      body: 'Startups & volunteering. Apply with one tap. Drafts, founder dashboards, co-applied insights.',
       IconSVG: ({ inView }) => (
         <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
           <PathDraw d="M3 17V8l8-5 8 5v9" inView={inView} />
@@ -91,8 +89,6 @@ function FeatureGrid() {
       ),
     },
     {
-      title: 'Real opportunities.',
-      body: 'Hackathons, grants, scholarships, meetups — admin-curated and sorted by deadline.',
       IconSVG: ({ inView }) => (
         <svg width="22" height="22" viewBox="0 0 22 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
           <PathDraw d="M11 2l2.5 5.5 6 .7-4.4 4.2 1.2 6-5.3-2.9-5.3 2.9 1.2-6L2.5 8.2l6-.7L11 2z" inView={inView} />
@@ -105,16 +101,25 @@ function FeatureGrid() {
     <section id="features" ref={ref} className="relative py-28 lg:py-36">
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8">
         <div className="max-w-[640px]">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">What you get</div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">{BFU_T('features.kicker')}</div>
           <h2 className="font-display font-bold text-[36px] sm:text-[46px] lg:text-[58px] leading-[1.04] tracking-[-0.025em]">
-            Three things, done well.
+            {BFU_T('features.h2')}
           </h2>
           <p className="mt-5 text-[16px] text-text-2 max-w-[520px]">
-            BFU is small on purpose. Each surface is sharp, fast, and built to be used inside Telegram every day.
+            {BFU_T('features.sub')}
           </p>
         </div>
         <div className="mt-14 grid md:grid-cols-3 gap-5">
-          {cards.map((c, i) => <FeatureCard key={c.title} idx={i + 1} inView={inView} {...c} />)}
+          {cards.map((c, i) => (
+            <FeatureCard
+              key={i}
+              idx={i + 1}
+              inView={inView}
+              title={cardCopy[i] ? cardCopy[i].title : ''}
+              body={cardCopy[i] ? cardCopy[i].body : ''}
+              IconSVG={c.IconSVG}
+            />
+          ))}
         </div>
       </div>
     </section>

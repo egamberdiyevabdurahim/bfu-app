@@ -96,15 +96,13 @@ function Topbar() {
     { label: BFU_T('nav.features'), href: '#features' },
     { label: BFU_T('nav.regions'),  href: '#regions' },
     { label: BFU_T('nav.events'),   href: '#events' },
-    { label: BFU_T('nav.partners'), href: '#partners' },
   ];
 
   return (
     <header className={`fixed top-0 inset-x-0 z-[70] transition-all duration-300 ${scrolled ? 'bg-[#0A0A0F]/80 backdrop-blur-md border-b border-white/[0.05]' : 'bg-transparent'}`}>
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8 h-[64px] flex items-center justify-between">
-        <a href="#top" className="flex items-center gap-2.5">
-          <LogoMark size={32} />
-          <span className="font-display font-bold text-[18px] tracking-[-0.02em]">BFU</span>
+        <a href="#top" className="flex items-center">
+          <LogoMark size={42} />
         </a>
 
         <nav className="hidden lg:flex items-center gap-7 text-[13px] text-text-2">

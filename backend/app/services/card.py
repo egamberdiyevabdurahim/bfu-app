@@ -230,14 +230,18 @@ def render_card_png(
         tw = int(mlogo.width * th / mlogo.height)
         mlogo = mlogo.resize((tw, th), Image.LANCZOS)
         label = "powered by"
+        brand = "Marstiff"
         f_label = _font(_DM, 26, 500)
+        f_brand = _font(_SYNE, 34, 800)
         lw = _text_w(draw, label, f_label)
-        gap = 16
-        total_w = lw + gap + tw
+        bw = _text_w(draw, brand, f_brand)
+        gap = 14
+        total_w = lw + gap + bw + gap + tw
         sx = cx - total_w // 2
         ly = 1880
         draw.text((sx, ly), label, font=f_label, fill=TEXT3, anchor="lm")
-        img.alpha_composite(mlogo, (sx + lw + gap, ly - th // 2))
+        draw.text((sx + lw + gap, ly), brand, font=f_brand, fill=TEXT, anchor="lm")
+        img.alpha_composite(mlogo, (sx + lw + gap + bw + gap, ly - th // 2))
     except Exception:
         pass
 

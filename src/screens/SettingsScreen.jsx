@@ -307,6 +307,9 @@ export const SettingsScreen = () => {
           <span style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600, fontFamily: "var(--font-display)" }}>
             powered by
           </span>
+          <span style={{ fontSize: 14, color: "var(--text)", fontWeight: 700, fontFamily: "var(--font-display)" }}>
+            Marstiff
+          </span>
           <img src="/marstiff-logo.png" alt="Marstiff" style={{ height: 18, objectFit: "contain" }} />
         </div>
 

@@ -1,13 +1,6 @@
 // faq-final.jsx — FAQ accordion, Final CTA full-bleed finale, Footer
 const { useState, useEffect, useRef } = React;
 
-const FAQS = [
-  { q: 'Is it free?', a: 'Yes. Always free for students. We do not charge members for finding co-founders, joining projects, or applying to opportunities.' },
-  { q: 'Do I need a Telegram account?', a: 'Yes. BFU lives inside Telegram as a Mini App, so you don’t have to install anything new. If you already use Telegram, you already have BFU — just open the bot.' },
-  { q: 'What languages does it support?', a: 'Three: O‘zbekcha, Русский and English. Every screen is fully trilingual, and you can switch any time without losing your work.' },
-  { q: 'How do you verify members?', a: 'Admins review each profile before granting a verification badge. We look at who the person says they are, what they’re working on, and whether their bio and links check out. Verified members get a ✓ that other members can see.' },
-  { q: 'Who is behind BFU?', a: 'BFU was founded by Abdurahim Egamberdiyev. It’s built in Uzbekistan, in Uzbek, for Uzbek youth. The product is independent and member-funded.' },
-];
 
 function FAQItem({ item, open, onClick }) {
   const ref = useRef(null);
@@ -41,13 +34,15 @@ function FAQItem({ item, open, onClick }) {
 }
 
 function FAQ() {
+  useBFULang(); // re-render on language change
   const [openIdx, setOpenIdx] = useState(0);
+  const FAQS = BFU_T('faq.items');
   return (
     <section className="relative py-28 lg:py-36">
       <div className="max-w-[920px] mx-auto px-5 lg:px-8">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">FAQ</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-4">{BFU_T('faq.kicker')}</div>
         <h2 className="font-display font-bold text-[36px] sm:text-[46px] lg:text-[56px] leading-[1.04] tracking-[-0.025em] mb-10">
-          Questions, answered.
+          {BFU_T('faq.h2')}
         </h2>
         <div>
           {FAQS.map((f, i) => (
@@ -66,6 +61,7 @@ function FAQ() {
 
 // ---- Final CTA ----
 function FinalCTA() {
+  useBFULang(); // re-render on language change
   return (
     <section className="relative overflow-hidden" style={{ minHeight: '80vh' }}>
       <div className="absolute inset-0 -z-10">
@@ -77,26 +73,26 @@ function FinalCTA() {
       </div>
 
       <div className="relative max-w-[1000px] mx-auto px-5 lg:px-8 py-28 lg:py-40 text-center">
-        <div className="text-[11px] uppercase tracking-[0.32em] text-[#4ECDC4] font-semibold mb-6">Ready?</div>
+        <div className="text-[11px] uppercase tracking-[0.32em] text-[#4ECDC4] font-semibold mb-6">{BFU_T('final.kicker')}</div>
         <h2 className="font-display font-extrabold text-[48px] sm:text-[68px] lg:text-[92px] leading-[0.98] tracking-[-0.03em]">
-          Your team is <br className="hidden sm:block" />
-          <span className="bg-gradient-to-br from-white via-[#D6CCFF] to-[#A78BFA] bg-clip-text text-transparent">already here.</span><br />
-          Open the bot.
+          {BFU_T('final.h2a')}<br className="hidden sm:block" />
+          <span className="bg-gradient-to-br from-white via-[#D6CCFF] to-[#A78BFA] bg-clip-text text-transparent">{BFU_T('final.h2hl')}</span><br />
+          {BFU_T('final.h2b')}
         </h2>
         <p className="mt-7 max-w-[520px] mx-auto text-[16px] text-text-2 leading-[1.55]">
-          One tap inside Telegram and you’re in. No App Store, no signup form, no second account.
+          {BFU_T('final.p')}
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-4">
           <PrimaryCTA href="https://t.me/BrightFuturesUzbekistan_bot" size="lg" className="text-[16px]">
-            <span className="text-[18px]">🚀</span> Open in Telegram
+            <span className="text-[18px]">🚀</span> {BFU_T('final.cta')}
           </PrimaryCTA>
           <a
             href="#regions"
             onClick={(e) => { e.preventDefault(); smoothScrollTo('#regions'); }}
             className="text-[13px] text-text-2 hover:text-text-1 transition underline-offset-4 hover:underline"
           >
-            or browse the regions →
+            {BFU_T('final.browse')}
           </a>
         </div>
       </div>
@@ -106,39 +102,38 @@ function FinalCTA() {
 
 // ---- Footer ----
 function Footer() {
+  useBFULang(); // re-render on language change
   return (
     <footer className="relative border-t border-white/[0.06] bg-[#0A0A0F]">
       <div className="max-w-[1240px] mx-auto px-5 lg:px-8 py-16 lg:py-20">
         <div className="grid lg:grid-cols-[1.2fr_1fr_1fr] gap-10 lg:gap-14">
           <div>
-            <div className="flex items-center gap-2.5">
-              <LogoMark size={32} />
-              <span className="font-display font-bold text-[18px]">BFU</span>
-            </div>
+            <a href="#top" className="inline-flex items-center">
+              <LogoMark size={40} />
+            </a>
             <p className="mt-5 text-[14px] text-text-2 max-w-[320px] leading-[1.55]">
-              Bright Futures Uzbekistan. A Telegram-native platform connecting students, founders and volunteers across all 14 regions.
+              {BFU_T('footer.desc')}
             </p>
             <div className="mt-5 inline-flex items-center gap-2 text-[13px] text-text-3">
-              <span className="font-display font-bold text-text-1">Made in Uzbekistan</span>
+              <span className="font-display font-bold text-text-1">{BFU_T('footer.made')}</span>
               <span>🇺🇿</span>
-              <span className="text-[#A78BFA] soft-pulse inline-block">✦</span>
             </div>
-            <div className="mt-3 flex items-center gap-2.5 text-text-3">
-              <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">Powered by</span>
+            <div className="mt-4 flex items-center gap-2.5 text-text-3">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">{BFU_T('footer.poweredBy')}</span>
+              <span className="font-display font-bold text-[15px] text-text-1 tracking-[-0.01em]">Marstiff</span>
               <img src="/marstiff-logo.png" alt="Marstiff" className="h-5 w-auto object-contain" />
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-4">Links</div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-4">{BFU_T('footer.linksTitle')}</div>
             <ul className="space-y-2.5 text-[14px]">
               {[
-                ['Open in Telegram', 'https://t.me/BrightFuturesUzbekistan_bot'],
-                ['Regions', '#regions'],
-                ['Events', '#events'],
-                ['Partners', '#partners'],
+                [BFU_T('footer.linkTelegram'), 'https://t.me/BrightFuturesUzbekistan_bot'],
+                [BFU_T('footer.linkRegions'), '#regions'],
+                [BFU_T('footer.linkEvents'), '#events'],
               ].map(([t, h]) => (
-                <li key={t}>
+                <li key={h}>
                   <a href={h} target={h.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className="text-text-2 hover:text-text-1 transition">{t}</a>
                 </li>
               ))}
@@ -146,7 +141,7 @@ function Footer() {
           </div>
 
           <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-4">Contact</div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-text-3 font-semibold mb-4">{BFU_T('footer.contactTitle')}</div>
             <ul className="space-y-2.5 text-[14px]">
               <li><a href="https://t.me/BrightFuturesUzbekistan" target="_blank" rel="noreferrer" className="text-text-2 hover:text-text-1 transition">@BrightFuturesUzbekistan</a></li>
               <li><a href="https://t.me/BrightFuturesUzbekistan_bot" target="_blank" rel="noreferrer" className="text-text-2 hover:text-text-1 transition">@BrightFuturesUzbekistan_bot</a></li>
@@ -157,12 +152,12 @@ function Footer() {
         </div>
 
         <div className="mt-14 pt-6 border-t border-white/[0.05] flex flex-wrap items-center justify-between gap-3 text-[12px] text-text-3">
-          <div>© Bright Futures Uzbekistan · Built with <span className="text-[#FF6B6B]">❤</span> in Tashkent.</div>
+          <div>{BFU_T('footer.copyright')}</div>
           <div className="flex items-center gap-4">
             <span>v1.0</span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#4ECDC4] soft-pulse" />
-              All systems operational
+              {BFU_T('footer.status')}
             </span>
           </div>
         </div>

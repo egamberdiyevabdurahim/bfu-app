@@ -14,13 +14,13 @@ function HeroHeadline({ reduced }) {
   const { motion } = window.FramerMotion || {};
   if (!motion) {
     return (
-      <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em]">
+      <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em] text-text-1">
         {headline}
       </h1>
     );
   }
   return (
-    <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em] text-sweep">
+    <h1 className="font-display font-extrabold text-[42px] sm:text-[56px] lg:text-[72px] leading-[1.02] tracking-[-0.025em] text-text-1">
       {words.map((w, i) => (
         <motion.span
           // key includes lang so the word-by-word reveal replays on switch

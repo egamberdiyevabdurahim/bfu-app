@@ -319,7 +319,7 @@ function BioTagScreen() {
   ];
   return (
     <div className="flex flex-col flex-1 bg-[#0c0c14]">
-      <TGBar title="Tag your bio" subtitle="Claude is reading…" />
+      <TGBar title="Tag your bio" subtitle="AI is reading…" />
       <div className="px-3.5 pt-3 flex-1 overflow-hidden">
         <div className="rounded-xl bg-white/[0.03] border border-white/[0.07] px-2.5 py-2 text-[10px] text-white/80 leading-snug">
           19, from Samarkand, learning <span className="bg-[#7B6FFF]/25 px-1 rounded">Python</span> and <span className="bg-[#7B6FFF]/25 px-1 rounded">product design</span>. Preparing for <span className="bg-[#FF6B6B]/25 px-1 rounded">IELTS</span>. Want to start in <span className="bg-[#FFB347]/25 px-1 rounded">EdTech</span>.

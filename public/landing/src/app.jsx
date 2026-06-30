@@ -24,7 +24,6 @@ function App() {
         <AIMatchingDemo reduced={reduced} />
         <LeaderboardSection reduced={reduced} />
         <TrustSafety />
-        <Partners />
         <FAQ />
         <FinalCTA />
         <Footer />

@@ -3,6 +3,7 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
 function Manifesto({ reduced }) {
+  useBFULang(); // re-render on language change
   const sectionRef = useRef(null);
   const lineRefs = useRef([]);
   const underlineRef = useRef(null);
@@ -36,17 +37,13 @@ function Manifesto({ reduced }) {
     return () => ctx.revert();
   }, [reduced]);
 
-  const paragraphs = [
-    'Two-thirds of Uzbekistan is under 30. The talent is everywhere — the discovery isn’t.',
-    'A future founder in Andijon is one DM away from a designer in Nukus. But you’ve never met. Grants get awarded to whoever happens to see the post. Hackathons fill from one Telegram channel.',
-    'BFU is the layer between you and the people, projects and opportunities you don’t know about yet — built where you already are.',
-  ];
+  const paragraphs = [BFU_T('manifesto.p1'), BFU_T('manifesto.p2'), null];
 
   return (
     <section ref={sectionRef} className="relative py-32 lg:py-44 overflow-hidden">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       <div className="max-w-[920px] mx-auto px-5 lg:px-8 text-center">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-12">Manifesto</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-12">{BFU_T('manifesto.kicker')}</div>
         <div className="space-y-12">
           {paragraphs.map((p, i) => (
             <div key={i} className="overflow-hidden">
@@ -56,15 +53,15 @@ function Manifesto({ reduced }) {
               >
                 {i === 2 ? (
                   <>
-                    BFU is the layer between you and the{' '}
+                    {BFU_T('manifesto.p3a')}
                     <span className="relative inline-block">
-                      <span className="bg-gradient-to-br from-[#A78BFA] to-[#7B6FFF] bg-clip-text text-transparent">people, projects and opportunities</span>
+                      <span className="bg-gradient-to-br from-[#A78BFA] to-[#7B6FFF] bg-clip-text text-transparent">{BFU_T('manifesto.p3hl')}</span>
                       <span
                         ref={underlineRef}
                         className="absolute left-0 right-0 -bottom-1 h-[3px] bg-gradient-to-r from-[#7B6FFF] to-[#A78BFA] rounded-full"
                         style={{ transformOrigin: 'left center', transform: 'scaleX(0)' }}
                       />
-                    </span>{' you don’t know about yet — built where you already are.'}
+                    </span>{BFU_T('manifesto.p3b')}
                   </>
                 ) : p}
               </p>
@@ -78,49 +75,32 @@ function Manifesto({ reduced }) {
 
 // ---- Product Film (scroll-pinned 5 beats) ----
 function ProductFilm({ reduced }) {
+  useBFULang(); // re-render on language change
   const sectionRef = useRef(null);
   const pinRef = useRef(null);
   const phoneRef = useRef(null);
   const [beat, setBeat] = useState(0);
   const [progress, setProgress] = useState(0);
 
-  const beats = [
-    {
-      eyebrow: 'Beat 01',
-      title: 'Open the bot. No download.',
-      body: 'BFU lives inside Telegram. Tap a link, the Mini App opens — that’s it. No App Store, no second account, no install.',
-      Screen: WelcomeScreen,
-      tilt: { x: -10, y: 4 },
-    },
-    {
-      eyebrow: 'Beat 02',
-      title: 'Build a profile in your language.',
-      body: 'Pick English, O‘zbekcha, or Русский. Every screen is fully trilingual — switch any time, you don’t lose your work.',
-      Screen: () => <RegisterScreen activeLang="uz" />,
-      tilt: { x: -8, y: -3 },
-    },
-    {
-      eyebrow: 'Beat 03',
-      title: 'Claude reads your bio.',
-      body: 'A short bio is enough. Anthropic Claude tags what you know, what you want, and what you’re preparing for — skills, knowledges, interests, preparations, goals.',
-      Screen: BioTagScreen,
-      tilt: { x: -14, y: 6 },
-    },
-    {
-      eyebrow: 'Beat 04',
-      title: 'We surface the people who fit.',
-      body: 'A "For You" feed ranks the members whose tags overlap with yours — not by who posted last, by who actually matches.',
-      Screen: MatchDeckScreen,
-      tilt: { x: -12, y: -5 },
-    },
-    {
-      eyebrow: 'Beat 05',
-      title: 'One tap to apply. One tap to accept.',
-      body: 'Browse projects, apply with one button. Founders see who applied and accept right inside the bot. Notifications arrive in Telegram, where you already are.',
-      Screen: () => <ApplyScreen accepted={progress > 0.92} />,
-      tilt: { x: -9, y: 5 },
-    },
+  // Visual screens + tilts stay constant; copy comes from i18n.
+  const SCREENS = [
+    WelcomeScreen,
+    () => <RegisterScreen activeLang="uz" />,
+    BioTagScreen,
+    MatchDeckScreen,
+    () => <ApplyScreen accepted={progress > 0.92} />,
   ];
+  const TILTS = [
+    { x: -10, y: 4 }, { x: -8, y: -3 }, { x: -14, y: 6 }, { x: -12, y: -5 }, { x: -9, y: 5 },
+  ];
+  const copy = BFU_T('film.beats');
+  const beats = SCREENS.map((Screen, i) => ({
+    eyebrow: `Beat 0${i + 1}`,
+    title: copy[i] ? copy[i].title : '',
+    body: copy[i] ? copy[i].body : '',
+    Screen,
+    tilt: TILTS[i],
+  }));
 
   useEffect(() => {
     if (reduced) {
@@ -204,7 +184,7 @@ function ProductFilm({ reduced }) {
             {/* Copy column */}
             <div className="order-1 lg:order-2">
               <div className="text-[11px] uppercase tracking-[0.22em] text-[#A78BFA] font-semibold mb-3">
-                The product · 5 beats
+                {BFU_T('film.eyebrow')}
               </div>
               <div className="relative min-h-[260px]">
                 {beats.map((b, i) => (
@@ -239,7 +219,7 @@ function ProductFilm({ reduced }) {
                 ))}
               </div>
               <div className="mt-2.5 text-[11px] text-text-3">
-                Step <span className="text-text-1 font-semibold">{(beat + 1).toString().padStart(2, '0')}</span> of {beats.length.toString().padStart(2, '0')} — keep scrolling
+                {BFU_T('film.step')} <span className="text-text-1 font-semibold">{(beat + 1).toString().padStart(2, '0')}</span> {BFU_T('film.of')} {beats.length.toString().padStart(2, '0')} — {BFU_T('film.keepScrolling')}
               </div>
             </div>
           </div>

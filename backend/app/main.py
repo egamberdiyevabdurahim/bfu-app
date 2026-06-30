@@ -106,6 +106,24 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_ratings_project ON project_ratings (project_id);",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_rating_project_rater_ratee "
         "ON project_ratings (project_id, rater_id, ratee_id);",
+        # --- Batch C: connection columns + indexes (tables via create_all) ---
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_mentor BOOLEAN DEFAULT false;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_bio TEXT;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_topics TEXT;",
+        "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS role VARCHAR(80);",
+        "CREATE INDEX IF NOT EXISTS ix_follows_follower ON follows (follower_id);",
+        "CREATE INDEX IF NOT EXISTS ix_follows_target ON follows (target_type, target_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_follower_target "
+        "ON follows (follower_id, target_type, target_id);",
+        "CREATE INDEX IF NOT EXISTS ix_project_updates_project ON project_updates (project_id);",
+        "CREATE INDEX IF NOT EXISTS ix_mentor_slots_mentor ON mentor_slots (mentor_id);",
+        "CREATE INDEX IF NOT EXISTS ix_mentor_slots_start ON mentor_slots (start_at);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_slot_mentor_start "
+        "ON mentor_slots (mentor_id, start_at);",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_mentor ON bookings (mentor_id);",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_mentee ON bookings (mentee_id);",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_slot ON bookings (slot_id);",
+        "CREATE INDEX IF NOT EXISTS ix_users_is_mentor ON users (is_mentor);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

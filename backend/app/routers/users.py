@@ -16,6 +16,7 @@ from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
 from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
+from app.models.connection import Follow
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
@@ -178,6 +179,48 @@ async def _profile_extras(db: AsyncSession, user: User) -> dict:
             "projects_joined": len(member_projects),
             "applications_accepted": accepted,
         },
+    }
+
+
+def _mentor_dict(user: User) -> dict:
+    """The mentor sub-object derived from the user's columns."""
+    topics = []
+    if user.mentor_topics:
+        try:
+            topics = [str(t).strip() for t in json.loads(user.mentor_topics) if str(t).strip()]
+        except Exception:
+            topics = []
+    return {
+        "is_mentor": bool(user.is_mentor),
+        "bio": (user.mentor_bio or None) if user.is_mentor else None,
+        "topics": topics if user.is_mentor else [],
+    }
+
+
+async def _connection_extras(db: AsyncSession, user: User, viewer: User | None) -> dict:
+    """Follow counts + viewer's is_following + the mentor sub-object for `user`."""
+    follower_count = await db.scalar(
+        select(func.count(Follow.id)).where(
+            Follow.target_type == "user", Follow.target_id == user.id
+        )
+    ) or 0
+    following_count = await db.scalar(
+        select(func.count(Follow.id)).where(Follow.follower_id == user.id)
+    ) or 0
+    is_following = False
+    if viewer is not None and viewer.id != user.id:
+        is_following = bool(await db.scalar(
+            select(func.count(Follow.id)).where(
+                Follow.follower_id == viewer.id,
+                Follow.target_type == "user",
+                Follow.target_id == user.id,
+            )
+        ))
+    return {
+        "follower_count": int(follower_count),
+        "following_count": int(following_count),
+        "is_following": is_following,
+        "mentor": _mentor_dict(user),
     }
 
 

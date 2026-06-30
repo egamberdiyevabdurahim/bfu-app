@@ -65,6 +65,9 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [loadingOpeners, setLoadingOpeners] = useState(false);
   const [matchReason, setMatchReason] = useState(null);
   const [loadingMatch, setLoadingMatch] = useState(false);
+  const [vouchOpen, setVouchOpen] = useState(false);
+  const [vouchText, setVouchText] = useState("");
+  const [vouchBusy, setVouchBusy] = useState(false);
 
   const doWhyMatch = async () => {
     if (!user || loadingMatch) return;
@@ -133,6 +136,34 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
       await users.report({ target_type: "user", target_id: user.id });
       tgAlert(t("report.sent"));
     } catch (e) { tgAlert(e.message); }
+  };
+
+  const doEndorse = async (skill) => {
+    if (!user) return;
+    try {
+      const r = await users.endorse(user.id, skill);
+      // Optimistically update the endorsements array on the loaded user.
+      setUser(prev => {
+        if (!prev) return prev;
+        const list = (prev.endorsements || []).filter(e => e.skill !== skill);
+        if (r.count > 0) list.push({ skill, count: r.count, endorsed_by_me: r.endorsed });
+        return { ...prev, endorsements: list };
+      });
+    } catch (e) { tgAlert(e.message); }
+  };
+
+  const submitVouch = async () => {
+    if (!user || vouchBusy || !vouchText.trim()) return;
+    setVouchBusy(true);
+    try {
+      await users.vouch(user.id, vouchText.trim());
+      const fresh = await users.getProfile(user.id);
+      setUser(fresh);
+      setVouchOpen(false);
+      setVouchText("");
+      tgAlert(t("trust.vouchPost"));
+    } catch (e) { tgAlert(e.message); }
+    setVouchBusy(false);
   };
 
   useEffect(() => {
@@ -340,7 +371,22 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                     <div key={key}>
                       <div className="section-label">{t(`tag.${key}`)}</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {tags.map(tag => <TagChip key={tag} label={tag} category={key} />)}
+                        {tags.map(tag => {
+                          if (key !== "skills") return <TagChip key={tag} label={tag} category={key} />;
+                          const e = (user.endorsements || []).find(x => x.skill === tag);
+                          const count = e?.count || 0;
+                          const mine = !!e?.endorsed_by_me;
+                          return (
+                            <button key={tag} onClick={() => doEndorse(tag)} style={{
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              background: mine ? "rgba(123,111,255,0.25)" : "rgba(123,111,255,0.12)",
+                              color: "#7B6FFF", border: mine ? "1px solid #7B6FFF" : "1px solid transparent",
+                              borderRadius: 99, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                            }}>
+                              {tag}{count > 0 && <span style={{ fontWeight: 800 }}>👍 {count}</span>}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -352,7 +398,46 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               <ProfileExtras user={user} />
             </div>
 
-            {!user?.about && !hasAnyTags && !(user?.founded_projects?.length || user?.member_projects?.length) && (
+            {/* Vouches */}
+            <div style={{ marginTop: 20 }}>
+              <div className="section-label">{t("trust.vouches")}</div>
+              {(user.vouches || []).length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("trust.noVouches")}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {user.vouches.map(v => (
+                    <div key={v.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
+                      borderLeft: "3px solid var(--accent)", borderRadius: "var(--radius-sm)", padding: "10px 12px" }}>
+                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>“{v.text}”</div>
+                      <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
+                        — {v.author?.display_name || ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!vouchOpen ? (
+                <button onClick={() => setVouchOpen(true)} style={{
+                  marginTop: 8, background: "var(--surface-2)", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)", color: "var(--accent)", padding: "8px 12px",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("trust.vouchBtn")}</button>
+              ) : (
+                <div style={{ marginTop: 8 }}>
+                  <textarea value={vouchText} maxLength={280}
+                    onChange={e => setVouchText(e.target.value)} placeholder={t("trust.vouchPh")}
+                    rows={3} style={{ width: "100%", boxSizing: "border-box", background: "var(--surface-2)",
+                      border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)",
+                      padding: "10px 12px", fontSize: 13, resize: "vertical" }} />
+                  <button onClick={submitVouch} disabled={vouchBusy || !vouchText.trim()} style={{
+                    marginTop: 6, background: "var(--accent)", border: "none", borderRadius: "var(--radius-sm)",
+                    color: "#fff", padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {t("trust.vouchPost")}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {!user?.about && !hasAnyTags && !(user?.founded_projects?.length || user?.member_projects?.length) && !(user?.vouches?.length) && (
               <div style={{ textAlign: "center", padding: 20, color: "var(--text-3)", fontSize: 13 }}>
                 {t("um.empty")}
               </div>

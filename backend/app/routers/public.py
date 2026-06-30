@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.database import get_db
 from app.models.project import Project
 from app.models.region import Region
 from app.models.user import User
+from app.routers.users import _profile_extras, _trust_extras
 
 
 # Re-exported from the shared signing module (importable by ORM models too).
@@ -317,3 +319,157 @@ async def profile_avatar(
         raise HTTPException(status_code=404, detail="No photo")
     return Response(content=blob, media_type="image/jpeg",
                     headers={"Cache-Control": "public, max-age=86400"})
+
+
+def _esc(s) -> str:
+    """Minimal HTML escaping for text interpolated into the public page.
+    Every user-supplied string rendered below (name, about/currently_building,
+    vouch text + author name, project names, portfolio labels/urls) MUST pass
+    through this before being placed in the HTML — there is no React/JSX
+    auto-escaping on this server-rendered page."""
+    return (str(s or "")
+            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;").replace("'", "&#39;"))
+
+
+@router.get("/u/{user_id}", response_class=HTMLResponse)
+async def public_profile(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Crawlable, login-free profile page for sharing with employers. Reuses the
+    Batch-A `_profile_extras` + Batch-B `_trust_extras` builders. No JS.
+
+    Every interpolated value is run through `_esc()` (HTML-escape) since this
+    page renders user-supplied strings (name, about/currently_building, vouch
+    text, vouch author name, portfolio labels) with no framework escaping.
+    Portfolio links are also restricted to http(s):// — enforced upstream by
+    `_sanitize_portfolio` (Batch A), re-checked here as defense in depth."""
+    user = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not user:
+        return HTMLResponse(
+            content="<!doctype html><html><head><meta charset='utf-8'>"
+                    "<title>Profile not found — BFU</title></head>"
+                    "<body style='font-family:system-ui;background:#0A0A0F;color:#F0F0FF;"
+                    "display:flex;min-height:100vh;align-items:center;justify-content:center'>"
+                    "<div style='text-align:center'><h1>404</h1>"
+                    "<p>This BFU profile doesn't exist.</p></div></body></html>",
+            status_code=404,
+        )
+
+    extras = await _profile_extras(db, user)
+    trust = await _trust_extras(db, user, None)
+
+    region_name = None
+    if user.region_id:
+        r = await db.get(Region, user.region_id)
+        region_name = (r.name_uz if r else None)
+    age = (datetime.utcnow().year - user.birth_year) if user.birth_year else None
+    name = _esc((user.name or "").capitalize() + ((" " + user.surname.capitalize()) if user.surname else ""))
+    name = name.strip() or _esc(user.display_name)
+    cb = extras.get("currently_building")
+    skills = (user.analysis.skills if user.analysis else None) or []
+    endo = {e["skill"]: e["count"] for e in trust["endorsements"]}
+    rating = trust["rating"]
+    stats = extras["stats"]
+    bot = settings.BOT_USERNAME
+    base = (settings.WEBAPP_URL or "").rstrip("/")
+    open_url = f"https://t.me/{bot}?startapp=user_{user.id}" if bot else "#"
+    desc = _esc((cb or user.about or "BFU member")[:160])
+
+    def chip(label, count):
+        badge = f" <b>{count}</b>" if count else ""
+        return (f"<span style='display:inline-block;background:rgba(123,111,255,0.15);"
+                f"color:#7B6FFF;border-radius:99px;padding:4px 10px;margin:0 6px 6px 0;"
+                f"font-size:13px'>{_esc(label)}{badge}</span>")
+
+    skills_html = "".join(chip(s, endo.get(s, 0)) for s in skills) or "<span style='color:#9090A8'>—</span>"
+
+    def proj_li(p):
+        status = "Active" if p["is_active"] else "Closed"
+        return (f"<li style='margin-bottom:6px'>{_esc(p['name'])} "
+                f"<span style='color:#9090A8;font-size:12px'>· {status}</span></li>")
+
+    founded_html = "".join(proj_li(p) for p in extras["founded_projects"]) or "<li style='color:#9090A8'>—</li>"
+    member_html = "".join(proj_li(p) for p in extras["member_projects"]) or "<li style='color:#9090A8'>—</li>"
+
+    vouches_html = "".join(
+        f"<blockquote style='margin:0 0 10px;padding:10px 14px;background:#16161F;"
+        f"border-left:3px solid #7B6FFF;border-radius:8px'>“{_esc(v['text'])}” "
+        f"<span style='color:#9090A8;font-size:12px'>— {_esc((v.get('author') or {}).get('display_name',''))}</span>"
+        f"</blockquote>"
+        for v in trust["vouches"]
+    ) or "<p style='color:#9090A8'>No vouches yet.</p>"
+
+    # Defense in depth: only ever render http(s):// portfolio links, even
+    # though `_sanitize_portfolio` (Batch A) already enforces this upstream.
+    links_html = "".join(
+        f"<a href='{_esc(l['url'])}' rel='nofollow noopener' style='color:#7B6FFF;margin-right:12px'>{_esc(l['label'])}</a>"
+        for l in extras["portfolio_links"]
+        if str(l.get("url", "")).startswith(("http://", "https://"))
+    )
+
+    rating_html = (f"★ {rating['average']} <span style='color:#9090A8'>({rating['count']})</span>"
+                   if rating["average"] is not None else "<span style='color:#9090A8'>No ratings yet</span>")
+
+    meta = []
+    if age:
+        meta.append(f"{age} y/o")
+    if region_name:
+        meta.append(_esc(region_name))
+    if user.checked:
+        meta.append("✓ Verified")
+    meta_html = " · ".join(meta)
+
+    canonical = f"{base}/u/{user.id}" if base else f"/u/{user.id}"
+    jsonld = (
+        '{"@context":"https://schema.org","@type":"Person",'
+        f'"name":"{name}","description":"{desc}","url":"{_esc(canonical)}"}}'
+    )
+
+    html = f"""<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{name} — BFU</title>
+<meta name="description" content="{desc}">
+<link rel="canonical" href="{_esc(canonical)}">
+<meta property="og:type" content="profile">
+<meta property="og:title" content="{name} — BFU">
+<meta property="og:description" content="{desc}">
+<meta property="og:url" content="{_esc(canonical)}">
+<meta name="robots" content="index, follow">
+<script type="application/ld+json">{jsonld}</script>
+</head>
+<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0A0A0F;color:#F0F0FF">
+<div style="max-width:640px;margin:0 auto;padding:32px 20px">
+  <header style="display:flex;gap:16px;align-items:center;margin-bottom:8px">
+    <div>
+      <h1 style="margin:0;font-size:26px">{name}</h1>
+      <div style="color:#9090A8;font-size:14px;margin-top:4px">{meta_html}</div>
+    </div>
+  </header>
+  {"<p style='font-size:16px;color:#C8C8E0'>🔨 " + _esc(cb) + "</p>" if cb else ""}
+  <div style="margin:16px 0;font-size:18px">{rating_html}</div>
+  <div style="display:flex;gap:10px;margin:16px 0">
+    <div style="flex:1;text-align:center;background:#16161F;border-radius:10px;padding:12px">
+      <div style="font-size:22px;font-weight:800">{stats['projects_founded']}</div>
+      <div style="font-size:11px;color:#9090A8;text-transform:uppercase">Founded</div></div>
+    <div style="flex:1;text-align:center;background:#16161F;border-radius:10px;padding:12px">
+      <div style="font-size:22px;font-weight:800">{stats['projects_joined']}</div>
+      <div style="font-size:11px;color:#9090A8;text-transform:uppercase">Joined</div></div>
+    <div style="flex:1;text-align:center;background:#16161F;border-radius:10px;padding:12px">
+      <div style="font-size:22px;font-weight:800">{stats['applications_accepted']}</div>
+      <div style="font-size:11px;color:#9090A8;text-transform:uppercase">Accepted</div></div>
+  </div>
+  <section style="margin:24px 0"><h2 style="font-size:14px;text-transform:uppercase;color:#9090A8">Skills</h2>{skills_html}</section>
+  <section style="margin:24px 0"><h2 style="font-size:14px;text-transform:uppercase;color:#9090A8">Founded</h2><ul style="padding-left:18px">{founded_html}</ul></section>
+  <section style="margin:24px 0"><h2 style="font-size:14px;text-transform:uppercase;color:#9090A8">Member of</h2><ul style="padding-left:18px">{member_html}</ul></section>
+  <section style="margin:24px 0"><h2 style="font-size:14px;text-transform:uppercase;color:#9090A8">Vouches</h2>{vouches_html}</section>
+  {"<section style='margin:24px 0'><h2 style='font-size:14px;text-transform:uppercase;color:#9090A8'>Links</h2>" + links_html + "</section>" if links_html else ""}
+  <a href="{_esc(open_url)}" style="display:inline-block;margin-top:16px;background:#7B6FFF;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700">Open in Telegram</a>
+  <footer style="margin-top:40px;color:#9090A8;font-size:12px">Bright Futures Uzbekistan</footer>
+</div>
+</body></html>"""
+    return HTMLResponse(content=html, status_code=200,
+                        headers={"Cache-Control": "public, max-age=300"})

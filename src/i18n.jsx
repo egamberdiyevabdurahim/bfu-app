@@ -577,6 +577,58 @@ const STRINGS = {
   "rate.submit": { en: "Submit rating", uz: "Bahoni yuborish", ru: "Отправить оценку" },
   "rate.done": { en: "Rating saved", uz: "Baho saqlandi", ru: "Оценка сохранена" },
   "rate.prompt": { en: "A project closed — rate your teammates", uz: "Loyiha yopildi — jamoadoshlaringizni baholang", ru: "Проект закрыт — оцените команду" },
+
+  // ── Batch C: follow ─────────────────────────────────────────────────────────
+  "follow.btn": { en: "Follow", uz: "Kuzatish", ru: "Подписаться" },
+  "follow.following": { en: "Following", uz: "Kuzatilmoqda", ru: "Вы подписаны" },
+  "follow.followers": { en: "{n} followers", uz: "{n} kuzatuvchi", ru: "{n} подписчиков" },
+  "follow.followersOne": { en: "1 follower", uz: "1 kuzatuvchi", ru: "1 подписчик" },
+  "follow.title": { en: "Following", uz: "Kuzatilayotganlar", ru: "Подписки" },
+  // ── Batch C: project updates ────────────────────────────────────────────────
+  "updates.title": { en: "Updates", uz: "Yangiliklar", ru: "Обновления" },
+  "updates.none": { en: "No updates yet", uz: "Hali yangilik yo‘q", ru: "Пока нет обновлений" },
+  "updates.placeholder": { en: "Share an update with your followers…", uz: "Kuzatuvchilaringiz bilan yangilik ulashing…", ru: "Поделитесь обновлением с подписчиками…" },
+  "updates.post": { en: "Post update", uz: "Joylash", ru: "Опубликовать" },
+  "updates.delete": { en: "Delete", uz: "O‘chirish", ru: "Удалить" },
+  // ── Batch C: role apply ─────────────────────────────────────────────────────
+  "apply.roleLabel": { en: "Role you want (optional)", uz: "Xohlagan rolingiz (ixtiyoriy)", ru: "Желаемая роль (необязательно)" },
+  "apply.rolePh": { en: "e.g. Backend dev", uz: "masalan, Backend dasturchi", ru: "напр. Backend-разработчик" },
+  "apply.wants": { en: "Wants: {role}", uz: "Rol: {role}", ru: "Роль: {role}" },
+  "apply.submit": { en: "Apply", uz: "Ariza berish", ru: "Подать заявку" },
+  // ── Batch C: mentor mode ────────────────────────────────────────────────────
+  "mentor.become": { en: "Become a mentor", uz: "Mentor bo‘lish", ru: "Стать ментором" },
+  "mentor.isMentor": { en: "Mentor mode is on", uz: "Mentor rejimi yoqilgan", ru: "Режим ментора включён" },
+  "mentor.bioLabel": { en: "Mentor bio", uz: "Mentor haqida", ru: "О менторе" },
+  "mentor.bioPh": { en: "What can you help mentees with?", uz: "Mentilarga nimada yordam bera olasiz?", ru: "Чем вы можете помочь?" },
+  "mentor.topicsLabel": { en: "Topics (up to 6)", uz: "Mavzular (6 tagacha)", ru: "Темы (до 6)" },
+  "mentor.topicsPh": { en: "Startups, Fundraising…", uz: "Startaplar, Mablag‘ yig‘ish…", ru: "Стартапы, Фандрайзинг…" },
+  "mentor.browse": { en: "Find a mentor", uz: "Mentor topish", ru: "Найти ментора" },
+  "mentor.openSlots": { en: "{n} open slots", uz: "{n} bo‘sh vaqt", ru: "{n} свободных слотов" },
+  "mentor.book": { en: "Book a session", uz: "Sessiya band qilish", ru: "Записаться" },
+  "mentor.mySlots": { en: "My mentor slots", uz: "Mening vaqtlarim", ru: "Мои слоты" },
+  "mentor.addSlot": { en: "Add a slot", uz: "Vaqt qo‘shish", ru: "Добавить слот" },
+  "mentor.noSlots": { en: "No open slots", uz: "Bo‘sh vaqt yo‘q", ru: "Нет свободных слотов" },
+  "mentor.slotPast": { en: "Pick a future time", uz: "Kelajakdagi vaqtni tanlang", ru: "Выберите будущее время" },
+  // ── Batch C: bookings ───────────────────────────────────────────────────────
+  "booking.title": { en: "My bookings", uz: "Bandlovlarim", ru: "Мои записи" },
+  "booking.asMentee": { en: "As mentee", uz: "Menti sifatida", ru: "Как менти" },
+  "booking.asMentor": { en: "As mentor", uz: "Mentor sifatida", ru: "Как ментор" },
+  "booking.notePh": { en: "What do you want help with? (optional)", uz: "Nimada yordam kerak? (ixtiyoriy)", ru: "С чем нужна помощь? (необязательно)" },
+  "booking.requested": { en: "Requested", uz: "So‘ralgan", ru: "Запрошено" },
+  "booking.confirmed": { en: "Confirmed", uz: "Tasdiqlangan", ru: "Подтверждено" },
+  "booking.declined": { en: "Declined", uz: "Rad etilgan", ru: "Отклонено" },
+  "booking.cancelled": { en: "Cancelled", uz: "Bekor qilingan", ru: "Отменено" },
+  "booking.confirm": { en: "Confirm", uz: "Tasdiqlash", ru: "Подтвердить" },
+  "booking.decline": { en: "Decline", uz: "Rad etish", ru: "Отклонить" },
+  "booking.cancel": { en: "Cancel", uz: "Bekor qilish", ru: "Отменить" },
+  "booking.booked": { en: "Booked!", uz: "Band qilindi!", ru: "Записано!" },
+  "booking.none": { en: "No bookings yet", uz: "Hali bandlov yo‘q", ru: "Пока нет записей" },
+  // ── Batch C: inbox notification text ────────────────────────────────────────
+  "inbox.new_follower": { en: "{name} started following you", uz: "{name} sizni kuzata boshladi", ru: "{name} подписался(ась) на вас" },
+  "inbox.project_update": { en: "New update in {project}", uz: "{project} loyihasida yangilik", ru: "Новое обновление в {project}" },
+  "inbox.booking_request": { en: "{name} requested a mentor session", uz: "{name} mentor sessiyasini so‘radi", ru: "{name} запросил(а) сессию" },
+  "inbox.booking_confirmed": { en: "{name} confirmed your session", uz: "{name} sessiyangizni tasdiqladi", ru: "{name} подтвердил(а) вашу сессию" },
+  "inbox.booking_declined": { en: "{name} declined your session", uz: "{name} sessiyangizni rad etdi", ru: "{name} отклонил(а) вашу сессию" },
 };
 
 function translate(lang, key, vars) {

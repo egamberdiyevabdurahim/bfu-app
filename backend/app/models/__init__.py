@@ -8,6 +8,7 @@ from app.models.project import Project, ProjectMember, ProjectReqRegion, Project
 from app.models.event import Event
 from app.models.partner import Partner
 from app.models.trust import Endorsement, Vouch, ProjectRating  # noqa: F401
+from app.models.connection import Follow, ProjectUpdate, MentorSlot, Booking
 
 __all__ = [
     "User", "UserLearningCenter", "UserSchool", "PendingLocation", "Report", "ErrorLog",
@@ -18,4 +19,5 @@ __all__ = [
     "ProjectApplication",
     "Event", "Partner",
     "Endorsement", "Vouch", "ProjectRating",
+    "Follow", "ProjectUpdate", "MentorSlot", "Booking",
 ]

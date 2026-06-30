@@ -44,6 +44,11 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     currently_building: Mapped[str | None] = mapped_column(Text, nullable=True)
     # JSON array of {"label","url"} (max 5), validated/sanitized on write.
     portfolio_links: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Batch C — mentor mode. is_mentor gates the mentor surfaces; topics is a
+    # JSON array of short strings (sanitized on write, like portfolio_links).
+    is_mentor: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    mentor_bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mentor_topics: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

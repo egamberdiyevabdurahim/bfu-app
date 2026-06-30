@@ -503,7 +503,6 @@ async def my_notifications(
     proj_ids = {n.project_id for n in rows if n.project_id}
     actors = {}
     if actor_ids:
-        from app.routers.public import avatar_url  # signed url helper
         for u in (await db.execute(select(User).where(User.id.in_(actor_ids)))).scalars().all():
             actors[u.id] = {"id": u.id, "display_name": u.display_name,
                             "photo_url": u.photo_url}

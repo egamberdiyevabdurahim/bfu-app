@@ -291,6 +291,74 @@ async def analytics_regions(
     }
     return {"totals": totals, "regions": out}
 
+
+@router.get("/analytics/skill-gap", response_model=dict)
+async def analytics_skill_gap(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Demand vs supply per skill. Demand = distinct LIVE projects (approved,
+    non-draft, non-deleted) requiring the skill. Supply = distinct registered,
+    non-deleted members whose analysis.skills lists it. Case-insensitive; the
+    canonical display casing is the most common original. Sorted by gap desc."""
+
+    # ── Demand: GROUP BY skill_name over live projects. ──
+    demand_rows = (await db.execute(
+        select(ProjectReqSkill.skill_name, func.count(ProjectReqSkill.project_id))
+        .join(Project, Project.id == ProjectReqSkill.project_id)
+        .where(Project.is_deleted == False, Project.is_approved == True,
+               Project.is_draft == False)
+        .group_by(ProjectReqSkill.skill_name)
+    )).all()
+
+    # ── Supply: tally analysis.skills JSON in Python (portable across DBs). ──
+    supply_rows = (await db.execute(
+        select(UserAnalysis.skills)
+        .join(User, User.id == UserAnalysis.user_id)
+        .where(User.is_registered == True, User.is_deleted == False)
+    )).all()
+
+    # Canonical-casing map: lower -> {"display": original, "votes": Counter}
+    from collections import Counter
+    display_votes: dict[str, Counter] = {}
+    demand: dict[str, int] = {}
+    supply: dict[str, int] = {}
+
+    def _note(raw: str) -> str | None:
+        s = (raw or "").strip()
+        if not s:
+            return None
+        key = s.lower()
+        display_votes.setdefault(key, Counter())[s] += 1
+        return key
+
+    for name, cnt in demand_rows:
+        key = _note(name)
+        if key is None:
+            continue
+        demand[key] = demand.get(key, 0) + int(cnt)
+
+    for (skills,) in supply_rows:
+        for raw in (skills or []):
+            key = _note(raw)
+            if key is None:
+                continue
+            supply[key] = supply.get(key, 0) + 1  # one member contributes 1 per skill
+
+    out = []
+    for key in set(demand) | set(supply):
+        # canonical display = most common original casing, ties alphabetical
+        votes = display_votes.get(key)
+        display = (min(sorted(votes.items()), key=lambda kv: (-kv[1], kv[0]))[0]
+                   if votes else key)
+        d = demand.get(key, 0)
+        s = supply.get(key, 0)
+        out.append({"skill": display, "demand": d, "supply": s, "gap": d - s})
+
+    out.sort(key=lambda r: (-r["gap"], -r["demand"], r["skill"].lower()))
+    out = out[:100]
+    return {"skills": out}
+
 # ── Users ────────────────────────────────────────────────────────────────────
 
 @router.get("/users", response_model=list[AdminUserOut])

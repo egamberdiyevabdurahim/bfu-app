@@ -126,3 +126,73 @@ async def test_region_heatmap_counts(make_user, as_user, db):
     assert body["totals"]["members"] == 3
     assert body["totals"]["projects"] == 3
     assert body["totals"]["open_projects"] == 2
+
+
+# ── Skill gap ────────────────────────────────────────────────────────────────
+
+async def _req_skill(db, project_id, skill):
+    from app.models.project import ProjectReqSkill
+    db.add(ProjectReqSkill(project_id=project_id, skill_name=skill))
+    await db.commit()
+
+
+async def _set_skills(db, user_id, skills):
+    from app.models.user_analysis import UserAnalysis
+    db.add(UserAnalysis(user_id=user_id, skills=skills, knowledges=[],
+                        interests=[], preparations=[], goals=[]))
+    await db.commit()
+
+
+async def test_skill_gap_requires_admin(make_user, as_user, db):
+    plain = await make_user(name="Plain")
+    c = as_user(plain)
+    assert (await c.get("/admin/analytics/skill-gap")).status_code == 403
+
+
+async def test_skill_gap_demand_supply_and_casing(make_user, as_user, db):
+    admin = await _admin(make_user)
+    founder = await make_user(name="Founder")
+
+    # Demand: 2 live projects need "Backend" (one cased "backend" → collapses),
+    # 1 needs "React". A draft project's req-skill must NOT count.
+    p1 = await _mk_project(db, founder.id, "P1")
+    p2 = await _mk_project(db, founder.id, "P2")
+    draft = await _mk_project(db, founder.id, "Draft", is_draft=True, is_approved=False)
+    await _req_skill(db, p1.id, "Backend")
+    await _req_skill(db, p2.id, "backend")     # case variant
+    await _req_skill(db, p1.id, "React")
+    await _req_skill(db, draft.id, "Backend")  # excluded (draft)
+
+    # Supply: 2 members have React, 0 have Backend.
+    m1 = await make_user(name="M1")
+    m2 = await make_user(name="M2")
+    await _set_skills(db, m1.id, ["React", "Figma"])
+    await _set_skills(db, m2.id, ["react"])    # case variant of supply
+
+    c = as_user(admin)
+    res = await c.get("/admin/analytics/skill-gap")
+    assert res.status_code == 200, res.text
+    skills = {row["skill"].lower(): row for row in res.json()["skills"]}
+
+    # Backend: demand 2 (Backend + backend, both live), supply 0, gap 2.
+    assert skills["backend"]["demand"] == 2
+    assert skills["backend"]["supply"] == 0
+    assert skills["backend"]["gap"] == 2
+    # React: demand 1, supply 2, gap -1.
+    assert skills["react"]["demand"] == 1
+    assert skills["react"]["supply"] == 2
+    assert skills["react"]["gap"] == -1
+    # Figma is supply-only (demand 0).
+    assert skills["figma"]["demand"] == 0 and skills["figma"]["supply"] == 1
+    # Sorted by gap desc → Backend (gap 2) is first.
+    assert res.json()["skills"][0]["skill"].lower() == "backend"
+
+
+async def test_skill_gap_excludes_deleted_members(make_user, as_user, db):
+    admin = await _admin(make_user)
+    gone = await make_user(name="Gone", is_deleted=True)
+    await _set_skills(db, gone.id, ["Backend"])
+    c = as_user(admin)
+    skills = {row["skill"].lower(): row for row in (await c.get("/admin/analytics/skill-gap")).json()["skills"]}
+    # No live demand and the only supplier is deleted → Backend absent entirely.
+    assert "backend" not in skills

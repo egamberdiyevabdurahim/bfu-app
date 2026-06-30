@@ -21,6 +21,7 @@ from app.models.project import (
 )
 from app.models.trust import ProjectRating
 from app.models.connection import Follow, ProjectUpdate as ProjectUpdatePost
+from app.models.role import ProjectRole
 from app.models.user import User, Favorite, Notification
 from app.schemas.project import (
     ApplicationOut,
@@ -30,6 +31,7 @@ from app.schemas.project import (
     ProjectUpdate,
 )
 from app.schemas.connection import ProjectUpdateIn
+from app.schemas.role import RoleIn, RoleFilledIn
 from app.schemas.trust import RatingIn
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -724,6 +726,113 @@ async def apply_to_project(
         )
 
     return {"id": app.id, "status": "pending", "role": role}
+
+
+# ── Open-role CRUD (founder-only) ──────────────────────────────────────────────
+
+async def _load_owned_project(db: AsyncSession, project_id: int, user_id: int) -> Project:
+    """Load a non-deleted project the caller founded, or raise 404/403."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.creator_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your project")
+    return project
+
+
+@router.get("/{project_id}/roles", response_model=dict)
+async def list_project_roles(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """All roles on a project (open + filled), newest first. Public read."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    rows = (await db.execute(
+        select(ProjectRole).where(ProjectRole.project_id == project_id)
+        .order_by(ProjectRole.id.desc())
+    )).scalars().all()
+    return {
+        "roles": [
+            {"id": r.id, "name": r.name, "is_filled": bool(r.is_filled),
+             "created_at": r.created_at.isoformat() if r.created_at else None}
+            for r in rows
+        ],
+    }
+
+
+@router.post("/{project_id}/roles", response_model=dict)
+async def add_project_role(
+    project_id: int,
+    body: RoleIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder declares an open role. Case-insensitive dedupe → 409."""
+    await _load_owned_project(db, project_id, current_user.id)
+    name = (body.name or "").strip()[:80]
+    if not name:
+        raise HTTPException(status_code=400, detail="name required")
+    existing = (await db.execute(
+        select(ProjectRole).where(ProjectRole.project_id == project_id)
+    )).scalars().all()
+    if any(r.name.strip().lower() == name.lower() for r in existing):
+        raise HTTPException(status_code=409, detail="Role already listed")
+    role = ProjectRole(project_id=project_id, name=name, is_filled=False)
+    db.add(role)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Role already listed")
+    await db.refresh(role)
+    return {"ok": True, "id": role.id}
+
+
+@router.patch("/{project_id}/roles/{role_id}", response_model=dict)
+async def set_role_filled(
+    project_id: int,
+    role_id: int,
+    body: RoleFilledIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder marks a role filled/open (filled drops out of the open list)."""
+    await _load_owned_project(db, project_id, current_user.id)
+    role = (await db.execute(
+        select(ProjectRole).where(ProjectRole.id == role_id,
+                                  ProjectRole.project_id == project_id)
+    )).scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    role.is_filled = bool(body.is_filled)
+    await db.commit()
+    return {"ok": True, "is_filled": role.is_filled}
+
+
+@router.delete("/{project_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_role(
+    project_id: int,
+    role_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder removes a role."""
+    await _load_owned_project(db, project_id, current_user.id)
+    role = (await db.execute(
+        select(ProjectRole).where(ProjectRole.id == role_id,
+                                  ProjectRole.project_id == project_id)
+    )).scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    await db.delete(role)
+    await db.commit()
 
 
 @router.patch("/{project_id}/applications/{app_id}")

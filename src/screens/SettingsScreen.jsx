@@ -276,6 +276,15 @@ export const SettingsScreen = () => {
             borderRadius: "var(--radius-sm)", color: "var(--accent)", padding: "10px 12px",
             fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>🔗 {t("trust.sharePublic")}</button>
+
+          <button onClick={async () => {
+            try { await users.resume(); }
+            catch { tgAlert(t("resume.failed")); }
+          }} style={{
+            marginTop: 8, width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", color: "var(--accent)", padding: "10px 12px",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>📄 {t("resume.download")}</button>
         </div>
 
         {/* Intentions */}

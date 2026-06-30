@@ -121,6 +121,9 @@ export const users = {
   vouch:           (id, text)  => req(`/users/${id}/vouch`,   { method: "POST", body: JSON.stringify({ text }) }),
   deleteVouch:     (id)        => req(`/users/${id}/vouch`,   { method: "DELETE" }),
   publicUrl:       (id)        => `${window.location.origin}/u/${id}`,
+  follow:        (target_type, target_id) => req("/follow", { method: "POST", body: JSON.stringify({ target_type, target_id }) }),
+  unfollow:      (target_type, target_id) => req("/follow", { method: "DELETE", body: JSON.stringify({ target_type, target_id }) }),
+  following:     ()       => req("/users/me/following"),
 };
 
 // ── Project endpoints ─────────────────────────────────────────────────────────
@@ -132,7 +135,7 @@ export const projects = {
   create:            (data)   => req("/projects", { method: "POST", body: JSON.stringify(data) }),
   update:            (id, d)  => req(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
   delete:            (id)     => req(`/projects/${id}`, { method: "DELETE" }),
-  apply:             (id)     => req(`/projects/${id}/apply`, { method: "POST" }),
+  apply:             (id, role) => req(`/projects/${id}/apply`, { method: "POST", body: JSON.stringify({ role: role || null }) }),
   cancelApply:       (id)     => req(`/projects/${id}/apply`, { method: "DELETE" }),
   reviewApplication: (id, appId, action) =>
     req(`/projects/${id}/applications/${appId}`, { method: "PATCH", body: JSON.stringify({ action }) }),
@@ -144,6 +147,23 @@ export const projects = {
   rateable:          (id)            => req(`/projects/${id}/rateable`),
   rateMember:        (id, ratee_id, stars, note) =>
     req(`/projects/${id}/ratings`, { method: "POST", body: JSON.stringify({ ratee_id, stars, note }) }),
+  postUpdate:        (id, text) => req(`/projects/${id}/updates`, { method: "POST", body: JSON.stringify({ text }) }),
+  updates:           (id)       => req(`/projects/${id}/updates`),
+  deleteUpdate:      (id, uid)  => req(`/projects/${id}/updates/${uid}`, { method: "DELETE" }),
+};
+
+// ── Mentors & bookings ──────────────────────────────────────────────────────
+export const mentors = {
+  list:        ()              => req("/mentors"),
+  slots:       (id)            => req(`/mentors/${id}/slots`),
+  createSlot:  (start_at)      => req("/mentors/me/slots", { method: "POST", body: JSON.stringify({ start_at }) }),
+  deleteSlot:  (slotId)        => req(`/mentors/me/slots/${slotId}`, { method: "DELETE" }),
+};
+
+export const bookings = {
+  book:    (slot_id, note)     => req("/bookings", { method: "POST", body: JSON.stringify({ slot_id, note: note || null }) }),
+  act:     (id, action)        => req(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ action }) }),
+  mine:    ()                  => req("/bookings/me"),
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────

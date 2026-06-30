@@ -231,6 +231,66 @@ async def analytics_retention(
 
     return {"active_days": active_days, "cohorts": cohorts}
 
+
+@router.get("/analytics/regions", response_model=dict)
+async def analytics_regions(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Region heatmap: members + projects + open (active+hiring) projects per
+    viloyat. Projects are attributed to the creator's region (mirrors the public
+    /regions logic). Auth-gated admin data view — not the cached public version."""
+    regions = (await db.execute(
+        select(Region).where(Region.is_deleted == False).order_by(Region.id)
+    )).scalars().all()
+
+    # members per region — one grouped query
+    member_rows = (await db.execute(
+        select(User.region_id, func.count(User.id))
+        .where(User.is_registered == True, User.is_deleted == False,
+               User.region_id.is_not(None))
+        .group_by(User.region_id)
+    )).all()
+    members_by_region = {rid: int(cnt) for rid, cnt in member_rows}
+
+    # live projects per creator-region (approved, non-draft, non-deleted)
+    proj_rows = (await db.execute(
+        select(User.region_id, func.count(Project.id))
+        .join(Project, Project.creator_id == User.id)
+        .where(Project.is_deleted == False, Project.is_approved == True,
+               Project.is_draft == False, User.region_id.is_not(None))
+        .group_by(User.region_id)
+    )).all()
+    projects_by_region = {rid: int(cnt) for rid, cnt in proj_rows}
+
+    # of those, the ones that are active AND hiring (open capacity proxy)
+    open_rows = (await db.execute(
+        select(User.region_id, func.count(Project.id))
+        .join(Project, Project.creator_id == User.id)
+        .where(Project.is_deleted == False, Project.is_approved == True,
+               Project.is_draft == False, Project.is_active == True,
+               Project.is_hiring == True, User.region_id.is_not(None))
+        .group_by(User.region_id)
+    )).all()
+    open_by_region = {rid: int(cnt) for rid, cnt in open_rows}
+
+    out = []
+    for r in regions:
+        out.append({
+            "id": r.id, "name_en": r.name_en, "name_uz": r.name_uz, "name_ru": r.name_ru,
+            "members": members_by_region.get(r.id, 0),
+            "projects": projects_by_region.get(r.id, 0),
+            "open_projects": open_by_region.get(r.id, 0),
+        })
+    out.sort(key=lambda x: (-x["members"], x["id"]))
+
+    totals = {
+        "members": sum(x["members"] for x in out),
+        "projects": sum(x["projects"] for x in out),
+        "open_projects": sum(x["open_projects"] for x in out),
+    }
+    return {"totals": totals, "regions": out}
+
 # ── Users ────────────────────────────────────────────────────────────────────
 
 @router.get("/users", response_model=list[AdminUserOut])

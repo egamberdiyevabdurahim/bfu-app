@@ -61,3 +61,68 @@ async def test_retention_active_days_clamped(make_user, as_user, db):
                         params={"active_days": 9999})).json()["active_days"] == 365
     assert (await c.get("/admin/analytics/retention",
                         params={"active_days": 0})).json()["active_days"] == 1
+
+
+# ── Region heatmap ───────────────────────────────────────────────────────────
+
+async def _mk_region(db, name):
+    from app.models.region import Region
+    r = Region(name_en=name, name_uz=name, name_ru=name)
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
+    return r
+
+
+async def _mk_project(db, creator_id, name, **kw):
+    from app.models.project import Project
+    defaults = dict(type="startup", creator_id=creator_id, name=name, is_active=True,
+                    is_hiring=True, is_draft=False, is_deleted=False, is_approved=True)
+    defaults.update(kw)
+    p = Project(**defaults)
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return p
+
+
+async def test_region_heatmap_requires_admin(make_user, as_user, db):
+    plain = await make_user(name="Plain")
+    c = as_user(plain)
+    assert (await c.get("/admin/analytics/regions")).status_code == 403
+
+
+async def test_region_heatmap_counts(make_user, as_user, db):
+    admin = await _admin(make_user)
+    tashkent = await _mk_region(db, "Tashkent")
+    samarkand = await _mk_region(db, "Samarkand")
+
+    # 2 members in Tashkent, 1 in Samarkand.
+    f1 = await make_user(name="F1", region_id=tashkent.id)
+    await make_user(name="M1", region_id=tashkent.id)
+    f2 = await make_user(name="F2", region_id=samarkand.id)
+
+    # Tashkent founder: 1 live+hiring project, 1 inactive (not open), 1 draft (excluded).
+    await _mk_project(db, f1.id, "Live", is_active=True, is_hiring=True)
+    await _mk_project(db, f1.id, "Closed", is_active=False, is_hiring=False)
+    await _mk_project(db, f1.id, "Draft", is_draft=True, is_approved=False)
+    # Samarkand founder: 1 live+hiring.
+    await _mk_project(db, f2.id, "SamLive", is_active=True, is_hiring=True)
+
+    c = as_user(admin)
+    res = await c.get("/admin/analytics/regions")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    by_id = {r["id"]: r for r in body["regions"]}
+    t = by_id[tashkent.id]
+    assert t["members"] == 2
+    assert t["projects"] == 2          # Live + Closed (approved, non-draft); Draft excluded
+    assert t["open_projects"] == 1     # only Live (active+hiring)
+    s = by_id[samarkand.id]
+    assert s["members"] == 1 and s["projects"] == 1 and s["open_projects"] == 1
+    # Ordered by members desc → Tashkent first.
+    assert body["regions"][0]["id"] == tashkent.id
+    # Totals are column sums.
+    assert body["totals"]["members"] == 3
+    assert body["totals"]["projects"] == 3
+    assert body["totals"]["open_projects"] == 2

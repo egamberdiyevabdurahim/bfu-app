@@ -36,6 +36,38 @@ class PortfolioLink(BaseModel):
     url: str
 
 
+class UserMini(BaseModel):
+    """Lightweight person preview embedded in trust payloads."""
+    id: int
+    display_name: str
+    photo_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class EndorsementOut(BaseModel):
+    skill: str
+    count: int = 0
+    endorsed_by_me: bool = False
+
+
+class VouchOut(BaseModel):
+    id: int
+    text: str
+    author: UserMini | None = None
+    created_at: datetime | None = None
+
+
+class RatingOut(BaseModel):
+    average: float | None = None
+    count: int = 0
+
+
+class MutualConnections(BaseModel):
+    count: int = 0
+    preview: list[UserMini] = []
+
+
 class UserResponse(BaseModel):
     id: int
     telegram_id: int
@@ -67,6 +99,11 @@ class UserResponse(BaseModel):
     founded_projects: list[ProfileProject] = []
     member_projects: list[ProfileProject] = []
     stats: ProfileStats = ProfileStats()
+    endorsements: list[EndorsementOut] = []
+    vouches: list[VouchOut] = []
+    vouch_count: int = 0
+    rating: RatingOut = RatingOut()
+    mutual_connections: MutualConnections = MutualConnections()
 
     model_config = {"from_attributes": True}
 
@@ -119,6 +156,11 @@ class UserPublic(BaseModel):
     founded_projects: list[ProfileProject] = []
     member_projects: list[ProfileProject] = []
     stats: ProfileStats = ProfileStats()
+    endorsements: list[EndorsementOut] = []
+    vouches: list[VouchOut] = []
+    vouch_count: int = 0
+    rating: RatingOut = RatingOut()
+    mutual_connections: MutualConnections = MutualConnections()
 
     model_config = {"from_attributes": True}
 

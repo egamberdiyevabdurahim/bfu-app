@@ -62,8 +62,6 @@
 }
 </script>
 
-<script src="https://unpkg.com/@splinetool/viewer@1.9.48/build/spline-viewer.js" type="module"></script>
-
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -330,9 +328,8 @@
   </div>
 </noscript>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 
 <script type="importmap">
 {
@@ -346,10 +343,12 @@
 </script>
 
 <script type="module">
-  import * as FramerMotion from 'https://esm.sh/framer-motion@11.11.17?external=react,react-dom';
+  // ?bundle collapses framer-motion's ~70 internal modules into one request.
+  // react/react-dom stay external (resolved to the global UMD React via the importmap shims).
+  import * as FramerMotion from 'https://esm.sh/framer-motion@11.11.17?bundle&external=react,react-dom';
   import gsap from 'https://esm.sh/gsap@3.12.5';
   import { ScrollTrigger } from 'https://esm.sh/gsap@3.12.5/ScrollTrigger';
-  import Lenis from 'https://esm.sh/@studio-freight/lenis@1.0.42';
+  import Lenis from 'https://esm.sh/@studio-freight/lenis@1.0.42?bundle';
   gsap.registerPlugin(ScrollTrigger);
   window.FramerMotion = FramerMotion;
   window.gsap = gsap;
@@ -362,17 +361,9 @@
 <script src="src/bfu-live.js"></script>
 <script src="src/i18n-landing.js"></script>
 <script src="src/uz-geo-data.js"></script>
-<script type="text/babel" src="src/hooks.jsx"></script>
-<script type="text/babel" src="src/phone-screens.jsx"></script>
-<script type="text/babel" src="src/chrome.jsx"></script>
-<script type="text/babel" src="src/hero.jsx"></script>
-<script type="text/babel" src="src/manifesto-film.jsx"></script>
-<script type="text/babel" src="src/features.jsx"></script>
-<script type="text/babel" src="src/regions.jsx"></script>
-<script type="text/babel" src="src/marquee-ai.jsx"></script>
-<script type="text/babel" src="src/leaderboard-trust.jsx"></script>
-<script type="text/babel" src="src/faq-final.jsx"></script>
-<script type="text/babel" src="src/app.jsx"></script>
+<!-- Precompiled bundle (see scripts/build-landing.mjs) — replaces @babel/standalone
+     + the 11 runtime-compiled text/babel modules. -->
+<script src="src/app.bundle.js"></script>
 
 </body>
 </html>

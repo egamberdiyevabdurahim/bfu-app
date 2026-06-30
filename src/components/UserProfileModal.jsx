@@ -3,6 +3,7 @@ import { Icon } from "./Icons";
 import { users } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
+import { ProfileExtras } from "./ProfileExtras";
 
 export const BADGE_META = {
   verified:      { emoji: "✓",  color: "#7B6FFF", key: "badge.verified" },
@@ -347,7 +348,11 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               </div>
             )}
 
-            {!user?.about && !hasAnyTags && (
+            <div style={{ marginTop: 18 }}>
+              <ProfileExtras user={user} />
+            </div>
+
+            {!user?.about && !hasAnyTags && !(user?.founded_projects?.length || user?.member_projects?.length) && (
               <div style={{ textAlign: "center", padding: 20, color: "var(--text-3)", fontSize: 13 }}>
                 {t("um.empty")}
               </div>

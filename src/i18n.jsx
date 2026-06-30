@@ -708,7 +708,7 @@ const STRINGS = {
   "funnel.pending": { en: "Pending", uz: "Kutilmoqda", ru: "Ожидают" },
   "funnel.declined": { en: "Declined", uz: "Rad etilgan", ru: "Отклонены" },
   "funnel.perProject": { en: "Per project", uz: "Loyiha bo‘yicha", ru: "По проектам" },
-  "funnel.empty": { en: "Found a project to see your funnel", uz: "Voronkani ko‘rish uchun loyiha boshlang", ru: "Создайте проект, чтобы увидеть воронку" },
+  "funnel.empty": { en: "Create a project to see your funnel", uz: "Voronkani ko‘rish uchun loyiha boshlang", ru: "Создайте проект, чтобы увидеть воронку" },
   "funnel.draft": { en: "Draft", uz: "Qoralama", ru: "Черновик" },
   "funnel.closed": { en: "Closed", uz: "Yopiq", ru: "Закрыт" },
 };

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { projects } from "../api";
 import { useT } from "../i18n";
-import { tgAlert } from "../tg";
 
 const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
 

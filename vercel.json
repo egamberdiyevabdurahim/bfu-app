@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!landing).*)", "destination": "/index.html" }
+    { "source": "/u/:id", "destination": "https://bfu-backend-production.up.railway.app/public/u/:id" },
+    { "source": "/((?!landing|u/).*)", "destination": "/index.html" }
   ]
 }

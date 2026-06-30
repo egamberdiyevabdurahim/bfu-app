@@ -87,6 +87,29 @@ def _sanitize_portfolio(raw) -> list[dict]:
     return out
 
 
+# Fields populated by `_profile_extras` after the base model_validate, not by
+# direct ORM attribute access. Several share a name with a raw ORM column of a
+# different shape (e.g. `User.portfolio_links` is TEXT/None, while the schema
+# field is `list[PortfolioLink]`), so eagerly reading them via `from_attributes`
+# fails validation before `_profile_extras` gets a chance to overwrite them.
+_PROFILE_EXTRAS_FIELDS = {
+    "currently_building", "currently_building_source", "portfolio_links",
+    "founded_projects", "member_projects", "stats",
+}
+
+
+def _validate_from_user(schema_cls, user: User):
+    """`schema_cls.model_validate(user, from_attributes=True)`, but skipping
+    the profile-extras fields (see `_PROFILE_EXTRAS_FIELDS`) so their schema
+    defaults are used instead of failing on the mismatched/absent ORM attrs."""
+    data = {
+        name: getattr(user, name, None)
+        for name in schema_cls.model_fields
+        if name not in _PROFILE_EXTRAS_FIELDS
+    }
+    return schema_cls.model_validate(data)
+
+
 async def _profile_extras(db: AsyncSession, user: User) -> dict:
     """Derive the rich-profile payload for `user` from existing project tables.
     Returns a plain dict the endpoints attach to the response schema."""
@@ -221,7 +244,11 @@ async def get_me(
             await db.commit()
         except Exception:
             await db.rollback()
-    return current_user
+    out = _validate_from_user(UserResponse, current_user)
+    extras = await _profile_extras(db, current_user)
+    for k, v in extras.items():
+        setattr(out, k, v)
+    return out
 
 
 @router.get("/me/notifications", response_model=dict)
@@ -1127,7 +1154,10 @@ async def get_user_profile(
             User.referred_by == user_id, User.is_registered == True, User.is_deleted == False
         )
     ) or 0
-    out = UserPublic.model_validate(user)
+    out = _validate_from_user(UserPublic, user)
     if invited >= 3 and "connector" not in out.badges:
         out.badges = out.badges + ["connector"]
+    extras = await _profile_extras(db, user)
+    for k, v in extras.items():
+        setattr(out, k, v)
     return out

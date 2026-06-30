@@ -169,6 +169,59 @@ async def test_book_self_and_wrong_actor(make_user, as_user, db):
     assert (await cme.patch(f"/bookings/{bid}", json={"action": "confirm"})).status_code == 403
 
 
+async def test_redecline_after_rebook_is_rejected(make_user, as_user, db):
+    """A books slot S, mentor declines (S reopens), B books S, mentor RE-declines
+    A's already-declined booking. Must be rejected, and B's active booking/slot
+    must not be corrupted."""
+    from app.models.connection import MentorSlot
+    m = await _make_mentor(make_user, db, name="M")
+    a = await make_user(name="A")
+    b = await make_user(name="B")
+    cm = as_user(m)
+    slot_id = (await cm.post("/mentors/me/slots", json={"start_at": _future(24)})).json()["id"]
+
+    ca = as_user(a)
+    bid_a = (await ca.post("/bookings", json={"slot_id": slot_id})).json()["id"]
+
+    cm = as_user(m)
+    r1 = await cm.patch(f"/bookings/{bid_a}", json={"action": "decline"})
+    assert r1.status_code == 200 and r1.json()["status"] == "declined"
+
+    cb = as_user(b)
+    bid_b = (await cb.post("/bookings", json={"slot_id": slot_id})).json()["id"]
+
+    # Mentor re-declines A's already-declined booking → must be rejected.
+    cm = as_user(m)
+    r2 = await cm.patch(f"/bookings/{bid_a}", json={"action": "decline"})
+    assert r2.status_code == 409
+
+    # Slot must still be booked (B's hold intact, not wrongly reopened).
+    slot = (await db.execute(MentorSlot.__table__.select().where(MentorSlot.id == slot_id))).first()
+    assert slot.status == "booked"
+
+    # B's booking must still be requested (untouched).
+    from app.models.connection import Booking
+    booking_b = (await db.execute(Booking.__table__.select().where(Booking.id == bid_b))).first()
+    assert booking_b.status == "requested"
+
+
+async def test_confirm_after_cancel_rejected(make_user, as_user, db):
+    m = await _make_mentor(make_user, db, name="M")
+    mentee = await make_user(name="Mentee")
+    cm = as_user(m)
+    slot_id = (await cm.post("/mentors/me/slots", json={"start_at": _future(24)})).json()["id"]
+    cme = as_user(mentee)
+    bid = (await cme.post("/bookings", json={"slot_id": slot_id})).json()["id"]
+
+    cme = as_user(mentee)
+    r1 = await cme.patch(f"/bookings/{bid}", json={"action": "cancel"})
+    assert r1.status_code == 200 and r1.json()["status"] == "cancelled"
+
+    cm = as_user(m)
+    r2 = await cm.patch(f"/bookings/{bid}", json={"action": "confirm"})
+    assert r2.status_code == 409
+
+
 async def test_bookings_me_split(make_user, as_user, db):
     m = await _make_mentor(make_user, db, name="M")
     mentee = await make_user(name="Mentee")

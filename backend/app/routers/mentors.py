@@ -175,22 +175,36 @@ async def act_on_booking(
     is_mentor = current_user.id == booking.mentor_id
     is_mentee = current_user.id == booking.mentee_id
 
+    if action not in ("confirm", "decline", "cancel"):
+        raise HTTPException(status_code=400, detail="action must be confirm|decline|cancel")
+
+    # Terminal-state guard: a finalized booking cannot be acted on again. This
+    # also blocks illegal transitions (e.g. confirm after cancel) and prevents
+    # re-running the slot-freeing logic on an already-declined/cancelled
+    # booking, which could wrongly reopen a slot that's since been re-booked.
+    if booking.status not in ("requested", "confirmed"):
+        raise HTTPException(status_code=409, detail="Booking already finalized")
+
     if action == "confirm":
         if not is_mentor:
             raise HTTPException(status_code=403, detail="Only the mentor can confirm")
+        if booking.status != "requested":
+            raise HTTPException(status_code=409, detail="Booking already finalized")
         booking.status = "confirmed"
         add_notification(db, booking.mentee_id, "booking_confirmed", actor_id=current_user.id)
     elif action == "decline":
         if not is_mentor:
             raise HTTPException(status_code=403, detail="Only the mentor can decline")
+        if booking.status != "requested":
+            raise HTTPException(status_code=409, detail="Booking already finalized")
         booking.status = "declined"
         add_notification(db, booking.mentee_id, "booking_declined", actor_id=current_user.id)
     elif action == "cancel":
         if not is_mentee:
             raise HTTPException(status_code=403, detail="Only the mentee can cancel")
+        if booking.status not in ("requested", "confirmed"):
+            raise HTTPException(status_code=409, detail="Booking already finalized")
         booking.status = "cancelled"
-    else:
-        raise HTTPException(status_code=400, detail="action must be confirm|decline|cancel")
 
     booking.decided_at = dt.datetime.utcnow()
     # Free the slot when the session won't happen.

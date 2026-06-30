@@ -68,6 +68,12 @@ class MutualConnections(BaseModel):
     preview: list[UserMini] = []
 
 
+class MentorOut(BaseModel):
+    is_mentor: bool = False
+    bio: str | None = None
+    topics: list[str] = []
+
+
 class UserResponse(BaseModel):
     id: int
     telegram_id: int
@@ -104,6 +110,10 @@ class UserResponse(BaseModel):
     vouch_count: int = 0
     rating: RatingOut = RatingOut()
     mutual_connections: MutualConnections = MutualConnections()
+    follower_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
+    mentor: MentorOut = MentorOut()
 
     model_config = {"from_attributes": True}
 
@@ -130,6 +140,9 @@ class UserUpdate(BaseModel):
     longitude: float | None = None
     currently_building: str | None = None
     portfolio_links: list[PortfolioLink] | None = None
+    is_mentor: bool | None = None
+    mentor_bio: str | None = None
+    mentor_topics: list[str] | None = None
 
 class UserPublic(BaseModel):
     """Full public profile — shown when clicking on a user."""
@@ -161,6 +174,10 @@ class UserPublic(BaseModel):
     vouch_count: int = 0
     rating: RatingOut = RatingOut()
     mutual_connections: MutualConnections = MutualConnections()
+    follower_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
+    mentor: MentorOut = MentorOut()
 
     model_config = {"from_attributes": True}
 

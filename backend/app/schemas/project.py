@@ -78,6 +78,8 @@ class ProjectResponse(BaseModel):
     req_knowledges: list[ReqKnowledgeOut] = []
     members: list["MemberOut"] = []
     member_count: int = 0
+    follower_count: int = 0
+    is_following: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -125,6 +127,7 @@ class ApplicationOut(BaseModel):
     project_name: str
     project_type: str
     status: str
+    role: str | None = None
     created_at: datetime
     applicant: ApplicantPublic
     model_config = {"from_attributes": True}

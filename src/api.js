@@ -117,6 +117,10 @@ export const users = {
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),
   search:          (q)      => req(`/search${qs({ q })}`),
   regionsPublic:   ()       => req("/public/regions"),
+  endorse:         (id, skill) => req(`/users/${id}/endorse`, { method: "POST", body: JSON.stringify({ skill }) }),
+  vouch:           (id, text)  => req(`/users/${id}/vouch`,   { method: "POST", body: JSON.stringify({ text }) }),
+  deleteVouch:     (id)        => req(`/users/${id}/vouch`,   { method: "DELETE" }),
+  publicUrl:       (id)        => `${window.location.origin}/u/${id}`,
 };
 
 // ── Project endpoints ─────────────────────────────────────────────────────────
@@ -137,6 +141,9 @@ export const projects = {
   unfavorite:        (id)     => req(`/projects/${id}/favorite`, { method: "DELETE" }),
   favorites:         ()       => req("/projects/favorites"),
   stats:             (id)     => req(`/projects/${id}/stats`),
+  rateable:          (id)            => req(`/projects/${id}/rateable`),
+  rateMember:        (id, ratee_id, stars, note) =>
+    req(`/projects/${id}/ratings`, { method: "POST", body: JSON.stringify({ ratee_id, stars, note }) }),
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────

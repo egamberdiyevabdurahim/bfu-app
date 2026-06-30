@@ -141,3 +141,35 @@ async def test_get_me_includes_trust(make_user, as_user, db):
     body = res.json()
     assert body["rating"] == {"average": None, "count": 0}
     assert body["mutual_connections"] == {"count": 0, "preview": []}
+
+
+async def test_endorse_toggle_and_validation(make_user, as_user, db):
+    from app.models.user_analysis import UserAnalysis
+    target = await make_user(name="Target")
+    me = await make_user(name="Me")
+    db.add(UserAnalysis(user_id=target.id, skills=["React"], knowledges=[],
+                        interests=[], preparations=[], goals=[]))
+    await db.commit()
+
+    c = as_user(me)
+    # First tap → endorsed.
+    r1 = await c.post(f"/users/{target.id}/endorse", json={"skill": "React"})
+    assert r1.status_code == 200, r1.text
+    assert r1.json() == {"ok": True, "endorsed": True, "count": 1}
+    # Second tap → un-endorsed (toggle off).
+    r2 = await c.post(f"/users/{target.id}/endorse", json={"skill": "React"})
+    assert r2.json() == {"ok": True, "endorsed": False, "count": 0}
+    # Skill not in target's analysis → 422.
+    r3 = await c.post(f"/users/{target.id}/endorse", json={"skill": "Welding"})
+    assert r3.status_code == 422
+
+
+async def test_endorse_self_rejected(make_user, as_user, db):
+    from app.models.user_analysis import UserAnalysis
+    me = await make_user(name="Me")
+    db.add(UserAnalysis(user_id=me.id, skills=["React"], knowledges=[],
+                        interests=[], preparations=[], goals=[]))
+    await db.commit()
+    c = as_user(me)
+    r = await c.post(f"/users/{me.id}/endorse", json={"skill": "React"})
+    assert r.status_code == 400

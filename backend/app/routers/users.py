@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
+from app.schemas.trust import EndorseIn, VouchIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, send_telegram
@@ -1077,6 +1078,53 @@ async def soft_interest(
             reply_markup=_connect_buttons(current_user),
         )
     return {"ok": True, "mutual": mutual}
+
+
+@router.post("/{user_id}/endorse", response_model=dict)
+async def endorse_skill(
+    user_id: int,
+    body: EndorseIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle an endorsement of `skill` on user `user_id`. The skill must be in
+    the target's analysis.skills. Returns the new state + count for that skill."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot endorse yourself")
+    skill = (body.skill or "").strip()
+    if not skill:
+        raise HTTPException(status_code=400, detail="skill required")
+    target = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    valid = {s.lower() for s in ((target.analysis.skills if target.analysis else None) or [])}
+    if skill.lower() not in valid:
+        raise HTTPException(status_code=422, detail="Skill not on this profile")
+
+    existing = (await db.execute(
+        select(Endorsement).where(
+            Endorsement.endorser_id == current_user.id,
+            Endorsement.target_id == user_id,
+            Endorsement.skill == skill,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        await db.delete(existing)
+        endorsed = False
+    else:
+        db.add(Endorsement(endorser_id=current_user.id, target_id=user_id, skill=skill))
+        endorsed = True
+    await db.commit()
+
+    count = await db.scalar(
+        select(func.count(Endorsement.id)).where(
+            Endorsement.target_id == user_id, Endorsement.skill == skill
+        )
+    ) or 0
+    return {"ok": True, "endorsed": endorsed, "count": int(count)}
 
 
 @router.get("/{user_id}/bio/translate", response_model=dict)

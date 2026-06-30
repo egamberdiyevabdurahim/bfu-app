@@ -542,6 +542,61 @@ async def unread_count(
     return {"unread": n}
 
 
+@router.get("/me/achievements", response_model=dict)
+async def my_achievements(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Derived achievements: earned state + progress for count-based ones.
+    Recomputed on read from existing data (no stored table, no notification).
+    Display text is client-side, keyed by `key`."""
+    uid = current_user.id
+
+    projects_founded = await db.scalar(
+        select(func.count(Project.id)).where(
+            Project.creator_id == uid,
+            Project.is_draft == False, Project.is_deleted == False,
+        )
+    ) or 0
+    applications = await db.scalar(
+        select(func.count(ProjectApplication.id)).where(
+            ProjectApplication.applicant_id == uid
+        )
+    ) or 0
+    invites = await db.scalar(
+        select(func.count(User.id)).where(
+            User.referred_by == uid, User.is_registered == True,
+            User.is_deleted == False,
+        )
+    ) or 0
+    endorsements = await db.scalar(
+        select(func.count(Endorsement.id)).where(Endorsement.target_id == uid)
+    ) or 0
+    vouches = await db.scalar(
+        select(func.count(Vouch.id)).where(Vouch.target_id == uid)
+    ) or 0
+    is_mentor = bool(getattr(current_user, "is_mentor", False))
+
+    def milestone(key: str, earned: bool) -> dict:
+        return {"key": key, "earned": bool(earned), "progress": None}
+
+    def counter(key: str, current: int, target: int) -> dict:
+        current = min(int(current), target)
+        return {"key": key, "earned": current >= target,
+                "progress": {"current": current, "target": target}}
+
+    achievements = [
+        milestone("first_project", projects_founded >= 1),
+        milestone("first_application", applications >= 1),
+        counter("five_invites", invites, 5),
+        milestone("verified", bool(current_user.checked)),
+        milestone("first_endorsement", endorsements >= 1),
+        milestone("mentor", is_mentor),
+        milestone("first_vouch_received", vouches >= 1),
+    ]
+    return {"achievements": achievements}
+
+
 @router.get("/me/connections", response_model=list[UserPublic])
 async def my_connections(
     current_user: User = Depends(get_current_user),

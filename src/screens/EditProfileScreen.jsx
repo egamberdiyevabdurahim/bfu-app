@@ -24,6 +24,9 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
     longitude: me?.longitude ?? null,
     currently_building: me?.currently_building || "",
     portfolio_links: Array.isArray(me?.portfolio_links) ? me.portfolio_links : [],
+    is_mentor: !!me?.mentor?.is_mentor,
+    mentor_bio: me?.mentor?.bio || "",
+    mentor_topics: (me?.mentor?.topics || []).join(", "),
   });
   const [locStatus, setLocStatus] = useState(
     (me?.latitude != null && me?.longitude != null) ? "shared" : ""
@@ -93,6 +96,11 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         longitude: form.longitude,
         currently_building: form.currently_building,
         portfolio_links: form.portfolio_links.filter(l => l.label.trim() && l.url.trim()),
+        is_mentor: form.is_mentor,
+        mentor_bio: form.is_mentor ? form.mentor_bio.trim() : "",
+        mentor_topics: form.is_mentor
+          ? form.mentor_topics.split(",").map(s => s.trim()).filter(Boolean).slice(0, 6)
+          : [],
       });
 
       const nameChanged = form.name.trim() !== origName || form.surname.trim() !== origSurname;
@@ -362,6 +370,34 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
                   fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("edit.addLink")}</button>
             )}
           </div>
+
+          {/* Mentor mode */}
+          <div style={{ marginTop: 18 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={form.is_mentor}
+                onChange={e => set("is_mentor", e.target.checked)} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{t("mentor.become")}</span>
+            </label>
+          </div>
+          {form.is_mentor && (
+            <>
+              <div style={{ marginTop: 12 }}>
+                <div className="section-label">{t("mentor.bioLabel")}</div>
+                <textarea value={form.mentor_bio} maxLength={400}
+                  onChange={e => set("mentor_bio", e.target.value)}
+                  placeholder={t("mentor.bioPh")} rows={3} style={{ width: "100%", boxSizing: "border-box",
+                    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                    color: "var(--text)", padding: "10px 12px", fontSize: 13, resize: "vertical" }} />
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div className="section-label">{t("mentor.topicsLabel")}</div>
+                <input value={form.mentor_topics} onChange={e => set("mentor_topics", e.target.value)}
+                  placeholder={t("mentor.topicsPh")} style={{ width: "100%", boxSizing: "border-box",
+                    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                    color: "var(--text)", padding: "10px 12px", fontSize: 13 }} />
+              </div>
+            </>
+          )}
 
           {/* Location */}
           <div>

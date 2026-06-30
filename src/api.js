@@ -145,6 +145,7 @@ export const projects = {
   unfavorite:        (id)     => req(`/projects/${id}/favorite`, { method: "DELETE" }),
   favorites:         ()       => req("/projects/favorites"),
   stats:             (id)     => req(`/projects/${id}/stats`),
+  funnel:            ()       => req("/projects/mine/funnel"),
   rateable:          (id)            => req(`/projects/${id}/rateable`),
   rateMember:        (id, ratee_id, stars, note) =>
     req(`/projects/${id}/ratings`, { method: "POST", body: JSON.stringify({ ratee_id, stars, note }) }),
@@ -200,6 +201,9 @@ export const regions = {
 // ── Admin endpoints ───────────────────────────────────────────────────────────
 export const admin = {
   getStats:          ()       => req("/admin/stats"),
+  retention:         (activeDays = 30) => req(`/admin/analytics/retention${qs({ active_days: activeDays })}`),
+  regionStats:       ()       => req("/admin/analytics/regions"),
+  skillGap:          ()       => req("/admin/analytics/skill-gap"),
   getUsers:          (p = {}) => req(`/admin/users${qs(p)}`),
   toggleCheck:       (id)     => req(`/admin/users/${id}/toggle-check`, { method: "PATCH" }),
   updateRole:        (id, r)  => req(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role: r }) }),

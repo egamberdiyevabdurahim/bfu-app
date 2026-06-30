@@ -136,6 +136,24 @@ export function shareToStory(mediaUrl, { text = "", linkUrl = "", linkName = "" 
   }
 }
 
+// Open a project's Telegram group chat (deep link). Bots can't create groups —
+// the link is the founder-pasted t.me invite, validated by the backend on save.
+// No-op when unset.
+export function projectChatLink(project) {
+  return (project?.group_link || "").trim() || null;
+}
+
+export function openProjectChat(project) {
+  const url = projectChatLink(project);
+  if (!url) return false;
+  const w = wa();
+  if (w && typeof w.openTelegramLink === "function") {
+    try { w.openTelegramLink(url); return true; } catch { /* fall through */ }
+  }
+  window.open(url, "_blank", "noopener");
+  return true;
+}
+
 export function haptic(kind = "impact") {
   const h = wa()?.HapticFeedback;
   try {

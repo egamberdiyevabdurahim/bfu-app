@@ -39,6 +39,11 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # Telegram profile-photo file_id (stable; file_path expires so we re-resolve
     # via getFile on demand). Refreshed on each login. None = no photo / private.
     photo_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Free-text "what am I building right now" line, shown above the bio.
+    # When null, the profile API auto-derives it from the latest active founded project.
+    currently_building: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON array of {"label","url"} (max 5), validated/sanitized on write.
+    portfolio_links: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

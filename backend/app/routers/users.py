@@ -65,6 +65,27 @@ def _write_denied(user: User, fields: set[str]) -> None:
     user.denied_fields = json.dumps(sorted(fields)) if fields else None
 
 
+def _sanitize_portfolio(raw) -> list[dict]:
+    """Coerce arbitrary input into at most 5 valid {label,url} entries.
+    Drops non-dicts, blank label/url, non-http(s) URLs; caps label at 40 chars."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for item in raw:
+        if len(out) >= 5:
+            break
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()[:40]
+        url = str(item.get("url", "")).strip()
+        if not label or not url:
+            continue
+        if not (url.startswith("http://") or url.startswith("https://")):
+            continue
+        out.append({"label": label, "url": url})
+    return out
+
+
 # ── Helper: set Telegram name tag ─────────────────────────────────────────────
 
 async def _set_member_tag(chat_id: int, user_id: int, tag: str) -> None:

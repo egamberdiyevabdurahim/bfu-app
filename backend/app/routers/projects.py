@@ -20,7 +20,7 @@ from app.models.project import (
     ProjectReqSkill,
 )
 from app.models.trust import ProjectRating
-from app.models.connection import Follow
+from app.models.connection import Follow, ProjectUpdate as ProjectUpdatePost
 from app.models.user import User, Favorite, Notification
 from app.schemas.project import (
     ApplicationOut,
@@ -29,6 +29,7 @@ from app.schemas.project import (
     ProjectResponse,
     ProjectUpdate,
 )
+from app.schemas.connection import ProjectUpdateIn
 from app.schemas.trust import RatingIn
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -1011,3 +1012,100 @@ async def project_stats(
         "views": proj.view_count or 0,
         "avg_decision_hours": avg_decision_hours,
     }
+
+
+# ── Project updates feed ────────────────────────────────────────────────────────
+
+@router.post("/{project_id}/updates", response_model=dict)
+async def post_update(
+    project_id: int,
+    body: ProjectUpdateIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder posts a short update; fans out one inbox item to each follower ∪
+    member (minus the author)."""
+    text = (body.text or "").strip()[:500]
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False,
+                              Project.is_draft == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the founder can post updates")
+
+    upd = ProjectUpdatePost(project_id=project_id, author_id=current_user.id, text=text)
+    db.add(upd)
+    await db.flush()
+    uid = upd.id
+
+    # Fan-out recipients: members ∪ project-followers, minus the author.
+    member_ids = set((await db.execute(
+        select(ProjectMember.user_id).where(ProjectMember.project_id == project_id)
+    )).scalars().all())
+    follower_ids = set((await db.execute(
+        select(Follow.follower_id).where(
+            Follow.target_type == "project", Follow.target_id == project_id
+        )
+    )).scalars().all())
+    recipients = (member_ids | follower_ids) - {current_user.id}
+
+    from app.services.notifications import add_notification
+    for rid in recipients:
+        add_notification(db, rid, "project_update", actor_id=current_user.id,
+                         project_id=project_id)
+    await db.commit()
+    return {"ok": True, "id": uid}
+
+
+@router.get("/{project_id}/updates", response_model=dict)
+async def list_updates(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recent updates (cap 50, newest first) with author preview."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    rows = (await db.execute(
+        select(ProjectUpdatePost).where(ProjectUpdatePost.project_id == project_id)
+        .order_by(ProjectUpdatePost.id.desc()).limit(50)
+    )).scalars().all()
+    author_ids = {r.author_id for r in rows}
+    authors = {}
+    if author_ids:
+        for u in (await db.execute(select(User).where(User.id.in_(author_ids)))).scalars().all():
+            authors[u.id] = {"id": u.id, "display_name": u.display_name, "photo_url": u.photo_url}
+    return {
+        "updates": [
+            {"id": r.id, "text": r.text, "author": authors.get(r.author_id),
+             "created_at": r.created_at.isoformat() if r.created_at else None}
+            for r in rows
+        ],
+    }
+
+
+@router.delete("/{project_id}/updates/{update_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_update(
+    project_id: int,
+    update_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Author (founder) deletes their own update."""
+    upd = (await db.execute(
+        select(ProjectUpdatePost).where(ProjectUpdatePost.id == update_id,
+                                        ProjectUpdatePost.project_id == project_id)
+    )).scalar_one_or_none()
+    if not upd:
+        raise HTTPException(status_code=404, detail="Update not found")
+    if upd.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your update")
+    await db.delete(upd)
+    await db.commit()

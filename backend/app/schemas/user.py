@@ -13,6 +13,29 @@ class AnalysisOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProfileProject(BaseModel):
+    id: int
+    name: str
+    type: str
+    is_active: bool
+    # Founder list uses created_at; member list uses joined_at. Whichever is
+    # relevant for the row is placed in `date` so the frontend stays simple.
+    date: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ProfileStats(BaseModel):
+    projects_founded: int = 0
+    projects_joined: int = 0
+    applications_accepted: int = 0
+
+
+class PortfolioLink(BaseModel):
+    label: str
+    url: str
+
+
 class UserResponse(BaseModel):
     id: int
     telegram_id: int
@@ -38,6 +61,12 @@ class UserResponse(BaseModel):
     role: str
     denied_fields: str | None = None
     denied_note: str | None = None
+    currently_building: str | None = None
+    currently_building_source: str | None = None  # "manual" | "auto" | None
+    portfolio_links: list[PortfolioLink] = []
+    founded_projects: list[ProfileProject] = []
+    member_projects: list[ProfileProject] = []
+    stats: ProfileStats = ProfileStats()
 
     model_config = {"from_attributes": True}
 
@@ -62,6 +91,8 @@ class UserUpdate(BaseModel):
     learning_center_ids: list[int] | None = None
     latitude: float | None = None
     longitude: float | None = None
+    currently_building: str | None = None
+    portfolio_links: list[PortfolioLink] | None = None
 
 class UserPublic(BaseModel):
     """Full public profile — shown when clicking on a user."""
@@ -82,6 +113,12 @@ class UserPublic(BaseModel):
     open_to_work: bool
     open_to_volunteering: bool
     analysis: AnalysisOut | None = None
+    currently_building: str | None = None
+    currently_building_source: str | None = None  # "manual" | "auto" | None
+    portfolio_links: list[PortfolioLink] = []
+    founded_projects: list[ProfileProject] = []
+    member_projects: list[ProfileProject] = []
+    stats: ProfileStats = ProfileStats()
 
     model_config = {"from_attributes": True}
 

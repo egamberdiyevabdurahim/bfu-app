@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +11,12 @@ import json
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
 from app.services.notify import esc, send_telegram
 from app.services.audit import log_action
-from app.models.project import Project
+from app.models.project import Project, ProjectMember, ProjectReqSkill
+from app.models.user_analysis import UserAnalysis
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
 from app.models.partner import Partner
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
 from pydantic import BaseModel
@@ -177,6 +178,58 @@ async def get_stats(
         schools=schools or 0,
         learning_centers=lcs or 0,
     )
+
+# ── Analytics (read-only aggregates) ──────────────────────────────────────────
+
+@router.get("/analytics/retention", response_model=dict)
+async def analytics_retention(
+    active_days: int = Query(30),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cohort retention: registered users grouped by signup month (created_at),
+    with how many are still 'active' (last_seen_at within `active_days` of now).
+    Month bucketing is done in Python so prod (Postgres) and tests (SQLite) match.
+    Newest month first; up to 24 months then an 'older' rollup."""
+    active_days = max(1, min(int(active_days), 365))
+    now = datetime.utcnow()
+    cutoff = now - timedelta(days=active_days)
+
+    rows = (await db.execute(
+        select(User.created_at, User.last_seen_at).where(
+            User.is_registered == True, User.is_deleted == False,
+            User.created_at.is_not(None),
+        )
+    )).all()
+
+    # month "YYYY-MM" -> [total, active]
+    buckets: dict[str, list[int]] = {}
+    for created_at, last_seen_at in rows:
+        key = created_at.strftime("%Y-%m")
+        b = buckets.setdefault(key, [0, 0])
+        b[0] += 1
+        if last_seen_at is not None and last_seen_at >= cutoff:
+            b[1] += 1
+
+    months_desc = sorted(buckets.keys(), reverse=True)
+    recent = months_desc[:24]
+    older = months_desc[24:]
+
+    cohorts = []
+    for m in recent:
+        total, active = buckets[m]
+        pct = round(active / total * 100) if total else 0
+        cohorts.append({"month": m, "total": total, "active": active,
+                        "retention_pct": pct})
+    if older:
+        o_total = sum(buckets[m][0] for m in older)
+        o_active = sum(buckets[m][1] for m in older)
+        cohorts.append({
+            "month": "older", "total": o_total, "active": o_active,
+            "retention_pct": round(o_active / o_total * 100) if o_total else 0,
+        })
+
+    return {"active_days": active_days, "cohorts": cohorts}
 
 # ── Users ────────────────────────────────────────────────────────────────────
 

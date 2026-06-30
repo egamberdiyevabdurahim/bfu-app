@@ -478,6 +478,72 @@ async def my_projects(
     ]
 
 
+@router.get("/mine/funnel", response_model=dict)
+async def my_funnel(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-founder analytics: views -> applications -> accepted across ALL of the
+    caller's projects (drafts + inactive included, each flagged), plus a per-project
+    breakdown. Read-only aggregate. Distinct from GET /projects/{id}/stats (single
+    project); uses the same per-status counting so the two never disagree."""
+    projects = (await db.execute(
+        select(Project).where(
+            Project.creator_id == current_user.id,
+            Project.is_deleted == False,
+        )
+    )).scalars().all()
+
+    if not projects:
+        return {
+            "totals": {"project_count": 0, "views": 0, "applications": 0,
+                       "accepted": 0, "pending": 0, "declined": 0},
+            "projects": [],
+        }
+
+    pids = [p.id for p in projects]
+    # One grouped query: (project_id, status) -> count.
+    status_rows = (await db.execute(
+        select(ProjectApplication.project_id, ProjectApplication.status,
+               func.count(ProjectApplication.id))
+        .where(ProjectApplication.project_id.in_(pids))
+        .group_by(ProjectApplication.project_id, ProjectApplication.status)
+    )).all()
+    # per_pid[pid] = {"accepted": n, "pending": n, "declined": n}
+    per_pid: dict[int, dict[str, int]] = {}
+    for pid, st, cnt in status_rows:
+        per_pid.setdefault(pid, {})[st] = int(cnt)
+
+    rows = []
+    for p in projects:
+        s = per_pid.get(p.id, {})
+        accepted = s.get("accepted", 0)
+        pending = s.get("pending", 0)
+        declined = s.get("declined", 0)
+        applications = accepted + pending + declined
+        rows.append({
+            "id": p.id, "name": p.name, "type": p.type,
+            "is_active": bool(p.is_active), "is_draft": bool(p.is_draft),
+            "is_approved": bool(p.is_approved),
+            "views": int(p.view_count or 0),
+            "applications": applications,
+            "accepted": accepted, "pending": pending, "declined": declined,
+        })
+
+    rows.sort(key=lambda r: (-r["views"], -r["id"]))
+    rows = rows[:200]
+
+    totals = {
+        "project_count": len(projects),
+        "views": sum(r["views"] for r in rows),
+        "applications": sum(r["applications"] for r in rows),
+        "accepted": sum(r["accepted"] for r in rows),
+        "pending": sum(r["pending"] for r in rows),
+        "declined": sum(r["declined"] for r in rows),
+    }
+    return {"totals": totals, "projects": rows}
+
+
 @router.get("/my-requests", response_model=list[ApplicationOut])
 async def my_requests(
     type: str | None = None,

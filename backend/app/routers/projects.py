@@ -41,6 +41,10 @@ from pydantic import BaseModel as _BM
 class _ReviewBody(_BM):
     action: str  # accept | decline
 
+
+class _ApplyBody(_BM):
+    role: str | None = None
+
 # ── Eager-load options ─────────────────────────────────────────────────────────
 
 # Full graph for GET /projects/{id} and after-mutation reloads.
@@ -518,6 +522,7 @@ async def my_requests(
             project_name=proj_map[a.project_id].name,
             project_type=proj_map[a.project_id].type,
             status=a.status,
+            role=a.role,
             created_at=a.created_at,
             applicant=ApplicantPublic.model_validate(a.applicant),
         )
@@ -663,6 +668,7 @@ async def delete_project(
 @router.post("/{project_id}/apply", status_code=status.HTTP_201_CREATED)
 async def apply_to_project(
     project_id: int,
+    body: _ApplyBody | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -685,7 +691,9 @@ async def apply_to_project(
     if any(a.applicant_id == current_user.id for a in project.applications):
         raise HTTPException(status_code=409, detail="Application already submitted")
 
-    app = ProjectApplication(project_id=project_id, applicant_id=current_user.id, status="pending")
+    role = ((body.role if body else None) or "").strip()[:80] or None
+    app = ProjectApplication(project_id=project_id, applicant_id=current_user.id,
+                             status="pending", role=role)
     db.add(app)
     try:
         await db.commit()
@@ -715,7 +723,7 @@ async def apply_to_project(
             lang=getattr(founder, "language", "en") or "en",
         )
 
-    return {"id": app.id, "status": "pending"}
+    return {"id": app.id, "status": "pending", "role": role}
 
 
 @router.patch("/{project_id}/applications/{app_id}")

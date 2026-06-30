@@ -124,6 +124,12 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_bookings_mentee ON bookings (mentee_id);",
         "CREATE INDEX IF NOT EXISTS ix_bookings_slot ON bookings (slot_id);",
         "CREATE INDEX IF NOT EXISTS ix_users_is_mentor ON users (is_mentor);",
+        # --- Batch D: discovery + org (project_roles table via create_all) ---
+        "ALTER TABLE projects ADD COLUMN IF NOT EXISTS group_link VARCHAR(512);",
+        "CREATE INDEX IF NOT EXISTS ix_project_roles_project ON project_roles (project_id);",
+        "CREATE INDEX IF NOT EXISTS ix_project_roles_open ON project_roles (is_filled);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_project_role_project_name "
+        "ON project_roles (project_id, name);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

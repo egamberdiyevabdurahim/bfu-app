@@ -130,6 +130,9 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_project_roles_open ON project_roles (is_filled);",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_project_role_project_name "
         "ON project_roles (project_id, name);",
+        # --- Batch E: analytics (read-only; index the skill-gap GROUP BY column) ---
+        "CREATE INDEX IF NOT EXISTS ix_project_req_skills_skill_name "
+        "ON project_req_skills (skill_name);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

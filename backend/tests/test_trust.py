@@ -173,3 +173,51 @@ async def test_endorse_self_rejected(make_user, as_user, db):
     c = as_user(me)
     r = await c.post(f"/users/{me.id}/endorse", json={"skill": "React"})
     assert r.status_code == 400
+
+
+async def test_vouch_create_update_delete(make_user, as_user, db):
+    from app.models.trust import Vouch
+    target = await make_user(name="Target")
+    me = await make_user(name="Me")
+    c = as_user(me)
+
+    # Create.
+    r1 = await c.post(f"/users/{target.id}/vouch", json={"text": "  Reliable builder.  "})
+    assert r1.status_code == 200, r1.text
+    assert r1.json()["ok"] is True
+    rows = (await db.execute(
+        Vouch.__table__.select().where(Vouch.target_id == target.id)
+    )).all()
+    assert len(rows) == 1
+
+    # Update (same author → one row, new text).
+    r2 = await c.post(f"/users/{target.id}/vouch", json={"text": "Ships fast."})
+    assert r2.status_code == 200
+    fresh = (await db.execute(
+        Vouch.__table__.select().where(Vouch.target_id == target.id)
+    )).all()
+    assert len(fresh) == 1
+    assert fresh[0].text == "Ships fast."
+
+    # Delete.
+    r3 = await c.delete(f"/users/{target.id}/vouch")
+    assert r3.status_code == 204
+    gone = (await db.execute(
+        Vouch.__table__.select().where(Vouch.target_id == target.id)
+    )).all()
+    assert gone == []
+
+
+async def test_vouch_self_and_empty_rejected(make_user, as_user, db):
+    me = await make_user(name="Me")
+    other = await make_user(name="Other")
+    c = as_user(me)
+    assert (await c.post(f"/users/{me.id}/vouch", json={"text": "x"})).status_code == 400
+    assert (await c.post(f"/users/{other.id}/vouch", json={"text": "   "})).status_code == 400
+
+
+async def test_vouch_delete_missing_404(make_user, as_user, db):
+    me = await make_user(name="Me")
+    other = await make_user(name="Other")
+    c = as_user(me)
+    assert (await c.delete(f"/users/{other.id}/vouch")).status_code == 404

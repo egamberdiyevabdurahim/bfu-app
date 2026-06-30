@@ -1127,6 +1127,55 @@ async def endorse_skill(
     return {"ok": True, "endorsed": endorsed, "count": int(count)}
 
 
+@router.post("/{user_id}/vouch", response_model=dict)
+async def vouch_for(
+    user_id: int,
+    body: VouchIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or update the caller's short testimonial for user `user_id`."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot vouch for yourself")
+    text = (body.text or "").strip()[:280]
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+    target = await db.get(User, user_id)
+    if not target or target.is_deleted or not target.is_registered:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = (await db.execute(
+        select(Vouch).where(Vouch.author_id == current_user.id, Vouch.target_id == user_id)
+    )).scalar_one_or_none()
+    if existing:
+        existing.text = text
+        existing.updated_at = datetime.utcnow()
+        vid = existing.id
+    else:
+        v = Vouch(author_id=current_user.id, target_id=user_id, text=text)
+        db.add(v)
+        await db.flush()
+        vid = v.id
+    await db.commit()
+    return {"ok": True, "id": vid}
+
+
+@router.delete("/{user_id}/vouch", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_vouch(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove the caller's vouch for user `user_id`."""
+    existing = (await db.execute(
+        select(Vouch).where(Vouch.author_id == current_user.id, Vouch.target_id == user_id)
+    )).scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="No vouch to delete")
+    await db.delete(existing)
+    await db.commit()
+
+
 @router.get("/{user_id}/bio/translate", response_model=dict)
 async def translate_bio(
     user_id: int,

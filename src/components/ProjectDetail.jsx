@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
 import { projects, regions, users } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
+import { FollowButton } from "./FollowButton";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
 
@@ -139,6 +140,11 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
   const [regionMap, setRegionMap] = useState({});
   const [viewingUserId, setViewingUserId] = useState(null);
   const [stats, setStats] = useState(null);
+  const [updates, setUpdates] = useState(null);
+  const [updateText, setUpdateText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [roleText, setRoleText] = useState("");
 
   const isCreator = me && project.creator_id === me.id;
   const projectWithFlag = { ...project, _is_creator: isCreator };
@@ -157,6 +163,30 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    projects.updates(project.id).then(r => setUpdates(r.updates || [])).catch(() => setUpdates([]));
+  }, [project.id]);
+
+  const postUpdate = async () => {
+    if (posting || !updateText.trim()) return;
+    setPosting(true);
+    try {
+      await projects.postUpdate(project.id, updateText.trim());
+      const r = await projects.updates(project.id);
+      setUpdates(r.updates || []);
+      setUpdateText("");
+    } catch (e) { tgAlert(e.message); }
+    setPosting(false);
+  };
+
+  const removeUpdate = async (uid) => {
+    if (!await tgConfirm(t("updates.delete"))) return;
+    try {
+      await projects.deleteUpdate(project.id, uid);
+      setUpdates(u => (u || []).filter(x => x.id !== uid));
+    } catch (e) { tgAlert(e.message); }
+  };
+
   const handleApply = async () => {
     if (!project.is_fit) {
       tgAlert(t("pd.notQualified"));
@@ -164,9 +194,11 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
     }
     setLoading(true);
     try {
-      await projects.apply(project.id);
+      await projects.apply(project.id, roleText.trim() || null);
       const updated = await projects.get(project.id);
       setProject(updated);
+      setRoleOpen(false);
+      setRoleText("");
       if (onUpdate) onUpdate(updated);
     } catch (e) {
       tgAlert(e.message);
@@ -278,6 +310,22 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
               </p>
             )}
 
+            {!isCreator && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <FollowButton
+                  targetType="project"
+                  targetId={project.id}
+                  initialFollowing={project.is_following}
+                  initialCount={project.follower_count}
+                />
+                {project.follower_count > 0 && (
+                  <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+                    {project.follower_count === 1 ? t("follow.followersOne") : t("follow.followers", { n: project.follower_count })}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Stats */}
             <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-3)" }}>
@@ -362,6 +410,50 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
               </div>
             )}
 
+            {/* Updates */}
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-label">{t("updates.title")}</div>
+              {isCreator && (
+                <div style={{ marginBottom: 12 }}>
+                  <textarea value={updateText} maxLength={500}
+                    onChange={e => setUpdateText(e.target.value)} placeholder={t("updates.placeholder")}
+                    rows={2} style={{ width: "100%", boxSizing: "border-box", background: "var(--surface-2)",
+                      border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)",
+                      padding: "10px 12px", fontSize: 13, resize: "vertical" }} />
+                  <button onClick={postUpdate} disabled={posting || !updateText.trim()} style={{
+                    marginTop: 6, background: "var(--accent)", border: "none", borderRadius: "var(--radius-sm)",
+                    color: "#fff", padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {t("updates.post")}
+                  </button>
+                </div>
+              )}
+              {updates === null ? (
+                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("common.loading")}</div>
+              ) : updates.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("updates.none")}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {updates.map(u => (
+                    <div key={u.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
+                      borderLeft: "3px solid var(--accent)", borderRadius: "var(--radius-sm)", padding: "10px 12px" }}>
+                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{u.text}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--text-3)" }}>
+                          {u.author?.display_name || ""} · {(() => { try { return new Date(u.created_at).toLocaleDateString(); } catch { return ""; } })()}
+                        </span>
+                        {isCreator && (
+                          <button onClick={() => removeUpdate(u.id)} style={{ background: "none", border: "none",
+                            color: "var(--text-3)", fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
+                            {t("updates.delete")}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Channel */}
             {project.channel && (
               <div style={{ marginBottom: 20 }}>
@@ -418,11 +510,23 @@ export const ProjectDetail = ({ project: initial, me, onClose, onUpdate }) => {
             )}
             <StatusButton
               project={projectWithFlag}
-              onApply={handleApply}
+              onApply={() => setRoleOpen(true)}
               onCancel={handleCancel}
               onLeave={handleLeave}
               loading={loading}
             />
+            {roleOpen && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>{t("apply.roleLabel")}</div>
+                <input value={roleText} maxLength={80} onChange={e => setRoleText(e.target.value)}
+                  placeholder={t("apply.rolePh")} style={{ width: "100%", boxSizing: "border-box",
+                    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                    color: "var(--text)", padding: "10px 12px", fontSize: 13, marginBottom: 8 }} />
+                <button onClick={handleApply} disabled={loading} style={{ width: "100%", background: "var(--accent)",
+                  border: "none", borderRadius: "var(--radius-sm)", color: "#fff", padding: "12px", fontWeight: 700,
+                  fontSize: 14, cursor: "pointer" }}>{t("apply.submit")}</button>
+              </div>
+            )}
           </div>
         </div>
 

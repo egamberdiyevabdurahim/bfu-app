@@ -673,6 +673,44 @@ const STRINGS = {
   "ach.mentor.desc": { en: "Turn on mentor mode", uz: "Mentor rejimini yoqing", ru: "Включите режим ментора" },
   "ach.first_vouch_received.name": { en: "Trusted", uz: "Ishonchli", ru: "Надёжный" },
   "ach.first_vouch_received.desc": { en: "Get a vouch", uz: "Tavsiya oling", ru: "Получите рекомендацию" },
+
+  // ── Batch E: analytics ──────────────────────────────────────────────────────
+  "admin.tab.analytics": { en: "Analytics", uz: "Tahlil", ru: "Аналитика" },
+  "an.loadError": { en: "Couldn't load analytics", uz: "Tahlilni yuklab bo‘lmadi", ru: "Не удалось загрузить аналитику" },
+  // retention
+  "an.retention.title": { en: "Cohort retention", uz: "Saqlanib qolish", ru: "Удержание когорт" },
+  "an.retention.sub": { en: "Members still active by signup month", uz: "Ro‘yxatdan o‘tgan oy bo‘yicha faol a’zolar", ru: "Активные участники по месяцу регистрации" },
+  "an.retention.month": { en: "Month", uz: "Oy", ru: "Месяц" },
+  "an.retention.total": { en: "Joined", uz: "Qo‘shilgan", ru: "Пришло" },
+  "an.retention.active": { en: "Active", uz: "Faol", ru: "Активны" },
+  "an.retention.older": { en: "Older", uz: "Eskiroq", ru: "Ранее" },
+  "an.retention.window": { en: "Active window", uz: "Faollik oynasi", ru: "Окно активности" },
+  "an.retention.days": { en: "{n} days", uz: "{n} kun", ru: "{n} дн." },
+  // regions
+  "an.regions.title": { en: "Region heatmap", uz: "Hududlar xaritasi", ru: "Карта регионов" },
+  "an.regions.sub": { en: "Supply per viloyat", uz: "Har viloyatdagi resurs", ru: "Ресурсы по вилоятам" },
+  "an.regions.members": { en: "Members", uz: "A’zolar", ru: "Участники" },
+  "an.regions.projects": { en: "Projects", uz: "Loyihalar", ru: "Проекты" },
+  "an.regions.open": { en: "Open", uz: "Ochiq", ru: "Открытые" },
+  // skill gap
+  "an.skill.title": { en: "Skill gap", uz: "Mahorat tafovuti", ru: "Дефицит навыков" },
+  "an.skill.sub": { en: "What projects need vs what members have", uz: "Loyihalarga kerak vs a’zolarda bor", ru: "Что нужно проектам vs что есть у участников" },
+  "an.skill.demand": { en: "Demand", uz: "Talab", ru: "Спрос" },
+  "an.skill.supply": { en: "Supply", uz: "Taklif", ru: "Предложение" },
+  "an.skill.gap": { en: "Gap", uz: "Tafovut", ru: "Дефицит" },
+  "an.skill.none": { en: "No skill data yet", uz: "Hali mahorat ma’lumoti yo‘q", ru: "Пока нет данных о навыках" },
+  // founder funnel
+  "funnel.title": { en: "Your funnel", uz: "Sizning voronkangiz", ru: "Ваша воронка" },
+  "funnel.sub": { en: "Views → applications → accepted across your projects", uz: "Ko‘rishlar → arizalar → qabul, loyihalaringiz bo‘yicha", ru: "Просмотры → заявки → приняты по вашим проектам" },
+  "funnel.views": { en: "Views", uz: "Ko‘rishlar", ru: "Просмотры" },
+  "funnel.applications": { en: "Applications", uz: "Arizalar", ru: "Заявки" },
+  "funnel.accepted": { en: "Accepted", uz: "Qabul qilingan", ru: "Приняты" },
+  "funnel.pending": { en: "Pending", uz: "Kutilmoqda", ru: "Ожидают" },
+  "funnel.declined": { en: "Declined", uz: "Rad etilgan", ru: "Отклонены" },
+  "funnel.perProject": { en: "Per project", uz: "Loyiha bo‘yicha", ru: "По проектам" },
+  "funnel.empty": { en: "Found a project to see your funnel", uz: "Voronkani ko‘rish uchun loyiha boshlang", ru: "Создайте проект, чтобы увидеть воронку" },
+  "funnel.draft": { en: "Draft", uz: "Qoralama", ru: "Черновик" },
+  "funnel.closed": { en: "Closed", uz: "Yopiq", ru: "Закрыт" },
 };
 
 function translate(lang, key, vars) {

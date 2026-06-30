@@ -556,6 +556,27 @@ const STRINGS = {
   "edit.linkLabel": { en: "Label (e.g. GitHub)", uz: "Nom (masalan GitHub)", ru: "Название (напр. GitHub)" },
   "edit.linkUrl": { en: "https://...", uz: "https://...", ru: "https://..." },
   "edit.addLink": { en: "+ Add link", uz: "+ Havola qo'shish", ru: "+ Добавить ссылку" },
+
+  // ── Trust layer (Batch B) ────────────────────────────────────────────────
+  "trust.mutual": { en: "{n} mutual connections", uz: "{n} umumiy aloqa", ru: "{n} общих связей" },
+  "trust.mutualOne": { en: "1 mutual connection", uz: "1 umumiy aloqa", ru: "1 общая связь" },
+  "trust.rating": { en: "Rating", uz: "Reyting", ru: "Рейтинг" },
+  "trust.noRating": { en: "No ratings yet", uz: "Hali reyting yo‘q", ru: "Пока нет оценок" },
+  "trust.endorse": { en: "Endorse", uz: "Tasdiqlash", ru: "Подтвердить" },
+  "trust.endorsed": { en: "Endorsed", uz: "Tasdiqlandi", ru: "Подтверждено" },
+  "trust.vouches": { en: "Vouches", uz: "Tavsiyalar", ru: "Отзывы" },
+  "trust.vouchBtn": { en: "Write a vouch", uz: "Tavsiya yozish", ru: "Оставить отзыв" },
+  "trust.vouchPh": { en: "I worked with this person on…", uz: "Men bu inson bilan … ustida ishlaganman", ru: "Я работал(а) с этим человеком над…" },
+  "trust.vouchPost": { en: "Post", uz: "Joylash", ru: "Опубликовать" },
+  "trust.vouchDelete": { en: "Remove my vouch", uz: "Tavsiyamni o‘chirish", ru: "Удалить мой отзыв" },
+  "trust.noVouches": { en: "No vouches yet", uz: "Hali tavsiya yo‘q", ru: "Пока нет отзывов" },
+  "trust.sharePublic": { en: "Share public profile", uz: "Ommaviy profilni ulashish", ru: "Поделиться профилем" },
+  "trust.copied": { en: "Link copied", uz: "Havola nusxalandi", ru: "Ссылка скопирована" },
+  "rate.title": { en: "Rate your teammates", uz: "Jamoadoshlaringizni baholang", ru: "Оцените команду" },
+  "rate.note": { en: "Note (optional)", uz: "Izoh (ixtiyoriy)", ru: "Заметка (необязательно)" },
+  "rate.submit": { en: "Submit rating", uz: "Bahoni yuborish", ru: "Отправить оценку" },
+  "rate.done": { en: "Rating saved", uz: "Baho saqlandi", ru: "Оценка сохранена" },
+  "rate.prompt": { en: "A project closed — rate your teammates", uz: "Loyiha yopildi — jamoadoshlaringizni baholang", ru: "Проект закрыт — оцените команду" },
 };
 
 function translate(lang, key, vars) {

@@ -94,6 +94,18 @@ async def lifespan(app: FastAPI):
         # --- one-time moderation backfill (fixed cutoff = idempotent) ---
         "UPDATE projects SET is_approved = true "
         "WHERE is_approved = false AND created_at < TIMESTAMP '2026-05-21 00:00:00';",
+        # --- Batch B: trust layer indexes (tables created by create_all) ---
+        "CREATE INDEX IF NOT EXISTS ix_endorsements_target ON endorsements (target_id);",
+        "CREATE INDEX IF NOT EXISTS ix_endorsements_endorser ON endorsements (endorser_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_endorsement_endorser_target_skill "
+        "ON endorsements (endorser_id, target_id, skill);",
+        "CREATE INDEX IF NOT EXISTS ix_vouches_target ON vouches (target_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_vouch_author_target "
+        "ON vouches (author_id, target_id);",
+        "CREATE INDEX IF NOT EXISTS ix_ratings_ratee ON project_ratings (ratee_id);",
+        "CREATE INDEX IF NOT EXISTS ix_ratings_project ON project_ratings (project_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_rating_project_rater_ratee "
+        "ON project_ratings (project_id, rater_id, ratee_id);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

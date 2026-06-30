@@ -1061,6 +1061,74 @@ async def my_card(
     }
 
 
+@router.get("/me/resume")
+async def my_resume(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate and stream the caller's one-page PDF CV (attachment).
+
+    Authenticated + me-only: a member can export only their own resume. The PDF
+    is built from the same `_profile_extras` (Batch A) + `_trust_extras` (Batch B)
+    data the profile/public page show, so it can never drift from them."""
+    from fastapi import Response
+    from app.services.resume import render_resume_pdf
+
+    # Ensure analysis is loaded for skills/tags (selectinload like other handlers).
+    user = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == current_user.id)
+    )).scalar_one()
+
+    extras = await _profile_extras(db, user)
+    trust = await _trust_extras(db, user, None)
+
+    # Display name: "Name Surname" capitalized, else display_name.
+    full = ((user.name or "").capitalize()
+            + ((" " + user.surname.capitalize()) if user.surname else "")).strip()
+    name = full or (user.display_name or "BFU member")
+
+    # Meta line: region · age · verified.
+    region_name = None
+    if user.region_id:
+        from app.models.region import Region
+        r = await db.get(Region, user.region_id)
+        region_name = (r.name_uz if r else None)
+    age = (datetime.utcnow().year - user.birth_year) if user.birth_year else None
+    meta_parts = []
+    if region_name:
+        meta_parts.append(region_name)
+    if age:
+        meta_parts.append(f"{age} y/o")
+    if user.checked:
+        meta_parts.append("Verified")
+    meta = " · ".join(meta_parts)
+
+    base = (settings.WEBAPP_URL or "").rstrip("/")
+    public_url = f"{base}/u/{user.id}" if base else f"/u/{user.id}"
+
+    skills = (user.analysis.skills if user.analysis else None) or []
+    other_tags: list[str] = []
+    seen = set(s.lower() for s in skills)
+    if user.analysis:
+        for cat in ("interests", "knowledges", "preparations", "goals"):
+            for tg in (getattr(user.analysis, cat, None) or []):
+                if tg.lower() not in seen:
+                    seen.add(tg.lower())
+                    other_tags.append(tg)
+
+    pdf = render_resume_pdf(
+        name=name, meta=meta, public_url=public_url, about=user.about,
+        skills=skills, other_tags=other_tags[:12], extras=extras, trust=trust,
+    )
+
+    fname = (full or "BFU").replace(" ", "-").encode("ascii", "ignore").decode() or "BFU"
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}-BFU-CV.pdf"'},
+    )
+
+
 @router.post("/me/referral", response_model=dict)
 async def set_referral(
     body: ReferralIn,

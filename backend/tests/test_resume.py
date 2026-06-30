@@ -76,3 +76,44 @@ def test_render_resume_pdf_non_latin_does_not_raise():
         extras=_sample_extras(), trust=_sample_trust(),
     )
     assert pdf[:5] == b"%PDF-"
+
+
+async def _mk_project(db, creator_id, name, *, is_active=True):
+    from app.models.project import Project
+    p = Project(type="startup", creator_id=creator_id, name=name, about="A useful thing.",
+                is_active=is_active, is_draft=False, is_deleted=False, is_approved=True)
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return p
+
+
+async def test_me_resume_returns_pdf(make_user, as_user, db):
+    from app.models.user_analysis import UserAnalysis
+    me = await make_user(name="Aziz", surname="Karimov")
+    db.add(UserAnalysis(user_id=me.id, skills=["React", "Python"], knowledges=[],
+                        interests=["Climate"], preparations=[], goals=[]))
+    await db.commit()
+    await _mk_project(db, me.id, "Solar Farm", is_active=True)
+
+    c = as_user(me)
+    res = await c.get("/users/me/resume")
+    assert res.status_code == 200, res.text
+    assert res.headers["content-type"] == "application/pdf"
+    assert "attachment" in res.headers.get("content-disposition", "")
+    assert res.content[:5] == b"%PDF-"
+    assert len(res.content) > 1000
+
+
+async def test_me_resume_empty_profile_still_pdf(make_user, as_user, db):
+    me = await make_user(name="New", surname="Member")
+    c = as_user(me)
+    res = await c.get("/users/me/resume")
+    assert res.status_code == 200, res.text
+    assert res.content[:5] == b"%PDF-"
+
+
+async def test_me_resume_requires_auth(client):
+    # No as_user override → unauthenticated → 401/403.
+    res = await client.get("/users/me/resume")
+    assert res.status_code in (401, 403)

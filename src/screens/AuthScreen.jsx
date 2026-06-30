@@ -483,7 +483,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
       <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 300, height: 300, background: "radial-gradient(circle, rgba(123,111,255,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 28px", textAlign: "center", gap: 24 }}>
         <div style={{ animation: "cardFloat 3s ease-in-out infinite" }}>
-          <div style={{ width: 80, height: 80, background: "linear-gradient(135deg, var(--accent), #A78BFA)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 48px rgba(123,111,255,0.4)", fontSize: 36 }}>✦</div>
+          <img src="/bfu-mark.png" alt="BFU" style={{ width: 80, height: 80, objectFit: "contain", filter: "drop-shadow(0 16px 48px rgba(123,111,255,0.4))" }} />
         </div>
         <div>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: 42, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>BFU</h1>

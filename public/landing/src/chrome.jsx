@@ -18,10 +18,14 @@ function ScrollProgressBar() {
 
 function LogoMark({ size = 36 }) {
   return (
-    <div
-      className="rounded-[10px] bg-gradient-to-br from-[#7B6FFF] to-[#A78BFA] flex items-center justify-center text-white font-display font-bold shadow-[0_8px_24px_rgba(123,111,255,0.45)]"
-      style={{ width: size, height: size, fontSize: size * 0.55 }}
-    >✦</div>
+    <img
+      src="/bfu-mark.png"
+      alt="BFU"
+      width={size}
+      height={size}
+      className="object-contain"
+      style={{ width: size, height: size, filter: 'drop-shadow(0 8px 24px rgba(123,111,255,0.45))' }}
+    />
   );
 }
 

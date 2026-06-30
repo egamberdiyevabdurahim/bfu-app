@@ -123,6 +123,10 @@ function Footer() {
               <span>🇺🇿</span>
               <span className="text-[#A78BFA] soft-pulse inline-block">✦</span>
             </div>
+            <div className="mt-3 flex items-center gap-2.5 text-text-3">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">Powered by</span>
+              <img src="/marstiff-logo.png" alt="Marstiff" className="h-5 w-auto object-contain" />
+            </div>
           </div>
 
           <div>

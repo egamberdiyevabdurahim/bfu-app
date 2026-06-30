@@ -38,7 +38,9 @@ function TGBar({ title = 'Bright Futures UZB', subtitle = 'bot · online', right
   return (
     <div className="px-4 pt-1 pb-2.5 flex items-center gap-3 border-b border-white/[0.06]">
       <button className="text-white/60 text-[18px] leading-none">‹</button>
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7B6FFF] to-[#A78BFA] flex items-center justify-center text-white text-[14px] font-display font-bold shadow-[0_4px_14px_rgba(123,111,255,0.4)]">✦</div>
+      <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center overflow-hidden shadow-[0_4px_14px_rgba(123,111,255,0.4)]">
+        <img src="/bfu-mark.png" alt="BFU" className="w-[18px] h-[18px] object-contain" />
+      </div>
       <div className="flex-1 min-w-0">
         <div className="text-[12px] font-semibold text-white truncate">{title}</div>
         <div className="text-[10px] text-[#4ECDC4]/90">{subtitle}</div>
@@ -78,7 +80,7 @@ function WelcomeScreen() {
         <div className="relative">
           <div className="absolute inset-0 -m-6 rounded-3xl bg-gradient-to-br from-[#7B6FFF]/30 to-transparent blur-2xl" />
           <div className="relative">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#7B6FFF] to-[#A78BFA] flex items-center justify-center text-white text-[24px] font-display font-bold shadow-[0_16px_40px_rgba(123,111,255,0.5)]">✦</div>
+            <img src="/bfu-mark.png" alt="BFU" className="w-14 h-14 object-contain" style={{ filter: 'drop-shadow(0 16px 40px rgba(123,111,255,0.5))' }} />
             <h3 className="mt-4 font-display font-bold text-[22px] leading-[1.05] tracking-[-0.02em] text-white">Welcome to BFU</h3>
             <p className="mt-2 text-[11.5px] leading-snug text-white/65">
               Find your co-founders, your team, your next opportunity — inside Telegram, in your language.

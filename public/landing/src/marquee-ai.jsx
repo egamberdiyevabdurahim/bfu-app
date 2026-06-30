@@ -20,7 +20,9 @@ function ChatBubble({ b }) {
   return (
     <div className="shrink-0 mr-4 max-w-[380px]">
       <div className="rounded-2xl rounded-bl-md bg-[#13131A] border border-white/[0.06] px-4 py-3 flex gap-3 items-start shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-        <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#7B6FFF] to-[#A78BFA] flex items-center justify-center text-white font-display font-bold text-[13px]">✦</div>
+        <div className="shrink-0 w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center overflow-hidden">
+          <img src="/bfu-mark.png" alt="BFU" className="w-[18px] h-[18px] object-contain" />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="text-[10px] text-[#4ECDC4] font-semibold uppercase tracking-wider">BFU bot</div>
           <div className="text-[13px] leading-snug text-white/90 mt-0.5">

@@ -299,6 +299,17 @@ export const SettingsScreen = () => {
           </button>
         )}
 
+        {/* Powered by Marstiff — sanctioned partner credit */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 10, padding: "22px 0 14px", opacity: 0.7,
+        }}>
+          <span style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600, fontFamily: "var(--font-display)" }}>
+            powered by
+          </span>
+          <img src="/marstiff-logo.png" alt="Marstiff" style={{ height: 18, objectFit: "contain" }} />
+        </div>
+
         {/* Sign Out */}
         <button onClick={handleSignOut} style={{
           width: "100%", background: "rgba(255,107,107,0.1)", border: "1px solid rgba(255,107,107,0.2)",

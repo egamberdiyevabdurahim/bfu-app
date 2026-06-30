@@ -222,6 +222,25 @@ def render_card_png(
     draw.text((cx, 1776), "t.me/BrightFuturesUzbekistan_bot",
               font=_font(_DM, 34, 700), fill=(255, 255, 255), anchor="mm")
 
+    # --- powered by Marstiff (sanctioned partner credit) ---
+    try:
+        m_path = os.path.join(os.path.dirname(__file__), "..", "assets", "marstiff-logo.png")
+        mlogo = Image.open(m_path).convert("RGBA")
+        th = 44
+        tw = int(mlogo.width * th / mlogo.height)
+        mlogo = mlogo.resize((tw, th), Image.LANCZOS)
+        label = "powered by"
+        f_label = _font(_DM, 26, 500)
+        lw = _text_w(draw, label, f_label)
+        gap = 16
+        total_w = lw + gap + tw
+        sx = cx - total_w // 2
+        ly = 1880
+        draw.text((sx, ly), label, font=f_label, fill=TEXT3, anchor="lm")
+        img.alpha_composite(mlogo, (sx + lw + gap, ly - th // 2))
+    except Exception:
+        pass
+
     out = io.BytesIO()
     img.convert("RGB").save(out, format="PNG", optimize=True)
     return out.getvalue()

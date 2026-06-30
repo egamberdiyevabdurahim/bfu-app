@@ -124,6 +124,7 @@ export const users = {
   follow:        (target_type, target_id) => req("/follow", { method: "POST", body: JSON.stringify({ target_type, target_id }) }),
   unfollow:      (target_type, target_id) => req("/follow", { method: "DELETE", body: JSON.stringify({ target_type, target_id }) }),
   following:     ()       => req("/users/me/following"),
+  achievements:  ()       => req("/users/me/achievements"),
 };
 
 // ── Project endpoints ─────────────────────────────────────────────────────────
@@ -150,6 +151,15 @@ export const projects = {
   postUpdate:        (id, text) => req(`/projects/${id}/updates`, { method: "POST", body: JSON.stringify({ text }) }),
   updates:           (id)       => req(`/projects/${id}/updates`),
   deleteUpdate:      (id, uid)  => req(`/projects/${id}/updates/${uid}`, { method: "DELETE" }),
+  roles:             (id)       => req(`/projects/${id}/roles`),
+  addRole:           (id, name) => req(`/projects/${id}/roles`, { method: "POST", body: JSON.stringify({ name }) }),
+  setRoleFilled:     (id, rid, is_filled) => req(`/projects/${id}/roles/${rid}`, { method: "PATCH", body: JSON.stringify({ is_filled }) }),
+  deleteRole:        (id, rid)  => req(`/projects/${id}/roles/${rid}`, { method: "DELETE" }),
+};
+
+// ── Open roles (discovery) ──────────────────────────────────────────────────
+export const roles = {
+  list: (q) => req(`/roles${qs({ q })}`),
 };
 
 // ── Mentors & bookings ──────────────────────────────────────────────────────

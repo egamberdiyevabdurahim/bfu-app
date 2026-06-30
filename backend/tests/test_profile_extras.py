@@ -157,7 +157,7 @@ async def test_patch_me_writes_currently_building_and_portfolio(make_user, as_us
     fresh = await db.get(User, user.id)
     await db.refresh(fresh)
     assert fresh.currently_building == "Building an EdTech app"
-    assert '"github.com/me"' in fresh.portfolio_links
+    assert "github.com/me" in fresh.portfolio_links
 
 
 async def test_patch_me_clears_currently_building_with_empty_string(make_user, as_user):

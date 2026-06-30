@@ -379,6 +379,16 @@ async def update_me(
     lc_ids = data.pop("learning_center_ids", None)
     old_about = current_user.about
 
+    import json
+    if "currently_building" in data:
+        cb = (data.pop("currently_building") or "").strip()[:140]
+        current_user.currently_building = cb or None
+    if "portfolio_links" in data:
+        raw = data.pop("portfolio_links")
+        # body.model_dump turned PortfolioLink models into dicts already.
+        clean = _sanitize_portfolio(raw)
+        current_user.portfolio_links = json.dumps(clean) if clean else None
+
     for field, value in data.items():
         setattr(current_user, field, value)
 
@@ -441,7 +451,11 @@ async def update_me(
         except Exception:
             pass
 
-    return current_user
+    out = _validate_from_user(UserResponse, current_user)
+    extras = await _profile_extras(db, current_user)
+    for k, v in extras.items():
+        setattr(out, k, v)
+    return out
 
 
 @router.post("/me/analyze", response_model=dict)

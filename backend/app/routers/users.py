@@ -104,6 +104,7 @@ _PROFILE_EXTRAS_FIELDS = {
     "founded_projects", "member_projects", "stats",
     "endorsements", "vouches", "vouch_count", "rating", "mutual_connections",
     "mentor", "follower_count", "following_count", "is_following",
+    "collaborators",
 }
 
 
@@ -268,6 +269,62 @@ async def _connection_ids(db: AsyncSession, uid: int) -> set[int]:
     return out
 
 
+async def _collaborators(db: AsyncSession, user: User) -> dict:
+    """People the user has shared 2+ live projects with (co-member or co-founder).
+    Derived live from project_members + project creators — no stored table."""
+    # The user's live projects (member rows ∪ founded rows).
+    my_proj = set((await db.execute(
+        select(ProjectMember.project_id)
+        .join(Project, Project.id == ProjectMember.project_id)
+        .where(ProjectMember.user_id == user.id,
+               Project.is_draft == False, Project.is_deleted == False)
+    )).scalars().all())
+    my_proj |= set((await db.execute(
+        select(Project.id).where(Project.creator_id == user.id,
+                                 Project.is_draft == False, Project.is_deleted == False)
+    )).scalars().all())
+    if not my_proj:
+        return {"count": 0, "preview": []}
+
+    # Per other-user, how many of MY projects they participate in (member OR creator).
+    shared: dict[int, int] = {}
+    member_rows = (await db.execute(
+        select(ProjectMember.user_id, ProjectMember.project_id)
+        .where(ProjectMember.project_id.in_(my_proj))
+    )).all()
+    creator_rows = (await db.execute(
+        select(Project.creator_id, Project.id).where(Project.id.in_(my_proj))
+    )).all()
+    # Count DISTINCT (other_user, project) participation so a user who is both
+    # member and creator of the same project isn't double-counted for it.
+    seen: set[tuple[int, int]] = set()
+    for uid, pid in list(member_rows) + list(creator_rows):
+        if uid == user.id:
+            continue
+        key = (uid, pid)
+        if key in seen:
+            continue
+        seen.add(key)
+        shared[uid] = shared.get(uid, 0) + 1
+
+    frequent = {uid: n for uid, n in shared.items() if n >= 2}
+    if not frequent:
+        return {"count": 0, "preview": []}
+
+    top_ids = sorted(frequent, key=lambda uid: (-frequent[uid], uid))[:8]
+    people = (await db.execute(
+        select(User).where(User.id.in_(top_ids),
+                           User.is_deleted == False, User.is_registered == True)
+    )).scalars().all()
+    by_id = {u.id: u for u in people}
+    preview = [
+        {"id": uid, "display_name": by_id[uid].display_name,
+         "photo_url": by_id[uid].photo_url, "shared": frequent[uid]}
+        for uid in top_ids if uid in by_id
+    ]
+    return {"count": len(frequent), "preview": preview}
+
+
 async def _trust_extras(db: AsyncSession, user: User, viewer: User | None) -> dict:
     """Derive the peer-trust payload for `user`, relative to `viewer` (for the
     viewer-specific `endorsed_by_me` + mutual-connection overlap)."""
@@ -425,6 +482,7 @@ async def get_me(
     conn = await _connection_extras(db, current_user, current_user)
     for k, v in conn.items():
         setattr(out, k, v)
+    out.collaborators = await _collaborators(db, current_user)
     return out
 
 
@@ -1569,4 +1627,5 @@ async def get_user_profile(
     conn = await _connection_extras(db, user, current_user)
     for k, v in conn.items():
         setattr(out, k, v)
+    out.collaborators = await _collaborators(db, user)
     return out

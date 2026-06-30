@@ -33,7 +33,7 @@ function ProjectRow({ p, onOpen }) {
   );
 }
 
-export const ProfileExtras = ({ user, onOpenProject }) => {
+export const ProfileExtras = ({ user, onOpenProject, onOpenProfile }) => {
   const { t } = useT();
   if (!user) return null;
   const founded = user.founded_projects || [];
@@ -41,6 +41,8 @@ export const ProfileExtras = ({ user, onOpenProject }) => {
   const stats = user.stats || {};
   const links = user.portfolio_links || [];
   const hasProjects = founded.length > 0 || member.length > 0;
+  const rating = user.rating || { average: null, count: 0 };
+  const mutual = user.mutual_connections || { count: 0, preview: [] };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 4 }}>
@@ -53,6 +55,39 @@ export const ProfileExtras = ({ user, onOpenProject }) => {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 10, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>{t("profile.building")}</div>
             <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 600 }}>{user.currently_building}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Rating */}
+      {rating.average != null && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
+          <span style={{ color: "#FFB347" }}>★ {rating.average}</span>
+          <span style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 500 }}>({rating.count})</span>
+        </div>
+      )}
+
+      {/* Mutual connections */}
+      {mutual.count > 0 && (
+        <div>
+          <div className="section-label">
+            {mutual.count === 1 ? t("trust.mutualOne") : t("trust.mutual", { n: mutual.count })}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {mutual.preview.map(m => (
+              <button key={m.id} onClick={() => onOpenProfile?.(m.id)} style={{
+                display: "flex", alignItems: "center", gap: 6, background: "var(--surface-2)",
+                border: "1px solid var(--border)", borderRadius: 99, padding: "4px 10px 4px 4px",
+                cursor: "pointer", color: "var(--text)", fontSize: 12, fontWeight: 600,
+              }}>
+                <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--accent-dim)",
+                  color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 800 }}>
+                  {(m.display_name || "?").slice(0, 1).toUpperCase()}
+                </span>
+                {m.display_name}
+              </button>
+            ))}
           </div>
         </div>
       )}

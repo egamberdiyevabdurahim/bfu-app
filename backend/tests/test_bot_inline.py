@@ -101,3 +101,11 @@ async def test_inline_handler_calls_answer(make_user, db, monkeypatch):
     assert "results" in captured
     assert len(captured["results"]) >= 1
     assert captured["kwargs"].get("is_personal") is True
+
+
+def test_stickers_copy_has_all_langs():
+    import bot as botmod
+    for lang in ("en", "uz", "ru"):
+        assert lang in botmod._STICKERS
+        assert botmod._STICKERS[lang]["btn"]
+        assert botmod._STICKERS[lang]["soon"]

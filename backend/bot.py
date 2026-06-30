@@ -165,6 +165,38 @@ async def inline_query_handler(query: InlineQuery) -> None:
     await query.answer(results, cache_time=15, is_personal=True)
 
 
+_STICKERS = {
+    "en": {
+        "btn": "🎨 Get our stickers",
+        "soon": "Our sticker pack is coming soon! 🎨",
+    },
+    "uz": {
+        "btn": "🎨 Stikerlarni olish",
+        "soon": "Stiker to‘plamimiz tez orada! 🎨",
+    },
+    "ru": {
+        "btn": "🎨 Получить стикеры",
+        "soon": "Наш стикерпак скоро появится! 🎨",
+    },
+}
+
+
+@dp.message(Command("stickers"))
+async def command_stickers_handler(message: types.Message) -> None:
+    """`/stickers` — link to the BFU sticker pack (FOUNDER STEP 2 supplies it).
+    Until STICKER_PACK_URL is set, reply a friendly 'coming soon'."""
+    lang = _lang_of(message)
+    tr = _STICKERS.get(lang, _STICKERS["en"])
+    url = (settings.STICKER_PACK_URL or "").strip()
+    if not url:
+        await message.answer(tr["soon"])
+        return
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=tr["btn"], url=url)]]
+    )
+    await message.answer(tr["btn"], reply_markup=markup)
+
+
 _LOC = {
     "en": "📍 Location saved: {lat}, {lng}\nOpen the web admin → Locations → Add/Edit → “Use my Telegram location”.",
     "uz": "📍 Joylashuv saqlandi: {lat}, {lng}\nVeb-admin → Joylashuvlar → Qo‘shish/Tahrirlash → “Telegram joylashuvimdan foydalanish”.",

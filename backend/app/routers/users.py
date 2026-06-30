@@ -14,6 +14,7 @@ from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
+from app.models.project import Project, ProjectMember, ProjectApplication
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -84,6 +85,74 @@ def _sanitize_portfolio(raw) -> list[dict]:
             continue
         out.append({"label": label, "url": url})
     return out
+
+
+async def _profile_extras(db: AsyncSession, user: User) -> dict:
+    """Derive the rich-profile payload for `user` from existing project tables.
+    Returns a plain dict the endpoints attach to the response schema."""
+    import json
+
+    # Founded (exclude drafts + soft-deleted), newest first.
+    founded = (await db.execute(
+        select(Project)
+        .where(Project.creator_id == user.id,
+               Project.is_draft == False, Project.is_deleted == False)
+        .order_by(Project.created_at.desc())
+    )).scalars().all()
+
+    # Joined = member of a project they did NOT found (exclude drafts/deleted).
+    joined_rows = (await db.execute(
+        select(Project, ProjectMember.joined_at)
+        .join(ProjectMember, ProjectMember.project_id == Project.id)
+        .where(ProjectMember.user_id == user.id,
+               Project.creator_id != user.id,
+               Project.is_draft == False, Project.is_deleted == False)
+        .order_by(ProjectMember.joined_at.desc())
+    )).all()
+
+    accepted = await db.scalar(
+        select(func.count(ProjectApplication.id)).where(
+            ProjectApplication.applicant_id == user.id,
+            ProjectApplication.status == "accepted",
+        )
+    ) or 0
+
+    founded_projects = [
+        {"id": p.id, "name": p.name, "type": p.type, "is_active": p.is_active,
+         "date": p.created_at}
+        for p in founded
+    ]
+    member_projects = [
+        {"id": p.id, "name": p.name, "type": p.type, "is_active": p.is_active,
+         "date": joined_at}
+        for (p, joined_at) in joined_rows
+    ]
+
+    # currently_building: manual wins, else latest active founded project name.
+    manual = (user.currently_building or "").strip()
+    if manual:
+        cb, src = manual, "manual"
+    else:
+        active = next((p for p in founded if p.is_active), None)
+        cb, src = (active.name, "auto") if active else (None, None)
+
+    try:
+        portfolio = _sanitize_portfolio(json.loads(user.portfolio_links)) if user.portfolio_links else []
+    except Exception:
+        portfolio = []
+
+    return {
+        "currently_building": cb,
+        "currently_building_source": src,
+        "portfolio_links": portfolio,
+        "founded_projects": founded_projects,
+        "member_projects": member_projects,
+        "stats": {
+            "projects_founded": len(founded_projects),
+            "projects_joined": len(member_projects),
+            "applications_accepted": accepted,
+        },
+    }
 
 
 # ── Helper: set Telegram name tag ─────────────────────────────────────────────

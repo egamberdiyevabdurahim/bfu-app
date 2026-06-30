@@ -68,6 +68,15 @@ class MutualConnections(BaseModel):
     preview: list[UserMini] = []
 
 
+class CollaboratorMini(UserMini):
+    shared: int = 0   # how many projects this person shares with the profile owner
+
+
+class Collaborators(BaseModel):
+    count: int = 0
+    preview: list[CollaboratorMini] = []
+
+
 class MentorOut(BaseModel):
     is_mentor: bool = False
     bio: str | None = None
@@ -110,6 +119,7 @@ class UserResponse(BaseModel):
     vouch_count: int = 0
     rating: RatingOut = RatingOut()
     mutual_connections: MutualConnections = MutualConnections()
+    collaborators: Collaborators = Collaborators()
     follower_count: int = 0
     following_count: int = 0
     is_following: bool = False
@@ -174,6 +184,7 @@ class UserPublic(BaseModel):
     vouch_count: int = 0
     rating: RatingOut = RatingOut()
     mutual_connections: MutualConnections = MutualConnections()
+    collaborators: Collaborators = Collaborators()
     follower_count: int = 0
     following_count: int = 0
     is_following: bool = False

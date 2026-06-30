@@ -30,6 +30,7 @@ class ProjectUpdate(BaseModel):
     gender_req: str | None = None
     is_active: bool | None = None
     is_hiring: bool | None = None
+    group_link: str | None = None
     req_region_ids: list[int] | None = None
     req_skills: list[str] | None = None
     req_knowledges: list[str] | None = None
@@ -80,6 +81,7 @@ class ProjectResponse(BaseModel):
     member_count: int = 0
     follower_count: int = 0
     is_following: bool = False
+    group_link: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

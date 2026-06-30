@@ -74,6 +74,26 @@ const qs = (params = {}) => {
   return s ? `?${s}` : "";
 };
 
+// Binary download — the resume is a PDF blob, not JSON, so it bypasses req().
+// Reuses the SAME base (BASE) + token source (storage.getAccess) as req() above.
+export async function downloadResume() {
+  const token = storage.getAccess();
+  const res = await fetch(`${BASE}/users/me/resume`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error("resume_failed");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "BFU-CV.pdf";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+
 export const makeDevInitData = (userId) => {
   const user = JSON.stringify({
     id: userId, first_name: "Dev", last_name: "Admin",
@@ -100,6 +120,7 @@ export const users = {
   updateTags:      ()       => req("/users/me/update-tags", { method: "POST" }),
   invite:          ()       => req("/users/me/invite"),
   card:            ()       => req("/users/me/card"),
+  resume:          ()       => downloadResume(),
   setReferral:     (code)   => req("/users/me/referral", { method: "POST", body: JSON.stringify({ code }) }),
   leaderboard:     (period = "week") => req(`/users/leaderboard${qs({ period })}`),
   notifications:   ()       => req("/users/me/notifications"),

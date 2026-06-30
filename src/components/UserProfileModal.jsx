@@ -4,6 +4,8 @@ import { users } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
 import { ProfileExtras } from "./ProfileExtras";
+import { FollowButton } from "./FollowButton";
+import { BookSlotSheet } from "./MentorSheets";
 
 export const BADGE_META = {
   verified:      { emoji: "✓",  color: "#7B6FFF", key: "badge.verified" },
@@ -68,6 +70,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [vouchOpen, setVouchOpen] = useState(false);
   const [vouchText, setVouchText] = useState("");
   const [vouchBusy, setVouchBusy] = useState(false);
+  const [booking, setBooking] = useState(false);
 
   const doWhyMatch = async () => {
     if (!user || loadingMatch) return;
@@ -259,11 +262,22 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                     </span>
                   )}
                 </div>
+                {user?.follower_count > 0 && (
+                  <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>
+                    {user.follower_count === 1 ? t("follow.followersOne") : t("follow.followers", { n: user.follower_count })}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Connect actions */}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              <FollowButton
+                targetType="user"
+                targetId={user.id}
+                initialFollowing={user.is_following}
+                initialCount={user.follower_count}
+              />
               <button onClick={doIntro} disabled={introSending} style={{
                 flex: "1 1 auto", minWidth: 130, padding: "11px", background: "var(--accent)", border: "none",
                 borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
@@ -344,6 +358,34 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                     {t("um.openVolunteer")}
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* Mentor card */}
+            {user?.mentor?.is_mentor && (
+              <div style={{
+                marginBottom: 16, padding: "14px", background: "rgba(167,139,250,0.1)",
+                border: "1px solid rgba(167,139,250,0.3)", borderRadius: "var(--radius-sm)",
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#A78BFA", marginBottom: 6 }}>
+                  🎓 {t("mentor.isMentor")}
+                </div>
+                {user.mentor.bio && (
+                  <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, margin: "0 0 8px" }}>{user.mentor.bio}</p>
+                )}
+                {user.mentor.topics?.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                    {user.mentor.topics.map(tp => (
+                      <span key={tp} style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA",
+                        borderRadius: 99, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>{tp}</span>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setBooking(true)} style={{
+                  width: "100%", padding: "10px", background: "#A78BFA", border: "none",
+                  borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer",
+                }}>{t("mentor.book")}</button>
               </div>
             )}
 
@@ -452,6 +494,10 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
           to { transform: translateY(0); opacity: 1; }
         }
       `}</style>
+
+      {booking && user && (
+        <BookSlotSheet mentor={user} onClose={() => setBooking(false)} />
+      )}
     </div>
   );
 };

@@ -370,6 +370,9 @@ async def get_me(
     extras = await _profile_extras(db, current_user)
     for k, v in extras.items():
         setattr(out, k, v)
+    trust = await _trust_extras(db, current_user, current_user)
+    for k, v in trust.items():
+        setattr(out, k, v)
     return out
 
 
@@ -1295,5 +1298,8 @@ async def get_user_profile(
         out.badges = out.badges + ["connector"]
     extras = await _profile_extras(db, user)
     for k, v in extras.items():
+        setattr(out, k, v)
+    trust = await _trust_extras(db, user, current_user)
+    for k, v in trust.items():
         setattr(out, k, v)
     return out

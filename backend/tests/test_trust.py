@@ -114,3 +114,30 @@ async def test_trust_extras_self_view_no_mutuals(make_user, db):
     me = await make_user(name="Me")
     mc = (await _trust_extras(db, me, me))["mutual_connections"]
     assert mc == {"count": 0, "preview": []}
+
+
+async def test_get_user_profile_includes_trust(make_user, as_user, db):
+    from app.models.trust import Vouch
+    target = await make_user(name="Target")
+    viewer = await make_user(name="Viewer")
+    db.add(Vouch(author_id=viewer.id, target_id=target.id, text="Solid."))
+    await db.commit()
+
+    c = as_user(viewer)
+    res = await c.get(f"/users/{target.id}")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["vouch_count"] == 1
+    assert body["vouches"][0]["text"] == "Solid."
+    assert body["rating"] == {"average": None, "count": 0}
+    assert "mutual_connections" in body and "endorsements" in body
+
+
+async def test_get_me_includes_trust(make_user, as_user, db):
+    me = await make_user(name="Me")
+    c = as_user(me)
+    res = await c.get("/users/me")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["rating"] == {"average": None, "count": 0}
+    assert body["mutual_connections"] == {"count": 0, "preview": []}

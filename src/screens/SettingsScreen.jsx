@@ -7,6 +7,8 @@ import { AdminScreen } from "./AdminScreen";
 import { ProfileExtras } from "../components/ProfileExtras";
 import { useT } from "../i18n";
 import { shareUrl, shareToStory, canShareStory, tgAlert } from "../tg";
+import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
+import { MentorsScreen } from "./MentorsScreen";
 
 const InviteCard = () => {
   const { t } = useT();
@@ -158,6 +160,9 @@ export const SettingsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [slotsOpen, setSlotsOpen] = useState(false);
+  const [bookingsOpen, setBookingsOpen] = useState(false);
+  const [mentorsOpen, setMentorsOpen] = useState(false);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -190,6 +195,11 @@ export const SettingsScreen = () => {
   // ── Admin Panel overlay ───────────────────────────────────────────────────
   if (adminOpen) return (
     <AdminScreen user={user} onBack={() => setAdminOpen(false)} />
+  );
+
+  // ── Mentors browse overlay ────────────────────────────────────────────────
+  if (mentorsOpen) return (
+    <MentorsScreen onClose={() => setMentorsOpen(false)} />
   );
 
   const age = user.birth_year ? new Date().getFullYear() - user.birth_year : null;
@@ -301,6 +311,32 @@ export const SettingsScreen = () => {
           <Icon name="edit" size={16} color="#fff" /> {t("settings.editProfile")}
         </button>
 
+        {/* Find a mentor */}
+        <button onClick={() => setMentorsOpen(true)} style={{
+          width: "100%", background: "var(--surface-3)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)", padding: "14px", cursor: "pointer", color: "var(--text)",
+          fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, marginBottom: 10,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>🎓 {t("mentor.browse")}</button>
+
+        {/* My bookings (everyone) */}
+        <button onClick={() => setBookingsOpen(true)} style={{
+          width: "100%", background: "var(--surface-3)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)", padding: "14px", cursor: "pointer", color: "var(--text)",
+          fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, marginBottom: 10,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>📅 {t("booking.title")}</button>
+
+        {/* My mentor slots (mentors only) */}
+        {user.mentor?.is_mentor && (
+          <button onClick={() => setSlotsOpen(true)} style={{
+            width: "100%", background: "var(--surface-3)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", padding: "14px", cursor: "pointer", color: "var(--text)",
+            fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, marginBottom: 10,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>🗓️ {t("mentor.mySlots")}</button>
+        )}
+
         {/* Admin Dashboard */}
         {(user.role === "admin" || user.role === "super_admin") && (
           <button onClick={() => setAdminOpen(true)} style={{
@@ -336,6 +372,9 @@ export const SettingsScreen = () => {
         }}>
           {t("settings.signOut")}
         </button>
+
+        {slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
+        {bookingsOpen && <BookingsSheet onClose={() => setBookingsOpen(false)} />}
       </div>
     </Page>
   );

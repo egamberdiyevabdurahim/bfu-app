@@ -538,6 +538,24 @@ const STRINGS = {
   "admin.act.hardDeleteProject": { en: "hard delete project", uz: "loyihani butunlay o‘chirish", ru: "полностью удалить проект" },
   "admin.act.approveProject": { en: "approve project", uz: "loyihani tasdiqlash", ru: "одобрить проект" },
   "admin.act.unapproveProject": { en: "unapprove project", uz: "tasdiqni bekor qilish", ru: "снять одобрение" },
+
+  // ── Profile rich data (Batch A) ──────────────────────────────────────────
+  "profile.building": { en: "Currently building", uz: "Hozir ustida ishlayapti", ru: "Сейчас работает над" },
+  "profile.founded": { en: "Founded", uz: "Asos solgan", ru: "Основал" },
+  "profile.member": { en: "Member of", uz: "A'zo", ru: "Участник" },
+  "profile.portfolio": { en: "Links", uz: "Havolalar", ru: "Ссылки" },
+  "profile.stat.founded": { en: "Founded", uz: "Asos solgan", ru: "Основал" },
+  "profile.stat.joined": { en: "Joined", uz: "Qo'shilgan", ru: "Участвует" },
+  "profile.stat.accepted": { en: "Accepted", uz: "Qabul qilingan", ru: "Принят" },
+  "profile.active": { en: "Active", uz: "Faol", ru: "Активен" },
+  "profile.closed": { en: "Closed", uz: "Yopilgan", ru: "Закрыт" },
+  "profile.noProjects": { en: "No projects yet", uz: "Hozircha loyiha yo'q", ru: "Пока нет проектов" },
+  "edit.building": { en: "Currently building", uz: "Hozir ustida ishlayapti", ru: "Сейчас работает над" },
+  "edit.buildingPh": { en: "e.g. Building an AI tutor for IELTS", uz: "masalan: IELTS uchun AI repetitor quryapman", ru: "напр.: делаю AI-репетитора для IELTS" },
+  "edit.links": { en: "Portfolio links", uz: "Portfolio havolalar", ru: "Ссылки портфолио" },
+  "edit.linkLabel": { en: "Label (e.g. GitHub)", uz: "Nom (masalan GitHub)", ru: "Название (напр. GitHub)" },
+  "edit.linkUrl": { en: "https://...", uz: "https://...", ru: "https://..." },
+  "edit.addLink": { en: "+ Add link", uz: "+ Havola qo'shish", ru: "+ Добавить ссылку" },
 };
 
 function translate(lang, key, vars) {

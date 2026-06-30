@@ -595,6 +595,19 @@ async def update_me(
         # body.model_dump turned PortfolioLink models into dicts already.
         clean = _sanitize_portfolio(raw)
         current_user.portfolio_links = json.dumps(clean) if clean else None
+    if "is_mentor" in data:
+        current_user.is_mentor = bool(data.pop("is_mentor"))
+    if "mentor_bio" in data:
+        mb = (data.pop("mentor_bio") or "").strip()[:400]
+        current_user.mentor_bio = mb or None
+    if "mentor_topics" in data:
+        raw = data.pop("mentor_topics") or []
+        clean = []
+        for t in raw[:6]:
+            s = str(t).strip()[:40]
+            if s:
+                clean.append(s)
+        current_user.mentor_topics = json.dumps(clean) if clean else None
 
     for field, value in data.items():
         setattr(current_user, field, value)
@@ -661,6 +674,9 @@ async def update_me(
     out = _validate_from_user(UserResponse, current_user)
     extras = await _profile_extras(db, current_user)
     for k, v in extras.items():
+        setattr(out, k, v)
+    conn = await _connection_extras(db, current_user, current_user)
+    for k, v in conn.items():
         setattr(out, k, v)
     return out
 

@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
-from app.routers import admin, auth, events, partners, projects, public, regions, search, users
+from app.routers import admin, auth, events, mentors, partners, projects, public, regions, search, users
 from app.services.notify import esc, send_telegram
 
 # Import all models so Base.metadata knows about every table
@@ -191,6 +191,8 @@ app.include_router(partners.router)
 app.include_router(public.router)
 app.include_router(search.router)
 app.include_router(admin.router)
+app.include_router(mentors.router)
+app.include_router(mentors.booking_router)
 
 @app.exception_handler(Exception)
 async def _report_unhandled(request: Request, exc: Exception):

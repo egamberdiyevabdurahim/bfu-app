@@ -6,6 +6,7 @@ import { UserProfileModal } from "../components/UserProfileModal";
 import { InboxModal } from "../components/InboxModal";
 import { SearchModal } from "../components/SearchModal";
 import { MapModal } from "../components/MapModal";
+import { OpenRolesScreen } from "./OpenRolesScreen";
 import { useT } from "../i18n";
 
 export const DiscoverScreen = () => {
@@ -20,6 +21,7 @@ export const DiscoverScreen = () => {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [rolesOpen, setRolesOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const loadSeq = useRef(0);
 
@@ -63,8 +65,8 @@ export const DiscoverScreen = () => {
               <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800 }}>{t("discover.title")}</h1>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              {[["search", () => setSearchOpen(true)], ["map", () => setMapOpen(true)]].map(([icon, onClick]) => (
-                <button key={icon} onClick={onClick} aria-label={icon} style={{
+              {[["search", () => setSearchOpen(true)], ["map", () => setMapOpen(true)], ["briefcase", () => setRolesOpen(true)]].map(([icon, onClick]) => (
+                <button key={icon} onClick={onClick} aria-label={icon === "briefcase" ? t("roles.title") : icon} title={icon === "briefcase" ? t("roles.title") : undefined} style={{
                   background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
                   width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer", color: "var(--text)", flexShrink: 0,
@@ -177,6 +179,11 @@ export const DiscoverScreen = () => {
       {inboxOpen && <InboxModal onClose={() => setInboxOpen(false)} />}
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       {mapOpen && <MapModal onClose={() => setMapOpen(false)} />}
+      {rolesOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--bg)" }}>
+          <OpenRolesScreen onBack={() => setRolesOpen(false)} />
+        </div>
+      )}
     </>
   );
 };

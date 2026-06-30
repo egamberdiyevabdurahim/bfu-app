@@ -22,6 +22,8 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
     open_to_volunteering: me?.open_to_volunteering ?? false,
     latitude: me?.latitude ?? null,
     longitude: me?.longitude ?? null,
+    currently_building: me?.currently_building || "",
+    portfolio_links: Array.isArray(me?.portfolio_links) ? me.portfolio_links : [],
   });
   const [locStatus, setLocStatus] = useState(
     (me?.latitude != null && me?.longitude != null) ? "shared" : ""
@@ -89,6 +91,8 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         open_to_volunteering: form.open_to_volunteering,
         latitude: form.latitude,
         longitude: form.longitude,
+        currently_building: form.currently_building,
+        portfolio_links: form.portfolio_links.filter(l => l.label.trim() && l.url.trim()),
       });
 
       const nameChanged = form.name.trim() !== origName || form.surname.trim() !== origSurname;
@@ -315,6 +319,47 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
               <div style={{ fontSize: 11, color: "#4ECDC4", background: "rgba(78,205,196,0.1)", borderRadius: 8, padding: "8px 12px", marginTop: 6 }}>
                 {t("ep.bioReanalyze")}
               </div>
+            )}
+          </div>
+
+          {/* Currently building */}
+          <div>
+            <div className="section-label">{t("edit.building")}</div>
+            <input className="input-field" maxLength={140}
+              placeholder={t("edit.buildingPh")}
+              value={form.currently_building}
+              onChange={e => set("currently_building", e.target.value)} />
+          </div>
+
+          {/* Portfolio links */}
+          <div>
+            <div className="section-label">{t("edit.links")}</div>
+            {form.portfolio_links.map((l, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <input className="input-field" style={{ flex: "0 0 35%" }}
+                  placeholder={t("edit.linkLabel")} value={l.label}
+                  onChange={e => {
+                    const next = [...form.portfolio_links];
+                    next[i] = { ...next[i], label: e.target.value };
+                    set("portfolio_links", next);
+                  }} />
+                <input className="input-field" style={{ flex: 1 }}
+                  placeholder={t("edit.linkUrl")} value={l.url}
+                  onChange={e => {
+                    const next = [...form.portfolio_links];
+                    next[i] = { ...next[i], url: e.target.value };
+                    set("portfolio_links", next);
+                  }} />
+                <button type="button" onClick={() => set("portfolio_links", form.portfolio_links.filter((_, j) => j !== i))}
+                  style={{ background: "var(--surface-3)", border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)", color: "#FF6B6B", padding: "0 12px", cursor: "pointer" }}>✕</button>
+              </div>
+            ))}
+            {form.portfolio_links.length < 5 && (
+              <button type="button" onClick={() => set("portfolio_links", [...form.portfolio_links, { label: "", url: "" }])}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)", color: "var(--accent)", padding: "8px 12px",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("edit.addLink")}</button>
             )}
           </div>
 

@@ -255,6 +255,16 @@ export const SettingsScreen = () => {
               </div>
             );
           })}
+
+          <button onClick={async () => {
+            const url = users.publicUrl(user.id);
+            try { await navigator.clipboard?.writeText(url); tgAlert(t("trust.copied")); }
+            catch { tgAlert(url); }
+          }} style={{
+            marginTop: 10, width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", color: "var(--accent)", padding: "10px 12px",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>🔗 {t("trust.sharePublic")}</button>
         </div>
 
         {/* Intentions */}

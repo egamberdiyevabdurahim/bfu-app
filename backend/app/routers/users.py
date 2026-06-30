@@ -15,6 +15,7 @@ from app.database import get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
 from app.models.project import Project, ProjectMember, ProjectApplication
+from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -95,6 +96,7 @@ def _sanitize_portfolio(raw) -> list[dict]:
 _PROFILE_EXTRAS_FIELDS = {
     "currently_building", "currently_building_source", "portfolio_links",
     "founded_projects", "member_projects", "stats",
+    "endorsements", "vouches", "vouch_count", "rating", "mutual_connections",
 }
 
 
@@ -175,6 +177,126 @@ async def _profile_extras(db: AsyncSession, user: User) -> dict:
             "projects_joined": len(member_projects),
             "applications_accepted": accepted,
         },
+    }
+
+
+async def _connection_ids(db: AsyncSession, uid: int) -> set[int]:
+    """The set of member ids `uid` is connected to: mutual-interest peers
+    UNION people who share a (non-draft/non-deleted) project with `uid`."""
+    i_like = set((await db.execute(
+        select(Interest.to_user_id).where(Interest.from_user_id == uid)
+    )).scalars().all())
+    like_me = set((await db.execute(
+        select(Interest.from_user_id).where(Interest.to_user_id == uid)
+    )).scalars().all())
+    mutual = i_like & like_me
+
+    # Projects uid belongs to (as member OR founder), excluding draft/deleted.
+    my_proj = set((await db.execute(
+        select(ProjectMember.project_id)
+        .join(Project, Project.id == ProjectMember.project_id)
+        .where(ProjectMember.user_id == uid,
+               Project.is_draft == False, Project.is_deleted == False)
+    )).scalars().all())
+    my_proj |= set((await db.execute(
+        select(Project.id).where(Project.creator_id == uid,
+                                 Project.is_draft == False, Project.is_deleted == False)
+    )).scalars().all())
+
+    co_ids: set[int] = set()
+    if my_proj:
+        # Co-members of those projects.
+        co_ids |= set((await db.execute(
+            select(ProjectMember.user_id).where(ProjectMember.project_id.in_(my_proj))
+        )).scalars().all())
+        # Founders of those projects.
+        co_ids |= set((await db.execute(
+            select(Project.creator_id).where(Project.id.in_(my_proj))
+        )).scalars().all())
+
+    out = mutual | co_ids
+    out.discard(uid)
+    return out
+
+
+async def _trust_extras(db: AsyncSession, user: User, viewer: User | None) -> dict:
+    """Derive the peer-trust payload for `user`, relative to `viewer` (for the
+    viewer-specific `endorsed_by_me` + mutual-connection overlap)."""
+    viewer_id = viewer.id if viewer else None
+
+    # ── Endorsements: count per skill + whether the viewer endorsed it. ──
+    rows = (await db.execute(
+        select(Endorsement.skill, Endorsement.endorser_id)
+        .where(Endorsement.target_id == user.id)
+    )).all()
+    counts: dict[str, int] = {}
+    mine: set[str] = set()
+    for skill, endorser_id in rows:
+        counts[skill] = counts.get(skill, 0) + 1
+        if viewer_id is not None and endorser_id == viewer_id:
+            mine.add(skill)
+    endorsements = [
+        {"skill": s, "count": c, "endorsed_by_me": s in mine}
+        for s, c in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
+    ]
+
+    # ── Vouches (newest first, cap 20) with author preview. ──
+    vrows = (await db.execute(
+        select(Vouch).where(Vouch.target_id == user.id)
+        .order_by(Vouch.created_at.desc()).limit(20)
+    )).scalars().all()
+    vouch_count = await db.scalar(
+        select(func.count(Vouch.id)).where(Vouch.target_id == user.id)
+    ) or 0
+    author_ids = {v.author_id for v in vrows}
+    authors: dict[int, dict] = {}
+    if author_ids:
+        for u in (await db.execute(select(User).where(User.id.in_(author_ids)))).scalars().all():
+            authors[u.id] = {"id": u.id, "display_name": u.display_name, "photo_url": u.photo_url}
+    vouches = [
+        {"id": v.id, "text": v.text, "author": authors.get(v.author_id),
+         "created_at": v.created_at}
+        for v in vrows
+    ]
+
+    # ── Rating aggregate over all ratings where this user is the ratee. ──
+    avg = await db.scalar(
+        select(func.avg(ProjectRating.stars)).where(ProjectRating.ratee_id == user.id)
+    )
+    rcount = await db.scalar(
+        select(func.count(ProjectRating.id)).where(ProjectRating.ratee_id == user.id)
+    ) or 0
+    rating = {"average": round(float(avg), 1) if avg is not None else None, "count": int(rcount)}
+
+    # ── Mutual connections: overlap of viewer's + target's connection sets. ──
+    mutual = {"count": 0, "preview": []}
+    if viewer_id is not None and viewer_id != user.id:
+        v_conn = await _connection_ids(db, viewer_id)
+        t_conn = await _connection_ids(db, user.id)
+        overlap = (v_conn & t_conn) - {viewer_id, user.id}
+        if overlap:
+            preview_ids = sorted(overlap)[:8]
+            people = (await db.execute(
+                select(User).where(User.id.in_(preview_ids),
+                                   User.is_deleted == False, User.is_registered == True)
+            )).scalars().all()
+            mutual = {
+                "count": len(overlap),
+                "preview": [
+                    {"id": u.id, "display_name": u.display_name, "photo_url": u.photo_url}
+                    for u in people
+                ],
+            }
+
+    # REPUTATION SEAM: when the reputation model is decided, compute it here as a
+    # pure function of (endorsements, vouch_count, rating, mutual) and add it to
+    # the returned dict (+ a `reputation` field on the schema). Deferred for now.
+    return {
+        "endorsements": endorsements,
+        "vouches": vouches,
+        "vouch_count": int(vouch_count),
+        "rating": rating,
+        "mutual_connections": mutual,
     }
 
 

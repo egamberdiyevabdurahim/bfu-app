@@ -183,6 +183,7 @@ async def _rate_limit(request: Request, call_next):
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(users.follow_router)
 app.include_router(projects.router)
 app.include_router(regions.router)
 app.include_router(events.router)

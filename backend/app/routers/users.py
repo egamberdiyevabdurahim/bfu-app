@@ -20,11 +20,15 @@ from app.models.connection import Follow
 from app.services.notifications import add_notification
 from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
+from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
+# Follow endpoints live at the app root (/follow), not under /users — a
+# separate router with no prefix, included alongside `router` in main.py.
+follow_router = APIRouter(tags=["follow"])
 
 # Per-user, per-action AI cooldown (cost control). Single uvicorn worker →
 # in-process is fine. Keyed by (uid, action) so distinct AI features don't
@@ -501,6 +505,36 @@ async def my_connections(
         )
     )).scalars().all()
     return users
+
+
+@router.get("/me/following", response_model=dict)
+async def my_following(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Who/what the caller follows: user previews + project previews."""
+    rows = (await db.execute(
+        select(Follow).where(Follow.follower_id == current_user.id)
+    )).scalars().all()
+    user_ids = [r.target_id for r in rows if r.target_type == "user"]
+    proj_ids = [r.target_id for r in rows if r.target_type == "project"]
+
+    users_out = []
+    if user_ids:
+        people = (await db.execute(
+            select(User).where(User.id.in_(user_ids),
+                               User.is_deleted == False, User.is_registered == True)
+        )).scalars().all()
+        users_out = [{"id": u.id, "display_name": u.display_name, "photo_url": u.photo_url}
+                     for u in people]
+    projects_out = []
+    if proj_ids:
+        from app.models.project import Project
+        projs = (await db.execute(
+            select(Project).where(Project.id.in_(proj_ids), Project.is_deleted == False)
+        )).scalars().all()
+        projects_out = [{"id": p.id, "name": p.name, "type": p.type} for p in projs]
+    return {"users": users_out, "projects": projects_out}
 
 
 class CoachBody(BaseModel):
@@ -1125,6 +1159,76 @@ async def soft_interest(
             reply_markup=_connect_buttons(current_user),
         )
     return {"ok": True, "mutual": mutual}
+
+
+# ── Follow (app-root /follow; see follow_router above) ─────────────────────────
+
+@follow_router.post("/follow", response_model=dict)
+async def follow(
+    body: FollowIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Follow a user or a project (idempotent). Following a user notifies them;
+    following a project does not (would spam the founder)."""
+    if body.target_type not in ("user", "project"):
+        raise HTTPException(status_code=422, detail="target_type must be 'user' or 'project'")
+
+    if body.target_type == "user":
+        if body.target_id == current_user.id:
+            raise HTTPException(status_code=400, detail="Cannot follow yourself")
+        target = await db.get(User, body.target_id)
+        if not target or target.is_deleted or not target.is_registered:
+            raise HTTPException(status_code=404, detail="User not found")
+    else:
+        from app.models.project import Project
+        proj = await db.get(Project, body.target_id)
+        if not proj or proj.is_deleted or proj.is_draft:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+    existing = (await db.execute(
+        select(Follow).where(
+            Follow.follower_id == current_user.id,
+            Follow.target_type == body.target_type,
+            Follow.target_id == body.target_id,
+        )
+    )).scalar_one_or_none()
+    if not existing:
+        db.add(Follow(follower_id=current_user.id, target_type=body.target_type,
+                      target_id=body.target_id))
+        if body.target_type == "user":
+            add_notification(db, body.target_id, "new_follower", actor_id=current_user.id)
+        try:
+            await db.commit()
+        except Exception:
+            # Concurrent double-follow raced past the check; unique index caught
+            # it. Same idempotent outcome.
+            await db.rollback()
+
+    count = await db.scalar(
+        select(func.count(Follow.id)).where(
+            Follow.target_type == body.target_type, Follow.target_id == body.target_id
+        )
+    ) or 0
+    return {"ok": True, "following": True, "follower_count": int(count)}
+
+
+@follow_router.delete("/follow", status_code=204)
+async def unfollow(
+    body: FollowIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a follow (idempotent — 204 even if not following)."""
+    from sqlalchemy import delete as _delete
+    await db.execute(
+        _delete(Follow).where(
+            Follow.follower_id == current_user.id,
+            Follow.target_type == body.target_type,
+            Follow.target_id == body.target_id,
+        )
+    )
+    await db.commit()
 
 
 @router.post("/{user_id}/endorse", response_model=dict)

@@ -614,6 +614,7 @@ const STRINGS = {
   "booking.asMentee": { en: "As mentee", uz: "Menti sifatida", ru: "Как менти" },
   "booking.asMentor": { en: "As mentor", uz: "Mentor sifatida", ru: "Как ментор" },
   "booking.notePh": { en: "What do you want help with? (optional)", uz: "Nimada yordam kerak? (ixtiyoriy)", ru: "С чем нужна помощь? (необязательно)" },
+  "booking.open": { en: "Open", uz: "Bo‘sh", ru: "Открыт" },
   "booking.requested": { en: "Requested", uz: "So‘ralgan", ru: "Запрошено" },
   "booking.confirmed": { en: "Confirmed", uz: "Tasdiqlangan", ru: "Подтверждено" },
   "booking.declined": { en: "Declined", uz: "Rad etilgan", ru: "Отклонено" },

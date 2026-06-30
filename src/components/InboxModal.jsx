@@ -4,6 +4,7 @@ import { AvatarEl } from "./Shared";
 import { users } from "../api";
 import { useT } from "../i18n";
 import { UserProfileModal } from "./UserProfileModal";
+import { RateSheet } from "./RateSheet";
 
 // Localized one-liner per notification type, rendered from structured fields.
 function notifText(t, n) {
@@ -16,13 +17,14 @@ function notifText(t, n) {
     case "application": return t("inbox.application", { name, project: proj });
     case "accepted":    return t("inbox.accepted", { project: proj });
     case "declined":    return t("inbox.declined", { project: proj });
+    case "rate_prompt": return proj ? `${t("rate.prompt")} — ${proj}` : t("rate.prompt");
     default:            return name;
   }
 }
 
 const TYPE_EMOJI = {
   mutual: "🎉", interest: "💜", intro: "👋",
-  application: "🔔", accepted: "✅", declined: "📭",
+  application: "🔔", accepted: "✅", declined: "📭", rate_prompt: "⭐",
 };
 
 export const InboxModal = ({ onClose }) => {
@@ -31,6 +33,7 @@ export const InboxModal = ({ onClose }) => {
   const [items, setItems] = useState(null);
   const [connections, setConnections] = useState(null);
   const [viewingUserId, setViewingUserId] = useState(null);
+  const [rateProjectId, setRateProjectId] = useState(null);
 
   useEffect(() => {
     users.notifications().then(r => setItems(r?.items || [])).catch(() => setItems([]));
@@ -83,9 +86,14 @@ export const InboxModal = ({ onClose }) => {
             ) : items.length === 0 ? (
               <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("inbox.empty")}</div>
             ) : items.map(n => {
-              const clickable = !!n.actor;
+              const isRatePrompt = n.type === "rate_prompt" && !!n.project?.id;
+              const clickable = !!n.actor || isRatePrompt;
+              const onTap = () => {
+                if (isRatePrompt) { setRateProjectId(n.project.id); return; }
+                if (n.actor) setViewingUserId(n.actor.id);
+              };
               return (
-                <div key={n.id} onClick={() => clickable && setViewingUserId(n.actor.id)} style={{
+                <div key={n.id} onClick={onTap} style={{
                   display: "flex", gap: 12, alignItems: "center", padding: "12px 8px",
                   borderBottom: "1px solid var(--border)", cursor: clickable ? "pointer" : "default",
                   opacity: n.is_read ? 0.72 : 1,
@@ -129,6 +137,9 @@ export const InboxModal = ({ onClose }) => {
 
       {viewingUserId && (
         <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />
+      )}
+      {rateProjectId && (
+        <RateSheet projectId={rateProjectId} onClose={() => setRateProjectId(null)} />
       )}
       <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
     </div>

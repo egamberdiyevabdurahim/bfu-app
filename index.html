@@ -1,14 +1,110 @@
 <!doctype html>
-<html lang="en">
+<html lang="uz">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bfu-app</title>
+
+    <!-- Primary SEO -->
+    <title>Bright Futures Uzbekistan (BFU) — O‘zbekiston yoshlari platformasi</title>
+    <meta name="description" content="Bright Futures Uzbekistan (BFU) — O‘zbekiston yoshlarini loyiha, hammuassis, mentor, stipendiya va imkoniyatlar bilan bog‘laydigan bepul Telegram platformasi. 14 viloyat, uch tilda." />
+    <meta name="keywords" content="Bright Futures Uzbekistan, BFU, O‘zbekiston yoshlar platformasi, talabalar uchun Telegram, hammuassis topish, startup O‘zbekiston, stipendiya, grant, mentor, hakaton, yoshlar imkoniyatlari, Bright Futures Uzbekistan bot" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="author" content="Bright Futures Uzbekistan" />
+    <link rel="canonical" href="https://brightfuturesuzbekistan.uz/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bright Futures Uzbekistan" />
+    <meta property="og:title" content="Bright Futures Uzbekistan (BFU) — O‘zbekiston yoshlari platformasi" />
+    <meta property="og:description" content="O‘zbekiston yoshlarini loyiha, hammuassis, mentor, stipendiya va imkoniyatlar bilan bog‘laydigan bepul Telegram platformasi. 14 viloyat, uch tilda." />
+    <meta property="og:url" content="https://brightfuturesuzbekistan.uz/" />
+    <meta property="og:image" content="https://brightfuturesuzbekistan.uz/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bright Futures Uzbekistan (BFU)" />
+    <meta name="twitter:description" content="O‘zbekiston yoshlarini bog‘laydigan bepul Telegram platformasi — loyiha, hammuassis, mentor, stipendiya." />
+    <meta name="twitter:image" content="https://brightfuturesuzbekistan.uz/og-image.png" />
+
+    <meta name="theme-color" content="#0A0A0F" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://brightfuturesuzbekistan.uz/#org",
+          "name": "Bright Futures Uzbekistan",
+          "alternateName": "BFU",
+          "url": "https://brightfuturesuzbekistan.uz/",
+          "logo": "https://brightfuturesuzbekistan.uz/bfu-logo.png",
+          "description": "O‘zbekiston yoshlarini loyiha, hammuassis, mentor, stipendiya va imkoniyatlar bilan bog‘laydigan bepul Telegram platformasi.",
+          "sameAs": [
+            "https://t.me/BrightFuturesUzbekistan",
+            "https://t.me/BrightFuturesUzbekistan_bot"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://brightfuturesuzbekistan.uz/#website",
+          "url": "https://brightfuturesuzbekistan.uz/",
+          "name": "Bright Futures Uzbekistan",
+          "publisher": { "@id": "https://brightfuturesuzbekistan.uz/#org" },
+          "inLanguage": ["uz", "ru", "en"]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Bright Futures Uzbekistan",
+          "applicationCategory": "SocialNetworkingApplication",
+          "operatingSystem": "Telegram",
+          "url": "https://t.me/BrightFuturesUzbekistan_bot",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UZS" }
+        }
+      ]
+    }
+    </script>
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Crawlable fallback: shown to search engines and to non-JS visitors.
+           Real visitors are redirected to /landing/ (or boot the Mini App in
+           Telegram), so this is replaced on mount. -->
+      <main style="max-width:760px;margin:0 auto;padding:48px 24px;font-family:system-ui,sans-serif;color:#F0F0FF;background:#0A0A0F;min-height:100vh">
+        <h1 style="font-size:32px;line-height:1.2">Bright Futures Uzbekistan (BFU)</h1>
+        <p style="color:#A6A6C0;font-size:17px;line-height:1.6">
+          O‘zbekiston yoshlarini bir joyda bog‘laydigan bepul Telegram platformasi.
+          Loyiha va hammuassis toping, mentor va jamoa qiding, stipendiya, grant,
+          hakaton va boshqa imkoniyatlarni 14 viloyat bo‘ylab kashf eting — hammasi
+          Telegram ichida, uch tilda (o‘zbek, rus, ingliz).
+        </p>
+        <ul style="color:#A6A6C0;font-size:16px;line-height:1.8">
+          <li>Sizga mos odamlarni AI yordamida toping</li>
+          <li>Startap va ko‘ngillilik loyihalariga bir bosishda ariza bering</li>
+          <li>Stipendiya, grant va hakatonlardan xabardor bo‘ling</li>
+        </ul>
+        <p style="margin-top:24px">
+          <a href="https://t.me/BrightFuturesUzbekistan_bot" style="color:#A78BFA;font-weight:700">Telegramda ochish →</a>
+          &nbsp;·&nbsp;
+          <a href="/landing/" style="color:#A78BFA;font-weight:700">Batafsil</a>
+        </p>
+      </main>
+    </div>
+    <noscript>
+      <div style="text-align:center;padding:24px;color:#F0F0FF;background:#0A0A0F">
+        Bright Futures Uzbekistan — O‘zbekiston yoshlari uchun bepul Telegram platformasi.
+        <a href="https://t.me/BrightFuturesUzbekistan_bot" style="color:#A78BFA">Telegramda ochish</a>.
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

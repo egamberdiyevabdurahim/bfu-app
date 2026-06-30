@@ -18,6 +18,11 @@ function notifText(t, n) {
     case "accepted":    return t("inbox.accepted", { project: proj });
     case "declined":    return t("inbox.declined", { project: proj });
     case "rate_prompt": return proj ? `${t("rate.prompt")} — ${proj}` : t("rate.prompt");
+    case "new_follower":      return t("inbox.new_follower", { name });
+    case "project_update":    return t("inbox.project_update", { project: proj });
+    case "booking_request":   return t("inbox.booking_request", { name });
+    case "booking_confirmed": return t("inbox.booking_confirmed", { name });
+    case "booking_declined":  return t("inbox.booking_declined", { name });
     default:            return name;
   }
 }
@@ -25,6 +30,8 @@ function notifText(t, n) {
 const TYPE_EMOJI = {
   mutual: "🎉", interest: "💜", intro: "👋",
   application: "🔔", accepted: "✅", declined: "📭", rate_prompt: "⭐",
+  new_follower: "➕", project_update: "📣",
+  booking_request: "📅", booking_confirmed: "✅", booking_declined: "🚫",
 };
 
 export const InboxModal = ({ onClose }) => {

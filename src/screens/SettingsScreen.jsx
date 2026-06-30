@@ -4,6 +4,7 @@ import { Icon } from "../components/Icons";
 import { users, storage } from "../api";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
+import { ProfileExtras } from "../components/ProfileExtras";
 import { useT } from "../i18n";
 import { shareUrl, shareToStory, canShareStory, tgAlert } from "../tg";
 
@@ -271,6 +272,10 @@ export const SettingsScreen = () => {
             )}
           </div>
         )}
+
+        <div style={{ marginBottom: 12 }}>
+          <ProfileExtras user={user} />
+        </div>
 
         <InviteCard />
 

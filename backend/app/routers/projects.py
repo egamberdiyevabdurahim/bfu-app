@@ -19,7 +19,8 @@ from app.models.project import (
     ProjectReqRegion,
     ProjectReqSkill,
 )
-from app.models.user import User, Favorite
+from app.models.trust import ProjectRating
+from app.models.user import User, Favorite, Notification
 from app.schemas.project import (
     ApplicationOut,
     ApplicantPublic,
@@ -27,6 +28,7 @@ from app.schemas.project import (
     ProjectResponse,
     ProjectUpdate,
 )
+from app.schemas.trust import RatingIn
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -589,6 +591,8 @@ async def update_project(
     if project.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your project")
 
+    was_active = project.is_active
+
     data = body.model_dump(exclude_none=True)
     req_region_ids = data.pop("req_region_ids", None)
     req_skills = data.pop("req_skills", None)
@@ -604,6 +608,15 @@ async def update_project(
             req_skills or [],
             req_knowledges or [],
         )
+
+    # Project just closed (active → inactive): prompt the whole cohort to rate
+    # each other. One inbox item per cohort member (incl. founder).
+    if was_active and project.is_active is False:
+        from app.services.notifications import add_notification
+        cohort = await _project_cohort(db, project)
+        for uid in cohort:
+            add_notification(db, uid, "rate_prompt", actor_id=current_user.id,
+                             project_id=project.id)
 
     await db.commit()
     loaded = await _reload_project(db, project.id)
@@ -851,6 +864,103 @@ async def remove_favorite(
         )
     )
     await db.commit()
+
+
+async def _project_cohort(db: AsyncSession, project) -> set[int]:
+    """Founder + all accepted members of a project."""
+    member_ids = set((await db.execute(
+        select(ProjectMember.user_id).where(ProjectMember.project_id == project.id)
+    )).scalars().all())
+    member_ids.add(project.creator_id)
+    return member_ids
+
+
+@router.post("/{project_id}/ratings", response_model=dict)
+async def rate_member(
+    project_id: int,
+    body: RatingIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rate another cohort member 1..5 stars after the project has closed.
+    Upserts the caller's rating of `ratee_id` for this project."""
+    if not (1 <= int(body.stars) <= 5):
+        raise HTTPException(status_code=422, detail="stars must be 1..5")
+    if body.ratee_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot rate yourself")
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False,
+                              Project.is_draft == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.is_active:
+        raise HTTPException(status_code=409, detail="Project is still active")
+    cohort = await _project_cohort(db, project)
+    if current_user.id not in cohort or body.ratee_id not in cohort:
+        raise HTTPException(status_code=403, detail="Both rater and ratee must be in the project")
+
+    note = (body.note or "").strip()[:200] or None
+    existing = (await db.execute(
+        select(ProjectRating).where(
+            ProjectRating.project_id == project_id,
+            ProjectRating.rater_id == current_user.id,
+            ProjectRating.ratee_id == body.ratee_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        existing.stars = int(body.stars)
+        existing.note = note
+        existing.updated_at = dt.datetime.utcnow()
+        rid = existing.id
+    else:
+        r = ProjectRating(project_id=project_id, rater_id=current_user.id,
+                          ratee_id=body.ratee_id, stars=int(body.stars), note=note)
+        db.add(r)
+        await db.flush()
+        rid = r.id
+    await db.commit()
+    return {"ok": True, "id": rid}
+
+
+@router.get("/{project_id}/rateable", response_model=dict)
+async def rateable(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The cohort the caller may rate for this project (others only), with a
+    `rated_by_me` flag per person. Only cohort members may call."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False,
+                              Project.is_draft == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    cohort = await _project_cohort(db, project)
+    if current_user.id not in cohort:
+        raise HTTPException(status_code=403, detail="Not part of this project")
+
+    rated = set((await db.execute(
+        select(ProjectRating.ratee_id).where(
+            ProjectRating.project_id == project_id,
+            ProjectRating.rater_id == current_user.id,
+        )
+    )).scalars().all())
+    others = [uid for uid in cohort if uid != current_user.id]
+    people = {}
+    if others:
+        for u in (await db.execute(select(User).where(User.id.in_(others)))).scalars().all():
+            people[u.id] = u
+    return {
+        "closed": not project.is_active,
+        "cohort": [
+            {"id": uid, "display_name": people[uid].display_name if uid in people else f"#{uid}",
+             "photo_url": people[uid].photo_url if uid in people else None,
+             "rated_by_me": uid in rated}
+            for uid in others if uid in people
+        ],
+    }
 
 
 @router.get("/{project_id}/stats", response_model=dict)

@@ -221,3 +221,93 @@ async def test_vouch_delete_missing_404(make_user, as_user, db):
     other = await make_user(name="Other")
     c = as_user(me)
     assert (await c.delete(f"/users/{other.id}/vouch")).status_code == 404
+
+
+async def _cohort_project(db, founder_id, member_ids, *, is_active):
+    from app.models.project import Project, ProjectMember
+    p = Project(type="startup", creator_id=founder_id, name="Coh", is_active=is_active,
+                is_draft=False, is_deleted=False, is_approved=True)
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    for mid in member_ids:
+        db.add(ProjectMember(project_id=p.id, user_id=mid))
+    await db.commit()
+    return p
+
+
+async def test_rating_requires_closed_and_cohort(make_user, as_user, db):
+    founder = await make_user(name="Founder")
+    m1 = await make_user(name="M1")
+    outsider = await make_user(name="Out")
+
+    active = await _cohort_project(db, founder.id, [m1.id], is_active=True)
+    c = as_user(founder)
+    # Active project → 409.
+    r = await c.post(f"/projects/{active.id}/ratings", json={"ratee_id": m1.id, "stars": 5})
+    assert r.status_code == 409, r.text
+
+    closed = await _cohort_project(db, founder.id, [m1.id], is_active=False)
+    c = as_user(founder)
+    # Founder rates member → ok.
+    r2 = await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": m1.id, "stars": 5, "note": "Great"})
+    assert r2.status_code == 200, r2.text
+    # Rate an outsider → 403.
+    r3 = await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": outsider.id, "stars": 5})
+    assert r3.status_code == 403
+    # Self → 400.
+    r4 = await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": founder.id, "stars": 5})
+    assert r4.status_code == 400
+    # Out of range → 422.
+    r5 = await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": m1.id, "stars": 9})
+    assert r5.status_code == 422
+
+
+async def test_rating_upsert_one_row(make_user, as_user, db):
+    from app.models.trust import ProjectRating
+    founder = await make_user(name="Founder")
+    m1 = await make_user(name="M1")
+    closed = await _cohort_project(db, founder.id, [m1.id], is_active=False)
+    c = as_user(founder)
+    await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": m1.id, "stars": 3})
+    await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": m1.id, "stars": 5})
+    rows = (await db.execute(
+        ProjectRating.__table__.select().where(ProjectRating.project_id == closed.id)
+    )).all()
+    assert len(rows) == 1
+    assert rows[0].stars == 5
+
+
+async def test_rateable_cohort_and_flags(make_user, as_user, db):
+    founder = await make_user(name="Founder")
+    m1 = await make_user(name="M1")
+    m2 = await make_user(name="M2")
+    closed = await _cohort_project(db, founder.id, [m1.id, m2.id], is_active=False)
+    c = as_user(m1)
+    await c.post(f"/projects/{closed.id}/ratings", json={"ratee_id": m2.id, "stars": 4})
+    res = await c.get(f"/projects/{closed.id}/rateable")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["closed"] is True
+    ids = {row["id"]: row for row in body["cohort"]}
+    # m1 (caller) excluded from their own rateable list.
+    assert m1.id not in ids
+    assert ids[m2.id]["rated_by_me"] is True
+    assert ids[founder.id]["rated_by_me"] is False
+
+
+async def test_close_project_enqueues_rate_prompt(make_user, as_user, db):
+    from app.models.user import Notification
+    founder = await make_user(name="Founder")
+    m1 = await make_user(name="M1")
+    active = await _cohort_project(db, founder.id, [m1.id], is_active=True)
+    c = as_user(founder)
+    # Close it via the normal update path.
+    r = await c.patch(f"/projects/{active.id}", json={"is_active": False})
+    assert r.status_code == 200, r.text
+    notes = (await db.execute(
+        Notification.__table__.select().where(Notification.type == "rate_prompt")
+    )).all()
+    recipients = {n.user_id for n in notes}
+    # Both founder and member get prompted.
+    assert founder.id in recipients and m1.id in recipients

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     ADMIN_GROUP_ID: int = 0
     DEVELOPER_GROUP_ID: int = 0
     BOT_USERNAME: str = "BrightFuturesUzbekistan_bot"
+    # Published BFU sticker pack URL (https://t.me/addstickers/<name>). Set once
+    # the founder creates the pack via @Stickers (FOUNDER STEP 2). Empty until
+    # then → /stickers replies "coming soon".
+    STICKER_PACK_URL: str = ""
     # Public HTTPS base of THIS backend. Used to build absolute URLs (e.g. the
     # Story card) that Telegram must fetch over HTTPS. request.base_url is
     # unreliable behind Railway's proxy (reports http://), so prefer this.

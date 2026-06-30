@@ -167,6 +167,11 @@ function CursorBlob() {
 
 // ----- lenis smooth scroll -----
 function useLenisScroll(reduced) {
+  // Re-run once the esm.sh libs (Lenis/GSAP) have loaded. The precompiled
+  // bundle executes before the deferred lib <script type=module> resolves, so
+  // on first mount window.Lenis is undefined — without this dep the effect
+  // would bail permanently and smooth scroll + ScrollTrigger would never start.
+  const ready = useLibsReady();
   useEffect(() => {
     if (reduced) return;
     if (!window.Lenis) return;
@@ -186,13 +191,14 @@ function useLenisScroll(reduced) {
     // sync ScrollTrigger
     if (window.ScrollTrigger) {
       lenis.on('scroll', window.ScrollTrigger.update);
+      window.ScrollTrigger.refresh();
     }
     return () => {
       cancelAnimationFrame(raf);
       lenis.destroy();
       window.__lenis = null;
     };
-  }, [reduced]);
+  }, [reduced, ready]);
 }
 
 function smoothScrollTo(target) {

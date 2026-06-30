@@ -4,6 +4,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 
 function Manifesto({ reduced }) {
   useBFULang(); // re-render on language change
+  const libsReady = useLibsReady(); // GSAP loads after the bundle — re-run when ready
   const sectionRef = useRef(null);
   const lineRefs = useRef([]);
   const underlineRef = useRef(null);
@@ -35,7 +36,7 @@ function Manifesto({ reduced }) {
       }
     }, sectionRef);
     return () => ctx.revert();
-  }, [reduced]);
+  }, [reduced, libsReady]);
 
   const paragraphs = [BFU_T('manifesto.p1'), BFU_T('manifesto.p2'), null];
 
@@ -76,6 +77,7 @@ function Manifesto({ reduced }) {
 // ---- Product Film (scroll-pinned 5 beats) ----
 function ProductFilm({ reduced }) {
   useBFULang(); // re-render on language change
+  const libsReady = useLibsReady(); // GSAP loads after the bundle — re-run the pin setup when ready
   const sectionRef = useRef(null);
   const pinRef = useRef(null);
   const phoneRef = useRef(null);
@@ -128,7 +130,7 @@ function ProductFilm({ reduced }) {
       });
     }, sectionRef);
     return () => { st && st.kill(); ctx.revert(); };
-  }, [reduced]);
+  }, [reduced, libsReady]);
 
   const current = beats[beat];
   const { motion, AnimatePresence } = window.FramerMotion || {};

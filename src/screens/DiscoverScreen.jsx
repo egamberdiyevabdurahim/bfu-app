@@ -151,6 +151,7 @@ export const DiscoverScreen = () => {
                         {p.checked && <span title={t("common.verified")} style={{ color: "var(--accent)", fontSize: 13 }}>✓</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {p.match_pct != null && <span style={{ fontSize: 10, background: "linear-gradient(135deg, var(--accent), var(--accent-2))", color: "#fff", borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>{t("discover.matchPct", { n: p.match_pct })}</span>}
                         {p.open_to_work && <span style={{ fontSize: 10, background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>{t("discover.badge.startup")}</span>}
                         {p.open_to_volunteering && <span style={{ fontSize: 10, background: "rgba(78,205,196,0.15)", color: "#4ECDC4", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>{t("discover.badge.volunteer")}</span>}
                       </div>

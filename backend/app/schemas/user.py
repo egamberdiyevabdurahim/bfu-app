@@ -189,6 +189,7 @@ class UserPublic(BaseModel):
     following_count: int = 0
     is_following: bool = False
     mentor: MentorOut = MentorOut()
+    match_pct: int | None = None  # 0-100, only set by GET /discover?match=true
 
     model_config = {"from_attributes": True}
 

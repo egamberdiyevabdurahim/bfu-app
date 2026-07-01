@@ -312,6 +312,7 @@ const STRINGS = {
 
   // ── Discover / match / verified ───────────────────────────────────────────
   "discover.forYou": { en: "For you", uz: "Siz uchun", ru: "Для вас" },
+  "discover.matchPct": { en: "{n}% match", uz: "{n}% mos", ru: "{n}% совпадение" },
   "sort.label": { en: "Sort", uz: "Saralash", ru: "Сортировка" },
   "sort.recent": { en: "Newest", uz: "Yangi", ru: "Новые" },
   "sort.verified": { en: "Verified first", uz: "Tasdiqlanganlar oldin", ru: "Сначала проверенные" },

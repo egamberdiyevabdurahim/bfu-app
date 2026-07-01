@@ -1682,6 +1682,14 @@ async def discover(
                 s.update(x.lower() for x in (getattr(a, c, None) or []))
             return s
         my_tags = _tags(current_user.analysis)
+
+        def _pct(other_tags: set) -> int | None:
+            # % of MY tags this person shares — None (not 0) when I have no
+            # tags at all, since "0% match" would misleadingly imply a signal.
+            if not my_tags:
+                return None
+            return round(100 * len(my_tags & other_tags) / len(my_tags))
+
         pool = (await db.execute(q.limit(300))).scalars().all()
         ranked = sorted(
             pool,
@@ -1689,7 +1697,12 @@ async def discover(
                            1 if u.checked else 0),
             reverse=True,
         )
-        return [_validate_from_user(UserPublic, u) for u in ranked[offset:offset + limit]]
+        out = []
+        for u in ranked[offset:offset + limit]:
+            item = _validate_from_user(UserPublic, u)
+            item.match_pct = _pct(_tags(u.analysis) if u.analysis else set())
+            out.append(item)
+        return out
 
     if skill or knowledge:
         # The skill/knowledge tags live in a JSON column, so we filter in

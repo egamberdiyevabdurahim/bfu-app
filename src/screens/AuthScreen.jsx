@@ -505,9 +505,17 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   );
 
   // ── REGISTER ─────────────────────────────────────────────────────────────────
+  // The whole screen IS the scroll container (real overflowY:auto, no nested
+  // flex:1 region whose height has to be computed exactly right). This is
+  // deliberately more forgiving than height-arithmetic: even if the keyboard
+  // resize signal is ever stale on some device, nothing is clipped away by
+  // overflow:hidden — the user can always scroll to reach a field or the
+  // button. The footer is `position: sticky` (sticks to the bottom of
+  // whatever is actually visible) instead of a flex child that depends on
+  // the container shrinking by exactly the keyboard's height.
   return (
-    <div style={{ height: "var(--app-h, 100dvh)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ padding: "calc(var(--safe-t) + 18px) 24px 0", flexShrink: 0 }}>
+    <div style={{ height: "var(--app-h, 100dvh)", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "calc(var(--safe-t) + 18px) 24px 0" }}>
         {/* Only show "Previous" past step 0. The old step-0 "Back" went to the
             welcome screen, whose only action (dev login) is hidden in prod —
             stranding mid-registration users until they killed the app. */}
@@ -532,12 +540,12 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         <p style={{ color: "var(--text-2)", fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>{current.sub}</p>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 24px" }}>
+      <div style={{ padding: "0 24px" }}>
         {current.content}
         <div style={{ height: 20 }} />
       </div>
 
-      <div style={{ padding: "12px 24px calc(24px + var(--safe-b))", flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div style={{ position: "sticky", bottom: 0, marginTop: "auto", padding: "12px 24px calc(24px + var(--safe-b))", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
         <button className="btn-primary" onClick={goNext}
           disabled={loading || !canContinue}
           style={{ opacity: !canContinue ? 0.5 : 1 }}>

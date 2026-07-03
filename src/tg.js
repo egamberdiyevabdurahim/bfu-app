@@ -52,6 +52,19 @@ export function initTelegram() {
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", syncViewport);
     }
+    // Safety net: on some Android WebView/Telegram client combos the
+    // focused input can still end up squeezed under the keyboard even with
+    // --app-h corrected (e.g. a fixed header leaves little room left for a
+    // shrunk flex:1 content area). Scroll the just-focused field into view
+    // once the keyboard has finished animating in.
+    document.addEventListener("focusin", (e) => {
+      const el = e.target;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+        setTimeout(() => {
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        }, 300);
+      }
+    });
   } catch { /* older SDKs */ }
 }
 

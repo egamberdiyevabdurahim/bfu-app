@@ -89,7 +89,7 @@ export const SkeletonList = ({ count = 4 }) => (
 
 export const Page = ({ children, style = {} }) => (
   <div style={{
-    height: "100dvh", overflowY: "auto", overflowX: "hidden",
+    height: "var(--app-h, 100dvh)", overflowY: "auto", overflowX: "hidden",
     paddingBottom: 90,
     animation: "fadeUp 0.35s ease",
     ...style,

@@ -506,7 +506,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   // ── REGISTER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ height: "var(--app-h, 100dvh)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: "calc(var(--safe-t) + 18px) 24px 0", flexShrink: 0 }}>
         {/* Only show "Previous" past step 0. The old step-0 "Back" went to the
             welcome screen, whose only action (dev login) is hidden in prod —

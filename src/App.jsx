@@ -166,7 +166,7 @@ function MiniApp() {
     return (
       <>
         <FontLoader />
-        <div style={{ maxWidth: 430, margin: "0 auto", height: "100dvh", background: "var(--bg)",
+        <div style={{ maxWidth: 430, margin: "0 auto", height: "var(--app-h, 100dvh)", background: "var(--bg)",
           display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ color: "var(--text-3)", fontSize: 13 }}>{t("common.loading")}</div>
         </div>
@@ -194,7 +194,7 @@ function MiniApp() {
   return (
     <>
       <FontLoader />
-      <div style={{ maxWidth: 430, margin: "0 auto", height: "100dvh", position: "relative",
+      <div style={{ maxWidth: 430, margin: "0 auto", height: "var(--app-h, 100dvh)", position: "relative",
         background: "var(--bg)", overflow: "hidden" }}>
         {(authed === false || authed === "register") ? (
           <AuthScreen

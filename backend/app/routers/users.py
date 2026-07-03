@@ -978,7 +978,18 @@ async def finalize_registration(
         except Exception:
             pass
 
-    return current_user
+    out = _validate_from_user(UserResponse, current_user)
+    extras = await _profile_extras(db, current_user)
+    for k, v in extras.items():
+        setattr(out, k, v)
+    trust = await _trust_extras(db, current_user, current_user)
+    for k, v in trust.items():
+        setattr(out, k, v)
+    conn = await _connection_extras(db, current_user, current_user)
+    for k, v in conn.items():
+        setattr(out, k, v)
+    out.collaborators = await _collaborators(db, current_user)
+    return out
 
 
 @router.post("/me/update-tags", response_model=dict)

@@ -3,8 +3,14 @@ const wa = () => window.Telegram?.WebApp;
 
 function syncViewport() {
   const w = wa();
-  if (!w) return;
-  const h = w.viewportStableHeight || w.viewportHeight;
+  // Prefer the standard visualViewport API: it reliably shrinks for the
+  // on-screen keyboard on both Android WebView and iOS WKWebView. Telegram's
+  // own viewportHeight/viewportStableHeight do not always update on
+  // keyboard-only resizes (client/platform-dependent), which — combined with
+  // `html,body,#root{height:var(--app-h)}` — left inputs and the footer CTA
+  // hidden under the keyboard with no way to scroll to them.
+  const vv = window.visualViewport;
+  const h = (vv && vv.height) || w?.viewportStableHeight || w?.viewportHeight;
   if (h && h > 100) {
     document.documentElement.style.setProperty("--app-h", `${h}px`);
   }
@@ -40,6 +46,11 @@ export function initTelegram() {
       w.onEvent("viewportChanged", syncViewport);
       w.onEvent("safeAreaChanged", syncSafeArea);
       w.onEvent("contentSafeAreaChanged", syncSafeArea);
+    }
+    // Keyboard open/close resizes visualViewport reliably even when
+    // Telegram's own viewportChanged doesn't fire for it.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncViewport);
     }
   } catch { /* older SDKs */ }
 }

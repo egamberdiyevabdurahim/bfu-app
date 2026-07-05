@@ -47,22 +47,27 @@ export function initTelegram() {
       w.onEvent("safeAreaChanged", syncSafeArea);
       w.onEvent("contentSafeAreaChanged", syncSafeArea);
     }
-    // Keyboard open/close resizes visualViewport reliably even when
-    // Telegram's own viewportChanged doesn't fire for it.
+    // Scroll the currently-focused field into view. Two triggers, both kept:
+    // - visualViewport "resize" fires exactly when the keyboard has actually
+    //   finished opening/closing (the authoritative signal — no guessing).
+    // - focusin's fixed delay is a fallback for the rare case resize doesn't
+    //   fire (older WebViews without visualViewport support).
+    const scrollFocusedIntoView = () => {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    };
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", syncViewport);
+      window.visualViewport.addEventListener("resize", () => {
+        syncViewport();
+        scrollFocusedIntoView();
+      });
     }
-    // Safety net: on some Android WebView/Telegram client combos the
-    // focused input can still end up squeezed under the keyboard even with
-    // --app-h corrected (e.g. a fixed header leaves little room left for a
-    // shrunk flex:1 content area). Scroll the just-focused field into view
-    // once the keyboard has finished animating in.
     document.addEventListener("focusin", (e) => {
       const el = e.target;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
-        setTimeout(() => {
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
-        }, 300);
+        setTimeout(scrollFocusedIntoView, 300);
       }
     });
   } catch { /* older SDKs */ }

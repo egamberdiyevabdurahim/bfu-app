@@ -15,20 +15,23 @@ import { useMemo, useRef, useState } from "react";
 //
 // The chip set is derived from the payload actually loaded:
 //   All · Online now (ember dot) · <one chip per region present> ·
-//   Open to work (green dot) · up to 4 top skill chips.
+//   Looking for co-founder (green dot) · Mentors · up to 4 top skill chips.
 //
-// NOTE: the /public/city Builder contract only carries `looking_for`
-// ('work'|'volunteering'|'both'|null) — there is no co-founder or mentor
-// signal. The mockup's "Looking for co-founder" / "Mentors" chips were
-// prototype-only labels with no backing field. We surface the one signal the
-// data actually has: "Open to work" (looking_for is 'work' or 'both'). The
-// Mentors chip is intentionally omitted — no BuilderCard can emit a mentor
-// flag from the contract, so it would match zero cards and (via the
-// empty-cluster collapse) blank the whole discovery view.
+// FilterBar <-> BuilderCard data-attribute contract (BuilderCard, Task 9, MUST
+// emit exactly these on each `[data-builder]` element, inside a `[data-cluster]`):
+//   data-online       "1" | "0"
+//   data-region       String(region_id)  (or "" when null)
+//   data-looking-for  "work" | "volunteering" | "both" | ""   (from builder.looking_for)
+//   data-mentor       "1" | "0"           (from builder.mentor)
+//   data-skills       comma-joined slug()'d skills             (from builder.skills)
+// "Looking for co-founder" maps to looking_for in {work, both} — the Chorsu
+// framing of open_to_work, matching the profile's LookingForCell copy. `mentor`
+// is now a real field on the /public/city Builder contract.
 
 const ALL = "all";
 const ONLINE = "online";
 const OPEN_TO_WORK = "open_to_work";
+const MENTOR = "mentor";
 
 // Normalize a skill/region token for stable data-attribute matching.
 function slug(s) {
@@ -54,7 +57,8 @@ function deriveChips(regions, nameKey) {
     chips.push({ key: `region:${r.id}`, label: name, region: r.id });
   }
 
-  chips.push({ key: OPEN_TO_WORK, label: "Open to work", marker: "green" });
+  chips.push({ key: OPEN_TO_WORK, label: "Looking for co-founder", marker: "green" });
+  chips.push({ key: MENTOR, label: "Mentors" });
 
   // Up to 4 most common skills across the loaded builders.
   const counts = new Map();
@@ -87,6 +91,7 @@ function cardMatches(el, chip) {
     const lf = el.getAttribute("data-looking-for") || "";
     return lf === "work" || lf === "both";
   }
+  if (chip.key === MENTOR) return el.getAttribute("data-mentor") === "1";
   if (chip.region != null) {
     return el.getAttribute("data-region") === String(chip.region);
   }

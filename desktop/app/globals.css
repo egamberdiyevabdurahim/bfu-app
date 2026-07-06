@@ -397,6 +397,289 @@ html, body {
   line-height: 1.5;
 }
 
+/* ── Projects / Discovery: project browse card (screen 4) ── */
+/* The whole card is an <a>; hover-bloom mirrors .ch-card. Higher visual weight
+   for pinned projects. Server component — no hooks; rise-in animation reuses
+   ch-rise and is disabled under prefers-reduced-motion (media block below). */
+.ch-pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  padding: 24px 24px 20px;
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--text);
+  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.3s, border-color 0.3s;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: ch-rise 0.7s forwards;
+}
+.ch-pcard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(232, 161, 92, 0.4);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5), 0 0 46px rgba(255, 106, 61, 0.14);
+}
+/* Pinned: warmer firelit wash + a persistent amber edge, so it reads as
+   "featured" before hover. */
+.ch-pcard-pinned {
+  grid-column: span 2;
+  border-color: rgba(232, 161, 92, 0.32);
+  background: linear-gradient(155deg, rgba(232, 161, 92, 0.08), rgba(192, 86, 59, 0.05) 55%, var(--surface));
+}
+.ch-pcard-pinned:hover {
+  border-color: rgba(232, 161, 92, 0.55);
+}
+/* top row: type badge (left) + hiring / pinned markers (right) */
+.ch-pcard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ch-pcard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ch-pcard-badge > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+/* Startup → amber/ember; Volunteering → teal-green (matches ProjectHero) */
+.ch-pcard-badge-startup {
+  background: rgba(232, 161, 92, 0.14);
+  border: 1px solid rgba(232, 161, 92, 0.34);
+  color: var(--amber);
+}
+.ch-pcard-badge-startup > i {
+  background: var(--amber);
+  box-shadow: 0 0 8px rgba(232, 161, 92, 0.9);
+}
+.ch-pcard-badge-volunteering {
+  background: rgba(127, 176, 105, 0.14);
+  border: 1px solid rgba(127, 176, 105, 0.34);
+  color: var(--green);
+}
+.ch-pcard-badge-volunteering > i {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(127, 176, 105, 0.8);
+}
+.ch-pcard-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ch-pcard-pin {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--amber);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Hiring pill — green presence with the ch-online-ping halo */
+.ch-pcard-hiring {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(127, 176, 105, 0.15);
+  border: 1px solid rgba(127, 176, 105, 0.35);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.ch-pcard-hiring .ch-pcard-ping {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+}
+.ch-pcard-hiring .ch-pcard-ping > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--green);
+}
+.ch-pcard-nm {
+  margin: 16px 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.ch-pcard-pinned .ch-pcard-nm {
+  font-size: 27px;
+}
+.ch-pcard-goal {
+  margin: 9px 0 0;
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--muted);
+  /* truncate long goals to 2 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ch-pcard-pinned .ch-pcard-goal {
+  font-size: 19px;
+  color: var(--amber);
+}
+.ch-pcard-tags {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ch-pcard-t {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 5px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  color: var(--muted);
+}
+/* footer sits at the bottom regardless of goal/skill height */
+.ch-pcard-foot {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ch-pcard-founder {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.ch-pcard-av {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  color: #160E08;
+  border: 2px solid var(--surface);
+  overflow: hidden;
+}
+.ch-pcard-av img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.ch-pcard-fnm {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ch-pcard-vf {
+  color: var(--green);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.ch-pcard-meta {
+  text-align: right;
+  flex: 0 0 auto;
+}
+.ch-pcard-team {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.ch-pcard-reg {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Projects / Discovery: empty "quiet workshop" tile (screen 4) ── */
+.ch-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  min-height: 320px;
+  border-radius: var(--radius);
+  border: 1px dashed rgba(232, 161, 92, 0.34);
+  background: linear-gradient(150deg, rgba(232, 161, 92, 0.08), rgba(192, 86, 59, 0.05) 60%, var(--surface));
+  padding: 48px 32px;
+}
+.ch-empty-k {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.ch-empty-t {
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-size: 30px;
+  line-height: 1.2;
+  color: var(--text);
+  max-width: 520px;
+}
+.ch-empty-s {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 440px;
+}
+
+@media (max-width: 1080px) {
+  .ch-pcard-pinned { grid-column: span 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-pcard { animation: none !important; opacity: 1; transform: none; }
+  .ch-pcard:hover { transform: none; }
+}
+
 /* threads rail — horizontal-scroll serendipity (mockup .rail / .thread) */
 .ch-rail {
   margin-top: 16px;

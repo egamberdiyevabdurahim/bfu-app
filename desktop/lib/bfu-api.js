@@ -41,6 +41,28 @@ export const getCity = cache(async (regionId) => {
 });
 
 /**
+ * Fetches the batched, public "projects discovery" payload (stats + the
+ * pinned→hiring→newest ordered list of public projects) in one round-trip.
+ * Wrapped in React's cache() so generateMetadata() and the page component share
+ * one network call per request. ISR-cached with revalidate: 60.
+ *
+ * Optional `opts` maps to the backend's future server-side filters
+ * (`type` = "startup"|"volunteering", `hiring` = true). v1 renders every
+ * project and filters client-side, so the page calls this arg-less.
+ */
+export const getProjects = cache(async (opts = {}) => {
+  const qs = new URLSearchParams();
+  if (opts.type) qs.set("type", opts.type);
+  if (opts.hiring) qs.set("hiring", "true");
+  const suffix = qs.toString() ? `?${qs}` : "";
+  const res = await fetch(`${API_BASE}/public/projects${suffix}`, {
+    next: { revalidate: 60, tags: ["projects"] },
+  });
+  if (!res.ok) throw new Error(`BFU API error ${res.status} fetching projects`);
+  return res.json();
+});
+
+/**
  * Fetches a public BFU project ("startup"/"volunteering") by id. Wrapped in
  * React's cache() so generateMetadata() and the page component share one
  * network call per request instead of fetching twice. ISR-cached with

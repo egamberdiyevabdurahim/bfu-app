@@ -1,4 +1,5 @@
 import "./globals.css";
+import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 
 export const metadata = {
   title: "Bright Futures Uzbekistan",
@@ -17,7 +18,9 @@ export default function RootLayout({ children }) {
         />
         <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
       </head>
-      <body>{children}</body>
+      <body>
+        <SmoothScrollProvider>{children}</SmoothScrollProvider>
+      </body>
     </html>
   );
 }

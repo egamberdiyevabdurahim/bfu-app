@@ -296,6 +296,72 @@ async def public_city(
             "threads": threads}
 
 
+def _public_user_brief(u) -> dict | None:
+    """Minimal, PII-free public shape for a founder/team member on a project page."""
+    if not u:
+        return None
+    return {
+        "id": u.id,
+        "name": ((u.name or "").capitalize() or u.display_name),
+        "display_name": u.display_name,
+        "checked": bool(u.checked),
+        "photo_url": u.photo_url,
+    }
+
+
+@router.get("/project/{project_id}/data")
+async def public_project_data(project_id: int, db: AsyncSession = Depends(get_db)):
+    """JSON contract for the Chorsu desktop /p/{id} project page. Public (no
+    auth); only approved, non-draft, non-deleted projects are visible."""
+    from app.models.project import ProjectMember, ProjectReqRegion
+
+    proj = (await db.execute(
+        select(Project).options(
+            selectinload(Project.creator),
+            selectinload(Project.members).selectinload(ProjectMember.user),
+            selectinload(Project.req_skills),
+            selectinload(Project.req_knowledges),
+            selectinload(Project.req_regions).selectinload(ProjectReqRegion.region),
+        ).where(
+            Project.id == project_id, Project.is_approved == True,
+            Project.is_draft == False, Project.is_deleted == False,
+        )
+    )).scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    team = [
+        {"id": m.user.id, "display_name": m.user.display_name,
+         "checked": bool(m.user.checked), "photo_url": m.user.photo_url}
+        for m in proj.members
+        if m.user and not m.user.is_deleted and m.user.id != proj.creator_id
+    ]
+    regions = [
+        {"id": rr.region.id, "name_en": rr.region.name_en,
+         "name_uz": rr.region.name_uz, "name_ru": rr.region.name_ru}
+        for rr in proj.req_regions if rr.region
+    ]
+    base = (settings.WEBAPP_URL or "").rstrip("/")
+    return {
+        "id": proj.id, "type": proj.type, "name": proj.name, "goal": proj.goal,
+        "about": proj.about, "is_active": bool(proj.is_active),
+        "is_hiring": bool(proj.is_hiring), "created_at": proj.created_at,
+        "view_count": int(proj.view_count or 0),
+        "founder": _public_user_brief(proj.creator),
+        "team": team, "team_count": len(team),
+        "looking_for": {
+            "skills": [s.skill_name for s in proj.req_skills],
+            "knowledges": [k.knowledge_name for k in proj.req_knowledges],
+            "regions": regions,
+        },
+        "requirements": {
+            "age_from": proj.age_from, "age_to": proj.age_to,
+            "gender_req": proj.gender_req,
+        },
+        "canonical_url": f"{base}/p/{proj.id}" if base else f"/p/{proj.id}",
+    }
+
+
 class PublicRegion(BaseModel):
     id: int
     name_en: str

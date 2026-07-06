@@ -77,6 +77,18 @@ async def test_city_clusters_batched_and_ordered(make_user, db):
     assert lob["rating"] is None
 
 
+async def test_city_clusters_exposes_mentor_flag(make_user, db):
+    """The Builder card contract must expose `mentor` (from User.is_mentor) so the
+    City 'Mentors' filter chip has real backing data."""
+    from app.routers.public import _city_clusters
+    m = await make_user(name="Mentor", is_mentor=True)
+    n = await make_user(name="NotMentor")
+    clusters, _ = await _city_clusters(db, region_id=None, limit=48)
+    by_id = {p["id"]: p for c in clusters for p in c["people"]}
+    assert by_id[m.id]["mentor"] is True
+    assert by_id[n.id]["mentor"] is False
+
+
 async def test_city_clusters_currently_building_falls_back_to_project(make_user, db):
     from app.routers.public import _city_clusters
     u = await make_user(name="Builder")   # no manual currently_building

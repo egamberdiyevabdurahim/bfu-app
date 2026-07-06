@@ -161,7 +161,8 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
             "photo_url": u.photo_url,
             "online": bool(u.last_seen_at and u.last_seen_at >= online_cut),
             "currently_building": cb, "skills": skills[:3],
-            "looking_for": _looking_for(u), "rating": (round(avg, 1) if avg is not None else None),
+            "looking_for": _looking_for(u), "mentor": bool(getattr(u, "is_mentor", False)),
+            "rating": (round(avg, 1) if avg is not None else None),
             "vouch_count": vc, "weight": weight(u, avg, vc), "region_id": u.region_id,
         }
 

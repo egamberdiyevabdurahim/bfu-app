@@ -23,6 +23,10 @@ def avatar_sig(user_id: int) -> str:
     return _sig("avatar", user_id)
 
 
+def og_sig(user_id: int) -> str:
+    return _sig("og", user_id)
+
+
 def avatar_url(user_id: int, photo_file_id: str | None) -> str | None:
     """Absolute signed avatar URL, or None if the user has no photo."""
     if not photo_file_id:

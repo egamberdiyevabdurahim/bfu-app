@@ -464,6 +464,47 @@ html, body {
 }
 .ch-thread .ch-thread-faces span:first-child { margin-left: 0; }
 
+/* incoming presence toast */
+.ch-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(30px);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 18px;
+  border-radius: var(--radius-pill);
+  background: rgba(26, 24, 21, 0.92);
+  border: 1px solid rgba(255, 106, 61, 0.4);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.5s;
+}
+.ch-toast.ch-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.ch-toast .ch-toast-av {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  color: #160E08;
+}
+.ch-toast .ch-toast-tx {
+  font-size: 13.5px;
+  color: var(--text);
+}
+.ch-toast .ch-toast-tx b { color: var(--ember); }
+
 @media (max-width: 1080px) {
   .ch-grid { grid-template-columns: repeat(2, 1fr); }
   .ch-card-big { grid-column: span 2; }
@@ -473,4 +514,5 @@ html, body {
   .ch-card { animation: none !important; opacity: 1; transform: none; }
   .ch-thread { transition: none !important; }
   .ch-thread:hover { transform: none; }
+  .ch-toast { transition: none !important; }
 }

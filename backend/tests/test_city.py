@@ -196,3 +196,69 @@ async def test_city_threads_rising_excludes_deleted_and_unregistered(make_user, 
     face_ids = {f["id"] for f in rising[0]["faces"]}
     assert ghost.id not in face_ids           # deleted user never surfaces
     assert len(rising[0]["faces"]) == 4       # all 4 live builders fill the slots
+
+
+async def test_city_threads_new_in_city_has_recency_window(make_user, db):
+    """`new_in_city` must only surface genuinely recent joins. Old accounts that
+    happen to be the newest rows in a quiet community are NOT 'just arrived'."""
+    from app.routers.public import _city_threads
+    for i in range(4):
+        u = await make_user(name=f"Old{i}")
+        u.created_at = NOW - dt.timedelta(days=60)   # all registered long ago
+    await db.commit()
+    threads = await _city_threads(db, region_id=None)
+    assert not [t for t in threads if t["kind"] == "new_in_city"]
+
+
+async def test_city_threads_skill_cluster_dedups_repeated_skill(make_user, db):
+    """A user listing the same skill twice must count once in a skill cluster —
+    no inflated count, no duplicate face."""
+    from app.routers.public import _city_threads
+    from app.models.user_analysis import UserAnalysis
+    dup = await make_user(name="Dup")
+    db.add(UserAnalysis(user_id=dup.id, skills=["AI", "AI"], knowledges=[],
+                        interests=[], preparations=[], goals=[]))
+    for i in range(2):
+        u = await make_user(name=f"AiPerson{i}")
+        db.add(UserAnalysis(user_id=u.id, skills=["AI"], knowledges=[],
+                            interests=[], preparations=[], goals=[]))
+    await db.commit()
+    threads = await _city_threads(db, region_id=None)
+    sc = [t for t in threads if t["kind"] == "skill_cluster"]
+    assert sc
+    assert sc[0]["title"].startswith("3 builders")   # 3 unique, not 4
+    fids = [f["id"] for f in sc[0]["faces"]]
+    assert len(fids) == len(set(fids))               # faces unique
+    assert dup.id in fids
+
+
+async def test_city_endpoint_end_to_end(make_user, db, client):
+    from app.models.region import Region
+    r = Region(name_en="Tashkent City", name_uz="Toshkent shahri", name_ru="Город Ташкент")
+    db.add(r); await db.commit(); await db.refresh(r)
+    u = await make_user(name="Aziza", region_id=r.id, checked=True, open_to_work=True)
+    u.last_seen_at = NOW - dt.timedelta(minutes=3)
+    await db.commit()
+
+    res = await client.get("/public/city")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert set(body) >= {"stats", "weekday", "regions", "threads"}
+    assert body["stats"]["online_now"] >= 1
+    assert any(p["id"] == u.id for c in body["regions"] for p in c["people"])
+    # no PII leak in the public payload
+    dumped = str(body)
+    for leak in ("telegram_id", "phone_number", "latitude", "longitude"):
+        assert leak not in dumped
+
+
+async def test_city_endpoint_region_focus(make_user, db, client):
+    from app.models.region import Region
+    r = Region(name_en="Samarkand", name_uz="Samarqand", name_ru="Самарканд")
+    db.add(r); await db.commit(); await db.refresh(r)
+    inreg = await make_user(name="In", region_id=r.id)
+    await make_user(name="Out")  # different/no region
+    res = await client.get(f"/public/city?region_id={r.id}")
+    body = res.json()
+    ids = [p["id"] for c in body["regions"] for p in c["people"]]
+    assert inreg.id in ids

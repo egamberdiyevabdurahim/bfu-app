@@ -214,9 +214,12 @@ async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
         base.append(User.region_id == region_id)
     threads: list[dict] = []
 
-    # new_in_city — most recent registrations
+    # new_in_city — genuinely-recent registrations. Windowed to the last 14 days
+    # so "Just arrived" never surfaces months-old accounts as new simply because
+    # they happen to be the newest rows in a quiet community.
     recent = (await db.execute(
-        select(User).where(*base).order_by(User.created_at.desc()).limit(5)
+        select(User).where(*base, User.created_at >= now - timedelta(days=14))
+        .order_by(User.created_at.desc()).limit(5)
     )).scalars().all()
     if len(recent) >= 3:
         threads.append({
@@ -257,8 +260,13 @@ async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
     )).scalars().all()
     counts: dict[str, list[User]] = {}
     for u in pool:
+        seen_skills: set[str] = set()
         for s in ((u.analysis.skills if u.analysis else None) or []):
-            counts.setdefault(s.strip(), []).append(u)
+            key = (s or "").strip()
+            if not key or key in seen_skills:
+                continue  # a user listing the same skill twice counts once
+            seen_skills.add(key)
+            counts.setdefault(key, []).append(u)
     if counts:
         top_skill, people = max(counts.items(), key=lambda kv: len(kv[1]))
         if len(people) >= 3:
@@ -269,6 +277,22 @@ async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
                 "faces": [_face(u) for u in people[:4]], "href": "/city",
             })
     return threads
+
+
+@router.get("/city")
+async def public_city(
+    region_id: int | None = Query(None),
+    limit: int = Query(48, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public 'building tonight' payload for the Chorsu City/Discovery screen.
+    Batched (no N+1); viewer=None (no personalization); ISR-cacheable."""
+    stats = await _city_stats(db)
+    clusters, weekday = await _city_clusters(db, region_id=region_id, limit=limit)
+    threads = await _city_threads(db, region_id=region_id)
+    return {"stats": stats, "weekday": weekday, "regions": clusters,
+            "threads": threads}
 
 
 class PublicRegion(BaseModel):

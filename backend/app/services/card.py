@@ -318,10 +318,13 @@ def render_og_png(
         lbl_w = _text_w(draw, "is building ", _font(_DM, 30, 500))
         draw.text((tx + lbl_w, 226), building, font=_font(_DM, 30, 700), fill=OG_AMBER)
 
-    # credibility stat pill (the "bake in a stat" requirement)
-    if rating_average is not None or vouch_count:
+    # credibility stat pill (the "bake in a stat" requirement). Treat a 0.0
+    # average as "no meaningful rating yet" so a fresh profile never advertises
+    # "★ 0.0" — only show the star once there's a positive score.
+    has_rating = rating_average is not None and rating_average > 0
+    if has_rating or vouch_count:
         parts = []
-        if rating_average is not None:
+        if has_rating:
             parts.append(f"★ {rating_average:.1f}")
         if vouch_count:
             parts.append(f"{vouch_count} vouch{'es' if vouch_count != 1 else ''}")

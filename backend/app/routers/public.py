@@ -323,10 +323,16 @@ async def og_image(
     extras = await _profile_extras(db, user)
     trust = await _trust_extras(db, user, None)
 
+    # Best-effort photo fetch: this endpoint is hit by social/link crawlers, so
+    # a transient Telegram media failure must degrade to the initials render
+    # (render_og_png handles photo_bytes=None) rather than 500 the share preview.
     photo_bytes = None
     if user.photo_file_id:
         from app.services.telegram_media import download_photo
-        photo_bytes = await download_photo(user.photo_file_id)
+        try:
+            photo_bytes = await download_photo(user.photo_file_id)
+        except Exception:
+            photo_bytes = None
 
     from app.services.card import render_og_png
     png = render_og_png(

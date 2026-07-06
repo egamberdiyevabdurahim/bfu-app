@@ -15,6 +15,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.project import Project
 from app.models.region import Region
+from app.models.trust import ProjectRating, Vouch
 from app.models.user import User
 from app.routers.users import (
     _achievements_extras, _collaborators, _connection_extras,
@@ -73,6 +74,119 @@ async def _city_stats(db: AsyncSession) -> dict:
     total = await db.scalar(select(func.count(User.id)).where(*base)) or 0
     return {"online_now": int(online_now), "cities_lit": int(cities_lit),
             "new_this_week": int(new_this_week), "total_builders": int(total)}
+
+
+_WEIGHT_RANK = {"high": 2, "normal": 1, "new": 0}
+
+
+def _looking_for(u: User) -> str | None:
+    if u.open_to_work and u.open_to_volunteering:
+        return "both"
+    if u.open_to_work:
+        return "work"
+    if u.open_to_volunteering:
+        return "volunteering"
+    return None
+
+
+async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
+    now = datetime.utcnow()
+    online_cut = now - CITY_ONLINE_WINDOW
+
+    q = (select(User).options(selectinload(User.analysis))
+         .where(User.is_deleted == False, User.is_registered == True))
+    if region_id:
+        q = q.where(User.region_id == region_id)
+    # Pool cap: fetch a windowed pool (online + recent lean to the top after we
+    # compute weight; here order by created_at desc for a stable cap).
+    q = q.order_by(User.created_at.desc()).limit(300)
+    pool = (await db.execute(q)).scalars().all()
+    if not pool:
+        return [], now.strftime("%A")
+
+    ids = [u.id for u in pool]
+
+    # ── batched reputation ──
+    rating_rows = (await db.execute(
+        select(ProjectRating.ratee_id, func.avg(ProjectRating.stars),
+               func.count(ProjectRating.id))
+        .where(ProjectRating.ratee_id.in_(ids)).group_by(ProjectRating.ratee_id)
+    )).all()
+    ratings = {rid: (float(avg) if avg is not None else None, int(c)) for rid, avg, c in rating_rows}
+    vouch_rows = (await db.execute(
+        select(Vouch.target_id, func.count(Vouch.id))
+        .where(Vouch.target_id.in_(ids)).group_by(Vouch.target_id)
+    )).all()
+    vouches = {tid: int(c) for tid, c in vouch_rows}
+
+    # ── batched currently_building fallback (only for those without manual) ──
+    need_cb = [u.id for u in pool if not (u.currently_building or "").strip()]
+    proj_names: dict[int, str] = {}
+    if need_cb:
+        prows = (await db.execute(
+            select(Project.creator_id, Project.name)
+            .where(Project.creator_id.in_(need_cb), Project.is_active == True,
+                   Project.is_draft == False, Project.is_deleted == False)
+            .order_by(Project.creator_id, Project.created_at.desc())
+        )).all()
+        for cid, name in prows:
+            proj_names.setdefault(cid, name)   # first per creator == latest active
+
+    # ── batched regions ──
+    region_ids = {u.region_id for u in pool if u.region_id}
+    regions = {}
+    if region_ids:
+        regions = {r.id: r for r in (await db.execute(
+            select(Region).where(Region.id.in_(region_ids)))).scalars().all()}
+
+    def weight(u, avg, vc):
+        if avg is not None and avg >= 4.5 and (vc >= 3 or u.checked):
+            return "high"
+        if avg is None and (now - u.created_at) <= timedelta(days=14):
+            return "new"
+        return "normal"
+
+    def builder(u):
+        avg, _rc = ratings.get(u.id, (None, 0))
+        vc = vouches.get(u.id, 0)
+        cb = (u.currently_building or "").strip() or proj_names.get(u.id)
+        skills = (u.analysis.skills if u.analysis else None) or []
+        return {
+            "id": u.id, "name": (u.display_name or u.name or "").strip() or u.display_name,
+            "display_name": u.display_name, "checked": bool(u.checked),
+            "photo_url": u.photo_url,
+            "online": bool(u.last_seen_at and u.last_seen_at >= online_cut),
+            "currently_building": cb, "skills": skills[:3],
+            "looking_for": _looking_for(u), "rating": (round(avg, 1) if avg is not None else None),
+            "vouch_count": vc, "weight": weight(u, avg, vc), "region_id": u.region_id,
+        }
+
+    # group into region clusters
+    clusters: dict[int, dict] = {}
+    for u in pool:
+        rid = u.region_id or 0
+        if rid not in clusters:
+            r = regions.get(rid)
+            clusters[rid] = {
+                "id": rid,
+                "name_en": r.name_en if r else "Elsewhere",
+                "name_uz": r.name_uz if r else "Boshqa",
+                "name_ru": r.name_ru if r else "Другие",
+                "people": [],
+            }
+        clusters[rid]["people"].append(builder(u))
+
+    def person_key(p):
+        return (p["online"], _WEIGHT_RANK[p["weight"]], p["rating"] or 0, p["vouch_count"])
+
+    out = []
+    for c in clusters.values():
+        c["people"].sort(key=person_key, reverse=True)
+        c["lit"] = len(c["people"])
+        c["people"] = c["people"][:limit]
+        out.append(c)
+    out.sort(key=lambda c: c["lit"], reverse=True)
+    return out, now.strftime("%A")
 
 
 class PublicRegion(BaseModel):

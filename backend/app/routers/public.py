@@ -50,6 +50,31 @@ def _set_cache_headers(response: Response):
     response.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=600"
 
 
+# ── Chorsu City / Discovery ("building tonight") ───────────────────────────────
+# Online = seen within the last 15 minutes.
+CITY_ONLINE_WINDOW = timedelta(minutes=15)
+
+
+async def _city_stats(db: AsyncSession) -> dict:
+    now = datetime.utcnow()
+    online_cut = now - CITY_ONLINE_WINDOW
+    base = (User.is_deleted == False, User.is_registered == True)
+
+    online_now = await db.scalar(
+        select(func.count(User.id)).where(*base, User.last_seen_at >= online_cut)
+    ) or 0
+    cities_lit = await db.scalar(
+        select(func.count(func.distinct(User.region_id))).where(
+            *base, User.last_seen_at >= online_cut, User.region_id.is_not(None))
+    ) or 0
+    new_this_week = await db.scalar(
+        select(func.count(User.id)).where(*base, User.created_at >= now - timedelta(days=7))
+    ) or 0
+    total = await db.scalar(select(func.count(User.id)).where(*base)) or 0
+    return {"online_now": int(online_now), "cities_lit": int(cities_lit),
+            "new_this_week": int(new_this_week), "total_builders": int(total)}
+
+
 class PublicRegion(BaseModel):
     id: int
     name_en: str

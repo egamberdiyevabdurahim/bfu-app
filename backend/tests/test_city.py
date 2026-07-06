@@ -109,3 +109,21 @@ async def test_city_clusters_online_early_adopter_survives_pool_cap(make_user, d
     clusters, _ = await _city_clusters(db, region_id=None, limit=48)
     all_ids = [p["id"] for c in clusters for p in c["people"]]
     assert early.id in all_ids  # online early adopter must not be dropped by the cap
+
+
+async def test_city_threads_shapes(make_user, db):
+    from app.routers.public import _city_threads
+    from app.models.user_analysis import UserAnalysis
+    for i in range(4):
+        u = await make_user(name=f"Climate{i}")
+        db.add(UserAnalysis(user_id=u.id, skills=["Climate"], knowledges=[],
+                            interests=[], preparations=[], goals=[]))
+    await db.commit()
+    threads = await _city_threads(db, region_id=None)
+    assert isinstance(threads, list)
+    kinds = {t["kind"] for t in threads}
+    assert kinds <= {"rising", "new_in_city", "skill_cluster", "open_roles"}
+    for t in threads:
+        assert t["title"] and "faces" in t and isinstance(t["faces"], list)
+        for f in t["faces"]:
+            assert "id" in f and "initials" in f

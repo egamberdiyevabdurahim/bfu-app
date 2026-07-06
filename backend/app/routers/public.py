@@ -193,6 +193,79 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
     return out, now.strftime("%A")
 
 
+def _initials(name: str) -> str:
+    parts = (name or "?").split()
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[1][0]).upper()
+
+
+def _face(u: User) -> dict:
+    return {"id": u.id, "initials": _initials(u.display_name or u.name or "?"),
+            "gradient_seed": u.id}
+
+
+async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
+    now = datetime.utcnow()
+    base = [User.is_deleted == False, User.is_registered == True]
+    if region_id:
+        base.append(User.region_id == region_id)
+    threads: list[dict] = []
+
+    # new_in_city — most recent registrations
+    recent = (await db.execute(
+        select(User).where(*base).order_by(User.created_at.desc()).limit(5)
+    )).scalars().all()
+    if len(recent) >= 3:
+        threads.append({
+            "kind": "new_in_city",
+            "title": "Just arrived",
+            "subtitle": f"{len(recent)} builders joined recently. Say salom before the bazaar fills up.",
+            "faces": [_face(u) for u in recent[:4]],
+            "href": "/city",
+        })
+
+    # rising — most-vouched builders
+    vrows = (await db.execute(
+        select(Vouch.target_id, func.count(Vouch.id).label("c"))
+        .group_by(Vouch.target_id).order_by(func.count(Vouch.id).desc()).limit(4)
+    )).all()
+    if vrows:
+        rid_ids = [tid for tid, _ in vrows]
+        risers = {u.id: u for u in (await db.execute(
+            select(User).where(User.id.in_(rid_ids), *base))).scalars().all()}
+        faces = [_face(risers[tid]) for tid, _ in vrows if tid in risers]
+        if faces:
+            threads.append({
+                "kind": "rising", "title": "Reputation climbing tonight",
+                "subtitle": "Builders the community keeps vouching for.",
+                "faces": faces[:4], "href": "/city",
+            })
+
+    # skill_cluster — the most common skill tag among a recent pool
+    from app.models.user_analysis import UserAnalysis  # noqa: F401
+    pool = (await db.execute(
+        select(User).options(selectinload(User.analysis)).where(*base)
+        .order_by(User.created_at.desc()).limit(200)
+    )).scalars().all()
+    counts: dict[str, list[User]] = {}
+    for u in pool:
+        for s in ((u.analysis.skills if u.analysis else None) or []):
+            counts.setdefault(s.strip(), []).append(u)
+    if counts:
+        top_skill, people = max(counts.items(), key=lambda kv: len(kv[1]))
+        if len(people) >= 3:
+            threads.append({
+                "kind": "skill_cluster",
+                "title": f"{len(people)} builders working on {top_skill}",
+                "subtitle": "A thread worth pulling.",
+                "faces": [_face(u) for u in people[:4]], "href": "/city",
+            })
+    return threads
+
+
 class PublicRegion(BaseModel):
     id: int
     name_en: str

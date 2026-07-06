@@ -15,12 +15,20 @@ import { useMemo, useRef, useState } from "react";
 //
 // The chip set is derived from the payload actually loaded:
 //   All · Online now (ember dot) · <one chip per region present> ·
-//   Looking for co-founder (green dot) · Mentors · up to 4 top skill chips.
+//   Open to work (green dot) · up to 4 top skill chips.
+//
+// NOTE: the /public/city Builder contract only carries `looking_for`
+// ('work'|'volunteering'|'both'|null) — there is no co-founder or mentor
+// signal. The mockup's "Looking for co-founder" / "Mentors" chips were
+// prototype-only labels with no backing field. We surface the one signal the
+// data actually has: "Open to work" (looking_for is 'work' or 'both'). The
+// Mentors chip is intentionally omitted — no BuilderCard can emit a mentor
+// flag from the contract, so it would match zero cards and (via the
+// empty-cluster collapse) blank the whole discovery view.
 
 const ALL = "all";
 const ONLINE = "online";
-const COFOUNDER = "cofounder";
-const MENTORS = "mentors";
+const OPEN_TO_WORK = "open_to_work";
 
 // Normalize a skill/region token for stable data-attribute matching.
 function slug(s) {
@@ -46,8 +54,7 @@ function deriveChips(regions, nameKey) {
     chips.push({ key: `region:${r.id}`, label: name, region: r.id });
   }
 
-  chips.push({ key: COFOUNDER, label: "Looking for co-founder", marker: "green" });
-  chips.push({ key: MENTORS, label: "Mentors" });
+  chips.push({ key: OPEN_TO_WORK, label: "Open to work", marker: "green" });
 
   // Up to 4 most common skills across the loaded builders.
   const counts = new Map();
@@ -76,11 +83,10 @@ function deriveChips(regions, nameKey) {
 function cardMatches(el, chip) {
   if (!chip || chip.key === ALL) return true;
   if (chip.key === ONLINE) return el.getAttribute("data-online") === "1";
-  if (chip.key === COFOUNDER) {
+  if (chip.key === OPEN_TO_WORK) {
     const lf = el.getAttribute("data-looking-for") || "";
     return lf === "work" || lf === "both";
   }
-  if (chip.key === MENTORS) return el.getAttribute("data-mentor") === "1";
   if (chip.region != null) {
     return el.getAttribute("data-region") === String(chip.region);
   }

@@ -56,6 +56,60 @@ export async function generateMetadata() {
 // (revalidate: 60) swaps in the real data automatically.
 const EMPTY_CITY = { stats: {}, weekday: "", regions: [], threads: [] };
 
+// Build the AmbientTicker's lines from REAL payload data only — no fabricated
+// presence. Each line is an array of segments; a segment with `hl: true` renders
+// in bright ink (--text), matching the mockup's `<b>` highlight. Stats-derived
+// lines are gated on a positive count so a quiet night never claims "0 builders
+// online". Thread-derived lines carry the real thread's title (highlighted) +
+// subtitle. When nothing real can be said we return a single calm line; the
+// ticker stops cycling at length <= 1, so it holds that one line instead of
+// falling back to the fabricated DEFAULT_LINES.
+function buildTickerLines(stats, threads) {
+  const lines = [];
+
+  const online = Number(stats?.online_now) || 0;
+  if (online > 0) {
+    const label = online === 1 ? "builder" : "builders";
+    lines.push([
+      { t: `${online} ${label} online`, hl: true },
+      { t: " right now · someone is always building" },
+    ]);
+  }
+
+  const cities = Number(stats?.cities_lit) || 0;
+  if (cities > 0) {
+    const label = cities === 1 ? "city" : "cities";
+    lines.push([
+      { t: `${cities} ${label} lit`, hl: true },
+      { t: " across Uzbekistan tonight" },
+    ]);
+  }
+
+  const fresh = Number(stats?.new_this_week) || 0;
+  if (fresh > 0) {
+    const label = fresh === 1 ? "builder" : "builders";
+    lines.push([
+      { t: `${fresh} new ${label}`, hl: true },
+      { t: " joined the city this week" },
+    ]);
+  }
+
+  for (const thread of threads || []) {
+    if (!thread || !thread.title) continue;
+    const segs = [{ t: thread.title, hl: true }];
+    if (thread.subtitle) segs.push({ t: ` · ${thread.subtitle}` });
+    lines.push(segs);
+  }
+
+  if (lines.length === 0) {
+    // Quiet night: one calm, true line. Length 1 → the ticker holds it and
+    // never cycles (and never shows the fabricated defaults).
+    return [[{ t: "The bazaar is quiet tonight · " }, { t: "come build", hl: true }]];
+  }
+
+  return lines;
+}
+
 async function loadCity() {
   try {
     return (await getCity()) || EMPTY_CITY;
@@ -86,6 +140,9 @@ export default async function CityPage() {
     }
   }
 
+  // Real ticker lines derived from live stats + threads (no fabricated presence).
+  const tickerLines = buildTickerLines(stats, threads);
+
   return (
     <main style={{ position: "relative", minHeight: "100vh" }}>
       <Atmosphere />
@@ -100,7 +157,7 @@ export default async function CityPage() {
         }}
       >
         <TopBar />
-        <AmbientTicker />
+        <AmbientTicker lines={tickerLines} />
         <CityHeader stats={stats} weekday={weekday} />
 
         {/* FilterBar wraps the region clusters as its children so its

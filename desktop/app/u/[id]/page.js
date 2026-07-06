@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getPublicProfile } from "@/lib/bfu-api";
 import TopBar from "@/components/TopBar";
 import AmbientTicker from "@/components/AmbientTicker";
+import Atmosphere from "@/components/Atmosphere";
 import IdentityStrip from "@/components/IdentityStrip";
 import HeroBuildingCell from "@/components/HeroBuildingCell";
 import ReputationCell from "@/components/ReputationCell";
@@ -42,9 +43,7 @@ export default async function ProfilePage({ params }) {
 
   return (
     <main style={{ position: "relative", minHeight: "100vh" }}>
-      <div className="ch-glow-a" />
-      <div className="ch-glow-b" />
-      <div className="ch-grain" />
+      <Atmosphere />
       <div style={{ position: "relative", zIndex: 2, maxWidth: 1200, margin: "0 auto",
         padding: "26px 40px 96px" }}>
         <TopBar />

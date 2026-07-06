@@ -39,3 +39,19 @@ export const getCity = cache(async (regionId) => {
   if (!res.ok) throw new Error(`BFU API error ${res.status} fetching city`);
   return res.json();
 });
+
+/**
+ * Fetches a public BFU project ("startup"/"volunteering") by id. Wrapped in
+ * React's cache() so generateMetadata() and the page component share one
+ * network call per request instead of fetching twice. ISR-cached with
+ * revalidate: 120.
+ * Returns null on 404 (project missing / unapproved / draft / deleted).
+ */
+export const getProject = cache(async (id) => {
+  const res = await fetch(`${API_BASE}/public/project/${id}/data`, {
+    next: { revalidate: 120, tags: [`project:${id}`] },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`BFU API error ${res.status} fetching project ${id}`);
+  return res.json();
+});

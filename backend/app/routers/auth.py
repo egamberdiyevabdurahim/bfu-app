@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -10,13 +12,31 @@ from app.core.security import (
     parse_tg_user,
     validate_init_data,
 )
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.models.user import User
 from app.schemas.auth import RefreshRequest, TelegramAuthRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _LANG_MAP = {"uz": "uz", "ru": "ru", "en": "en"}
+
+
+async def _backfill_photo(uid: int, tg_id: int) -> None:
+    """Best-effort profile-photo refresh, run via asyncio.create_task so it
+    never blocks the caller. Opens its own session since the caller's
+    request-scoped `db` may already be closed by the time this runs."""
+    try:
+        from app.services.telegram_media import fetch_photo_file_id
+        fid = await fetch_photo_file_id(tg_id)
+        if not fid:
+            return
+        async with AsyncSessionLocal() as bg_db:
+            u = await bg_db.get(User, uid)
+            if u and u.photo_file_id != fid:
+                u.photo_file_id = fid
+                await bg_db.commit()
+    except Exception:
+        pass
 
 
 @router.post("/telegram", response_model=TokenResponse)
@@ -64,17 +84,6 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
         user.tg_username = tg_username
         db.add(user)
 
-    # Refresh the profile-photo file_id on login (cheap, infrequent). Best
-    # effort — never block auth on it.
-    try:
-        from app.services.telegram_media import fetch_photo_file_id
-        fid = await fetch_photo_file_id(telegram_id)
-        if fid and user.photo_file_id != fid:
-            user.photo_file_id = fid
-            db.add(user)
-    except Exception:
-        pass
-
     try:
         await db.commit()
     except IntegrityError:
@@ -89,6 +98,14 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
         is_new = False
     await db.refresh(user)
+
+    # Refresh the profile-photo file_id on login. Backgrounded: this endpoint
+    # is hit by EVERY registration and EVERY login, so a slow/rate-limited
+    # Telegram API call here must never add latency to the auth response
+    # (exactly the request path a registration spike hammers). Runs with its
+    # own session/commit since `db` (this request's session) will likely
+    # already be closed by the time it completes.
+    asyncio.create_task(_backfill_photo(user.id, telegram_id))
 
     return TokenResponse(
         access_token=create_access_token(user.id),

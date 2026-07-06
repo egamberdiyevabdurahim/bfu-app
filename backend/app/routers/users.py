@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.deps import get_current_user
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
 from app.models.project import Project, ProjectMember, ProjectApplication
@@ -23,7 +24,7 @@ from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
-from app.services.notify import esc, send_telegram
+from app.services.notify import esc, notify_background, queue_registration_notice, send_telegram
 
 router = APIRouter(prefix="/users", tags=["users"])
 # Follow endpoints live at the app root (/follow), not under /users — a
@@ -917,15 +918,18 @@ async def finalize_registration(
     await db.commit()
     await db.refresh(current_user)
 
-    # Analytics + referral payoff (only on the first time they finish)
+    # Analytics + referral payoff (only on the first time they finish).
+    # Every Telegram call here is backgrounded (asyncio.create_task, via
+    # notify_background) — a viral traffic spike means this exact endpoint is
+    # what EVERY new user hits, so none of these external calls may block the
+    # response or hold this request's DB connection open. The admin-group
+    # ping specifically goes through queue_registration_notice(), which
+    # batches a burst of registrations into one periodic digest instead of
+    # one message per user (a single chat can only take ~20 Telegram
+    # messages/minute — one-per-registration would get silently rate-limited
+    # away during exactly the spike the founder wants visibility into).
     if not was_registered:
-        if settings.ADMIN_GROUP_ID:
-            link = f"https://t.me/{settings.BOT_USERNAME}?startapp=user_{current_user.id}"
-            handle = f" (@{current_user.tg_username})" if current_user.tg_username else ""
-            await send_telegram(
-                settings.ADMIN_GROUP_ID,
-                f"✅ <b>New registered user</b>: {esc(current_user.display_name)}{esc(handle)}\n{link}",
-            )
+        queue_registration_notice()
         if current_user.referred_by:
             referrer = await db.get(User, current_user.referred_by)
             if referrer and referrer.telegram_id:
@@ -937,7 +941,7 @@ async def finalize_registration(
                     )
                 )
                 rlang = (referrer.language or "en") if (referrer.language or "en") in _REFERRAL_PAYOFF else "en"
-                await send_telegram(
+                notify_background(
                     referrer.telegram_id,
                     _REFERRAL_PAYOFF[rlang].format(count=cnt or 0),
                 )
@@ -969,14 +973,23 @@ async def finalize_registration(
             groups_to_tag.append(ulc.learning_center.group_id)
 
     for chat_id in groups_to_tag:
-        await _set_member_tag(chat_id, tg_id, tag)
+        asyncio.create_task(_set_member_tag(chat_id, tg_id, tag))
 
-    # Trigger AI analysis if bio exists
-    if current_user.about:
-        try:
-            await analyze_and_save(db, current_user.id, current_user.about)
-        except Exception:
-            pass
+    # Trigger AI analysis if bio exists — backgrounded so a slow/rate-limited
+    # AI provider (guaranteed to see a burst of first-time calls exactly
+    # when a registration spike lands) never delays this response. Uses its
+    # OWN session (not the request-scoped `db`), which FastAPI closes as
+    # soon as this handler returns — reusing `db` here would silently fail
+    # once the task outlives the request.
+    user_id_for_analysis, about_for_analysis = current_user.id, current_user.about
+    if about_for_analysis:
+        async def _analyze():
+            try:
+                async with AsyncSessionLocal() as bg_db:
+                    await analyze_and_save(bg_db, user_id_for_analysis, about_for_analysis)
+            except Exception:
+                pass
+        asyncio.create_task(_analyze())
 
     out = _validate_from_user(UserResponse, current_user)
     extras = await _profile_extras(db, current_user)

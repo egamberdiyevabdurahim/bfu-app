@@ -1,6 +1,7 @@
 """Lightweight fire-and-forget Telegram sender (bot HTTP API)."""
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 
@@ -43,3 +44,47 @@ async def send_telegram(
     except Exception as exc:  # never let a notification break a request
         logger.warning("Telegram notify failed: %s", exc)
         return False
+
+
+def notify_background(chat_id: int | str, text: str, reply_markup: dict | None = None) -> None:
+    """Fire-and-forget a Telegram message — schedules it and returns
+    immediately, so a slow/rate-limited Telegram API call never adds latency
+    to the caller's HTTP response (and never holds its DB connection open).
+    Use this at any request-path call site instead of `await send_telegram`."""
+    asyncio.create_task(send_telegram(chat_id, text, reply_markup))
+
+
+# ── Registration-notice batching ────────────────────────────────────────────
+# A single admin-group chat can only receive ~20 Telegram messages/minute. A
+# registration burst (e.g. an influencer shoutout) blows through that almost
+# immediately if we send one message per registration — the rest are
+# rejected by Telegram and (per send_telegram above) silently dropped,
+# costing the founder visibility into exactly the spike they want to watch.
+# Instead, count registrations and flush ONE digest message per interval.
+_registration_count = 0
+_flush_task: asyncio.Task | None = None
+REGISTRATION_FLUSH_INTERVAL_S = 60
+
+
+async def _flush_registration_notice() -> None:
+    global _registration_count
+    while True:
+        await asyncio.sleep(REGISTRATION_FLUSH_INTERVAL_S)
+        count, _registration_count = _registration_count, 0
+        if count <= 0:
+            return  # nothing new since the last flush — stop; next call restarts it
+        if settings.ADMIN_GROUP_ID:
+            suffix = "user" if count == 1 else "users"
+            await send_telegram(
+                settings.ADMIN_GROUP_ID,
+                f"✅ <b>{count} new registered {suffix}</b> in the last {REGISTRATION_FLUSH_INTERVAL_S}s",
+            )
+
+
+def queue_registration_notice() -> None:
+    """Call once per new registration instead of sending an admin message
+    directly. Batches into a periodic digest (see module docstring above)."""
+    global _registration_count, _flush_task
+    _registration_count += 1
+    if _flush_task is None or _flush_task.done():
+        _flush_task = asyncio.create_task(_flush_registration_notice())

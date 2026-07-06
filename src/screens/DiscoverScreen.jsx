@@ -27,13 +27,21 @@ export const DiscoverScreen = () => {
 
   const filters = ["ForYou", "All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
 
-  useEffect(() => { loadUsers(); }, [activeFilter, sort, verifiedOnly]);
+  // Debounced: a quick succession of filter/sort taps (common right after
+  // onboarding, when brand-new users explore) shouldn't each fire their own
+  // network round trip — only the settled choice does.
+  useEffect(() => {
+    const id = setTimeout(() => loadUsers(), 300);
+    return () => clearTimeout(id);
+  }, [activeFilter, sort, verifiedOnly]);
 
-  // Unread badge: load once + poll every 60s (cheap count endpoint).
+  // Unread badge: load once + poll every ~60s (cheap count endpoint).
+  // Jittered (+0-15s) so a traffic spike's thousands of sessions — which all
+  // mount around the same moment — don't all re-poll in lockstep every 60s.
   useEffect(() => {
     const tick = () => users.unreadCount().then(r => setUnread(r?.unread || 0)).catch(() => {});
     tick();
-    const id = setInterval(tick, 60000);
+    const id = setInterval(tick, 60000 + Math.random() * 15000);
     return () => clearInterval(id);
   }, []);
 

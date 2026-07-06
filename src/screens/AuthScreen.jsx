@@ -118,7 +118,17 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     );
   };
 
+  const lastGroupsCheckRef = useRef(0);
+  const GROUPS_CHECK_COOLDOWN_MS = 3000;
+
   const refreshGroupStatus = async () => {
+    // checkingGroups only blocks an in-flight overlap, not rapid re-taps
+    // right after a response lands — this is the final gate every new
+    // registrant hits, so an impatient "mash the refresh button" moment
+    // during a traffic spike shouldn't turn into an uncapped request rate.
+    const now = Date.now();
+    if (now - lastGroupsCheckRef.current < GROUPS_CHECK_COOLDOWN_MS) return;
+    lastGroupsCheckRef.current = now;
     setCheckingGroups(true);
     try {
       const data = await users.checkGroups();

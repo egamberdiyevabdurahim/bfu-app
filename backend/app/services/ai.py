@@ -6,6 +6,7 @@ call fails. Persists results to the user_analyses table.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -32,6 +33,22 @@ def _get_client():
             api_key=settings.ANTHROPIC_API_KEY, timeout=15.0, max_retries=1
         )
     return _client
+
+
+# Caps concurrent outbound Anthropic calls process-wide. The per-user cooldown
+# (_ai_on_cooldown in routers/users.py) only throttles repeat calls from the
+# SAME user — during a registration spike, many DIFFERENT brand-new users each
+# get their own fresh cooldown slot and can all trigger analyze/coach/
+# icebreakers/translate at once. Without a shared cap, that burst could blow
+# through Anthropic's own account rate limit (still billed even on a 429) or
+# run up cost with no ceiling anywhere. Every Anthropic call in this module
+# funnels through _create_message so the cap applies uniformly.
+_AI_SEMAPHORE = asyncio.Semaphore(8)
+
+
+async def _create_message(**kwargs):
+    async with _AI_SEMAPHORE:
+        return await _get_client().messages.create(**kwargs)
 
 _SYSTEM_PROMPT = (
     "You analyze a short self-description written by a young student in "
@@ -119,8 +136,7 @@ async def analyze_about_async(text: str) -> dict[str, list[str]]:
         return _keyword_fallback(text)
 
     try:
-        client = _get_client()
-        resp = await client.messages.create(
+        resp = await _create_message(
             model=settings.AI_MODEL,
             max_tokens=512,
             system=_SYSTEM_PROMPT,
@@ -149,8 +165,7 @@ async def translate_bio_async(text: str, target_lang: str) -> str | None:
     if not name:
         return None
     try:
-        client = _get_client()
-        resp = await client.messages.create(
+        resp = await _create_message(
             model=settings.AI_MODEL,
             max_tokens=400,
             system=(
@@ -185,8 +200,7 @@ async def generate_icebreakers(
         f"Shared: {', '.join(shared) or 'none obvious'}."
     )
     try:
-        client = _get_client()
-        resp = await client.messages.create(
+        resp = await _create_message(
             model=settings.AI_MODEL,
             max_tokens=300,
             system=(
@@ -225,8 +239,7 @@ async def generate_match_reason(
         f"Shared: {', '.join(shared) or 'none obvious'}."
     )
     try:
-        client = _get_client()
-        resp = await client.messages.create(
+        resp = await _create_message(
             model=settings.AI_MODEL,
             max_tokens=120,
             system=(
@@ -267,8 +280,7 @@ async def improve_text(kind: str, text: str, lang: str = "en") -> str | None:
     target = _ICEBREAKER_LANG.get(lang, "English")
     sys = _COACH_SYS.get(kind, _COACH_SYS["bio"]).format(lang=target)
     try:
-        client = _get_client()
-        resp = await client.messages.create(
+        resp = await _create_message(
             model=settings.AI_MODEL, max_tokens=400, system=sys,
             messages=[{"role": "user", "content": text[:2000]}],
         )

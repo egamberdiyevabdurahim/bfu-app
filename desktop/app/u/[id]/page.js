@@ -1,5 +1,14 @@
 import { notFound } from "next/navigation";
 import { getPublicProfile } from "@/lib/bfu-api";
+import TopBar from "@/components/TopBar";
+import AmbientTicker from "@/components/AmbientTicker";
+import IdentityStrip from "@/components/IdentityStrip";
+import HeroBuildingCell from "@/components/HeroBuildingCell";
+import ReputationCell from "@/components/ReputationCell";
+import LookingForCell from "@/components/LookingForCell";
+import AchievementsCell from "@/components/AchievementsCell";
+import VouchesCell from "@/components/VouchesCell";
+import ConnectionsCell from "@/components/ConnectionsCell";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -38,10 +47,35 @@ export default async function ProfilePage({ params }) {
       <div className="ch-grain" />
       <div style={{ position: "relative", zIndex: 2, maxWidth: 1200, margin: "0 auto",
         padding: "26px 40px 96px" }}>
-        <h1 style={{ fontFamily: "var(--font-display)" }}>{profile.name}</h1>
-        <p style={{ color: "var(--muted)" }}>
-          Full bento layout arrives in Tasks 10-19 — this proves data fetching + metadata work end to end.
-        </p>
+        <TopBar />
+        <AmbientTicker />
+        <IdentityStrip profile={profile} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20,
+          marginTop: 40, alignItems: "stretch" }}>
+          <HeroBuildingCell profile={profile} />
+          <ReputationCell rating={profile.rating} />
+          <LookingForCell lookingFor={profile.looking_for} />
+          <AchievementsCell achievements={profile.achievements} />
+          <VouchesCell vouches={profile.vouches} vouchCount={profile.vouch_count} />
+          <ConnectionsCell
+            collaborators={profile.collaborators}
+            followerCount={profile.follower_count}
+            region={profile.region}
+          />
+        </div>
+
+        <div style={{ marginTop: 60, paddingTop: 26, borderTop: "1px solid var(--hair)",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.16em",
+            textTransform: "uppercase", color: "var(--muted)" }}>
+            {profile.canonical_url?.replace(/^https?:\/\//, "")}
+          </div>
+          <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18,
+            color: "var(--muted)" }}>
+            Someone is always building right now.
+          </div>
+        </div>
       </div>
     </main>
   );

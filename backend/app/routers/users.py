@@ -552,15 +552,12 @@ async def unread_count(
     return {"unread": n}
 
 
-@router.get("/me/achievements", response_model=dict)
-async def my_achievements(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Derived achievements: earned state + progress for count-based ones.
-    Recomputed on read from existing data (no stored table, no notification).
-    Display text is client-side, keyed by `key`."""
-    uid = current_user.id
+async def _achievements_extras(db: AsyncSession, user: User) -> dict:
+    """Derived achievements for `user`: earned state + progress for
+    count-based ones. Recomputed on read from existing data (no stored
+    table). Extracted from the original /me/achievements body so the public
+    profile endpoint can show achievements for ANY user, not just `me`."""
+    uid = user.id
 
     projects_founded = await db.scalar(
         select(func.count(Project.id)).where(
@@ -585,7 +582,7 @@ async def my_achievements(
     vouches = await db.scalar(
         select(func.count(Vouch.id)).where(Vouch.target_id == uid)
     ) or 0
-    is_mentor = bool(getattr(current_user, "is_mentor", False))
+    is_mentor = bool(getattr(user, "is_mentor", False))
 
     def milestone(key: str, earned: bool) -> dict:
         return {"key": key, "earned": bool(earned), "progress": None}
@@ -599,12 +596,22 @@ async def my_achievements(
         milestone("first_project", projects_founded >= 1),
         milestone("first_application", applications >= 1),
         counter("five_invites", invites, 5),
-        milestone("verified", bool(current_user.checked)),
+        milestone("verified", bool(user.checked)),
         milestone("first_endorsement", endorsements >= 1),
         milestone("mentor", is_mentor),
         milestone("first_vouch_received", vouches >= 1),
     ]
     return {"achievements": achievements}
+
+
+@router.get("/me/achievements", response_model=dict)
+async def my_achievements(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Thin wrapper — see _achievements_extras for the actual logic (shared
+    with the public profile endpoint)."""
+    return await _achievements_extras(db, current_user)
 
 
 @router.get("/me/connections", response_model=list[UserPublic])

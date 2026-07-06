@@ -100,3 +100,23 @@ async def test_endorsement_and_vouch_received(make_user, as_user, db):
     ach = _by_key((await c.get("/users/me/achievements")).json())
     assert ach["first_endorsement"]["earned"] is True
     assert ach["first_vouch_received"]["earned"] is True
+
+
+async def test_achievements_extras_works_for_any_user_not_just_me(make_user, db):
+    """_achievements_extras(db, user) must be callable for an arbitrary
+    target user (needed by the public profile endpoint), not just
+    current_user, and return the exact same shape as /me/achievements."""
+    from app.routers.users import _achievements_extras
+    from app.models.project import Project
+
+    target = await make_user(name="Target")
+    db.add(Project(type="startup", creator_id=target.id, name="P", is_active=True,
+                    is_draft=False, is_deleted=False, is_approved=True))
+    await db.commit()
+
+    out = await _achievements_extras(db, target)
+    assert "achievements" in out
+    keys = {a["key"] for a in out["achievements"]}
+    assert "first_project" in keys
+    first_project = next(a for a in out["achievements"] if a["key"] == "first_project")
+    assert first_project["earned"] is True

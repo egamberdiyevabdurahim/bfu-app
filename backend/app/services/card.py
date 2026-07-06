@@ -32,6 +32,17 @@ AVATAR_COLORS = [
     (255, 179, 71), (167, 139, 250), (52, 211, 153),
 ]
 
+# Chorsu (firelit) palette — used only by render_og_png, kept separate from
+# the violet Mini-App palette above so render_card_png is untouched.
+OG_W, OG_H = 1200, 630
+OG_BG = (11, 10, 8)          # #0B0A08
+OG_SURFACE = (26, 24, 21)    # #1A1815
+OG_TEXT = (245, 241, 232)    # #F5F1E8
+OG_MUTED = (168, 160, 147)   # #A8A093
+OG_AMBER = (232, 161, 92)    # #E8A15C
+OG_TERRA = (192, 86, 59)     # #C0563B
+OG_EMBER = (255, 106, 61)    # #FF6A3D
+
 
 def _font(path: str, size: int, weight: int = 400) -> ImageFont.FreeTypeFont:
     f = ImageFont.truetype(path, size)
@@ -244,6 +255,85 @@ def render_card_png(
         img.alpha_composite(mlogo, (sx + lw + gap + bw + gap, ly - th // 2))
     except Exception:
         pass
+
+    out = io.BytesIO()
+    img.convert("RGB").save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+def render_og_png(
+    name: str, currently_building: str | None,
+    rating_average: float | None, vouch_count: int,
+    checked: bool, photo_bytes: bytes | None = None,
+) -> bytes:
+    """1200x630 landscape Open Graph share image for /u/{id}, in the Chorsu
+    firelit palette. Bakes in a credibility stat (rating + vouch count) per
+    the design brief so a shared link 'pulls people in' before they click."""
+    img = Image.new("RGB", (OG_W, OG_H), OG_BG)
+
+    # firelit glow blobs (subtle, static — no need to animate a still image)
+    blob = Image.new("RGB", (OG_W, OG_H), OG_BG)
+    bd = ImageDraw.Draw(blob)
+    bd.ellipse([-200, -180, 480, 420], fill=(120, 60, 30))
+    bd.ellipse([760, 260, 1400, 820], fill=(20, 70, 64))
+    blob = blob.filter(ImageFilter.GaussianBlur(140))
+    img = Image.blend(img, blob, 0.55)
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    # avatar (left)
+    av_cx, av_cy, av_r = 168, OG_H // 2, 96
+    photo = _circular_photo(photo_bytes, av_r * 2) if photo_bytes else None
+    img = img.convert("RGBA")
+    if photo is not None:
+        img.alpha_composite(photo, (av_cx - av_r, av_cy - av_r))
+        draw = ImageDraw.Draw(img, "RGBA")
+    else:
+        col = AVATAR_COLORS[(ord((name or "?")[0]) if name else 0) % len(AVATAR_COLORS)]
+        draw.ellipse([av_cx - av_r, av_cy - av_r, av_cx + av_r, av_cy + av_r], fill=col)
+        draw.text((av_cx, av_cy - 2), _initials(name), font=_font(_SYNE, 68, 800),
+                  fill=(20, 14, 8), anchor="mm")
+    if checked:
+        bx, by, br = av_cx + av_r - 16, av_cy + av_r - 16, 22
+        draw.ellipse([bx - br, by - br, bx + br, by + br], fill=(int(OG_AMBER[0]), int(OG_AMBER[1]), int(OG_AMBER[2])),
+                     outline=OG_BG, width=4)
+        draw.line([(bx - 10, by + 1), (bx - 2, by + 9), (bx + 11, by - 9)],
+                  fill=(20, 14, 8), width=5, joint="curve")
+
+    # text block (right of avatar)
+    tx = av_cx + av_r + 60
+    disp = (name or "BFU member").strip()
+    size = 62
+    f_name = _font(_SYNE, size, 800)
+    while _text_w(draw, disp, f_name) > (OG_W - tx - 60) and size > 34:
+        size -= 4
+        f_name = _font(_SYNE, size, 800)
+    draw.text((tx, 150), disp, font=f_name, fill=OG_TEXT)
+
+    if currently_building:
+        building = currently_building
+        f_build = _font(_DM, 30, 500)
+        max_w = OG_W - tx - 60
+        while _text_w(draw, f"is building {building}", f_build) > max_w and len(building) > 10:
+            building = building[: len(building) - 6].rstrip() + "…"
+        draw.text((tx, 226), "is building", font=_font(_DM, 30, 500), fill=OG_MUTED)
+        lbl_w = _text_w(draw, "is building ", _font(_DM, 30, 500))
+        draw.text((tx + lbl_w, 226), building, font=_font(_DM, 30, 700), fill=OG_AMBER)
+
+    # credibility stat pill (the "bake in a stat" requirement)
+    if rating_average is not None or vouch_count:
+        parts = []
+        if rating_average is not None:
+            parts.append(f"★ {rating_average:.1f}")
+        if vouch_count:
+            parts.append(f"{vouch_count} vouch{'es' if vouch_count != 1 else ''}")
+        stat = "   ·   ".join(parts)
+        f_stat = _font(_DM, 26, 700)
+        sw = _text_w(draw, stat, f_stat) + 48
+        draw.rounded_rectangle([tx, 300, tx + sw, 300 + 56], radius=28,
+                               fill=OG_SURFACE, outline=(*OG_AMBER, 140), width=2)
+        draw.text((tx + 24, 328), stat, font=f_stat, fill=OG_AMBER, anchor="lm")
+
+    draw.text((tx, OG_H - 90), "Bright Futures Uzbekistan", font=_font(_DM, 22, 600), fill=OG_MUTED)
 
     out = io.BytesIO()
     img.convert("RGB").save(out, format="PNG", optimize=True)

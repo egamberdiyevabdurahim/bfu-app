@@ -149,3 +149,259 @@ html, body {
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* ── City / Discovery: region section label (mockup `.slab`) ── */
+.ch-slab {
+  margin: 44px 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ch-slab h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.ch-slab .ch-slab-k {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ch-slab .ch-slab-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--hair), transparent);
+}
+
+/* ── City / Discovery: builder window grid (mockup `.grid`) ── */
+.ch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+/* ── City / Discovery: builder window (mockup `.card`) ── */
+.ch-card {
+  position: relative;
+  display: block;
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  padding: 0 0 20px;
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--text);
+  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.3s, border-color 0.3s;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: ch-rise 0.7s forwards;
+}
+@keyframes ch-rise {
+  to { opacity: 1; transform: none; }
+}
+.ch-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(232, 161, 92, 0.4);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5), 0 0 46px rgba(255, 106, 61, 0.14);
+}
+.ch-card .ch-card-wash {
+  height: 74px;
+  position: relative;
+}
+.ch-card:hover .ch-card-wash {
+  filter: saturate(1.15) brightness(1.08);
+}
+.ch-card .ch-card-wash:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, var(--surface));
+}
+.ch-card .ch-card-av {
+  position: absolute;
+  top: 44px;
+  left: 20px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+  color: #160E08;
+  border: 3px solid var(--surface);
+  overflow: hidden;
+  z-index: 2;
+}
+.ch-card .ch-card-av img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.ch-card .ch-card-pres {
+  position: absolute;
+  top: 90px;
+  left: 66px;
+  width: 15px;
+  height: 15px;
+  z-index: 3;
+}
+.ch-card .ch-card-pres > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ember);
+  border: 3px solid var(--surface);
+}
+.ch-card .ch-card-body {
+  padding: 18px 20px 0;
+}
+.ch-card .ch-card-nm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.ch-card .ch-card-vf {
+  color: var(--green);
+  font-size: 12px;
+}
+.ch-card .ch-card-bld {
+  margin-top: 4px;
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+.ch-card .ch-card-bld b {
+  color: var(--amber);
+  font-style: italic;
+  font-weight: 400;
+}
+.ch-card .ch-card-tags {
+  margin-top: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ch-card .ch-card-t {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 5px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  color: var(--muted);
+}
+.ch-card .ch-card-foot {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ch-card .ch-card-reg {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ch-card .ch-card-rep {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--amber);
+}
+.ch-card .ch-card-rep.ch-card-rep-new {
+  color: var(--muted);
+}
+.ch-card .ch-card-look {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(127, 176, 105, 0.15);
+  border: 1px solid rgba(127, 176, 105, 0.35);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  z-index: 2;
+}
+.ch-card .ch-card-look > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+}
+.ch-card-big {
+  grid-column: span 2;
+}
+.ch-card-big .ch-card-wash {
+  height: 96px;
+}
+.ch-card-big .ch-card-nm {
+  font-size: 22px;
+}
+.ch-card-big .ch-card-bld {
+  font-size: 19px;
+}
+
+/* ── City / Discovery: low-count grace tile (spec §6) ── */
+.ch-grace {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-height: 190px;
+  border-radius: var(--radius);
+  border: 1px dashed rgba(232, 161, 92, 0.34);
+  background: linear-gradient(150deg, rgba(232, 161, 92, 0.08), rgba(192, 86, 59, 0.05) 60%, var(--surface));
+  padding: 24px;
+}
+.ch-grace .ch-grace-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.ch-grace .ch-grace-t {
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--text);
+}
+.ch-grace .ch-grace-s {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 1080px) {
+  .ch-grid { grid-template-columns: repeat(2, 1fr); }
+  .ch-card-big { grid-column: span 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-card { animation: none !important; opacity: 1; transform: none; }
+}

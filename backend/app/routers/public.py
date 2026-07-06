@@ -16,7 +16,10 @@ from app.database import get_db
 from app.models.project import Project
 from app.models.region import Region
 from app.models.user import User
-from app.routers.users import _profile_extras, _trust_extras
+from app.routers.users import (
+    _achievements_extras, _collaborators, _connection_extras,
+    _profile_extras, _trust_extras,
+)
 
 
 # Re-exported from the shared signing module (importable by ORM models too).
@@ -357,6 +360,88 @@ async def profile_avatar(
         raise HTTPException(status_code=404, detail="No photo")
     return Response(content=blob, media_type="image/jpeg",
                     headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/u/{user_id}/data")
+async def public_profile_data(user_id: int, db: AsyncSession = Depends(get_db)):
+    """JSON contract for the Chorsu desktop /u/{id} page. Same anonymous-
+    viewer semantics as the existing HTML /public/u/{id} route (viewer=None
+    throughout — no personalization, no auth). Reuses every existing
+    extras helper so this can never drift from what /users/{id} shows to a
+    logged-in viewer."""
+    user = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    extras = await _profile_extras(db, user)
+    trust = await _trust_extras(db, user, None)
+    conn = await _connection_extras(db, user, None)
+    collab = await _collaborators(db, user)
+    ach = await _achievements_extras(db, user)
+
+    region = None
+    if user.region_id:
+        r = await db.get(Region, user.region_id)
+        if r:
+            region = {"id": r.id, "name_en": r.name_en, "name_uz": r.name_uz, "name_ru": r.name_ru}
+
+    age = (datetime.utcnow().year - user.birth_year) if user.birth_year else None
+    name = ((user.name or "").capitalize() + ((" " + user.surname.capitalize()) if user.surname else "")).strip()
+    name = name or user.display_name
+
+    # Interim "looking for" signal (see plan's scope-decision #1) — derived
+    # from the existing open_to_work/open_to_volunteering booleans, not a
+    # new column.
+    looking_for = None
+    if user.open_to_work and user.open_to_volunteering:
+        looking_for = "both"
+    elif user.open_to_work:
+        looking_for = "work"
+    elif user.open_to_volunteering:
+        looking_for = "volunteering"
+
+    base = (settings.WEBAPP_URL or "").rstrip("/")
+    api_base = (settings.api_base_url or "").rstrip("/")
+    bot = settings.BOT_USERNAME
+
+    return {
+        "id": user.id,
+        "name": name,
+        "display_name": user.display_name,
+        "checked": bool(user.checked),
+        "badges": user.badges,
+        "photo_url": user.photo_url,
+        "age": age,
+        "gender": user.gender,
+        "region": region,
+        "about": user.about,
+        "currently_building": extras["currently_building"],
+        "currently_building_source": extras["currently_building_source"],
+        "open_to_work": bool(user.open_to_work),
+        "open_to_volunteering": bool(user.open_to_volunteering),
+        "looking_for": looking_for,
+        "skills": (user.analysis.skills if user.analysis else None) or [],
+        "portfolio_links": extras["portfolio_links"],
+        "founded_projects": extras["founded_projects"],
+        "member_projects": extras["member_projects"],
+        "stats": extras["stats"],
+        "endorsements": trust["endorsements"],
+        "vouches": trust["vouches"],
+        "vouch_count": trust["vouch_count"],
+        "rating": trust["rating"],
+        "mutual_connections": trust["mutual_connections"],
+        "collaborators": collab,
+        "follower_count": conn["follower_count"],
+        "following_count": conn["following_count"],
+        "mentor": conn["mentor"],
+        "achievements": ach["achievements"],
+        "og_image_url": f"{api_base}/public/og/{user.id}.png?sig={og_sig(user.id)}",
+        "telegram_open_url": f"https://t.me/{bot}?startapp=user_{user.id}",
+        "canonical_url": f"{base}/u/{user.id}" if base else f"/u/{user.id}",
+    }
 
 
 def _esc(s) -> str:

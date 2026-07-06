@@ -20,7 +20,7 @@ from app.routers.users import _profile_extras, _trust_extras
 
 
 # Re-exported from the shared signing module (importable by ORM models too).
-from app.services.signing import avatar_sig, card_sig  # noqa: E402,F401
+from app.services.signing import avatar_sig, card_sig, og_sig  # noqa: E402,F401
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -295,6 +295,44 @@ async def profile_card(
         name=(user.name or "BFU member").capitalize(),
         region=region_name, age=age, gender=user.gender,
         checked=bool(user.checked), tags=tags, photo_bytes=photo_bytes,
+    )
+    return Response(content=png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=600"})
+
+
+@router.get("/og/{user_id}.png")
+async def og_image(
+    user_id: int,
+    sig: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Signed 1200x630 Open Graph share image for /u/{id} (Chorsu palette).
+    Public but enumeration-resistant, same pattern as /card.png and /avatar."""
+    if not hmac.compare_digest(sig, og_sig(user_id)):
+        raise HTTPException(status_code=403, detail="Bad signature")
+    user = (await db.execute(
+        select(User).options(selectinload(User.analysis))
+        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
+    )).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    extras = await _profile_extras(db, user)
+    trust = await _trust_extras(db, user, None)
+
+    photo_bytes = None
+    if user.photo_file_id:
+        from app.services.telegram_media import download_photo
+        photo_bytes = await download_photo(user.photo_file_id)
+
+    from app.services.card import render_og_png
+    png = render_og_png(
+        name=(user.name or "BFU member").capitalize(),
+        currently_building=extras.get("currently_building"),
+        rating_average=trust["rating"]["average"],
+        vouch_count=trust["vouch_count"],
+        checked=bool(user.checked),
+        photo_bytes=photo_bytes,
     )
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "public, max-age=600"})

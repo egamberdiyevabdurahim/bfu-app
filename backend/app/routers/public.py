@@ -227,9 +227,14 @@ async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
             "href": "/city",
         })
 
-    # rising — most-vouched builders
+    # rising — most-vouched builders. The base predicates (region_id,
+    # is_deleted, is_registered) must be applied INSIDE the aggregate before the
+    # LIMIT, otherwise globally-most-vouched but out-of-region / deleted /
+    # unregistered targets would occupy the top-4 slots and then get filtered
+    # out, silently starving eligible in-scope builders.
     vrows = (await db.execute(
         select(Vouch.target_id, func.count(Vouch.id).label("c"))
+        .join(User, User.id == Vouch.target_id).where(*base)
         .group_by(Vouch.target_id).order_by(func.count(Vouch.id).desc()).limit(4)
     )).all()
     if vrows:

@@ -127,3 +127,72 @@ async def test_city_threads_shapes(make_user, db):
         assert t["title"] and "faces" in t and isinstance(t["faces"], list)
         for f in t["faces"]:
             assert "id" in f and "initials" in f
+
+
+async def _vouch(db, author_id, target_id):
+    from app.models.trust import Vouch
+    db.add(Vouch(author_id=author_id, target_id=target_id, text="great builder"))
+
+
+async def test_city_threads_rising_respects_region_filter(make_user, db):
+    """Region-leak regression: the `rising` thread must apply the region filter
+    INSIDE the vouch aggregate before LIMIT. Four globally-most-vouched builders
+    who are OUT of region must not occupy the top-4 slots and starve an
+    in-region builder who has fewer (but real) vouches."""
+    from app.routers.public import _city_threads
+    from app.models.region import Region
+
+    r = Region(name_en="Focus", name_uz="Focus", name_ru="Focus")
+    db.add(r); await db.commit(); await db.refresh(r)
+
+    # 4 out-of-region builders, 6 vouches each (globally the most-vouched).
+    for i in range(4):
+        b = await make_user(name=f"Out{i}")  # no region
+        for j in range(6):
+            voucher = await make_user(name=f"OutV{i}_{j}")
+            await _vouch(db, voucher.id, b.id)
+    # 1 in-region builder with only 2 vouches.
+    inreg = await make_user(name="InRegion", region_id=r.id)
+    for j in range(2):
+        voucher = await make_user(name=f"InV{j}")
+        await _vouch(db, voucher.id, inreg.id)
+    await db.commit()
+
+    threads = await _city_threads(db, region_id=r.id)
+    rising = [t for t in threads if t["kind"] == "rising"]
+    assert rising, "in-region well-vouched builder must surface a rising thread"
+    face_ids = {f["id"] for f in rising[0]["faces"]}
+    assert inreg.id in face_ids
+
+
+async def test_city_threads_rising_excludes_deleted_and_unregistered(make_user, db):
+    """Deleted/unregistered-eat-slots regression: a soft-deleted (or
+    unregistered) most-vouched user must NOT consume a top-4 slot and shrink the
+    thread — the aggregate must exclude them before LIMIT so 4 live eligible
+    builders all surface."""
+    from app.routers.public import _city_threads
+
+    # A soft-deleted user with the MOST vouches (7).
+    ghost = await make_user(name="Ghost")
+    ghost.is_deleted = True
+    await db.commit()
+    for j in range(7):
+        voucher = await make_user(name=f"GhostV{j}")
+        await _vouch(db, voucher.id, ghost.id)
+
+    # 4 live eligible builders with fewer vouches (3 each).
+    live = []
+    for i in range(4):
+        b = await make_user(name=f"Live{i}")
+        live.append(b)
+        for j in range(3):
+            voucher = await make_user(name=f"LiveV{i}_{j}")
+            await _vouch(db, voucher.id, b.id)
+    await db.commit()
+
+    threads = await _city_threads(db, region_id=None)
+    rising = [t for t in threads if t["kind"] == "rising"]
+    assert rising
+    face_ids = {f["id"] for f in rising[0]["faces"]}
+    assert ghost.id not in face_ids           # deleted user never surfaces
+    assert len(rising[0]["faces"]) == 4       # all 4 live builders fill the slots

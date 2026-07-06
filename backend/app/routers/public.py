@@ -97,9 +97,13 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
          .where(User.is_deleted == False, User.is_registered == True))
     if region_id:
         q = q.where(User.region_id == region_id)
-    # Pool cap: fetch a windowed pool (online + recent lean to the top after we
-    # compute weight; here order by created_at desc for a stable cap).
-    q = q.order_by(User.created_at.desc()).limit(300)
+    # Pool cap: at scale (>300 builders) the cap must keep the most-recently-
+    # ACTIVE users so 'building tonight' can still surface established online
+    # accounts. Ordering by created_at would keep only the newest registrations
+    # and silently drop online early adopters; order by last_seen_at desc
+    # (NULLS LAST) instead, with created_at desc as a stable tiebreaker.
+    q = q.order_by(User.last_seen_at.desc().nullslast(),
+                   User.created_at.desc()).limit(300)
     pool = (await db.execute(q)).scalars().all()
     if not pool:
         return [], now.strftime("%A")

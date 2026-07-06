@@ -84,3 +84,28 @@ async def test_city_clusters_currently_building_falls_back_to_project(make_user,
     clusters, _ = await _city_clusters(db, region_id=None, limit=48)
     person = next(p for c in clusters for p in c["people"] if p["id"] == u.id)
     assert person["currently_building"] == "SolarBazaar"
+
+
+async def test_city_clusters_online_early_adopter_survives_pool_cap(make_user, db):
+    """The 300-row pool cap must keep the most-recently-ACTIVE builders, not the
+    most-recently-REGISTERED. An early adopter who is online right now must not be
+    dropped just because 300 newer accounts registered after them."""
+    from app.routers.public import _city_clusters
+
+    # Established early adopter: registered long ago, but online right now.
+    early = await make_user(name="EarlyAdopter")
+    early.created_at = NOW - dt.timedelta(days=900)     # oldest registration
+    early.last_seen_at = NOW - dt.timedelta(minutes=2)  # online NOW
+    await db.commit()
+
+    # 320 newer, offline registrations. All registered AFTER `early`, so under a
+    # created_at-desc cap they win the 300 slots and evict `early` from the pool.
+    for i in range(320):
+        filler = await make_user(name=f"Filler{i}")
+        filler.created_at = NOW - dt.timedelta(days=100) + dt.timedelta(seconds=i)
+        filler.last_seen_at = None  # offline
+    await db.commit()
+
+    clusters, _ = await _city_clusters(db, region_id=None, limit=48)
+    all_ids = [p["id"] for c in clusters for p in c["people"]]
+    assert early.id in all_ids  # online early adopter must not be dropped by the cap

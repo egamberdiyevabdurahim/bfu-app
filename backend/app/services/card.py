@@ -278,15 +278,14 @@ def render_og_png(
     bd.ellipse([760, 260, 1400, 820], fill=(20, 70, 64))
     blob = blob.filter(ImageFilter.GaussianBlur(140))
     img = Image.blend(img, blob, 0.55)
+    img = img.convert("RGBA")
     draw = ImageDraw.Draw(img, "RGBA")
 
     # avatar (left)
     av_cx, av_cy, av_r = 168, OG_H // 2, 96
     photo = _circular_photo(photo_bytes, av_r * 2) if photo_bytes else None
-    img = img.convert("RGBA")
     if photo is not None:
         img.alpha_composite(photo, (av_cx - av_r, av_cy - av_r))
-        draw = ImageDraw.Draw(img, "RGBA")
     else:
         col = AVATAR_COLORS[(ord((name or "?")[0]) if name else 0) % len(AVATAR_COLORS)]
         draw.ellipse([av_cx - av_r, av_cy - av_r, av_cx + av_r, av_cy + av_r], fill=col)

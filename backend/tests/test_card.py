@@ -17,15 +17,35 @@ def test_render_og_png_dimensions_and_format():
     assert im.format == "PNG"
 
 
+def _near_white_pixel_count(im):
+    """Count near-white (foreground text) pixels — the name is drawn in
+    OG_TEXT which is close to white, so a non-blank render must have some."""
+    rgb = im.convert("RGB")
+    px = rgb.load()
+    w, h = rgb.size
+    count = 0
+    for y in range(0, h, 3):
+        for x in range(0, w, 3):
+            r, g, b = px[x, y]
+            if r > 220 and g > 220 and b > 220:
+                count += 1
+    return count
+
+
 def test_render_og_png_handles_no_rating_or_building():
     """A brand-new profile (no rating yet, no currently_building) must still
-    render without raising."""
+    render WITH visible foreground content (name + footer), not a blank
+    gradient. This drives the no-photo branch, which previously dropped all
+    foreground content onto a discarded pre-convert image."""
     png = render_og_png(
         name="New Member", currently_building=None,
         rating_average=None, vouch_count=0, checked=False, photo_bytes=None,
     )
     im = Image.open(io.BytesIO(png))
     assert im.size == (1200, 630)
+    # The name and footer are drawn in near-white; a blank fire-gradient card
+    # has effectively none. Require a clear, non-trivial amount.
+    assert _near_white_pixel_count(im) > 200
 
 
 def test_render_og_png_long_name_does_not_raise():

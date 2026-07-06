@@ -397,6 +397,73 @@ html, body {
   line-height: 1.5;
 }
 
+/* threads rail — horizontal-scroll serendipity (mockup .rail / .thread) */
+.ch-rail {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: thin;
+}
+.ch-rail::-webkit-scrollbar { height: 6px; }
+.ch-rail::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 9px; }
+
+.ch-thread {
+  display: block;
+  flex: 0 0 300px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: linear-gradient(150deg, rgba(18, 86, 79, 0.14), var(--surface) 60%);
+  padding: 22px;
+  cursor: pointer;
+  transition: transform 0.28s, border-color 0.28s, box-shadow 0.28s;
+}
+.ch-thread:hover {
+  transform: translateY(-4px);
+  border-color: rgba(94, 197, 182, 0.4);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.4);
+}
+.ch-thread .ch-thread-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5EC5B6;
+}
+.ch-thread h3 {
+  margin: 12px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.ch-thread p {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ch-thread .ch-thread-faces {
+  margin-top: 16px;
+  display: flex;
+}
+.ch-thread .ch-thread-faces span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  margin-left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  color: #160E08;
+}
+.ch-thread .ch-thread-faces span:first-child { margin-left: 0; }
+
 @media (max-width: 1080px) {
   .ch-grid { grid-template-columns: repeat(2, 1fr); }
   .ch-card-big { grid-column: span 2; }
@@ -404,4 +471,6 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .ch-card { animation: none !important; opacity: 1; transform: none; }
+  .ch-thread { transition: none !important; }
+  .ch-thread:hover { transform: none; }
 }

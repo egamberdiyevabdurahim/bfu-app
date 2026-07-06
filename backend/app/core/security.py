@@ -92,3 +92,41 @@ def parse_tg_user(params: dict) -> dict:
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+# ── Telegram Login Widget (desktop web login) ─────────────────────────────────
+
+def validate_login_widget(fields: dict) -> dict | None:
+    """Validate Telegram Login Widget auth data (used by the desktop web app).
+
+    Returns the fields (minus `hash`) if the signature is valid and fresh, else
+    None. IMPORTANT: the Login Widget derives its secret as sha256(bot_token) —
+    which is DIFFERENT from the Mini App initData scheme (HMAC key "WebAppData").
+    Dev mode skips the crypto check, mirroring validate_init_data.
+    """
+    if not fields:
+        return None
+
+    received_hash = fields.get("hash")
+    data = {k: v for k, v in fields.items() if k != "hash" and v is not None}
+
+    if settings.is_dev:
+        return data
+
+    if not received_hash or not settings.BOT_TOKEN:
+        return None
+
+    data_check_string = "\n".join(f"{k}={data[k]}" for k in sorted(data))
+    secret_key = hashlib.sha256(settings.BOT_TOKEN.encode()).digest()
+    computed = hmac.new(
+        key=secret_key, msg=data_check_string.encode(), digestmod=hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(computed, received_hash):
+        return None
+
+    # Reject stale logins (> 24 h) to blunt replay.
+    if time.time() - int(data.get("auth_date", 0)) > 86_400:
+        return None
+
+    return data

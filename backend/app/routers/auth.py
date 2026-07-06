@@ -11,10 +11,16 @@ from app.core.security import (
     decode_token,
     parse_tg_user,
     validate_init_data,
+    validate_login_widget,
 )
 from app.database import AsyncSessionLocal, get_db
 from app.models.user import User
-from app.schemas.auth import RefreshRequest, TelegramAuthRequest, TokenResponse
+from app.schemas.auth import (
+    RefreshRequest,
+    TelegramAuthRequest,
+    TelegramWidgetAuthRequest,
+    TokenResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,6 +43,41 @@ async def _backfill_photo(uid: int, tg_id: int) -> None:
                 await bg_db.commit()
     except Exception:
         pass
+
+
+@router.post("/telegram-widget", response_model=TokenResponse)
+async def telegram_widget_auth(body: TelegramWidgetAuthRequest, db: AsyncSession = Depends(get_db)):
+    """Desktop web login via the Telegram Login Widget. Verifies the widget
+    signature, then issues tokens for an EXISTING registered member (desktop
+    login does not onboard — users register in the bot/Mini App first)."""
+    data = validate_login_widget(body.model_dump())
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram login")
+
+    telegram_id = int(data["id"])
+    user = (await db.execute(
+        select(User).where(User.telegram_id == telegram_id)
+    )).scalar_one_or_none()
+
+    if user is None or user.is_deleted or not user.is_registered:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Please register in the Telegram bot first",
+        )
+    if user.banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
+    tg_username = data.get("username") or None
+    if tg_username and user.tg_username != tg_username:
+        user.tg_username = tg_username
+        await db.commit()
+
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+        is_registered=True,
+        is_new_user=False,
+    )
 
 
 @router.post("/telegram", response_model=TokenResponse)

@@ -362,6 +362,67 @@ async def public_project_data(project_id: int, db: AsyncSession = Depends(get_db
     }
 
 
+@router.get("/projects")
+async def public_projects(
+    type: str | None = Query(None),
+    hiring: bool | None = Query(None),
+    limit: int = Query(60, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public projects-discovery feed for the Chorsu /projects page. Batched
+    (no N+1). Only approved, non-draft, non-deleted projects; pinned + hiring
+    surface first."""
+    from app.models.project import ProjectMember, ProjectReqRegion
+
+    _visible = (Project.is_approved == True, Project.is_draft == False,
+                Project.is_deleted == False)
+    q = (select(Project).options(
+            selectinload(Project.creator),
+            selectinload(Project.req_skills),
+            selectinload(Project.req_regions).selectinload(ProjectReqRegion.region),
+        ).where(*_visible))
+    if type:
+        q = q.where(Project.type == type)
+    if hiring is not None:
+        q = q.where(Project.is_hiring == hiring)
+    q = q.order_by(Project.is_pinned.desc(), Project.is_hiring.desc(),
+                   Project.created_at.desc()).limit(limit)
+    pool = (await db.execute(q)).scalars().all()
+
+    # batched team (member) counts
+    counts: dict[int, int] = {}
+    if pool:
+        ids = [p.id for p in pool]
+        rows = (await db.execute(
+            select(ProjectMember.project_id, func.count(ProjectMember.id))
+            .where(ProjectMember.project_id.in_(ids))
+            .group_by(ProjectMember.project_id)
+        )).all()
+        counts = {pid: int(c) for pid, c in rows}
+
+    def card(p):
+        region = None
+        if p.req_regions and p.req_regions[0].region:
+            r = p.req_regions[0].region
+            region = {"id": r.id, "name_en": r.name_en, "name_uz": r.name_uz, "name_ru": r.name_ru}
+        return {
+            "id": p.id, "type": p.type, "name": p.name, "goal": p.goal,
+            "is_hiring": bool(p.is_hiring), "is_active": bool(p.is_active),
+            "pinned": bool(p.is_pinned), "created_at": p.created_at,
+            "view_count": int(p.view_count or 0),
+            "founder": _public_user_brief(p.creator),
+            "team_count": counts.get(p.id, 0),
+            "skills": [s.skill_name for s in p.req_skills][:4],
+            "region": region,
+        }
+
+    total = await db.scalar(select(func.count(Project.id)).where(*_visible)) or 0
+    hiring_c = await db.scalar(select(func.count(Project.id)).where(
+        *_visible, Project.is_hiring == True, Project.is_active == True)) or 0
+    return {"stats": {"total": int(total), "hiring": int(hiring_c)},
+            "projects": [card(p) for p in pool]}
+
+
 class PublicRegion(BaseModel):
     id: int
     name_en: str

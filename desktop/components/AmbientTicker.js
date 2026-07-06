@@ -2,11 +2,37 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Each line is an array of segments. A segment with `hl: true` renders in the
+// bright ink white (--text) for emphasis; plain segments render in --muted.
+// This ports the reference's 4 rich multi-clause lines and their white-highlight
+// <span> on a key noun (Chorsu Profile.dc.html lines 409-414).
 const DEFAULT_LINES = [
-  "Aziza just added a project in Tashkent",
-  "34 builders online tonight",
-  "Rustam is looking for a co-founder right now",
+  [
+    { t: "Aziza just added a project in Tashkent · " },
+    { t: "34 builders online", hl: true },
+    { t: " tonight · Rustam is looking for a co-founder right now" },
+  ],
+  [
+    { t: "Malika endorsed Aziz for " },
+    { t: "firmware", hl: true },
+    { t: " · 5 builders joined Fergana this week · the bazaar is warm tonight" },
+  ],
+  [
+    { t: "Dilnoza", hl: true },
+    { t: " shipped SolarPay v2 · 12 builders online in Samarkand · someone is always building right now" },
+  ],
+  [
+    { t: "New vouch for " },
+    { t: "Grid Storage", hl: true },
+    { t: " · Rustam went online · 34 builders in the city tonight" },
+  ],
 ];
+
+// Normalize a line (string or segment array) into renderable segments.
+function toSegments(line) {
+  if (typeof line === "string") return [{ t: line }];
+  return line;
+}
 
 export default function AmbientTicker({ lines = DEFAULT_LINES }) {
   const [index, setIndex] = useState(0);
@@ -42,7 +68,9 @@ export default function AmbientTicker({ lines = DEFAULT_LINES }) {
       <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--muted)",
         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
         opacity: visible ? 1 : 0, transition: "opacity 0.4s ease" }}>
-        {lines[index]}
+        {toSegments(lines[index]).map((seg, i) => (
+          <span key={i} style={seg.hl ? { color: "var(--text)" } : undefined}>{seg.t}</span>
+        ))}
       </div>
     </div>
   );

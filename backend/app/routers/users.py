@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import Text, cast, func, or_, select, union, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,7 @@ from app.core.deps import get_current_user
 from app.database import AsyncSessionLocal, get_db
 from app.models.region import LearningCenter, Region, School
 from app.models.user import User, UserLearningCenter, UserSchool, Report, Interest, BioTranslation, Notification
+from app.models.user_analysis import UserAnalysis
 from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.models.connection import Follow
@@ -233,36 +234,47 @@ async def _connection_extras(db: AsyncSession, user: User, viewer: User | None) 
 
 async def _connection_ids(db: AsyncSession, uid: int) -> set[int]:
     """The set of member ids `uid` is connected to: mutual-interest peers
-    UNION people who share a (non-draft/non-deleted) project with `uid`."""
-    i_like = set((await db.execute(
-        select(Interest.to_user_id).where(Interest.from_user_id == uid)
-    )).scalars().all())
-    like_me = set((await db.execute(
-        select(Interest.from_user_id).where(Interest.to_user_id == uid)
-    )).scalars().all())
+    UNION people who share a (non-draft/non-deleted) project with `uid`.
+
+    Collapsed from 6 sequential queries to 3 (both interest directions in one
+    OR query; member-or-founder projects in one UNION; co-members-or-founders
+    in one UNION) — this is called TWICE per /users/{id} view (viewer +
+    target) for mutual connections, so it's the biggest per-profile query
+    multiplier."""
+    # Both interest directions in one query; split by direction in Python.
+    edges = (await db.execute(
+        select(Interest.from_user_id, Interest.to_user_id).where(
+            or_(Interest.from_user_id == uid, Interest.to_user_id == uid)
+        )
+    )).all()
+    i_like = {t for (f, t) in edges if f == uid}
+    like_me = {f for (f, t) in edges if t == uid}
     mutual = i_like & like_me
 
-    # Projects uid belongs to (as member OR founder), excluding draft/deleted.
+    # Projects uid belongs to (as member OR founder), excluding draft/deleted —
+    # one UNION query.
     my_proj = set((await db.execute(
-        select(ProjectMember.project_id)
-        .join(Project, Project.id == ProjectMember.project_id)
-        .where(ProjectMember.user_id == uid,
-               Project.is_draft == False, Project.is_deleted == False)
-    )).scalars().all())
-    my_proj |= set((await db.execute(
-        select(Project.id).where(Project.creator_id == uid,
-                                 Project.is_draft == False, Project.is_deleted == False)
+        union(
+            select(ProjectMember.project_id.label("pid"))
+            .join(Project, Project.id == ProjectMember.project_id)
+            .where(ProjectMember.user_id == uid,
+                   Project.is_draft == False, Project.is_deleted == False),
+            select(Project.id.label("pid")).where(
+                Project.creator_id == uid,
+                Project.is_draft == False, Project.is_deleted == False),
+        )
     )).scalars().all())
 
     co_ids: set[int] = set()
     if my_proj:
-        # Co-members of those projects.
-        co_ids |= set((await db.execute(
-            select(ProjectMember.user_id).where(ProjectMember.project_id.in_(my_proj))
-        )).scalars().all())
-        # Founders of those projects.
-        co_ids |= set((await db.execute(
-            select(Project.creator_id).where(Project.id.in_(my_proj))
+        # Co-members AND founders of those projects — one UNION query.
+        co_ids = set((await db.execute(
+            union(
+                select(ProjectMember.user_id.label("cid")).where(
+                    ProjectMember.project_id.in_(my_proj)),
+                select(Project.creator_id.label("cid")).where(
+                    Project.id.in_(my_proj)),
+            )
         )).scalars().all())
 
     out = mutual | co_ids
@@ -273,39 +285,37 @@ async def _connection_ids(db: AsyncSession, uid: int) -> set[int]:
 async def _collaborators(db: AsyncSession, user: User) -> dict:
     """People the user has shared 2+ live projects with (co-member or co-founder).
     Derived live from project_members + project creators — no stored table."""
-    # The user's live projects (member rows ∪ founded rows).
+    # The user's live projects (member rows ∪ founded rows) — one UNION query.
     my_proj = set((await db.execute(
-        select(ProjectMember.project_id)
-        .join(Project, Project.id == ProjectMember.project_id)
-        .where(ProjectMember.user_id == user.id,
-               Project.is_draft == False, Project.is_deleted == False)
-    )).scalars().all())
-    my_proj |= set((await db.execute(
-        select(Project.id).where(Project.creator_id == user.id,
-                                 Project.is_draft == False, Project.is_deleted == False)
+        union(
+            select(ProjectMember.project_id.label("pid"))
+            .join(Project, Project.id == ProjectMember.project_id)
+            .where(ProjectMember.user_id == user.id,
+                   Project.is_draft == False, Project.is_deleted == False),
+            select(Project.id.label("pid")).where(
+                Project.creator_id == user.id,
+                Project.is_draft == False, Project.is_deleted == False),
+        )
     )).scalars().all())
     if not my_proj:
         return {"count": 0, "preview": []}
 
-    # Per other-user, how many of MY projects they participate in (member OR creator).
+    # Per other-user, how many of MY projects they participate in (member OR
+    # creator). The UNION returns DISTINCT (user, project) pairs, so a user who
+    # is both member and creator of the same project is counted once for it —
+    # replacing the old member_rows + creator_rows + Python `seen` dedup.
     shared: dict[int, int] = {}
-    member_rows = (await db.execute(
-        select(ProjectMember.user_id, ProjectMember.project_id)
-        .where(ProjectMember.project_id.in_(my_proj))
+    pair_rows = (await db.execute(
+        union(
+            select(ProjectMember.user_id.label("uid"), ProjectMember.project_id.label("pid"))
+            .where(ProjectMember.project_id.in_(my_proj)),
+            select(Project.creator_id.label("uid"), Project.id.label("pid"))
+            .where(Project.id.in_(my_proj)),
+        )
     )).all()
-    creator_rows = (await db.execute(
-        select(Project.creator_id, Project.id).where(Project.id.in_(my_proj))
-    )).all()
-    # Count DISTINCT (other_user, project) participation so a user who is both
-    # member and creator of the same project isn't double-counted for it.
-    seen: set[tuple[int, int]] = set()
-    for uid, pid in list(member_rows) + list(creator_rows):
+    for uid, pid in pair_rows:
         if uid == user.id:
             continue
-        key = (uid, pid)
-        if key in seen:
-            continue
-        seen.add(key)
         shared[uid] = shared.get(uid, 0) + 1
 
     frequent = {uid: n for uid, n in shared.items() if n >= 2}
@@ -367,12 +377,12 @@ async def _trust_extras(db: AsyncSession, user: User, viewer: User | None) -> di
     ]
 
     # ── Rating aggregate over all ratings where this user is the ratee. ──
-    avg = await db.scalar(
-        select(func.avg(ProjectRating.stars)).where(ProjectRating.ratee_id == user.id)
-    )
-    rcount = await db.scalar(
-        select(func.count(ProjectRating.id)).where(ProjectRating.ratee_id == user.id)
-    ) or 0
+    # avg + count in one query (was two).
+    avg, rcount = (await db.execute(
+        select(func.avg(ProjectRating.stars), func.count(ProjectRating.id))
+        .where(ProjectRating.ratee_id == user.id)
+    )).one()
+    rcount = rcount or 0
     rating = {"average": round(float(avg), 1) if avg is not None else None, "count": int(rcount)}
 
     # ── Mutual connections: overlap of viewer's + target's connection sets. ──
@@ -1729,13 +1739,24 @@ async def discover(
         return out
 
     if skill or knowledge:
-        # The skill/knowledge tags live in a JSON column, so we filter in
-        # Python — but over a capped pool fetched BEFORE pagination, then
-        # slice. Previously the filter ran AFTER limit/offset, so a chip
-        # filter showed "No users found" while matches existed deeper.
+        # The tags live in a JSON column. We push a COARSE pre-filter into SQL
+        # (INNER JOIN analysis + case-insensitive LIKE on the quoted token in
+        # the JSON text) so we only fetch candidate rows instead of loading up
+        # to 300 rows and scanning them all in Python — which grows costly as
+        # the member base grows. The exact membership check below still runs
+        # for 100% correctness: the LIKE can only ever be too PERMISSIVE (a
+        # stray candidate is rejected in Python), never too strict, because the
+        # quotes hug the token (so `react` won't coarse-match `reactjs`) and
+        # both sides are lowercased. `skill_lower` is bound as a LIKE
+        # parameter by SQLAlchemy, not interpolated into SQL.
         skill_lower = skill.lower() if skill else None
         knowledge_lower = knowledge.lower() if knowledge else None
-        pool = (await db.execute(q.limit(300))).scalars().all()
+        qf = q.join(UserAnalysis, UserAnalysis.user_id == User.id)
+        if skill_lower:
+            qf = qf.where(func.lower(cast(UserAnalysis.skills, Text)).like(f'%"{skill_lower}"%'))
+        if knowledge_lower:
+            qf = qf.where(func.lower(cast(UserAnalysis.knowledges, Text)).like(f'%"{knowledge_lower}"%'))
+        pool = (await db.execute(qf.limit(300))).scalars().all()
         filtered = []
         for u in pool:
             if not u.analysis:

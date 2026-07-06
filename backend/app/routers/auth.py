@@ -1,9 +1,14 @@
 import asyncio
+import secrets
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.models.web_login import WebLoginToken
 
 from app.core.security import (
     create_access_token,
@@ -43,6 +48,58 @@ async def _backfill_photo(uid: int, tg_id: int) -> None:
                 await bg_db.commit()
     except Exception:
         pass
+
+
+WEB_LOGIN_TTL = timedelta(minutes=5)
+
+
+@router.post("/web-login/start")
+async def web_login_start(db: AsyncSession = Depends(get_db)):
+    """Begin a desktop 'log in via the bot' handshake. Returns a nonce + a
+    t.me deep link; the web app opens the link and polls until the user taps
+    Start in the bot."""
+    nonce = secrets.token_urlsafe(32)
+    db.add(WebLoginToken(nonce=nonce, confirmed=False))
+    await db.commit()
+    return {
+        "nonce": nonce,
+        "deep_link": f"https://t.me/{settings.BOT_USERNAME}?start=web_{nonce}",
+        "expires_in": int(WEB_LOGIN_TTL.total_seconds()),
+    }
+
+
+@router.get("/web-login/poll")
+async def web_login_poll(nonce: str, db: AsyncSession = Depends(get_db)):
+    """Poll a login handshake. `pending` until the bot confirms; then returns
+    the tokens ONCE (single-use) and deletes the row."""
+    row = (await db.execute(
+        select(WebLoginToken).where(WebLoginToken.nonce == nonce)
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown login token")
+
+    if datetime.utcnow() - row.created_at > WEB_LOGIN_TTL:
+        await db.delete(row)
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Login token expired")
+
+    if not row.confirmed or not row.user_id:
+        return {"status": "pending"}
+
+    user = await db.get(User, row.user_id)
+    await db.delete(row)          # single-use — burn it whatever the outcome
+    await db.commit()
+    if user is None or user.is_deleted or not user.is_registered:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not available")
+    if user.banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
+    return {
+        "status": "ok",
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
+    }
 
 
 @router.post("/telegram-widget", response_model=TokenResponse)

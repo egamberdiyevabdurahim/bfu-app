@@ -10,6 +10,7 @@ from app.models.partner import Partner
 from app.models.trust import Endorsement, Vouch, ProjectRating  # noqa: F401
 from app.models.connection import Follow, ProjectUpdate, MentorSlot, Booking
 from app.models.role import ProjectRole  # noqa: F401
+from app.models.web_login import WebLoginToken  # noqa: F401
 
 __all__ = [
     "User", "UserLearningCenter", "UserSchool", "PendingLocation", "Report", "ErrorLog",
@@ -22,4 +23,5 @@ __all__ = [
     "Endorsement", "Vouch", "ProjectRating",
     "Follow", "ProjectUpdate", "MentorSlot", "Booking",
     "ProjectRole",
+    "WebLoginToken",
 ]

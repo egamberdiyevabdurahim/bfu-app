@@ -2,8 +2,10 @@ import asyncio
 import logging
 import sys
 
+from datetime import datetime, timedelta
+
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery,
     InlineQueryResultArticle, InputTextMessageContent, WebAppInfo,
@@ -52,12 +54,50 @@ def _lang_of(message: types.Message) -> str:
     return code if code in _START else "en"
 
 
+async def _handle_web_login(message: types.Message, nonce: str) -> None:
+    """Confirm a desktop 'log in via the bot' handshake. The tapper's Telegram
+    id identifies them; if they're a registered member we mark the nonce
+    confirmed and the polling web app logs them in."""
+    from app.models.web_login import WebLoginToken
+
+    tg_id = message.from_user.id
+    async with AsyncSessionLocal() as db:
+        row = (await db.execute(
+            select(WebLoginToken).where(WebLoginToken.nonce == nonce)
+        )).scalar_one_or_none()
+        if row is None or datetime.utcnow() - row.created_at > timedelta(minutes=5):
+            await message.answer("⚠️ This login link has expired. Please try again from the website.")
+            return
+        user = (await db.execute(
+            select(User).where(
+                User.telegram_id == tg_id,
+                User.is_deleted == False, User.is_registered == True,
+            )
+        )).scalar_one_or_none()
+        if user is None:
+            await message.answer("You're not registered yet — open the app and join first, then log in on the web.")
+            return
+        if getattr(user, "banned", False):
+            await message.answer("Your account is suspended.")
+            return
+        row.user_id = user.id
+        row.confirmed = True
+        await db.commit()
+    await message.answer("✅ You're logged in on the web. Head back to your browser.")
+
+
 @dp.message(CommandStart())
-async def command_start_handler(message: types.Message) -> None:
+async def command_start_handler(message: types.Message, command: CommandObject) -> None:
     """
     This handler receives messages with `/start` command
-    and sends a message with a WebApp button.
+    and sends a message with a WebApp button. A `web_<nonce>` deep-link payload
+    instead confirms a desktop web-login handshake.
     """
+    payload = (command.args or "").strip()
+    if payload.startswith("web_"):
+        await _handle_web_login(message, payload[len("web_"):])
+        return
+
     webapp_url = getattr(settings, "WEBAPP_URL", "https://your-mini-app.telegram.app")
     tr = _START[_lang_of(message)]
 

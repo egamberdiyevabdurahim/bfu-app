@@ -23,3 +23,19 @@ export const getPublicProfile = cache(async (id) => {
   if (!res.ok) throw new Error(`BFU API error ${res.status} fetching profile ${id}`);
   return res.json();
 });
+
+/**
+ * Fetches the batched, public "building tonight" City/Discovery payload
+ * (stats, region clusters of builder cards, serendipity threads) in one
+ * round-trip. Wrapped in React's cache() so generateMetadata() and the page
+ * component share one network call per request. ISR-cached with revalidate: 60.
+ * Pass a regionId to focus the payload on a single region.
+ */
+export const getCity = cache(async (regionId) => {
+  const qs = regionId ? `?region_id=${regionId}` : "";
+  const res = await fetch(`${API_BASE}/public/city${qs}`, {
+    next: { revalidate: 60, tags: ["city"] },
+  });
+  if (!res.ok) throw new Error(`BFU API error ${res.status} fetching city`);
+  return res.json();
+});

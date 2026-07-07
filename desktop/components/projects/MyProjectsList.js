@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
 
@@ -55,13 +56,24 @@ function StatusBadge({ project }) {
 }
 
 function OwnedCard({ project }) {
+  const router = useRouter();
   const meta = typeMeta(project.type);
   const pending = project.pending_applications_count || 0;
   const members = project.member_count || 0;
+  const open = () => router.push(`/p/${project.id}`);
   return (
     <div
       className="ch-pcard"
-      style={{ animation: "none", opacity: 1, transform: "none", cursor: "default" }}
+      role="link"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+      style={{ animation: "none", opacity: 1, transform: "none", cursor: "pointer" }}
     >
       <div className="ch-pcard-top">
         <span className={`ch-pcard-badge ${meta.cls}`}>
@@ -101,6 +113,7 @@ function OwnedCard({ project }) {
         </div>
         <a
           href={`/projects/${project.id}/manage`}
+          onClick={(e) => e.stopPropagation()}
           className="ch-btn-primary"
           style={{ padding: "9px 16px", fontSize: 13 }}
         >

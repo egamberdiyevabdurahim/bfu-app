@@ -7,39 +7,84 @@ export default function SiteFooter({
   host = "brightfuturesuzbekistan.uz",
 }) {
   return (
-    <div
-      style={{
-        marginTop: 60,
-        paddingTop: 26,
-        borderTop: "1px solid var(--hair)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 20,
-        flexWrap: "wrap",
-      }}
-    >
-      <span
+    <div style={{ marginTop: 60, paddingTop: 26, borderTop: "1px solid var(--hair)" }}>
+      <div
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: "var(--muted)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+          flexWrap: "wrap",
         }}
       >
-        {host}
-      </span>
-      <span
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--muted)",
+          }}
+        >
+          {host}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-accent)",
+            fontStyle: "italic",
+            fontSize: 18,
+            color: "var(--muted)",
+          }}
+        >
+          {tagline}
+        </span>
+      </div>
+
+      {/* Powered-by-Marstiff credit — shown on every page via the shared footer. */}
+      <a
+        href="https://marstiff.uz"
+        target="_blank"
+        rel="noopener noreferrer"
         style={{
-          fontFamily: "var(--font-accent)",
-          fontStyle: "italic",
-          fontSize: 18,
+          marginTop: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          textDecoration: "none",
           color: "var(--muted)",
+          opacity: 0.85,
         }}
       >
-        {tagline}
-      </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+          }}
+        >
+          Powered by
+        </span>
+        <img
+          src="/marstiff-mark.png"
+          alt="Marstiff"
+          width={16}
+          height={16}
+          style={{ display: "block", objectFit: "contain" }}
+        />
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 600,
+            fontSize: 13,
+            letterSpacing: "0.01em",
+            color: "var(--muted-strong)",
+          }}
+        >
+          Marstiff
+        </span>
+      </a>
     </div>
   );
 }

@@ -27,6 +27,12 @@
 
 * { box-sizing: border-box; }
 
+/* The [hidden] attribute must always win over component display rules
+   (.ch-card is display:block, .ch-pcard is display:flex, etc.). Without this,
+   FilterBar / ProjectFilterBar set card.hidden=true but the class's display
+   overrides it, so client-side filtering silently no-ops. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;

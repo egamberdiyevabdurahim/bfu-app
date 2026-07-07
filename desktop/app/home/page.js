@@ -426,6 +426,66 @@ export default async function HomePage() {
               Browse →
             </div>
           </a>
+
+          {/* Quick link: the command center — spans the full row. Non-admins who
+              click through get the graceful "founders & admins only" state on
+              /dashboard (the page gates on the 403 from /admin/stats). */}
+          <a
+            href="/dashboard"
+            className="ch-cell"
+            style={{
+              gridColumn: "span 4",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+              flexWrap: "wrap",
+              color: "var(--text)",
+              textDecoration: "none",
+              background:
+                "linear-gradient(120deg, rgba(232,161,92,0.10), rgba(192,86,59,0.05) 55%, var(--surface))",
+              borderColor: "rgba(232,161,92,0.28)",
+            }}
+          >
+            <div>
+              <div className="ch-cell-label">For founders &amp; admins</div>
+              <div
+                style={{
+                  marginTop: 10,
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: 24,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Command center
+              </div>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 13.5,
+                  lineHeight: 1.5,
+                  color: "var(--muted)",
+                  maxWidth: 560,
+                }}
+              >
+                The whole bazaar at a glance — builders, regions, retention and
+                the skills the city still needs.
+              </p>
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--amber)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Open the counter →
+            </div>
+          </a>
         </div>
 
         {/* Footer */}

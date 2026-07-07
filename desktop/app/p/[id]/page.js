@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/bfu-api";
-import TopBar from "@/components/TopBar";
+import SiteTopBar from "@/components/nav/SiteTopBar";
 import Atmosphere from "@/components/Atmosphere";
 import ProjectHero from "@/components/ProjectHero";
 import ProjectAboutCell from "@/components/ProjectAboutCell";
@@ -11,6 +11,10 @@ import ProjectActions from "@/components/projects/ProjectActions";
 import FavoriteButton from "@/components/projects/FavoriteButton";
 import OpenRolesCell from "@/components/projects/OpenRolesCell";
 import ProjectUpdates from "@/components/projects/ProjectUpdates";
+
+// The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
+// route renders per-request rather than being statically cached.
+export const dynamic = "force-dynamic";
 
 // Screen 3 of the Chorsu desktop app: the public, logged-out project page
 // (`/p/[id]`). SERVER component — does the single batched getProject() fetch
@@ -83,7 +87,7 @@ export default async function ProjectPage({ params }) {
           padding: "26px 40px 96px",
         }}
       >
-        <TopBar />
+        <SiteTopBar active="projects" />
 
         <ProjectHero project={project} />
 

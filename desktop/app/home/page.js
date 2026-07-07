@@ -3,6 +3,7 @@ import { getMe } from "@/lib/session";
 import { gradientFor, initials } from "@/lib/avatar";
 import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
+import { ADMIN_ROLES } from "@/components/nav/navConfig";
 
 // /home reads the httpOnly session cookie, so it can never be statically cached
 // or ISR-revalidated — it is per-user and must render fresh each request.
@@ -21,12 +22,130 @@ function firstName(me) {
   return token || "builder";
 }
 
+// The launchpad tiles. Every area of the product is a labeled, icon-led card so
+// a first-time user instantly sees what they can do — nobody needs to know a
+// URL. Grouped into "Explore the city" and "Your workshop"; Dashboard is
+// appended for admins only. `accent` tints the tile's glow to match the section.
+const EXPLORE_TILES = [
+  { href: "/city", icon: "✦", label: "City", blurb: "See who's building right now, city by city.", accent: "amber" },
+  { href: "/projects", icon: "◆", label: "Projects", blurb: "Browse the teams that are hiring tonight.", accent: "amber" },
+  { href: "/connections", icon: "❋", label: "People", blurb: "Discover builders and grow your circle.", accent: "teal" },
+  { href: "/mentors", icon: "◈", label: "Mentors", blurb: "Book fifteen minutes with someone ahead of you.", accent: "teal" },
+  { href: "/events", icon: "✧", label: "Events", blurb: "Find the next hackathon, grant or meetup.", accent: "teal" },
+  { href: "/partners", icon: "⬡", label: "Partners", blurb: "Meet the orgs opening doors for builders.", accent: "teal" },
+];
+
+const YOU_TILES = [
+  { href: "/projects/mine", icon: "◆", label: "Your projects", blurb: "The teams you run and the ones you've joined.", accent: "teal" },
+  { href: "/requests", icon: "✒", label: "Applications", blurb: "Track who's asked to join, and where you've applied.", accent: "amber" },
+  { href: "/favorites", icon: "❥", label: "Saved", blurb: "Builders and projects you've kept for later.", accent: "amber" },
+  { href: "/connections", icon: "❋", label: "Connections", blurb: "The people in your circle.", accent: "teal" },
+  { href: "/bookings", icon: "◷", label: "Sessions", blurb: "Your mentor bookings, upcoming and past.", accent: "teal" },
+  { href: "/settings", icon: "✎", label: "Settings", blurb: "Edit your profile and preferences.", accent: "amber" },
+];
+
+// Accent → (border, glow-background) tokens. Amber for the personal/city warmth,
+// teal for the community loop — matching the existing /home palette.
+const ACCENTS = {
+  amber: {
+    border: "rgba(232,161,92,0.26)",
+    glow: "linear-gradient(155deg, rgba(255,106,61,0.08), var(--surface) 62%)",
+    icon: "var(--amber)",
+  },
+  teal: {
+    border: "rgba(94,197,182,0.26)",
+    glow: "linear-gradient(155deg, rgba(18,86,79,0.14), var(--surface) 62%)",
+    icon: "#5EC5B6",
+  },
+};
+
+function Tile({ tile }) {
+  const a = ACCENTS[tile.accent] || ACCENTS.amber;
+  return (
+    <a
+      href={tile.href}
+      className="ch-cell"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        color: "var(--text)",
+        textDecoration: "none",
+        background: a.glow,
+        borderColor: a.border,
+        minHeight: 148,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 20,
+          color: a.icon,
+          background: "rgba(35,32,25,0.65)",
+          border: "1px solid var(--hair)",
+        }}
+      >
+        {tile.icon}
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 20,
+          letterSpacing: "-0.01em",
+          marginTop: 2,
+        }}
+      >
+        {tile.label}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>{tile.blurb}</p>
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 6,
+          fontFamily: "var(--font-mono)",
+          fontSize: 10.5,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: a.icon,
+        }}
+      >
+        Open →
+      </div>
+    </a>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div
+      style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: "var(--muted)",
+        margin: "44px 0 18px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
   const name = me.display_name || me.name || "Builder";
   const seed = me.id ?? 0;
+  const isAdmin = ADMIN_ROLES.has(me.role);
 
   return (
     <main style={{ position: "relative", minHeight: "100vh" }}>
@@ -41,9 +160,9 @@ export default async function HomePage() {
           padding: "26px 40px 96px",
         }}
       >
-        {/* Shared logged-in top bar (Batch 5) — brand mark, primary nav,
-            notifications bell + profile menu. /home is the brand-mark home, so
-            no nav item is highlighted here. */}
+        {/* Shared logged-in top bar — brand mark, primary nav, notifications
+            bell + "You" account menu. /home is the launchpad, so no primary nav
+            item is highlighted here. */}
         <AppTopBar active="home" />
 
         {/* Welcome hero — Bricolage headline + Instrument-serif accent line. */}
@@ -97,16 +216,17 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* Bento grid — your-profile card (wide) + quick links to /city and
-            /projects, reusing the .ch-cell grammar. */}
+        {/* Profile summary + primary CTAs. The profile cell (kept from the
+            original /home) spans 2 cols; a start-a-project cell sits beside it. */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(3, 1fr)",
             gap: 20,
-            marginTop: 44,
+            marginTop: 40,
             alignItems: "stretch",
           }}
+          className="home-hero-grid"
         >
           {/* Your profile — spans 2 cols. Whole cell links to /u/{id}. */}
           <a
@@ -283,228 +403,121 @@ export default async function HomePage() {
             </div>
           </a>
 
-          {/* Quick link: the city */}
-          <a
-            href="/city"
-            className="ch-cell"
-            style={{
-              gridColumn: "span 1",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: 16,
-              color: "var(--text)",
-              textDecoration: "none",
-              background:
-                "linear-gradient(155deg, rgba(255,106,61,0.08), var(--surface) 62%)",
-            }}
-          >
-            <div className="ch-cell-label">Wander</div>
-            <div>
-              <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 24,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                The city
-              </div>
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: 13.5,
-                  lineHeight: 1.5,
-                  color: "var(--muted)",
-                }}
-              >
-                See who's building right now, city by city.
-              </p>
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--amber)",
-              }}
-            >
-              Enter →
-            </div>
-          </a>
-
-          {/* Quick link: your projects + start-a-project CTA */}
+          {/* Start a project — the primary "do something now" CTA. */}
           <div
             className="ch-cell"
             style={{
-              gridColumn: "span 1",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               gap: 16,
               color: "var(--text)",
               background:
-                "linear-gradient(155deg, rgba(18,86,79,0.14), var(--surface) 62%)",
+                "linear-gradient(155deg, rgba(18,86,79,0.16), var(--surface) 62%)",
+              borderColor: "rgba(94,197,182,0.26)",
             }}
           >
-            <div className="ch-cell-label">Build together</div>
             <div>
-              <a
-                href="/projects/mine"
+              <div className="ch-cell-label">Build together</div>
+              <div
                 style={{
+                  marginTop: 12,
                   fontFamily: "var(--font-display)",
                   fontWeight: 700,
-                  fontSize: 24,
+                  fontSize: 22,
                   letterSpacing: "-0.01em",
-                  color: "var(--text)",
-                  textDecoration: "none",
                 }}
               >
-                Your projects
-              </a>
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: 13.5,
-                  lineHeight: 1.5,
-                  color: "var(--muted)",
-                }}
-              >
-                The teams you run and the ones you've joined.
+                Start a project
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>
+                Rally a team around the thing you're building.
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <a
-                href="/projects/mine"
+            <a href="/projects/new" className="ch-btn-primary" style={{ justifyContent: "center" }}>
+              + New project
+            </a>
+          </div>
+        </div>
+
+        {/* ── Explore the city ── */}
+        <SectionLabel>Explore the city</SectionLabel>
+        <div className="home-tile-grid">
+          {EXPLORE_TILES.map((t) => (
+            <Tile key={t.href + t.label} tile={t} />
+          ))}
+        </div>
+
+        {/* ── Your workshop ── */}
+        <SectionLabel>Your workshop</SectionLabel>
+        <div className="home-tile-grid">
+          {YOU_TILES.map((t) => (
+            <Tile key={t.href + t.label} tile={t} />
+          ))}
+        </div>
+
+        {/* ── For founders & admins ── (admins only) */}
+        {isAdmin && (
+          <>
+            <SectionLabel>For founders &amp; admins</SectionLabel>
+            <a
+              href="/dashboard"
+              className="ch-cell"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 20,
+                flexWrap: "wrap",
+                color: "var(--text)",
+                textDecoration: "none",
+                background:
+                  "linear-gradient(120deg, rgba(232,161,92,0.10), rgba(192,86,59,0.05) 55%, var(--surface))",
+                borderColor: "rgba(232,161,92,0.28)",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 700,
+                    fontSize: 24,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  <span aria-hidden style={{ color: "var(--amber)", marginRight: 10 }}>
+                    ▦
+                  </span>
+                  Command center
+                </div>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                    color: "var(--muted)",
+                    maxWidth: 560,
+                  }}
+                >
+                  The whole bazaar at a glance — builders, regions, retention and
+                  the skills the city still needs.
+                </p>
+              </div>
+              <div
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  color: "#5EC5B6",
-                  textDecoration: "none",
+                  color: "var(--amber)",
+                  whiteSpace: "nowrap",
                 }}
               >
-                Open →
-              </a>
-              <a href="/projects/new" className="ch-btn-primary" style={{ padding: "8px 14px", fontSize: 12.5 }}>
-                + Start a project
-              </a>
-            </div>
-          </div>
-
-          {/* Community loop — mentors, events, partners. Spans the full row. */}
-          <div
-            className="ch-cell"
-            style={{
-              gridColumn: "span 4",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 20,
-              flexWrap: "wrap",
-              color: "var(--text)",
-              background:
-                "linear-gradient(120deg, rgba(94,197,182,0.10), rgba(18,86,79,0.06) 55%, var(--surface))",
-              borderColor: "rgba(94,197,182,0.26)",
-            }}
-          >
-            <div>
-              <div className="ch-cell-label">Grow your circle</div>
-              <div
-                style={{
-                  marginTop: 10,
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 24,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Mentors, events &amp; partners
+                Open the counter →
               </div>
-              <p style={{ margin: "8px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)", maxWidth: 560 }}>
-                Book fifteen minutes with someone ahead of you, find the next
-                hackathon or grant, and meet the orgs opening doors.
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <a href="/mentors" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
-                <span style={{ color: "#5EC5B6" }}>◈</span> Mentors
-              </a>
-              <a href="/events" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
-                <span style={{ color: "#5EC5B6" }}>✦</span> Events
-              </a>
-              <a href="/partners" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
-                <span style={{ color: "#5EC5B6" }}>⬡</span> Partners
-              </a>
-              <a href="/bookings" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
-                <span style={{ color: "#5EC5B6" }}>◷</span> Sessions
-              </a>
-            </div>
-          </div>
-
-          {/* Quick link: the command center — spans the full row. Non-admins who
-              click through get the graceful "founders & admins only" state on
-              /dashboard (the page gates on the 403 from /admin/stats). */}
-          <a
-            href="/dashboard"
-            className="ch-cell"
-            style={{
-              gridColumn: "span 4",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 20,
-              flexWrap: "wrap",
-              color: "var(--text)",
-              textDecoration: "none",
-              background:
-                "linear-gradient(120deg, rgba(232,161,92,0.10), rgba(192,86,59,0.05) 55%, var(--surface))",
-              borderColor: "rgba(232,161,92,0.28)",
-            }}
-          >
-            <div>
-              <div className="ch-cell-label">For founders &amp; admins</div>
-              <div
-                style={{
-                  marginTop: 10,
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 24,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Command center
-              </div>
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: 13.5,
-                  lineHeight: 1.5,
-                  color: "var(--muted)",
-                  maxWidth: 560,
-                }}
-              >
-                The whole bazaar at a glance — builders, regions, retention and
-                the skills the city still needs.
-              </p>
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--amber)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Open the counter →
-            </div>
-          </a>
-        </div>
+            </a>
+          </>
+        )}
 
         {/* Footer */}
         <div
@@ -542,6 +555,26 @@ export default async function HomePage() {
           </span>
         </div>
       </div>
+
+      {/* Responsive grids — the launchpad tiles flow from 3 → 2 → 1 columns,
+          and the hero grid stacks below ~760px. */}
+      <style>{`
+        .home-tile-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+        }
+        @media (max-width: 900px) {
+          .home-tile-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 760px) {
+          .home-hero-grid { grid-template-columns: 1fr !important; }
+          .home-hero-grid > a { grid-column: auto !important; }
+        }
+        @media (max-width: 560px) {
+          .home-tile-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </main>
   );
 }

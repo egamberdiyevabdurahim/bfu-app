@@ -1,10 +1,15 @@
 import { getProjects } from "@/lib/bfu-api";
-import TopBar from "@/components/TopBar";
+import SiteTopBar from "@/components/nav/SiteTopBar";
 import Atmosphere from "@/components/Atmosphere";
 import ProjectsHeader from "@/components/ProjectsHeader";
 import ProjectFilterBar from "@/components/ProjectFilterBar";
 import ProjectBrowseCard from "@/components/ProjectBrowseCard";
 import StartProjectCTA from "@/components/projects/StartProjectCTA";
+
+// The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
+// route must render per-request. The projects data is still ISR-cached inside
+// getProjects()'s fetch wrapper.
+export const dynamic = "force-dynamic";
 
 // Screen 4 of the Chorsu desktop app: the public, logged-out "projects
 // discovery" surface (`/projects`). SERVER component — it does the single
@@ -83,7 +88,7 @@ export default async function ProjectsPage() {
           padding: "22px 40px 120px",
         }}
       >
-        <TopBar />
+        <SiteTopBar active="projects" />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
           <StartProjectCTA />
         </div>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPublicProfile } from "@/lib/bfu-api";
-import TopBar from "@/components/TopBar";
+import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
 import Atmosphere from "@/components/Atmosphere";
 import IdentityStrip from "@/components/IdentityStrip";
@@ -11,6 +11,10 @@ import AchievementsCell from "@/components/AchievementsCell";
 import VouchesCell from "@/components/VouchesCell";
 import ConnectionsCell from "@/components/ConnectionsCell";
 import PersonActions from "@/components/people/PersonActions";
+
+// The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
+// route renders per-request rather than being statically cached.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -47,7 +51,7 @@ export default async function ProfilePage({ params }) {
       <Atmosphere />
       <div style={{ position: "relative", zIndex: 2, maxWidth: 1200, margin: "0 auto",
         padding: "26px 40px 96px" }}>
-        <TopBar />
+        <SiteTopBar active="people" />
         <AmbientTicker />
         <IdentityStrip profile={profile} />
 

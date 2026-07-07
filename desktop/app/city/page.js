@@ -1,5 +1,5 @@
 import { getCity } from "@/lib/bfu-api";
-import TopBar from "@/components/TopBar";
+import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
 import Atmosphere from "@/components/Atmosphere";
 import CityHeader from "@/components/CityHeader";
@@ -7,6 +7,11 @@ import FilterBar from "@/components/FilterBar";
 import RegionCluster from "@/components/RegionCluster";
 import ThreadsRail from "@/components/ThreadsRail";
 import PresenceToast from "@/components/PresenceToast";
+
+// The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
+// route must render per-request (it can no longer be statically cached). The
+// city data itself is still ISR-cached inside getCity()'s fetch wrapper.
+export const dynamic = "force-dynamic";
 
 // The public, logged-out City / Discovery ("building tonight") screen — the
 // flagship Chorsu "wander for an hour" surface. SERVER component: it does the
@@ -156,7 +161,7 @@ export default async function CityPage() {
           padding: "22px 40px 120px",
         }}
       >
-        <TopBar />
+        <SiteTopBar active="city" />
         <AmbientTicker lines={tickerLines} />
         <CityHeader stats={stats} weekday={weekday} />
 

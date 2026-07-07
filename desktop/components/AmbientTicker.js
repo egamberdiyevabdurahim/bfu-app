@@ -4,27 +4,27 @@ import { useEffect, useRef, useState } from "react";
 
 // Each line is an array of segments. A segment with `hl: true` renders in the
 // bright ink white (--text) for emphasis; plain segments render in --muted.
-// This ports the reference's 4 rich multi-clause lines and their white-highlight
-// <span> on a key noun (Chorsu Profile.dc.html lines 409-414).
+// Honest, evergreen atmosphere only — no fabricated names, counts, or events.
+// (An earlier version hardcoded fake people/numbers, which read as a "LIVE" lie;
+// these lines are true whenever the app is up.) Pass real activity via `lines`
+// once an activity-feed endpoint exists.
 const DEFAULT_LINES = [
   [
-    { t: "Aziza just added a project in Tashkent · " },
-    { t: "34 builders online", hl: true },
-    { t: " tonight · Rustam is looking for a co-founder right now" },
+    { t: "Someone is always building right now" },
+    { t: " · ", },
+    { t: "the bazaar is warm tonight", hl: true },
   ],
   [
-    { t: "Malika endorsed Aziz for " },
-    { t: "firmware", hl: true },
-    { t: " · 5 builders joined Fergana this week · the bazaar is warm tonight" },
+    { t: "Builders across Uzbekistan are " },
+    { t: "looking for teammates", hl: true },
   ],
   [
-    { t: "Dilnoza", hl: true },
-    { t: " shipped SolarPay v2 · 12 builders online in Samarkand · someone is always building right now" },
+    { t: "Every great team started with " },
+    { t: "one lit window", hl: true },
   ],
   [
-    { t: "New vouch for " },
-    { t: "Grid Storage", hl: true },
-    { t: " · Rustam went online · 34 builders in the city tonight" },
+    { t: "New projects light up the city " },
+    { t: "every week", hl: true },
   ],
 ];
 

@@ -7,6 +7,7 @@ import ProjectAboutCell from "@/components/ProjectAboutCell";
 import FounderCell from "@/components/FounderCell";
 import TeamCell from "@/components/TeamCell";
 import ProjectLookingForCell from "@/components/ProjectLookingForCell";
+import ProjectActions from "@/components/projects/ProjectActions";
 
 // Screen 3 of the Chorsu desktop app: the public, logged-out project page
 // (`/p/[id]`). SERVER component — does the single batched getProject() fetch
@@ -82,6 +83,14 @@ export default async function ProjectPage({ params }) {
         <TopBar />
 
         <ProjectHero project={project} />
+
+        {/* Additive client island: the viewer-specific join / manage control.
+            Calls the authed GET /projects/{id} on mount; degrades to a login
+            prompt when the reader isn't signed in. The SSR content above/below
+            stays fully public. */}
+        <div style={{ marginTop: 28, maxWidth: 460 }}>
+          <ProjectActions projectId={project.id} />
+        </div>
 
         <div
           style={{

@@ -76,7 +76,10 @@ export default async function HomePage() {
               Bright Futures Uzbekistan
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <a href="/projects/mine" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>◆</span> Your projects
+            </a>
             <a href="/settings" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>✎</span> Edit profile
             </a>
@@ -378,9 +381,8 @@ export default async function HomePage() {
             </div>
           </a>
 
-          {/* Quick link: projects */}
-          <a
-            href="/projects"
+          {/* Quick link: your projects + start-a-project CTA */}
+          <div
             className="ch-cell"
             style={{
               gridColumn: "span 1",
@@ -389,23 +391,25 @@ export default async function HomePage() {
               justifyContent: "space-between",
               gap: 16,
               color: "var(--text)",
-              textDecoration: "none",
               background:
                 "linear-gradient(155deg, rgba(18,86,79,0.14), var(--surface) 62%)",
             }}
           >
             <div className="ch-cell-label">Build together</div>
             <div>
-              <div
+              <a
+                href="/projects/mine"
                 style={{
                   fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: 24,
                   letterSpacing: "-0.01em",
+                  color: "var(--text)",
+                  textDecoration: "none",
                 }}
               >
-                Projects
-              </div>
+                Your projects
+              </a>
               <p
                 style={{
                   margin: "8px 0 0",
@@ -414,21 +418,28 @@ export default async function HomePage() {
                   color: "var(--muted)",
                 }}
               >
-                Startups and volunteering looking for hands.
+                The teams you run and the ones you've joined.
               </p>
             </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "#5EC5B6",
-              }}
-            >
-              Browse →
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <a
+                href="/projects/mine"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#5EC5B6",
+                  textDecoration: "none",
+                }}
+              >
+                Open →
+              </a>
+              <a href="/projects/new" className="ch-btn-primary" style={{ padding: "8px 14px", fontSize: 12.5 }}>
+                + Start a project
+              </a>
             </div>
-          </a>
+          </div>
 
           {/* Quick link: the command center — spans the full row. Non-admins who
               click through get the graceful "founders & admins only" state on

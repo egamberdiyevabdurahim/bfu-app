@@ -4,6 +4,7 @@ import Atmosphere from "@/components/Atmosphere";
 import ProjectsHeader from "@/components/ProjectsHeader";
 import ProjectFilterBar from "@/components/ProjectFilterBar";
 import ProjectBrowseCard from "@/components/ProjectBrowseCard";
+import StartProjectCTA from "@/components/projects/StartProjectCTA";
 
 // Screen 4 of the Chorsu desktop app: the public, logged-out "projects
 // discovery" surface (`/projects`). SERVER component — it does the single
@@ -83,6 +84,9 @@ export default async function ProjectsPage() {
         }}
       >
         <TopBar />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <StartProjectCTA />
+        </div>
         <ProjectsHeader stats={stats} />
 
         {hasProjects ? (

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
-import ProjectsTopBar from "@/components/projects/ProjectsTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import FavoritesList from "@/components/projects/FavoritesList";
 
 // /favorites — "Saved". Per-user + uncacheable. The server wrapper gates on the
@@ -31,7 +31,7 @@ export default async function FavoritesPage() {
           padding: "26px 40px 96px",
         }}
       >
-        <ProjectsTopBar active="saved" />
+        <AppTopBar active="projects" />
 
         <div style={{ marginTop: 40, marginBottom: 30 }}>
           <div

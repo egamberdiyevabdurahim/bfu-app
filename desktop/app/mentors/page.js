@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
-import CommunityTopBar from "@/components/community/CommunityTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import MentorsBrowser from "@/components/community/MentorsBrowser";
 
 // /mentors — book a 15-minute session with an experienced builder, and (if you
@@ -32,7 +32,7 @@ export default async function MentorsPage() {
           padding: "26px 40px 96px",
         }}
       >
-        <CommunityTopBar active="mentors" />
+        <AppTopBar active="mentors" />
 
         <div style={{ marginTop: 40, marginBottom: 6 }}>
           <div

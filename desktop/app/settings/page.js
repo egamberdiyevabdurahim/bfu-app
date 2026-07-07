@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import Atmosphere from "@/components/Atmosphere";
+import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
 
 const API_BASE = process.env.BFU_API_URL;
@@ -68,49 +69,9 @@ export default async function SettingsPage() {
           padding: "26px 40px 96px",
         }}
       >
-        {/* TopBar — brand mark + back-to-home / public-profile links. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 24,
-            padding: "12px 0 8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <img
-              src="/bfu-mark.png"
-              alt="BFU"
-              style={{
-                height: 38,
-                width: "auto",
-                display: "block",
-                filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))",
-              }}
-            />
-            <div style={{ width: 1, height: 26, background: "var(--hair)" }} />
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--muted)",
-              }}
-            >
-              Bright Futures Uzbekistan
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <a href="/home" className="ch-btn-ghost">
-              <span style={{ fontSize: 14 }}>←</span> Home
-            </a>
-            <a href={`/u/${me.id}`} className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> View public profile
-            </a>
-          </div>
-        </div>
+        {/* Shared logged-in top bar (Batch 5). Settings is reachable from the
+            profile menu, so no primary-nav item is highlighted. */}
+        <AppTopBar active="settings" />
 
         {/* Header */}
         <div style={{ marginTop: 40, marginBottom: 34 }}>

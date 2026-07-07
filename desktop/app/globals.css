@@ -124,6 +124,26 @@ html, body {
 }
 .ch-btn-primary:hover { transform: translateY(-2px); }
 
+/* Batch 5 polish — consistent keyboard focus + disabled affordances across the
+   app's two button primitives, so the whole authed surface feels touchable and
+   is navigable without a mouse. focus-visible only (never on plain click). */
+.ch-btn-ghost:focus-visible,
+.ch-btn-primary:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.ch-btn-ghost:disabled,
+.ch-btn-primary:disabled,
+.ch-btn-ghost[aria-disabled="true"],
+.ch-btn-primary[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+.ch-btn-ghost:disabled:hover { border-color: var(--hair); background: rgba(35,32,25,0.6); }
+.ch-btn-primary:disabled:hover { transform: none; }
+
 .ch-cell {
   border-radius: var(--radius);
   border: 1px solid var(--hair);

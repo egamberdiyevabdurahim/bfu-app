@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
-import CommunityTopBar from "@/components/community/CommunityTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import EventsBrowser from "@/components/community/EventsBrowser";
 
 // /events — hackathons, grants, scholarships and meetups. Authed (per-user "For
@@ -32,7 +32,7 @@ export default async function EventsPage() {
           padding: "26px 40px 96px",
         }}
       >
-        <CommunityTopBar active="events" />
+        <AppTopBar active="events" />
 
         <div style={{ marginTop: 40, marginBottom: 6 }}>
           <div

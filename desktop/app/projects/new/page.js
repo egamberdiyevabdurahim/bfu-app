@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import Atmosphere from "@/components/Atmosphere";
-import ProjectsTopBar from "@/components/projects/ProjectsTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 
 // /projects/new — the "start a project" surface. Reads the httpOnly session
@@ -34,7 +34,7 @@ export default async function NewProjectPage() {
           padding: "26px 40px 96px",
         }}
       >
-        <ProjectsTopBar active="new" />
+        <AppTopBar active="projects" />
 
         <div style={{ marginTop: 40, marginBottom: 34 }}>
           <div

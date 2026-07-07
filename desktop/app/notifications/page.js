@@ -2,20 +2,19 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
-import RequestsList from "@/components/projects/RequestsList";
+import NotificationsInbox from "@/components/nav/NotificationsInbox";
 
-// /requests — "Applications": the founder's inbox of pending applications
-// submitted TO the current user's projects (GET /projects/my-requests). Per-user
-// + uncacheable. The client list loads on mount and lets the founder accept or
-// reject inline.
+// /notifications — the full inbox. Per-user + uncacheable: the server wrapper
+// gates on the session (unauth → /login), then the client list loads
+// GET /users/me/notifications on mount so it's always fresh.
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Applications — Bright Futures Uzbekistan",
-  description: "Builders asking to join your projects.",
+  title: "Notifications — Bright Futures Uzbekistan",
+  description: "Follows, matches, applications and session updates — all in one place.",
 };
 
-export default async function RequestsPage() {
+export default async function NotificationsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
@@ -27,14 +26,14 @@ export default async function RequestsPage() {
         style={{
           position: "relative",
           zIndex: 2,
-          maxWidth: 1100,
+          maxWidth: 820,
           margin: "0 auto",
           padding: "26px 40px 96px",
         }}
       >
-        <AppTopBar active="projects" />
+        <AppTopBar active="notifications" />
 
-        <div style={{ marginTop: 40, marginBottom: 8 }}>
+        <div style={{ marginTop: 40, marginBottom: 6 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -44,7 +43,7 @@ export default async function RequestsPage() {
               color: "var(--amber)",
             }}
           >
-            Who wants in
+            Everything that happened while you were building
           </div>
           <h1
             style={{
@@ -66,25 +65,40 @@ export default async function RequestsPage() {
                 color: "var(--amber)",
               }}
             >
-              applications
+              notifications
             </span>
           </h1>
-          <p
-            style={{
-              margin: "16px 0 0",
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 20,
-              lineHeight: 1.35,
-              color: "var(--muted)",
-              maxWidth: 560,
-            }}
-          >
-            Builders asking to join the projects you've started.
-          </p>
         </div>
 
-        <RequestsList />
+        <NotificationsInbox />
+
+        <div
+          style={{
+            marginTop: 60,
+            paddingTop: 26,
+            borderTop: "1px solid var(--hair)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+            }}
+          >
+            brightfuturesuzbekistan.uz
+          </span>
+          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
+            The city keeps a light on for you.
+          </span>
+        </div>
       </div>
     </main>
   );

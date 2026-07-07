@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
-import ProjectsTopBar from "@/components/projects/ProjectsTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import ProjectManager from "@/components/projects/ProjectManager";
 
 // /projects/[id]/manage — the OWNER cockpit. Per-user + uncacheable. The server
@@ -33,7 +33,7 @@ export default async function ManageProjectPage({ params }) {
           padding: "26px 40px 96px",
         }}
       >
-        <ProjectsTopBar active="mine" />
+        <AppTopBar active="projects" />
 
         <div style={{ marginTop: 34 }}>
           <ProjectManager projectId={id} meId={me.id} />

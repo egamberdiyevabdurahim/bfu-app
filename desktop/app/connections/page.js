@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
+import AppTopBar from "@/components/nav/AppTopBar";
 import ConnectionsList from "@/components/people/ConnectionsList";
 
 // /connections — "Your network". Per-user + uncacheable. The server wrapper
@@ -31,44 +32,8 @@ export default async function ConnectionsPage() {
           padding: "26px 40px 96px",
         }}
       >
-        {/* Top bar — brand mark + a way home, mirroring the authed surfaces. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 24,
-            padding: "12px 0 8px",
-          }}
-        >
-          <a href="/home" style={{ display: "flex", alignItems: "center", gap: 16, textDecoration: "none" }}>
-            <img
-              src="/bfu-mark.png"
-              alt="BFU"
-              style={{ height: 38, width: "auto", display: "block", filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))" }}
-            />
-            <div style={{ width: 1, height: 26, background: "var(--hair)" }} />
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--muted)",
-              }}
-            >
-              Bright Futures Uzbekistan
-            </span>
-          </a>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <a href="/city" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> The city
-            </a>
-            <a href="/home" className="ch-btn-ghost">
-              <span style={{ fontSize: 14 }}>←</span> Home
-            </a>
-          </div>
-        </div>
+        {/* Shared logged-in top bar (Batch 5). */}
+        <AppTopBar active="people" />
 
         {/* Hero */}
         <div style={{ marginTop: 40, marginBottom: 6 }}>

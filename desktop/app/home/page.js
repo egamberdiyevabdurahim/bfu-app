@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { gradientFor, initials } from "@/lib/avatar";
 import Atmosphere from "@/components/Atmosphere";
+import AppTopBar from "@/components/nav/AppTopBar";
 
 // /home reads the httpOnly session cookie, so it can never be statically cached
 // or ISR-revalidated — it is per-user and must render fresh each request.
@@ -40,75 +41,10 @@ export default async function HomePage() {
           padding: "26px 40px 96px",
         }}
       >
-        {/* Home TopBar — brand mark on the left, a "Log out" affordance on the
-            right (the public TopBar's "Open in Telegram" CTA doesn't fit a
-            logged-in surface). */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 24,
-            padding: "12px 0 8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <img
-              src="/bfu-mark.png"
-              alt="BFU"
-              style={{
-                height: 38,
-                width: "auto",
-                display: "block",
-                filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))",
-              }}
-            />
-            <div style={{ width: 1, height: 26, background: "var(--hair)" }} />
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--muted)",
-              }}
-            >
-              Bright Futures Uzbekistan
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <a href="/projects/mine" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>◆</span> Your projects
-            </a>
-            <a href="/favorites" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>♥</span> Saved
-            </a>
-            <a href="/connections" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>❋</span> Connections
-            </a>
-            <a href="/mentors" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>◈</span> Mentors
-            </a>
-            <a href="/events" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> Events
-            </a>
-            <a href="/partners" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>⬡</span> Partners
-            </a>
-            <a href="/bookings" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>◷</span> Sessions
-            </a>
-            <a href="/settings" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>✎</span> Edit profile
-            </a>
-            <a href="/city" className="ch-btn-ghost">
-              <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> The city
-            </a>
-            <a href="/api/auth/logout" className="ch-btn-ghost">
-              Log out <span style={{ fontSize: 14 }}>↩</span>
-            </a>
-          </div>
-        </div>
+        {/* Shared logged-in top bar (Batch 5) — brand mark, primary nav,
+            notifications bell + profile menu. /home is the brand-mark home, so
+            no nav item is highlighted here. */}
+        <AppTopBar active="home" />
 
         {/* Welcome hero — Bricolage headline + Instrument-serif accent line. */}
         <div style={{ marginTop: 48 }}>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import Atmosphere from "@/components/Atmosphere";
-import CommunityTopBar from "@/components/community/CommunityTopBar";
+import AppTopBar from "@/components/nav/AppTopBar";
 import PartnerDetail from "@/components/community/PartnerDetail";
 
 // /partners/[id] — a partner org's profile + the opportunities they've posted.
@@ -34,7 +34,7 @@ export default async function PartnerPage({ params }) {
           padding: "26px 40px 96px",
         }}
       >
-        <CommunityTopBar active="partners" />
+        <AppTopBar active="partners" />
 
         <div style={{ marginTop: 32 }}>
           <a

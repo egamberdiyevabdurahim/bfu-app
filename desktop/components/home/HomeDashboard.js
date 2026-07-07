@@ -213,13 +213,25 @@ function NeedsYouNow() {
 // Weighted checks (sum to 100). Bio + photo + skills carry the most weight —
 // they're what the city and the AI read first.
 function completeness(profile) {
+  // Defensive: reads the raw `me` shape (about/currently_building may be null;
+  // skills/portfolio_links are arrays; region is an object) OR a pre-shaped slice
+  // (skillsCount/linksCount/currentlyBuilding/hasRegion). Never throws on nulls —
+  // an undefined field here used to crash the whole /home render.
+  const p = profile || {};
+  const about = `${p.about ?? ""}`;
+  const building = `${p.currentlyBuilding ?? p.currently_building ?? ""}`;
+  const skills = Array.isArray(p.skills) ? p.skills.length : Number(p.skillsCount) || 0;
+  const links = Array.isArray(p.portfolio_links) ? p.portfolio_links.length : Number(p.linksCount) || 0;
+  const hasRegion =
+    p.hasRegion ?? Boolean(p.region && (p.region.id || p.region.name_en || p.region.name));
+
   const checks = [
-    { ok: !!profile.photo_url, w: 20, label: "Add a photo" },
-    { ok: profile.about.length > 0, w: 25, label: "Write your bio" },
-    { ok: profile.skillsCount > 0, w: 20, label: "Add your skills" },
-    { ok: profile.currentlyBuilding.length > 0, w: 15, label: "Say what you're building" },
-    { ok: profile.hasRegion, w: 10, label: "Set your region" },
-    { ok: profile.linksCount > 0, w: 10, label: "Add a portfolio link" },
+    { ok: !!p.photo_url, w: 20, label: "Add a photo" },
+    { ok: about.length > 0, w: 25, label: "Write your bio" },
+    { ok: skills > 0, w: 20, label: "Add your skills" },
+    { ok: building.length > 0, w: 15, label: "Say what you're building" },
+    { ok: hasRegion, w: 10, label: "Set your region" },
+    { ok: links > 0, w: 10, label: "Add a portfolio link" },
   ];
   const pct = checks.filter((c) => c.ok).reduce((a, c) => a + c.w, 0);
   const missing = checks.filter((c) => !c.ok).slice(0, 2);

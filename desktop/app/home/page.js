@@ -86,6 +86,18 @@ export default async function HomePage() {
             <a href="/connections" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>❋</span> Connections
             </a>
+            <a href="/mentors" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>◈</span> Mentors
+            </a>
+            <a href="/events" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> Events
+            </a>
+            <a href="/partners" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>⬡</span> Partners
+            </a>
+            <a href="/bookings" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>◷</span> Sessions
+            </a>
             <a href="/settings" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>✎</span> Edit profile
             </a>
@@ -443,6 +455,56 @@ export default async function HomePage() {
               </a>
               <a href="/projects/new" className="ch-btn-primary" style={{ padding: "8px 14px", fontSize: 12.5 }}>
                 + Start a project
+              </a>
+            </div>
+          </div>
+
+          {/* Community loop — mentors, events, partners. Spans the full row. */}
+          <div
+            className="ch-cell"
+            style={{
+              gridColumn: "span 4",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+              flexWrap: "wrap",
+              color: "var(--text)",
+              background:
+                "linear-gradient(120deg, rgba(94,197,182,0.10), rgba(18,86,79,0.06) 55%, var(--surface))",
+              borderColor: "rgba(94,197,182,0.26)",
+            }}
+          >
+            <div>
+              <div className="ch-cell-label">Grow your circle</div>
+              <div
+                style={{
+                  marginTop: 10,
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: 24,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Mentors, events &amp; partners
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)", maxWidth: 560 }}>
+                Book fifteen minutes with someone ahead of you, find the next
+                hackathon or grant, and meet the orgs opening doors.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <a href="/mentors" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
+                <span style={{ color: "#5EC5B6" }}>◈</span> Mentors
+              </a>
+              <a href="/events" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
+                <span style={{ color: "#5EC5B6" }}>✦</span> Events
+              </a>
+              <a href="/partners" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
+                <span style={{ color: "#5EC5B6" }}>⬡</span> Partners
+              </a>
+              <a href="/bookings" className="ch-btn-ghost" style={{ borderColor: "rgba(94,197,182,0.4)" }}>
+                <span style={{ color: "#5EC5B6" }}>◷</span> Sessions
               </a>
             </div>
           </div>

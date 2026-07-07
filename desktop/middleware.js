@@ -166,6 +166,8 @@ export const config = {
     "/home/:path*",
     "/settings",
     "/settings/:path*",
+    "/connections",
+    "/connections/:path*",
     "/dashboard/:path*",
     "/api/bfu/:path*",
     "/api/resume",

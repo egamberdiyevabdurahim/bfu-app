@@ -10,6 +10,7 @@ import LookingForCell from "@/components/LookingForCell";
 import AchievementsCell from "@/components/AchievementsCell";
 import VouchesCell from "@/components/VouchesCell";
 import ConnectionsCell from "@/components/ConnectionsCell";
+import PersonActions from "@/components/people/PersonActions";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -49,6 +50,20 @@ export default async function ProfilePage({ params }) {
         <TopBar />
         <AmbientTicker />
         <IdentityStrip profile={profile} />
+
+        {/* Additive client island: the viewer-specific People & Trust controls
+            (follow / interest / intro / endorse / vouch + the AI trio). Calls
+            the AUTHED GET /users/{id} on mount; degrades to "This is you" on
+            your own profile and a login prompt for anon readers. The SSR
+            content above/below stays fully public. */}
+        <div style={{ marginTop: 28, maxWidth: 460 }}>
+          <PersonActions
+            userId={profile.id}
+            personName={profile.name}
+            aboutText={profile.about}
+            lang="en"
+          />
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20,
           marginTop: 40, alignItems: "stretch" }}>

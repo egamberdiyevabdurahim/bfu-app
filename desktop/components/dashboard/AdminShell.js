@@ -1,64 +1,31 @@
-import { redirect } from "next/navigation";
-import { getToken } from "@/lib/session";
-import { getAdminStats, getRegions, getRetention, getSkillGap } from "@/lib/admin";
 import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
-import StatCards from "@/components/dashboard/StatCards";
-import RegionHeatmap from "@/components/dashboard/RegionHeatmap";
-import RetentionPanel from "@/components/dashboard/RetentionPanel";
-import SkillGapPanel from "@/components/dashboard/SkillGapPanel";
 
-// The admin "command center" — screen 6, the finale. SERVER component: it reads
-// the httpOnly session cookie and calls the four Bearer-gated /admin endpoints,
-// so it is per-user and must never be statically cached or ISR-revalidated.
-export const dynamic = "force-dynamic";
+// Shared server-rendered shell for the /dashboard/* console pages (Users,
+// Projects, Reports, Broadcast). Renders the firelit Atmosphere, the shared
+// AppTopBar (active="dashboard"), the admin sub-nav (active tab), and a compact
+// hero, then drops `children` (a client leaf) underneath. Keeps every console
+// page visually identical to the Overview command-center.
+//
+// Auth is handled by the page: it awaits getMe(), redirects to /login when
+// there's no session, and passes `forbidden` when the user isn't an admin so we
+// render the graceful "founders & admins only" card instead of the content.
 
-export const metadata = {
-  title: "Command center — Bright Futures Uzbekistan",
-  description: "The whole bazaar, at a glance — for founders and admins.",
-};
-
-// A calm long weekday, e.g. "Sunday", for the overline. Falls back to "tonight"
-// so the header always reads well.
-function weekdayLabel() {
-  try {
-    return new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
-  } catch {
-    return "tonight";
-  }
-}
-
-export default async function DashboardPage() {
-  // Gate 1: no cookie at all → straight to the login door.
-  const token = await getToken();
-  if (!token) redirect("/login");
-
-  // One batched round of the four admin fetches. Each returns a discriminated
-  // { status, data } so we can branch on auth vs forbidden vs error per-panel.
-  const [stats, regions, retention, skillGap] = await Promise.all([
-    getAdminStats(),
-    getRegions(),
-    getRetention(30),
-    getSkillGap(),
-  ]);
-
-  // Gate 2: the token is present but the backend says it's unauthenticated
-  // (expired / revoked). Treat like a logged-out visitor.
-  if (stats.status === "noauth") redirect("/login");
-
-  // Gate 3: authenticated, but not an admin. Render the graceful, on-brand
-  // "founders & admins only" state — NOT an error page.
-  if (stats.status === "forbidden") {
-    return <AdminsOnly />;
-  }
-
-  const weekday = weekdayLabel();
+export default function AdminShell({
+  active,
+  kicker,
+  title,
+  titleAccent,
+  subtitle,
+  forbidden = false,
+  children,
+}) {
+  if (forbidden) return <AdminsOnly />;
 
   return (
     <main style={{ position: "relative", minHeight: "100vh" }}>
       <Atmosphere />
-
       <div
         style={{
           position: "relative",
@@ -68,12 +35,9 @@ export default async function DashboardPage() {
           padding: "26px 40px 96px",
         }}
       >
-        {/* Shared logged-in top bar (Batch 5). The Dashboard nav item only
-            appears for admins, and is highlighted here. */}
         <AppTopBar active="dashboard" />
-        <AdminSubNav active="overview" />
+        <AdminSubNav active={active} />
 
-        {/* Command-center hero — overline + Bricolage headline + Instrument-serif sub. */}
         <div style={{ marginTop: 34 }}>
           <div
             style={{
@@ -84,82 +48,52 @@ export default async function DashboardPage() {
               color: "var(--amber)",
             }}
           >
-            Command center · {weekday}
+            {kicker}
           </div>
           <h1
             style={{
-              margin: "14px 0 0",
+              margin: "12px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 800,
-              fontSize: 60,
-              lineHeight: 0.98,
+              fontSize: 48,
+              lineHeight: 1.0,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
           >
-            The whole bazaar,{" "}
-            <span
+            {title}{" "}
+            {titleAccent && (
+              <span
+                style={{
+                  fontFamily: "var(--font-accent)",
+                  fontStyle: "italic",
+                  fontWeight: 400,
+                  color: "var(--amber)",
+                }}
+              >
+                {titleAccent}
+              </span>
+            )}
+          </h1>
+          {subtitle && (
+            <p
               style={{
+                margin: "14px 0 0",
                 fontFamily: "var(--font-accent)",
                 fontStyle: "italic",
-                fontWeight: 400,
-                color: "var(--amber)",
+                fontSize: 20,
+                lineHeight: 1.35,
+                color: "var(--muted)",
+                maxWidth: 640,
               }}
             >
-              at a glance
-            </span>
-          </h1>
-          <p
-            style={{
-              margin: "16px 0 0",
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 22,
-              lineHeight: 1.35,
-              color: "var(--muted)",
-              maxWidth: 620,
-            }}
-          >
-            Who's here, where they're building, who's staying, and what the city
-            still needs a hand with.
-          </p>
+              {subtitle}
+            </p>
+          )}
         </div>
 
-        {/* Stat cards — client leaf so the numbers count up. */}
-        <StatCards stats={stats.data || {}} />
+        {children}
 
-        {/* Region heatmap — full width. */}
-        <div style={{ marginTop: 22 }}>
-          <PanelOrNote
-            result={regions}
-            label="Region heatmap · members"
-            render={(data) => <RegionHeatmap payload={data} />}
-          />
-        </div>
-
-        {/* Retention + skill gap side by side (stacks on narrow viewports). */}
-        <div
-          style={{
-            marginTop: 22,
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: 22,
-            alignItems: "start",
-          }}
-        >
-          <PanelOrNote
-            result={retention}
-            label="Retention · by signup cohort"
-            render={(data) => <RetentionPanel payload={data} />}
-          />
-          <PanelOrNote
-            result={skillGap}
-            label="Skill gap · what the city needs"
-            render={(data) => <SkillGapPanel payload={data} />}
-          />
-        </div>
-
-        {/* Footer */}
         <div
           style={{
             marginTop: 60,
@@ -199,35 +133,9 @@ export default async function DashboardPage() {
   );
 }
 
-// Renders a panel from an { status, data } result, or a small on-brand note when
-// that single endpoint failed (error/forbidden) even though /admin/stats
-// succeeded — so one flaky analytics call can't blank the whole dashboard.
-function PanelOrNote({ result, label, render }) {
-  if (result?.status === "ok") return render(result.data);
-  const quiet =
-    result?.status === "forbidden"
-      ? "This slice is restricted."
-      : "This slice couldn't load just now — it'll refresh on the next visit.";
-  return (
-    <section className="ch-cell" style={{ padding: 26 }}>
-      <div className="ch-cell-label">{label}</div>
-      <p
-        style={{
-          margin: "14px 0 0",
-          fontFamily: "var(--font-accent)",
-          fontStyle: "italic",
-          fontSize: 19,
-          color: "var(--muted)",
-        }}
-      >
-        {quiet}
-      </p>
-    </section>
-  );
-}
-
 // Graceful "admins only" state — a warm firelit card, not an error. Shown when
-// the session is valid but the user isn't an admin (403 on /admin/stats).
+// the session is valid but the user isn't an admin. Mirrors the Overview page's
+// AdminsOnly so the whole console shares one refusal surface.
 function AdminsOnly() {
   return (
     <main style={{ position: "relative", minHeight: "100vh" }}>
@@ -248,12 +156,7 @@ function AdminsOnly() {
           <img
             src="/bfu-mark.png"
             alt="BFU"
-            style={{
-              height: 38,
-              width: "auto",
-              display: "block",
-              filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))",
-            }}
+            style={{ height: 38, width: "auto", display: "block", filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))" }}
           />
           <div style={{ width: 1, height: 26, background: "var(--hair)" }} />
           <span
@@ -269,14 +172,7 @@ function AdminsOnly() {
           </span>
         </div>
 
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <section
             className="ch-cell"
             style={{
@@ -319,7 +215,7 @@ function AdminsOnly() {
                   color: "var(--amber)",
                 }}
               >
-                founders & admins
+                founders &amp; admins
               </span>
             </h1>
             <p

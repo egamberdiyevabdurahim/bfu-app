@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/session";
+import { setAuthCookies } from "@/lib/session";
 
 const API_BASE = process.env.BFU_API_URL;
-
-// One week, in seconds — matches the auth spec's cookie maxAge and the
-// /api/auth/telegram route.
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 /**
  * GET /api/auth/web-login/poll?nonce=<nonce>
@@ -88,8 +84,9 @@ export async function GET(request) {
     return NextResponse.json({ status: "pending" }, { status: 200 });
   }
 
-  // Handshake complete — mint the httpOnly session cookie exactly the way
-  // /api/auth/telegram does (same name + options), then report success.
+  // Handshake complete — mint the httpOnly session + refresh cookies exactly the
+  // way /api/auth/telegram does (shared setAuthCookies helper), then report
+  // success.
   if (data?.status === "ok") {
     const token = data?.access_token;
     if (!token) {
@@ -100,13 +97,7 @@ export async function GET(request) {
     }
 
     const response = NextResponse.json({ status: "ok" }, { status: 200 });
-    response.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: SESSION_MAX_AGE,
-    });
+    setAuthCookies(response.cookies, token, data?.refresh_token);
     return response;
   }
 

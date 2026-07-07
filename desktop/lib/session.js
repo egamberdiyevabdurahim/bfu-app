@@ -15,6 +15,59 @@ if (!API_BASE) {
 // read it via next/headers cookies().
 export const SESSION_COOKIE = "bfu_session";
 
+// The httpOnly refresh-token cookie name. Set alongside SESSION_COOKIE by the
+// login routes. Holds the backend refresh_token (7-day lifetime) so the proxy
+// and middleware can silently mint a fresh access token when the short-lived
+// access token (30 min) expires.
+export const REFRESH_COOKIE = "bfu_refresh";
+
+// One week, in seconds. Both cookies use the same maxAge: the access token's
+// JWT `exp` (30 min) is what actually gates auth, but we keep the cookie alive
+// for the full refresh window so middleware/proxy can transparently refresh it
+// on any request within 7 days.
+export const AUTH_MAX_AGE = 60 * 60 * 24 * 7;
+
+// Shared cookie options so every place that writes an auth cookie stays in sync.
+// httpOnly (never exposed to client JS), sameSite:'lax' (survives top-level
+// nav + same-site fetches), secure only in production (so http://localhost works
+// in dev).
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: AUTH_MAX_AGE,
+  };
+}
+
+/**
+ * Sets BOTH the access (bfu_session) and refresh (bfu_refresh) cookies on the
+ * given cookie store, using the shared options above. `cookieStore` is anything
+ * with a `.set(name, value, opts)` method — i.e. a NextResponse's `.cookies`, or
+ * the object returned by `await cookies()`. If `refreshToken` is falsy we only
+ * set the access cookie (some flows may not return a refresh token).
+ */
+export function setAuthCookies(cookieStore, accessToken, refreshToken) {
+  cookieStore.set(SESSION_COOKIE, accessToken, cookieOptions());
+  if (refreshToken) {
+    cookieStore.set(REFRESH_COOKIE, refreshToken, cookieOptions());
+  }
+}
+
+/**
+ * Deletes BOTH auth cookies on the given cookie store. Works with a
+ * NextResponse's `.cookies` or the `await cookies()` store: both expose
+ * `.set()`, so we expire the cookies by writing an empty value with maxAge:0 on
+ * the same path (more portable than `.delete()`, which the response cookie API
+ * has but the async cookies() store historically hasn't in every runtime).
+ */
+export function clearAuthCookies(cookieStore) {
+  const expired = { ...cookieOptions(), maxAge: 0 };
+  cookieStore.set(SESSION_COOKIE, "", expired);
+  cookieStore.set(REFRESH_COOKIE, "", expired);
+}
+
 /**
  * Reads the access_token from the httpOnly `bfu_session` cookie. Server-only
  * (uses next/headers). Returns null when there is no session.

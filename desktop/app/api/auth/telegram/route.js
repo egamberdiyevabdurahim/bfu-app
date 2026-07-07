@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/session";
+import { setAuthCookies } from "@/lib/session";
 
 const API_BASE = process.env.BFU_API_URL;
-
-// One week, in seconds — matches the auth spec's cookie maxAge.
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 // The Telegram Login Widget's own fields (data-auth-url flow). Telegram appends
 // these to our URL as query params after the user approves in the popup.
@@ -71,15 +68,10 @@ export async function GET(request) {
   const token = data?.access_token;
   if (!token) return redirectToLogin(request, "invalid");
 
-  // Success: set the httpOnly session cookie and land on the personalized home.
+  // Success: set the httpOnly session + refresh cookies and land on the
+  // personalized home.
   const response = NextResponse.redirect(new URL("/home", request.url));
-  response.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: SESSION_MAX_AGE,
-  });
+  setAuthCookies(response.cookies, token, data?.refresh_token);
   return response;
 }
 

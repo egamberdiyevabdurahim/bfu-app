@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
+import Pagination, { paginate } from "@/components/ui/Pagination";
 
 // The project moderation queue for /dashboard/projects.
 //
@@ -20,6 +21,10 @@ import { useToast } from "@/components/ui/Toast";
 // links to /p/{id}.
 
 const PAGE_SIZE = 50;
+// Client-side page size for each section's slice of the loaded window. NOTE: this
+// paginates the up-to-50-row server window (PAGE_SIZE) client-side; at high volume
+// these sections should page fully server-side (limit/offset) instead.
+const PER_PAGE = 15;
 
 export default function AdminProjects({ me }) {
   const isSuper = me?.role === "super_admin";
@@ -220,6 +225,11 @@ export default function AdminProjects({ me }) {
 }
 
 function Section({ label, hint, emptyTitle, emptyBody, items, busyId, isSuper, onApprove, onPin, onDelete, onHardDelete }) {
+  const [page, setPage] = useState(1);
+  // Reset to the first page whenever this section's set changes — a search reload,
+  // the Show-approved toggle, or items moving between sections on approve/delete.
+  useEffect(() => { setPage(1); }, [items.length]);
+
   return (
     <div style={{ marginTop: 20 }}>
       <div className="ch-slab" style={{ marginBottom: 12 }}>
@@ -236,18 +246,21 @@ function Section({ label, hint, emptyTitle, emptyBody, items, busyId, isSuper, o
           </div>
         ) : null
       ) : (
-        items.map((p) => (
-          <ProjectRow
-            key={p.id}
-            p={p}
-            isSuper={isSuper}
-            busy={busyId === p.id}
-            onApprove={() => onApprove(p)}
-            onPin={() => onPin(p)}
-            onDelete={() => onDelete(p)}
-            onHardDelete={() => onHardDelete(p)}
-          />
-        ))
+        <>
+          {paginate(items, page, PER_PAGE).map((p) => (
+            <ProjectRow
+              key={p.id}
+              p={p}
+              isSuper={isSuper}
+              busy={busyId === p.id}
+              onApprove={() => onApprove(p)}
+              onPin={() => onPin(p)}
+              onDelete={() => onDelete(p)}
+              onHardDelete={() => onHardDelete(p)}
+            />
+          ))}
+          <Pagination page={page} pageSize={PER_PAGE} total={items.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

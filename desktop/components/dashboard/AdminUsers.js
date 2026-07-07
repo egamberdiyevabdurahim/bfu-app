@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/components/ui/Toast";
+import Pagination, { paginate } from "@/components/ui/Pagination";
 
 // The user moderation table for /dashboard/users.
 //
@@ -23,6 +24,10 @@ import { useToast } from "@/components/ui/Toast";
 // server-side, so we treat is_deleted as "banned".
 
 const PAGE_SIZE = 50;
+// Client-side page size for the loaded window. NOTE: this slices the up-to-50-row
+// server window (PAGE_SIZE) client-side; at ~1000+ users this list should page
+// fully server-side (limit/offset per client page) instead of double-paginating.
+const PER_PAGE = 15;
 const ROLES = ["user", "admin", "super_admin"];
 // Fields the backend allows denying (mirrors DENIABLE_FIELDS in admin.py).
 const DENIABLE = ["name", "surname", "phone_number", "about", "birth_year", "gender", "tg_username"];
@@ -44,6 +49,7 @@ export default function AdminUsers({ me }) {
   const [hasMore, setHasMore] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [denyFor, setDenyFor] = useState(null); // user object being denied, or null
+  const [page, setPage] = useState(1);          // client-side page over the loaded window
 
   const load = useCallback(async (nextSkip, q) => {
     setState("loading");
@@ -53,6 +59,7 @@ export default function AdminUsers({ me }) {
       });
       const list = Array.isArray(data) ? data : [];
       setRows(list);
+      setPage(1); // new server window (initial / search / prev-next) → back to page 1
       setSkip(nextSkip);
       setHasMore(list.length === PAGE_SIZE);
       setState("ready");
@@ -64,6 +71,12 @@ export default function AdminUsers({ me }) {
   useEffect(() => {
     load(0, "");
   }, [load]);
+
+  // Keep the client page in range when optimistic bans/deletes shrink the window.
+  useEffect(() => {
+    const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+    if (page > pages) setPage(pages);
+  }, [rows.length, page]);
 
   // Debounced search: reload from page 0 ~350ms after the last keystroke.
   const searchTimer = useRef(null);
@@ -221,25 +234,28 @@ export default function AdminUsers({ me }) {
       )}
 
       {state === "ready" && rows.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: 780 }}>
-            {rows.map((u) => (
-              <UserRow
-                key={u.id}
-                u={u}
-                isSuper={isSuper}
-                busy={busyId === u.id}
-                onVerify={() => doVerify(u)}
-                onToggle={() => doToggleCheck(u)}
-                onSetRole={(r) => doSetRole(u, r)}
-                onBan={() => doBan(u)}
-                onRestore={() => doRestore(u)}
-                onHardDelete={() => doHardDelete(u)}
-                onDeny={() => setDenyFor(u)}
-              />
-            ))}
+        <>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: 780 }}>
+              {paginate(rows, page, PER_PAGE).map((u) => (
+                <UserRow
+                  key={u.id}
+                  u={u}
+                  isSuper={isSuper}
+                  busy={busyId === u.id}
+                  onVerify={() => doVerify(u)}
+                  onToggle={() => doToggleCheck(u)}
+                  onSetRole={(r) => doSetRole(u, r)}
+                  onBan={() => doBan(u)}
+                  onRestore={() => doRestore(u)}
+                  onHardDelete={() => doHardDelete(u)}
+                  onDeny={() => setDenyFor(u)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+          <Pagination page={page} pageSize={PER_PAGE} total={rows.length} onPageChange={setPage} />
+        </>
       )}
 
       {/* Pagination */}

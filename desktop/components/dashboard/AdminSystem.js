@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
 import { downloadExport } from "@/lib/export";
+import Pagination, { paginate } from "@/components/ui/Pagination";
 
 // System panel for /dashboard/system.
 //
@@ -22,6 +23,8 @@ import { downloadExport } from "@/lib/export";
 // Optional: GET /admin/my-bot-location → { latitude, longitude } (this admin's
 // last location shared with the Telegram bot).
 
+const PER_PAGE = 15; // client-side page size for the audit + error logs
+
 function fmtTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -38,6 +41,8 @@ export default function AdminSystem({ me }) {
   const [botLoc, setBotLoc] = useState(null);
   const [state, setState] = useState("loading");
   const [exporting, setExporting] = useState(null); // "users" | "projects" | null
+  const [auditPage, setAuditPage] = useState(1);
+  const [errPage, setErrPage] = useState(1);
 
   useEffect(() => {
     let alive = true;
@@ -147,16 +152,19 @@ export default function AdminSystem({ me }) {
                 <div className="ch-grace-t">No admin actions logged yet.</div>
               </div>
             ) : (
-              <LogTable
-                cols={["When", "Admin", "Action", "Target", "Details"]}
-                rows={audit.map((a) => [
-                  fmtTime(a.created_at),
-                  a.admin_id != null ? `#${a.admin_id}` : "—",
-                  <Mono key="act">{a.action}</Mono>,
-                  a.target_type ? `${a.target_type} #${a.target_id ?? "?"}` : "—",
-                  a.details ? <Details key="d" value={a.details} /> : "—",
-                ])}
-              />
+              <>
+                <LogTable
+                  cols={["When", "Admin", "Action", "Target", "Details"]}
+                  rows={paginate(audit, auditPage, PER_PAGE).map((a) => [
+                    fmtTime(a.created_at),
+                    a.admin_id != null ? `#${a.admin_id}` : "—",
+                    <Mono key="act">{a.action}</Mono>,
+                    a.target_type ? `${a.target_type} #${a.target_id ?? "?"}` : "—",
+                    a.details ? <Details key="d" value={a.details} /> : "—",
+                  ])}
+                />
+                <Pagination page={auditPage} pageSize={PER_PAGE} total={audit.length} onPageChange={setAuditPage} />
+              </>
             )}
           </section>
 
@@ -176,15 +184,18 @@ export default function AdminSystem({ me }) {
                 <div className="ch-grace-t">No server errors recorded.</div>
               </div>
             ) : (
-              <LogTable
-                cols={["When", "Method", "Path", "Message"]}
-                rows={errors.map((e) => [
-                  fmtTime(e.created_at),
-                  <Mono key="m">{e.method || "—"}</Mono>,
-                  <Mono key="p">{e.path || "—"}</Mono>,
-                  <span key="msg" style={{ color: "var(--terra)" }}>{e.message || "—"}</span>,
-                ])}
-              />
+              <>
+                <LogTable
+                  cols={["When", "Method", "Path", "Message"]}
+                  rows={paginate(errors, errPage, PER_PAGE).map((e) => [
+                    fmtTime(e.created_at),
+                    <Mono key="m">{e.method || "—"}</Mono>,
+                    <Mono key="p">{e.path || "—"}</Mono>,
+                    <span key="msg" style={{ color: "var(--terra)" }}>{e.message || "—"}</span>,
+                  ])}
+                />
+                <Pagination page={errPage} pageSize={PER_PAGE} total={errors.length} onPageChange={setErrPage} />
+              </>
             )}
           </section>
         </>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
 import { Modal, Field, Row, inputStyle, selectStyle } from "@/components/dashboard/AdminEvents";
+import Pagination, { paginate } from "@/components/ui/Pagination";
 
 // Places content management for /dashboard/places — two sections, Schools and
 // Learning Centers, which share one body family.
@@ -27,6 +28,8 @@ const KINDS = [
   { key: "lc", label: "Learning Centers", path: "/admin/learning-centers", noun: "learning center" },
 ];
 
+const PER_PAGE = 15; // client-side page size per list (Schools / Learning Centers)
+
 export default function AdminPlaces() {
   const { showToast, Toast } = useToast();
   const [regions, setRegions] = useState([]);
@@ -35,6 +38,7 @@ export default function AdminPlaces() {
   const [state, setState] = useState("loading");
   const [busyId, setBusyId] = useState(null); // `${kind}:${id}`
   const [editing, setEditing] = useState(null); // { kind, place|null }
+  const [pages, setPages] = useState({ school: 1, lc: 1 }); // independent page per list
 
   useEffect(() => {
     let alive = true;
@@ -55,6 +59,14 @@ export default function AdminPlaces() {
       alive = false;
     };
   }, []);
+
+  // Keep each list's page in range as creates/deletes change its length.
+  useEffect(() => {
+    const clamp = (len, cur) => Math.min(cur, Math.max(1, Math.ceil(len / PER_PAGE)));
+    setPages((p) => ({ school: clamp(schools.length, p.school), lc: clamp(lcs.length, p.lc) }));
+  }, [schools.length, lcs.length]);
+
+  const setKindPage = (kind, p) => setPages((prev) => ({ ...prev, [kind]: p }));
 
   const setter = (kind) => (kind === "school" ? setSchools : setLcs);
   const rowsFor = (kind) => (kind === "school" ? schools : lcs);
@@ -139,7 +151,8 @@ export default function AdminPlaces() {
               <div className="ch-grace-s">Add one and link its Telegram group so members can find each other locally.</div>
             </div>
           ) : (
-            rowsFor(k.key).map((pl) => (
+            <>
+              {paginate(rowsFor(k.key), pages[k.key], PER_PAGE).map((pl) => (
               <div
                 key={pl.id}
                 className="ch-cell"
@@ -167,7 +180,14 @@ export default function AdminPlaces() {
                   <ActionBtn onClick={() => doDelete(k.key, pl)} busy={busyId === `${k.key}:${pl.id}`} tone="terra" title="Delete">Delete</ActionBtn>
                 </div>
               </div>
-            ))
+              ))}
+              <Pagination
+                page={pages[k.key]}
+                pageSize={PER_PAGE}
+                total={rowsFor(k.key).length}
+                onPageChange={(p) => setKindPage(k.key, p)}
+              />
+            </>
           )}
         </section>
       ))}

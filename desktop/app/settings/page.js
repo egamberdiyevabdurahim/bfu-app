@@ -32,7 +32,9 @@ async function authedGet(path, token) {
 function firstName(me) {
   const name = me?.display_name || me?.name || "";
   const token = name.split(" ").filter(Boolean)[0];
-  return token || "builder";
+  // Strip any trailing punctuation so callers can append their own (the stored
+  // name may already end in a period, e.g. "Abdurahim. E" → avoid "Abdurahim..").
+  return (token || "builder").replace(/[.,;:]+$/, "");
 }
 
 export default async function SettingsPage() {

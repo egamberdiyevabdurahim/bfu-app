@@ -226,7 +226,9 @@ function MyMentoring({ flash }) {
         return bfu(`/mentors/${me.id}/slots`);
       })
       .then((res) => {
-        if (!alive || !res) return;
+        // Only bail on unmount — a falsy/empty slots response must still land
+        // in "ready" (empty), or the spinner hangs forever.
+        if (!alive) return;
         setSlots(Array.isArray(res?.slots) ? res.slots : []);
         setState("ready");
       })

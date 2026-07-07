@@ -49,7 +49,7 @@ function SavedCard({ project }) {
             color: "var(--muted)",
           }}
         >
-          {project.member_count || 0} members · {project.view_count || 0} views
+          {project.member_count || 0} {(project.member_count || 0) === 1 ? "member" : "members"} · {project.view_count || 0} views
         </span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)" }}>
           Open →

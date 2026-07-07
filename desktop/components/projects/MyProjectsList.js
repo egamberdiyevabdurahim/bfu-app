@@ -142,7 +142,7 @@ function JoinedCard({ project }) {
             color: "var(--muted)",
           }}
         >
-          {project.member_count || 0} members
+          {project.member_count || 0} {(project.member_count || 0) === 1 ? "member" : "members"}
         </span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)" }}>
           Open →
@@ -188,28 +188,41 @@ function FunnelTile({ label, value, accent }) {
   );
 }
 
-function FunnelStrip() {
+function FunnelStrip({ fallback }) {
   const [totals, setTotals] = useState(null);
-  const [state, setState] = useState("loading"); // loading | ready | hidden
 
   useEffect(() => {
     let alive = true;
     bfu("/projects/mine/funnel")
       .then((res) => {
-        if (!alive) return;
-        setTotals(res?.totals || null);
-        setState("ready");
+        if (alive) setTotals(res?.totals || null);
       })
-      .catch(() => {
-        if (alive) setState("hidden");
-      });
+      .catch(() => {});
     return () => {
       alive = false;
     };
   }, []);
 
-  // Only worth showing once there's at least one project with activity.
-  if (state !== "ready" || !totals || !totals.project_count) return null;
+  // Prefer the server funnel (adds applications/accepted/pending) once it lands,
+  // but ALWAYS show a stat strip whenever there's at least one project — derived
+  // client-side from the already-loaded list — so the header never reads empty
+  // even if the funnel endpoint is slow or unavailable.
+  const hasFunnel = Boolean(totals && totals.project_count);
+  if (!hasFunnel && (!fallback || !fallback.projects)) return null;
+
+  const tiles = hasFunnel
+    ? [
+        { label: "Projects", value: totals.project_count },
+        { label: "Views", value: totals.views, accent: true },
+        { label: "Applications", value: totals.applications },
+        { label: "Accepted", value: totals.accepted },
+        { label: "Pending", value: totals.pending },
+      ]
+    : [
+        { label: "Projects", value: fallback.projects },
+        { label: "Total views", value: fallback.views, accent: true },
+        { label: "Hiring now", value: fallback.hiring },
+      ];
 
   return (
     <div
@@ -219,11 +232,9 @@ function FunnelStrip() {
         gap: 14,
       }}
     >
-      <FunnelTile label="Projects" value={totals.project_count} />
-      <FunnelTile label="Views" value={totals.views} accent />
-      <FunnelTile label="Applications" value={totals.applications} />
-      <FunnelTile label="Accepted" value={totals.accepted} />
-      <FunnelTile label="Pending" value={totals.pending} />
+      {tiles.map((t) => (
+        <FunnelTile key={t.label} label={t.label} value={t.value} accent={t.accent} />
+      ))}
     </div>
   );
 }
@@ -294,6 +305,13 @@ export default function MyProjectsList({ meId }) {
   const owned = projects.filter((p) => !meId || p.creator_id === meId || p.creator_id == null);
   const joined = projects.filter((p) => meId && p.creator_id != null && p.creator_id !== meId);
 
+  // Client-side stat fallback so the header strip always has something to show.
+  const derived = {
+    projects: projects.length,
+    views: projects.reduce((a, p) => a + (p.view_count || 0), 0),
+    hiring: projects.filter((p) => p.is_hiring).length,
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
       {justCreated ? (
@@ -318,7 +336,7 @@ export default function MyProjectsList({ meId }) {
       ) : null}
 
       {/* At-a-glance owner funnel — self-hides when there are no projects. */}
-      <FunnelStrip />
+      <FunnelStrip fallback={derived} />
 
       {owned.length === 0 && joined.length === 0 ? (
         <EmptyState />

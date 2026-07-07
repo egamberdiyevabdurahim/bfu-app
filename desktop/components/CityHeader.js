@@ -55,7 +55,7 @@ export default function CityHeader({ stats = {}, weekday = "" }) {
             "The bazaar is resting"
           ) : (
             <>
-              <span style={{ color: "var(--amber)" }}>{online}</span> builders lit tonight
+              <span style={{ color: "var(--amber)" }}>{online}</span> builder{onlineNow === 1 ? "" : "s"} lit tonight
             </>
           )}
         </h1>

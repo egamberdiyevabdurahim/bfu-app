@@ -1,15 +1,15 @@
-function initials(name) {
-  const parts = (name || "?").split(" ").filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
+import { initials } from "@/lib/avatar";
 
 export default function IdentityStrip({ profile }) {
   const roleParts = [
     profile.region?.name_en,
     profile.stats?.projects_founded > 0 ? "Founder" : null,
   ].filter(Boolean);
+
+  // Only show the live presence dot when the backend actually reports the
+  // person as online/recently active — never a hardcoded "online" on every
+  // profile (that fakes presence and erodes trust).
+  const isOnline = profile.is_online === true || profile.recently_active === true;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 30, marginTop: 44 }}>
@@ -24,28 +24,33 @@ export default function IdentityStrip({ profile }) {
               borderRadius: "50%", objectFit: "cover" }} />
           ) : initials(profile.name)}
         </div>
-        <span style={{ position: "absolute", bottom: 8, right: 8, display: "inline-flex",
-          width: 20, height: 20 }}>
-          <span className="ch-online-ping" />
-          <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--ember)",
-            border: "3px solid var(--bg)" }} />
-        </span>
+        {isOnline && (
+          <span title="Active recently" style={{ position: "absolute", bottom: 8, right: 8,
+            display: "inline-flex", width: 20, height: 20 }}>
+            <span className="ch-online-ping" />
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--ember)",
+              border: "3px solid var(--bg)" }} />
+          </span>
+        )}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h1 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 700,
-            fontSize: 60, lineHeight: 0.98, letterSpacing: "-0.02em", color: "var(--text)" }}>
+            fontSize: "clamp(38px, 6vw, 60px)", lineHeight: 1.02, letterSpacing: "-0.02em",
+            color: "var(--text)", overflowWrap: "anywhere" }}>
             {profile.name}
           </h1>
           {profile.checked && (
-            <span title="Verified" style={{ display: "inline-flex", alignItems: "center",
-              justifyContent: "center", width: 30, height: 30, borderRadius: "50%",
-              background: "rgba(127,176,105,0.16)", color: "var(--green)", fontSize: 16, marginTop: 6 }}>✓</span>
+            <span role="img" aria-label="Verified" title="Verified" style={{ flex: "0 0 auto",
+              display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30,
+              borderRadius: "50%", background: "rgba(127,176,105,0.16)", color: "var(--green)", fontSize: 16 }}>✓</span>
           )}
         </div>
         {profile.currently_building && (
-          <div style={{ marginTop: 8, fontSize: 40, lineHeight: 1.05, color: "var(--text)" }}>
-            <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", color: "var(--muted)" }}>
+          <div style={{ marginTop: 10, fontSize: "clamp(20px, 2.6vw, 25px)", lineHeight: 1.3,
+            color: "var(--text)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+            overflow: "hidden" }}>
+            <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", color: "var(--muted-strong)" }}>
               is building
             </span>{" "}
             <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", color: "var(--amber)" }}>
@@ -54,7 +59,7 @@ export default function IdentityStrip({ profile }) {
           </div>
         )}
         <div style={{ marginTop: 16, fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.16em",
-          textTransform: "uppercase", color: "var(--muted)", display: "flex", alignItems: "center",
+          textTransform: "uppercase", color: "var(--muted-strong)", display: "flex", alignItems: "center",
           gap: 10, flexWrap: "wrap" }}>
           {roleParts.map((part, i) => (
             <span key={part} style={{ display: "contents" }}>

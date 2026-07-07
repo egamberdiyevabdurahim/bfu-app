@@ -24,17 +24,29 @@ export default function StatCards({ stats = {} }) {
   ];
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(5, 1fr)",
-        gap: 16,
-        marginTop: 34,
-      }}
-    >
+    <div className="statcards-grid">
       {cards.map((c) => (
         <StatCard key={c.key} {...c} />
       ))}
+      <style>{`
+        .statcards-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
+          margin-top: 34px;
+        }
+        /* Five-across is too tight below ~1100px; step down gracefully so the
+           big numbers never crush together. */
+        @media (max-width: 1100px) {
+          .statcards-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 720px) {
+          .statcards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 420px) {
+          .statcards-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -42,7 +54,7 @@ export default function StatCards({ stats = {} }) {
 const TONE_COLOR = {
   amber: "var(--amber)",
   ember: "var(--ember)",
-  teal: "#5EC5B6",
+  teal: "var(--teal-bright)",
   green: "var(--green)",
   text: "var(--text)",
 };
@@ -52,7 +64,7 @@ function StatCard({ label, value, tone }) {
   const color = TONE_COLOR[tone] || "var(--text)";
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{
         padding: 22,
         display: "flex",

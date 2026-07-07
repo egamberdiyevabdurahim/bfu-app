@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useToast } from "@/lib/useToast";
 
 // Sessions (Batch 4). Loads GET /bookings/me →
 //   { as_mentee:[row], as_mentor:[row] }
@@ -20,7 +21,7 @@ const STATUS = {
   requested: { label: "Requested", color: "var(--amber)", bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
   confirmed: { label: "Confirmed", color: "var(--green)", bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
   declined: { label: "Declined", color: "var(--terra)", bg: "rgba(192,86,59,0.12)", bd: "rgba(192,86,59,0.3)" },
-  cancelled: { label: "Cancelled", color: "var(--muted)", bg: "var(--surface-2)", bd: "var(--hair)" },
+  cancelled: { label: "Cancelled", color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" },
 };
 
 function fmtWhen(iso) {
@@ -60,6 +61,8 @@ function StatusPill({ status }) {
 }
 
 function Avatar({ id, name, photo, size = 44 }) {
+  const [broken, setBroken] = useState(false);
+  const showImg = photo && !broken;
   return (
     <div
       style={{
@@ -78,8 +81,13 @@ function Avatar({ id, name, photo, size = 44 }) {
         overflow: "hidden",
       }}
     >
-      {photo ? (
-        <img src={photo} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+      {showImg ? (
+        <img
+          src={photo}
+          alt={name}
+          onError={() => setBroken(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+        />
       ) : (
         initials(name)
       )}
@@ -89,12 +97,12 @@ function Avatar({ id, name, photo, size = 44 }) {
 
 function Row({ booking, role, onAct, busy }) {
   const other = booking.other || {};
-  const name = other.display_name || `Builder #${other.id ?? "?"}`;
+  const name = other.display_name || "A builder";
   const canMentorAct = role === "mentor" && booking.status === "requested";
   const canMenteeCancel = role === "mentee" && (booking.status === "requested" || booking.status === "confirmed");
 
   return (
-    <div className="ch-cell" style={{ display: "flex", alignItems: "center", gap: 16, padding: 18, flexWrap: "wrap" }}>
+    <div className="ch-cell-static" style={{ display: "flex", alignItems: "center", gap: 16, padding: 18, flexWrap: "wrap" }}>
       <Avatar id={other.id} name={name} photo={other.photo_url} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -110,11 +118,11 @@ function Row({ booking, role, onAct, busy }) {
           )}
           <StatusPill status={booking.status} />
         </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+        <div style={{ marginTop: 4, fontSize: 13, color: "var(--muted-strong)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
           {fmtWhen(booking.start_at)}
         </div>
         {booking.note ? (
-          <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)", fontStyle: "italic" }}>
+          <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5, color: "var(--muted)", fontStyle: "italic" }}>
             “{booking.note}”
           </div>
         ) : null}
@@ -192,12 +200,7 @@ export default function BookingsList() {
   const [asMentee, setAsMentee] = useState([]);
   const [asMentor, setAsMentor] = useState([]);
   const [busy, setBusy] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  function flash(text, tone = "ok") {
-    setToast({ text, tone });
-    setTimeout(() => setToast(null), 3000);
-  }
+  const { toast, flash } = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -241,7 +244,7 @@ export default function BookingsList() {
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading your sessions…
       </div>
@@ -249,8 +252,11 @@ export default function BookingsList() {
   }
   if (state === "error") {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load your sessions. Refresh to try again.
+      <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load your sessions.</span>
+        <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
+          Try again
+        </button>
       </div>
     );
   }
@@ -281,12 +287,12 @@ export default function BookingsList() {
           <span className="ch-slab-line" />
         </div>
         {asMentee.length === 0 ? (
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <Empty
               title="You haven't booked a session yet."
-              body="Find someone a few steps ahead of you and grab fifteen minutes of their time."
+              body="Find someone a few steps ahead of you and grab 15 minutes of their time."
             />
-            <a href="/mentors" className="ch-btn-primary" style={{ marginTop: 16 }}>
+            <a href="/mentors" className="ch-btn-primary" style={{ marginTop: 16, display: "inline-flex" }}>
               Browse mentors →
             </a>
           </div>

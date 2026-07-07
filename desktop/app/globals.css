@@ -9,7 +9,11 @@
   --amber: #E8A15C;
   --terra: #C0563B;
   --teal: #12564F;
+  --teal-bright: #5EC5B6;
   --green: #7FB069;
+  /* Readable secondary — for sub-13px eyebrows, chip text, metric labels &
+     hints where --muted (#A8A093) drops below AA on the dark surface. */
+  --muted-strong: #C6BEAF;
 
   --font-display: 'Bricolage Grotesque', sans-serif;
   --font-accent: 'Instrument Serif', serif;
@@ -153,6 +157,15 @@ html, body {
 }
 .ch-cell:hover {
   box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(255,106,61,0.12);
+}
+/* Passive container: same firelit surface as .ch-cell but NO hover lift/glow —
+   for static form sections and info cards that aren't clickable, so hovering
+   them doesn't read as a false "this is a tile you can click" affordance. */
+.ch-cell-static {
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  padding: 28px;
 }
 .ch-cell-label {
   font-family: var(--font-mono);
@@ -839,4 +852,42 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .ch-spin { animation: none !important; }
   .ch-toggle-knob { transition: none !important; }
+}
+
+/* ── Audit hardening (2026-07-07) ── */
+
+/* Every card grid collapses to a single column on phones. The 1080px→2col rule
+   lives above; this is the missing final step so cells never crush < ~560px. */
+@media (max-width: 560px) {
+  .ch-grid { grid-template-columns: 1fr; }
+}
+
+/* Keyboard focus rings for the interactive primitives that were styled inline
+   (and therefore inherited no :focus-visible). Never shown on plain mouse click. */
+.ch-card:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+/* Standalone relevance/skill pill — same look as .ch-card .ch-card-t but usable
+   OUTSIDE a .ch-card (that one is a descendant selector, so it renders as bare
+   text anywhere else). Slightly larger + readable-secondary for contrast. */
+.ch-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  color: var(--muted-strong);
 }

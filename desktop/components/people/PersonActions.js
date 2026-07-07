@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useToast } from "@/lib/useToast";
 
 // Additive client island mounted on the public /u/[id] profile page. The SSR
 // content (identity strip, bento cells) stays intact and public; this island
@@ -53,19 +54,21 @@ const ghostBtn = {
 };
 
 // A tiny transient toast, mirroring the .ch-toast styling used across the app.
-function Toast({ msg, tone }) {
-  if (!msg) return null;
-  const border =
-    tone === "error" ? "rgba(192,86,59,0.5)" : "rgba(255,106,61,0.4)";
-  const accent = tone === "error" ? "var(--terra)" : "var(--ember)";
+// Reads the shared useToast shape: { text, tone }.
+function Toast({ toast }) {
+  if (!toast?.text) return null;
+  const isError = toast.tone === "error";
+  const border = isError ? "rgba(192,86,59,0.5)" : "rgba(255,106,61,0.4)";
+  const accent = isError ? "var(--terra)" : "var(--ember)";
   return (
     <div
       className="ch-toast ch-toast-show"
       style={{ border: `1px solid ${border}` }}
+      role="status"
       aria-live="polite"
     >
       <span className="ch-toast-tx" style={{ color: "var(--text)" }}>
-        <b style={{ color: accent }}>{msg}</b>
+        <b style={{ color: accent }}>{toast.text}</b>
       </span>
     </div>
   );
@@ -75,14 +78,16 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
   const [state, setState] = useState("loading"); // loading | anon | self | ready | error
   const [me, setMe] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0); // bump to retry after an error
 
   const [busy, setBusy] = useState(false); // follow/interest/intro shared lock
-  const [toast, setToast] = useState(null); // { msg, tone }
+  const { toast, flash } = useToast(3200); // shared single-timer toast (no leak/race)
 
   // Report
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reported, setReported] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
 
   // Vouch composer
   const [vouchText, setVouchText] = useState("");
@@ -93,13 +98,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
   const [ai, setAi] = useState({}); // { whymatch|icebreak|translate: { loading, error, data } }
   const [copied, setCopied] = useState(-1);
 
-  function flash(msg, tone) {
-    setToast({ msg, tone });
-    setTimeout(() => setToast(null), 3200);
-  }
-
   useEffect(() => {
     let alive = true;
+    setState("loading");
     async function load() {
       try {
         const [p, meRes] = await Promise.all([
@@ -126,7 +127,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, reloadKey]);
 
   // ── Follow (optimistic toggle) ────────────────────────────────────────────
   async function toggleFollow() {
@@ -285,6 +286,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
   // ── Report ────────────────────────────────────────────────────────────────
   async function submitReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
     try {
       await bfu("/users/reports", {
         method: "POST",
@@ -300,6 +303,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       flash("Report sent. Thank you.");
     } catch (e) {
       flash(e?.message || "Couldn't send the report.", "error");
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -332,10 +337,14 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
   // ── render ────────────────────────────────────────────────────────────────
 
   if (state === "loading") {
+    // Reserve roughly the height of the loaded control stack so the CTA cluster
+    // doesn't pop in and shift the page once the fetch resolves.
     return (
-      <div style={{ ...card, color: "var(--muted)", fontSize: 14, textAlign: "center" }}>
-        <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading…
+      <div style={{ ...card, minHeight: 168, display: "flex", flexDirection: "column",
+        justifyContent: "center", alignItems: "center", gap: 10, color: "var(--muted-strong)",
+        fontSize: 14 }} aria-busy="true">
+        <span className="ch-spin" aria-hidden>◠</span>
+        Loading connection options…
       </div>
     );
   }
@@ -371,8 +380,18 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
   if (state === "error" || !profile) {
     return (
-      <div style={{ ...card, color: "var(--terra)", fontSize: 14, textAlign: "center" }}>
-        Couldn't load connection options. Refresh to try again.
+      <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12, alignItems: "center",
+        textAlign: "center" }}>
+        <p style={{ margin: 0, color: "var(--terra)", fontSize: 14 }}>
+          Couldn't load connection options.
+        </p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          style={{ ...ghostBtn, padding: "9px 18px", fontSize: 13 }}
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -387,7 +406,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div className="ch-cell-label">Connect</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
             {profile.follower_count || 0} follower{(profile.follower_count || 0) === 1 ? "" : "s"}
           </div>
         </div>
@@ -396,6 +415,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           type="button"
           onClick={toggleFollow}
           disabled={busy}
+          aria-pressed={!!profile.is_following}
+          aria-label={profile.is_following ? `Following ${personName || "this builder"}` : `Follow ${personName || "this builder"}`}
           className={profile.is_following ? undefined : "ch-btn-primary"}
           style={
             profile.is_following
@@ -412,7 +433,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
               : { width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }
           }
         >
-          {profile.is_following ? "✓ Following" : "+ Follow"}
+          <span aria-hidden>{profile.is_following ? "✓" : "+"}</span> {profile.is_following ? "Following" : "Follow"}
         </button>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -422,7 +443,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             disabled={busy}
             style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
           >
-            💜 I'm interested
+            <span aria-hidden>💜</span> I'm interested
           </button>
           <button
             type="button"
@@ -430,14 +451,14 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             disabled={busy}
             style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
           >
-            👋 Request intro
+            <span aria-hidden>👋</span> Request intro
           </button>
         </div>
 
         {/* Report affordance */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           {reported ? (
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>Reported ✓</span>
+            <span style={{ fontSize: 12, color: "var(--muted-strong)" }}>Reported ✓</span>
           ) : (
             <button
               type="button"
@@ -445,13 +466,13 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
               style={{
                 background: "none",
                 border: "none",
-                color: "var(--muted)",
+                color: "var(--muted-strong)",
                 fontSize: 12,
                 cursor: "pointer",
                 padding: "4px 2px",
               }}
             >
-              ⋯ Report
+              <span aria-hidden>⋯</span> Report
             </button>
           )}
         </div>
@@ -475,15 +496,16 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
               }}
             />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setShowReport(false)} style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13 }}>
+              <button type="button" onClick={() => setShowReport(false)} disabled={reportBusy} style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, opacity: reportBusy ? 0.6 : 1 }}>
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={submitReport}
-                style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.35)" }}
+                disabled={reportBusy}
+                style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.35)", opacity: reportBusy ? 0.6 : 1, cursor: reportBusy ? "default" : "pointer" }}
               >
-                Send report
+                {reportBusy ? "Sending…" : "Send report"}
               </button>
             </div>
           </div>
@@ -494,15 +516,15 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">A little help</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button type="button" onClick={() => runAi("whymatch")} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center" }}>
-            ✦ Why you match
+          <button type="button" onClick={() => runAi("whymatch")} disabled={ai.whymatch?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.whymatch?.loading ? 0.6 : 1 }}>
+            <span aria-hidden>✦</span> Why you match
           </button>
-          <button type="button" onClick={() => runAi("icebreak")} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center" }}>
-            💬 Break the ice
+          <button type="button" onClick={() => runAi("icebreak")} disabled={ai.icebreak?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.icebreak?.loading ? 0.6 : 1 }}>
+            <span aria-hidden>💬</span> Break the ice
           </button>
           {aboutText ? (
-            <button type="button" onClick={() => runAi("translate")} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center" }}>
-              🌐 Translate bio
+            <button type="button" onClick={() => runAi("translate")} disabled={ai.translate?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.translate?.loading ? 0.6 : 1 }}>
+              <span aria-hidden>🌐</span> Translate bio
             </button>
           ) : null}
         </div>
@@ -517,8 +539,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                 </p>
                 {Array.isArray(ai.whymatch.data.shared) && ai.whymatch.data.shared.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-                    {ai.whymatch.data.shared.map((t) => (
-                      <span key={t} className="ch-card-t" style={{ color: "var(--amber)", borderColor: "rgba(232,161,92,0.34)" }}>
+                    {ai.whymatch.data.shared.map((t, i) => (
+                      <span key={`${t}-${i}`} className="ch-tag" style={{ color: "var(--amber)", borderColor: "rgba(232,161,92,0.34)" }}>
                         {t}
                       </span>
                     ))}
@@ -535,7 +557,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             {ai.icebreak.data && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(ai.icebreak.data.icebreakers || []).length === 0 && (
-                  <span style={{ fontSize: 13, color: "var(--muted)" }}>No openers came back — try again in a moment.</span>
+                  <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>No openers came back — try again in a moment.</span>
                 )}
                 {(ai.icebreak.data.icebreakers || []).map((line, i) => (
                   <div
@@ -591,22 +613,23 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                   type="button"
                   onClick={() => toggleEndorse(skill)}
                   title={on ? "Remove your endorsement" : "Endorse this skill"}
+                  aria-pressed={on}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 7,
                     fontFamily: "var(--font-mono)",
-                    fontSize: 11,
+                    fontSize: 12,
                     padding: "7px 12px",
                     borderRadius: "var(--radius-pill)",
                     cursor: "pointer",
                     background: on ? "rgba(232,161,92,0.16)" : "var(--surface-2)",
                     border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
-                    color: on ? "var(--amber)" : "var(--muted)",
+                    color: on ? "var(--amber)" : "var(--muted-strong)",
                     transition: "all 0.16s ease",
                   }}
                 >
-                  <span style={{ fontSize: 12 }}>{on ? "✓" : "＋"}</span>
+                  <span aria-hidden style={{ fontSize: 12 }}>{on ? "✓" : "＋"}</span>
                   {skill}
                   {e.count > 0 && (
                     <span style={{ fontWeight: 700, color: on ? "var(--amber)" : "var(--text)" }}>{e.count}</span>
@@ -673,7 +696,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
               }}
             />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
                 {vouchText.length}/280
               </span>
               <button
@@ -690,7 +713,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         )}
       </div>
 
-      <Toast msg={toast?.msg} tone={toast?.tone} />
+      <Toast toast={toast} />
     </div>
   );
 }
@@ -711,7 +734,7 @@ function AiPanel({ loading, error, label, children }) {
     >
       <div className="ch-cell-label" style={{ color: "var(--amber)" }}>{label}</div>
       {loading ? (
-        <div style={{ color: "var(--muted)", fontSize: 13 }}>
+        <div style={{ color: "var(--muted-strong)", fontSize: 13 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
           Thinking…
         </div>

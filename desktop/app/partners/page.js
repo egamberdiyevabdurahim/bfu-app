@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnersList from "@/components/community/PartnersList";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /partners — the directory of partner organisations (universities, incubators,
 // companies) that back young builders. Authed; the server wrapper gates on the
@@ -36,8 +37,8 @@ export default async function PartnersPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -71,33 +72,7 @@ export default async function PartnersPage() {
 
         <PartnersList />
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            No one builds a future alone.
-          </span>
-        </div>
+        <SiteFooter tagline="No one builds a future alone." />
     </AppTopBar>
   );
 }

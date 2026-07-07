@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import EventsBrowser from "@/components/community/EventsBrowser";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /events — hackathons, grants, scholarships and meetups. Authed (per-user "For
 // you" feed needs the session); the server wrapper gates on the session
@@ -37,8 +38,8 @@ export default async function EventsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -52,7 +53,7 @@ export default async function EventsPage() {
                 color: "var(--amber)",
               }}
             >
-              opportunities
+              events
             </span>
           </h1>
           <p
@@ -72,33 +73,7 @@ export default async function EventsPage() {
 
         <EventsBrowser />
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            The right door, at the right time.
-          </span>
-        </div>
+        <SiteFooter tagline="The right door, at the right time." />
     </AppTopBar>
   );
 }

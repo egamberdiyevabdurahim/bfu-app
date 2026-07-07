@@ -3,6 +3,7 @@ import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 const API_BASE = process.env.BFU_API_URL;
 
@@ -60,7 +61,7 @@ export default async function SettingsPage() {
   return (
     <AppTopBar active="settings" me={me}>
         {/* Header */}
-        <div style={{ marginTop: 8, marginBottom: 34 }}>
+        <div style={{ marginTop: 8, marginBottom: 30 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -77,10 +78,11 @@ export default async function SettingsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(32px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Edit your{" "}
@@ -102,7 +104,7 @@ export default async function SettingsPage() {
               fontStyle: "italic",
               fontSize: 20,
               lineHeight: 1.35,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
               maxWidth: 560,
             }}
           >
@@ -111,6 +113,8 @@ export default async function SettingsPage() {
         </div>
 
         <ProfileEditor initial={initial} regions={regions} />
+
+        <SiteFooter tagline="Your bench, exactly how the city finds you." />
     </AppTopBar>
   );
 }

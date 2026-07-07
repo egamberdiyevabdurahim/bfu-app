@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import BookingsList from "@/components/community/BookingsList";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /bookings — "Your sessions": mentoring sessions the current user is part of,
 // both as a learner (booker) and as a mentor (incoming requests to accept /
@@ -37,8 +38,8 @@ export default async function BookingsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -72,33 +73,7 @@ export default async function BookingsPage() {
 
         <BookingsList />
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            The best advice arrives on time.
-          </span>
-        </div>
+        <SiteFooter tagline="The best advice arrives on time." />
     </AppTopBar>
   );
 }

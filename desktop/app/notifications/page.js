@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import NotificationsInbox from "@/components/nav/NotificationsInbox";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /notifications — the full inbox. Per-user + uncacheable: the server wrapper
 // gates on the session (unauth → /login), then the client list loads
@@ -19,8 +20,7 @@ export default async function NotificationsPage() {
 
   return (
     <AppTopBar active="notifications" me={me}>
-      <div style={{ maxWidth: 820, margin: "0 auto" }}>
-        <div style={{ marginTop: 8, marginBottom: 6 }}>
+        <div style={{ marginTop: 8, marginBottom: 30 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -37,10 +37,11 @@ export default async function NotificationsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Your{" "}
@@ -57,36 +58,13 @@ export default async function NotificationsPage() {
           </h1>
         </div>
 
-        <NotificationsInbox />
-
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            The city keeps a light on for you.
-          </span>
+        {/* Constrain only the inbox column for readability; the header + footer
+            stay full-width like every sibling page. */}
+        <div style={{ maxWidth: 820 }}>
+          <NotificationsInbox />
         </div>
-      </div>
+
+        <SiteFooter tagline="The city keeps a light on for you." />
     </AppTopBar>
   );
 }

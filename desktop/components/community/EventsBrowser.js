@@ -14,9 +14,9 @@ const TYPE_STYLE = {
   hackathon: { color: "var(--amber)", bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
   grant: { color: "var(--green)", bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
   scholarship: { color: "var(--green)", bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
-  meetup: { color: "#5EC5B6", bg: "rgba(94,197,182,0.14)", bd: "rgba(94,197,182,0.34)" },
+  meetup: { color: "var(--teal-bright)", bg: "rgba(94,197,182,0.14)", bd: "rgba(94,197,182,0.34)" },
 };
-const DEFAULT_TYPE = { color: "var(--muted)", bg: "var(--surface-2)", bd: "var(--hair)" };
+const DEFAULT_TYPE = { color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" };
 
 function fmtDeadline(iso) {
   if (!iso) return null;
@@ -49,7 +49,7 @@ function EventCard({ ev }) {
           {ev.type || "event"}
         </span>
         {deadline ? (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)", letterSpacing: "0.04em" }}>
             by {deadline}
           </span>
         ) : null}
@@ -88,8 +88,12 @@ function EventCard({ ev }) {
 
       {Array.isArray(ev.matched) && ev.matched.length ? (
         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {ev.matched.map((m) => (
-            <span key={m} className="ch-card-t" style={{ color: "var(--green)", borderColor: "rgba(127,176,105,0.34)" }}>
+          {ev.matched.map((m, i) => (
+            <span
+              key={`${m}-${i}`}
+              className="ch-tag"
+              style={{ color: "var(--green)", borderColor: "rgba(127,176,105,0.34)", background: "rgba(127,176,105,0.1)" }}
+            >
               {m}
             </span>
           ))}
@@ -113,13 +117,15 @@ function EventCard({ ev }) {
     </>
   );
 
-  const cellStyle = { display: "block", padding: 22, color: "var(--text)", textDecoration: "none" };
+  const cellStyle = { display: "block", padding: 28, color: "var(--text)", textDecoration: "none" };
+  // Only the outbound-link variant is a real clickable tile → keep the .ch-cell
+  // hover glow. A card with no link is passive → .ch-cell-static (no false lift).
   return ev.link ? (
     <a href={ev.link} target="_blank" rel="noopener noreferrer" className="ch-cell" style={cellStyle}>
       {inner}
     </a>
   ) : (
-    <div className="ch-cell" style={cellStyle}>
+    <div className="ch-cell-static" style={cellStyle}>
       {inner}
     </div>
   );
@@ -130,6 +136,7 @@ export default function EventsBrowser() {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [all, setAll] = useState(null);
   const [forme, setForme] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -152,56 +159,105 @@ export default function EventsBrowser() {
     return () => {
       alive = false;
     };
-  }, [tab, all, forme]);
+  }, [tab, all, forme, reloadKey]);
 
   const list = tab === "all" ? all : forme;
 
-  const Tab = ({ id, label }) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      className="ch-btn-ghost"
-      style={tab === id ? { borderColor: "var(--amber)", background: "rgba(35,32,25,0.9)", color: "var(--amber)" } : undefined}
-    >
-      {label}
-    </button>
-  );
+  // Re-attempt the current tab: clear its cache so the effect refetches.
+  function retry() {
+    if (tab === "all") setAll(null);
+    else setForme(null);
+    setReloadKey((k) => k + 1);
+  }
+
+  const TABS = [
+    { id: "all", label: "All opportunities" },
+    { id: "forme", label: "For you" },
+  ];
 
   return (
     <div style={{ marginTop: 24 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <Tab id="all" label="All opportunities" />
-        <Tab id="forme" label="For you" />
+      {/* Real segmented control: one container, filled active pill distinct from hover. */}
+      <div
+        role="tablist"
+        aria-label="Event feed"
+        style={{
+          display: "inline-flex",
+          gap: 4,
+          padding: 4,
+          borderRadius: "var(--radius-pill)",
+          border: "1px solid var(--hair)",
+          background: "var(--surface-2)",
+          flexWrap: "wrap",
+        }}
+      >
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.id)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "var(--radius-pill)",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                letterSpacing: "0.06em",
+                background: active ? "var(--amber)" : "transparent",
+                color: active ? "#160E08" : "var(--muted-strong)",
+                fontWeight: active ? 700 : 500,
+                transition: "background 0.15s ease, color 0.15s ease",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
-      {state === "loading" ? (
-        <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
-          <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-          Loading opportunities…
-        </div>
-      ) : state === "error" ? (
-        <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-          Couldn't load opportunities. Refresh to try again.
-        </div>
-      ) : !list || list.length === 0 ? (
-        <div className="ch-grace" style={{ marginTop: 24 }}>
-          <span className="ch-grace-k">Nothing scheduled</span>
-          <div className="ch-grace-t">
-            {tab === "forme" ? "No matches for you just yet." : "No opportunities are posted right now."}
+      <div role="status" aria-live="polite">
+        {state === "loading" ? (
+          <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}>
+            <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+            Loading opportunities…
           </div>
-          <div className="ch-grace-s">
-            {tab === "forme"
-              ? "Round out your skills and interests in your profile and we'll surface the events that fit."
-              : "Hackathons, grants, scholarships and meetups will appear here as partners post them."}
+        ) : state === "error" ? (
+          <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load opportunities.</span>
+            <button type="button" onClick={retry} className="ch-btn-ghost">
+              Try again
+            </button>
           </div>
-        </div>
-      ) : (
-        <div className="ch-grid" style={{ marginTop: 24, gridTemplateColumns: "repeat(3, 1fr)" }}>
-          {list.map((ev) => (
-            <EventCard key={ev.id} ev={ev} />
-          ))}
-        </div>
-      )}
+        ) : !list || list.length === 0 ? (
+          <div className="ch-grace" style={{ marginTop: 24 }}>
+            <span className="ch-grace-k">Nothing scheduled</span>
+            <div className="ch-grace-t">
+              {tab === "forme" ? "No matches for you just yet." : "No opportunities are posted right now."}
+            </div>
+            <div className="ch-grace-s">
+              {tab === "forme"
+                ? "Round out your skills and interests in your profile and we'll surface the events that fit."
+                : "Hackathons, grants, scholarships and meetups will appear here as partners post them."}
+            </div>
+            {tab === "forme" ? (
+              <a href="/settings" className="ch-btn-ghost" style={{ marginTop: 14 }}>
+                Complete your profile →
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <div className="ch-grid" style={{ marginTop: 24 }}>
+            {list.map((ev) => (
+              <EventCard key={ev.id} ev={ev} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

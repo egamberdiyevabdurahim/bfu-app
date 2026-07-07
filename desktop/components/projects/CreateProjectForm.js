@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
+import { useToast } from "@/lib/useToast";
 
 // Shared create/edit form for a BFU project, in the Chorsu firelit grammar.
 // Reused by:
@@ -26,24 +27,37 @@ const inputBase = {
   fontFamily: "var(--font-body)",
   fontSize: 15,
   padding: "12px 14px",
-  outline: "none",
   transition: "border-color 0.18s ease",
 };
 
-function focusAmber(e) {
-  e.target.style.borderColor = "var(--amber)";
-}
-function blurHair(e) {
-  e.target.style.borderColor = "var(--hair)";
-}
+// Shared label for a field: promoted to --text so it reads louder than the
+// --muted-strong hints below it.
+const fieldLabel = {
+  display: "block",
+  marginBottom: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--text)",
+};
 
 function Section({ label, hint, children, style }) {
   return (
-    <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 16, ...style }}>
+    <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 16, ...style }}>
       <div>
-        <div className="ch-cell-label">{label}</div>
+        {/* Section title promoted to --text so it isn't quieter than its own hint. */}
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 16,
+            letterSpacing: "-0.01em",
+            color: "var(--text)",
+          }}
+        >
+          {label}
+        </div>
         {hint ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
             {hint}
           </div>
         ) : null}
@@ -56,16 +70,21 @@ function Section({ label, hint, children, style }) {
 // A labelled chip editor: type + Enter (or "Add") to append, × to remove.
 function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
   const [draft, setDraft] = useState("");
+  // Brief inline notice when a duplicate is typed, so the cleared draft doesn't
+  // read as "nothing happened".
+  const [dupe, setDupe] = useState("");
 
   function add() {
     const v = draft.trim();
     if (!v) return;
-    // Case-insensitive dedupe.
+    // Case-insensitive dedupe with visible feedback.
     if (items.some((x) => x.toLowerCase() === v.toLowerCase())) {
+      setDupe(`"${v}" is already added.`);
       setDraft("");
       return;
     }
-    onChange([...items, v.slice(0, 60)]);
+    setDupe("");
+    onChange([...items, v]);
     setDraft("");
   }
 
@@ -73,17 +92,17 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {items.length ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {items.map((it) => (
+          {items.map((it, i) => (
             <span
-              key={it}
+              key={`${it}-${i}`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 6,
                 fontFamily: "var(--font-mono)",
-                fontSize: 11,
+                fontSize: 12,
                 letterSpacing: "0.03em",
-                padding: "7px 10px 7px 12px",
+                padding: "6px 6px 6px 12px",
                 borderRadius: "var(--radius-pill)",
                 background: "var(--surface-2)",
                 border: `1px solid ${accent}44`,
@@ -94,13 +113,19 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
               <button
                 type="button"
                 aria-label={`Remove ${it}`}
-                onClick={() => onChange(items.filter((x) => x !== it))}
+                onClick={() => onChange(items.filter((_, j) => j !== i))}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 24,
+                  height: 24,
                   border: "none",
+                  borderRadius: "50%",
                   background: "transparent",
-                  color: "var(--muted)",
+                  color: "var(--muted-strong)",
                   cursor: "pointer",
-                  fontSize: 15,
+                  fontSize: 16,
                   lineHeight: 1,
                   padding: 0,
                 }}
@@ -115,7 +140,10 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (dupe) setDupe("");
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -125,13 +153,16 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
           placeholder={placeholder}
           maxLength={60}
           style={{ ...inputBase, flex: 1 }}
-          onFocus={focusAmber}
-          onBlur={blurHair}
         />
         <button type="button" className="ch-btn-ghost" onClick={add}>
           <span style={{ color: accent }}>+</span> Add
         </button>
       </div>
+      {dupe ? (
+        <div role="status" style={{ fontSize: 12.5, color: "var(--muted-strong)" }}>
+          {dupe}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -169,7 +200,8 @@ function Segmented({ value, onChange, options }) {
               fontWeight: 600,
               fontSize: 14,
               background: on ? opt.bg : "transparent",
-              color: on ? opt.fg : "var(--muted)",
+              color: on ? opt.fg : "var(--muted-strong)",
+              boxShadow: on ? `inset 0 0 0 1px ${opt.fg}55` : "none",
               transition: "background 0.18s ease, color 0.18s ease",
             }}
           >
@@ -196,7 +228,8 @@ function Toggle({ on, onChange, label, sub }) {
     <button
       type="button"
       onClick={() => onChange(!on)}
-      aria-pressed={on}
+      role="switch"
+      aria-checked={on}
       style={{
         display: "flex",
         alignItems: "center",
@@ -241,7 +274,7 @@ function Toggle({ on, onChange, label, sub }) {
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{label}</span>
         {sub ? (
-          <span style={{ display: "block", marginTop: 2, fontSize: 13, color: "var(--muted)" }}>
+          <span style={{ display: "block", marginTop: 2, fontSize: 13, color: "var(--muted-strong)" }}>
             {sub}
           </span>
         ) : null}
@@ -252,6 +285,22 @@ function Toggle({ on, onChange, label, sub }) {
 
 function regionName(r) {
   return r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`;
+}
+
+// Stable stringification of an initial ProjectResponse for no-op edit detection.
+function serializeBody(init) {
+  return JSON.stringify({
+    name: (init.name || "").trim(),
+    goal: (init.goal || "").trim() || null,
+    about: (init.about || "").trim() || null,
+    is_hiring: init.is_hiring != null ? !!init.is_hiring : true,
+    gender_req: init.gender_req || null,
+    age_from: init.age_from != null ? Number(init.age_from) : null,
+    age_to: init.age_to != null ? Number(init.age_to) : null,
+    req_region_ids: [...(init.req_regions || []).map((r) => r.region_id).filter((x) => x != null)].sort(),
+    req_skills: [...(init.req_skills || []).map((s) => s.skill_name).filter(Boolean)].sort(),
+    req_knowledges: [...(init.req_knowledges || []).map((k) => k.knowledge_name).filter(Boolean)].sort(),
+  });
 }
 
 // `initial` (edit mode) is the authed ProjectResponse for the project. It carries
@@ -285,14 +334,12 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
 
-  // Toast for secondary feedback (e.g. nothing changed on edit).
-  const [toast, setToast] = useState(null);
-  const toastTimer = useRef(null);
-  const showToast = useCallback((text, tone = "ok") => {
-    setToast({ text, tone });
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
-  }, []);
+  // Toast for secondary feedback (e.g. nothing changed on edit) — shared,
+  // timer-managed hook (no leaked setTimeout).
+  const { toast, flash: showToast } = useToast(3200);
+
+  // Snapshot of the initial edit body, so "Save changes" can detect a no-op.
+  const initialBody = useMemo(() => (isEdit ? serializeBody(init) : null), [isEdit, init]);
 
   function toggleRegion(id) {
     setRegionIds((prev) =>
@@ -331,19 +378,48 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
     }
     const from = ageFrom.trim() === "" ? null : Number(ageFrom);
     const to = ageTo.trim() === "" ? null : Number(ageTo);
+    // Client-side age-bound validation before the network call.
+    if (from != null && (!Number.isFinite(from) || from < 13 || from > 100)) {
+      setError("Minimum age should be between 13 and 100.");
+      return;
+    }
+    if (to != null && (!Number.isFinite(to) || to < 13 || to > 100)) {
+      setError("Maximum age should be between 13 and 100.");
+      return;
+    }
     if (from != null && to != null && from > to) {
       setError("The minimum age can't be higher than the maximum age.");
       return;
     }
+    const body = buildBody();
+    // Nothing changed on edit → skip the round-trip and tell the user.
+    if (isEdit && initialBody != null) {
+      const currentBody = JSON.stringify({
+        name: body.name,
+        goal: body.goal,
+        about: body.about,
+        is_hiring: body.is_hiring,
+        gender_req: body.gender_req,
+        age_from: body.age_from,
+        age_to: body.age_to,
+        req_region_ids: [...body.req_region_ids].sort(),
+        req_skills: [...body.req_skills].sort(),
+        req_knowledges: [...body.req_knowledges].sort(),
+      });
+      if (currentBody === initialBody) {
+        showToast("No changes to save.");
+        return;
+      }
+    }
     setState("saving");
     try {
       if (isEdit) {
-        await bfu(`/projects/${init.id}`, { method: "PATCH", body: buildBody() });
+        await bfu(`/projects/${init.id}`, { method: "PATCH", body });
         // Back to the manager, which reloads the fresh project.
         router.push(`/projects/${init.id}/manage`);
         router.refresh();
       } else {
-        const created = await bfu("/projects", { method: "POST", body: buildBody() });
+        const created = await bfu("/projects", { method: "POST", body });
         const newId = created?.id;
         // Created projects are unapproved → not yet public at /p/{id}. Land the
         // founder on their projects list, where the pending badge explains the
@@ -379,9 +455,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       {/* Name + goal */}
       <Section label="The essentials" hint="A clear name and a one-line goal are what the city sees first.">
         <label style={{ display: "block" }}>
-          <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
-            Project name
-          </span>
+          <span style={fieldLabel}>Project name</span>
           <input
             type="text"
             value={name}
@@ -389,14 +463,15 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
             maxLength={120}
             placeholder="e.g. Bazaar Runner — same-day delivery for Chorsu sellers"
             style={inputBase}
-            onFocus={focusAmber}
-            onBlur={blurHair}
           />
+          {name.length > 0 && !nameOk ? (
+            <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--muted-strong)" }}>
+              At least 3 characters.
+            </span>
+          ) : null}
         </label>
         <label style={{ display: "block" }}>
-          <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
-            One-line goal
-          </span>
+          <span style={fieldLabel}>One-line goal</span>
           <input
             type="text"
             value={goal}
@@ -404,8 +479,6 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
             maxLength={200}
             placeholder="What will exist when this works?"
             style={inputBase}
-            onFocus={focusAmber}
-            onBlur={blurHair}
           />
         </label>
       </Section>
@@ -419,8 +492,6 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
           maxLength={4000}
           placeholder="The longer description builders read before they decide to join…"
           style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
-          onFocus={focusAmber}
-          onBlur={blurHair}
         />
       </Section>
 
@@ -445,7 +516,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
           items={knowledges}
           onChange={setKnowledges}
           placeholder="e.g. logistics, education, fintech"
-          accent="#5EC5B6"
+          accent="var(--teal-bright)"
         />
       </Section>
 
@@ -470,17 +541,18 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
                     cursor: "pointer",
                     background: on ? "rgba(232,161,92,0.16)" : "var(--surface-2)",
                     border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
-                    color: on ? "var(--amber)" : "var(--muted)",
+                    color: on ? "var(--amber)" : "var(--muted-strong)",
                     transition: "all 0.16s ease",
                   }}
                 >
+                  {on ? <span aria-hidden style={{ marginRight: 5 }}>✓</span> : null}
                   {regionName(r)}
                 </button>
               );
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 13, color: "var(--muted)" }}>Region list unavailable right now.</div>
+          <div style={{ fontSize: 13, color: "var(--muted-strong)" }}>Region list unavailable right now.</div>
         )}
       </Section>
 
@@ -488,9 +560,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       <Section label="Who can join" hint="Optional constraints — most projects leave these open.">
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <label style={{ flex: "1 1 120px" }}>
-            <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
-              Min age
-            </span>
+            <span style={fieldLabel}>Min age</span>
             <input
               type="number"
               min={13}
@@ -499,14 +569,10 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
               onChange={(e) => setAgeFrom(e.target.value)}
               placeholder="—"
               style={inputBase}
-              onFocus={focusAmber}
-              onBlur={blurHair}
             />
           </label>
           <label style={{ flex: "1 1 120px" }}>
-            <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
-              Max age
-            </span>
+            <span style={fieldLabel}>Max age</span>
             <input
               type="number"
               min={13}
@@ -515,18 +581,14 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
               onChange={(e) => setAgeTo(e.target.value)}
               placeholder="—"
               style={inputBase}
-              onFocus={focusAmber}
-              onBlur={blurHair}
             />
           </label>
           <label style={{ flex: "1 1 160px" }}>
-            <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
-              Gender
-            </span>
+            <span style={fieldLabel}>Gender</span>
             <select
               value={genderReq}
               onChange={(e) => setGenderReq(e.target.value)}
-              style={{ ...inputBase, cursor: "pointer", appearance: "auto" }}
+              style={{ ...inputBase, cursor: "pointer", appearance: "none", colorScheme: "dark" }}
             >
               <option value="">Any</option>
               <option value="Male">Male only</option>
@@ -557,18 +619,27 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       >
         <div style={{ minWidth: 0 }}>
           {error ? (
-            <span style={{ fontSize: 13.5, color: "var(--terra)" }}>{error}</span>
+            <span style={{ fontSize: 13, color: "var(--terra)" }}>{error}</span>
           ) : isEdit ? (
-            <span style={{ fontSize: 13.5, color: "var(--muted)" }}>Editing your project.</span>
+            <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>Editing your project.</span>
           ) : (
-            <span style={{ fontSize: 13.5, color: "var(--muted)" }}>
+            <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
               New projects go live after a quick admin approval.
             </span>
           )}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {isEdit && (
-            <a href={`/projects/${init.id}/manage`} className="ch-btn-ghost">
+            <a
+              href={`/projects/${init.id}/manage`}
+              className="ch-btn-ghost"
+              aria-disabled={state === "saving" ? "true" : undefined}
+              style={
+                state === "saving"
+                  ? { pointerEvents: "none", opacity: 0.55 }
+                  : undefined
+              }
+            >
               Cancel
             </a>
           )}

@@ -69,6 +69,8 @@ export default function FounderCell({ founder }) {
             </span>
             {founder.checked && (
               <span
+                role="img"
+                aria-label="Verified"
                 title="Verified"
                 style={{
                   display: "inline-flex",
@@ -93,7 +95,7 @@ export default function FounderCell({ founder }) {
               fontSize: 11,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             View profile →

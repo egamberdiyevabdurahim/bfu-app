@@ -37,7 +37,7 @@ function Pill({ children, tone = "default" }) {
       ? {
           background: "rgba(18,86,79,0.18)",
           border: "1px solid rgba(94,197,182,0.3)",
-          color: "#5EC5B6",
+          color: "var(--teal-bright)",
         }
       : {
           background: "var(--surface-2)",
@@ -74,7 +74,7 @@ export default function ProjectLookingForCell({ lookingFor, requirements }) {
 
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{
         gridColumn: "span 4",
         borderColor: "rgba(127,176,105,0.3)",
@@ -115,14 +115,14 @@ export default function ProjectLookingForCell({ lookingFor, requirements }) {
             gap: 8,
           }}
         >
-          {skills.map((s) => (
-            <Pill key={`s-${s}`}>{s}</Pill>
+          {skills.map((s, i) => (
+            <Pill key={`s-${i}-${s}`}>{s}</Pill>
           ))}
-          {knowledges.map((k) => (
-            <Pill key={`k-${k}`}>{k}</Pill>
+          {knowledges.map((k, i) => (
+            <Pill key={`k-${i}-${k}`}>{k}</Pill>
           ))}
-          {regions.map((r) => (
-            <Pill key={`r-${r.id ?? r.name_en}`} tone="region">
+          {regions.map((r, i) => (
+            <Pill key={`r-${r.id ?? `${i}-${r.name_en}`}`} tone="region">
               {r.name_en}
             </Pill>
           ))}
@@ -134,10 +134,10 @@ export default function ProjectLookingForCell({ lookingFor, requirements }) {
           style={{
             marginTop: hasChips ? 16 : 14,
             fontFamily: "var(--font-mono)",
-            fontSize: 11.5,
+            fontSize: 12,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           {reqLine}

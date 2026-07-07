@@ -1,16 +1,11 @@
-function initials(name) {
-  const parts = (name || "?").split(" ").filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
+import { initials } from "@/lib/avatar";
 
 export default function VouchesCell({ vouches, vouchCount }) {
   const top = vouches?.[0];
 
   return (
-    <div className="ch-cell" style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
-      <div className="ch-cell-label">Vouches ({vouchCount})</div>
+    <div className="ch-cell-static" style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
+      <div className="ch-cell-label">Vouches ({vouchCount || 0})</div>
       {top ? (
         <>
           <p style={{ margin: "16px 0 0", fontFamily: "var(--font-accent)", fontStyle: "italic",
@@ -21,7 +16,7 @@ export default function VouchesCell({ vouches, vouchCount }) {
             <div style={{ width: 38, height: 38, borderRadius: "50%",
               background: "linear-gradient(140deg,#7FB069,#12564F)", display: "flex", alignItems: "center",
               justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15,
-              color: "#0B0A08" }}>
+              color: "#160E08" }}>
               {top.author ? initials(top.author.display_name) : "?"}
             </div>
             <div>
@@ -32,7 +27,7 @@ export default function VouchesCell({ vouches, vouchCount }) {
           </div>
         </>
       ) : (
-        <p style={{ marginTop: 16, color: "var(--muted)" }}>No vouches yet.</p>
+        <p style={{ marginTop: 16, color: "var(--muted-strong)" }}>No vouches yet.</p>
       )}
     </div>
   );

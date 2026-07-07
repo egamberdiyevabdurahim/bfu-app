@@ -1,4 +1,5 @@
 import Atmosphere from "@/components/Atmosphere";
+import SiteFooter from "@/components/ui/SiteFooter";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
 
@@ -50,8 +51,8 @@ export default function AdminShell({
               margin: "12px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 800,
-              fontSize: 48,
-              lineHeight: 1.0,
+              fontSize: "clamp(32px, 7vw, 48px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -89,40 +90,10 @@ export default function AdminShell({
 
         {children}
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz · command center
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            You keep the lamps lit for everyone.
-          </span>
-        </div>
+        <SiteFooter
+          host="brightfuturesuzbekistan.uz · command center"
+          tagline="You keep the lamps lit for everyone."
+        />
     </AppTopBar>
   );
 }
@@ -168,7 +139,7 @@ function AdminsOnly() {
 
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <section
-            className="ch-cell"
+            className="ch-cell-static"
             style={{
               width: "100%",
               padding: 44,
@@ -194,7 +165,7 @@ function AdminsOnly() {
                 margin: "16px 0 0",
                 fontFamily: "var(--font-display)",
                 fontWeight: 800,
-                fontSize: 40,
+                fontSize: "clamp(30px, 6vw, 40px)",
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 color: "var(--text)",

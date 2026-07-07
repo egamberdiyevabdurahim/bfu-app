@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnerDetail from "@/components/community/PartnerDetail";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /partners/[id] — a partner org's profile + the opportunities they've posted.
 // If the current user OWNS this partner (GET /partners/mine matches this id),
@@ -40,33 +41,7 @@ export default async function PartnerPage({ params }) {
 
         <PartnerDetail partnerId={id} />
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            Opportunity, made local.
-          </span>
-        </div>
+        <SiteFooter tagline="Opportunity, made local." />
     </AppTopBar>
   );
 }

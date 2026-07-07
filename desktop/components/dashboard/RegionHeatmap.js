@@ -13,7 +13,7 @@ export default function RegionHeatmap({ payload }) {
 
   if (!regions.length) {
     return (
-      <section className="ch-cell" style={{ padding: 26 }}>
+      <section className="ch-cell-static" style={{ padding: 26 }}>
         <div className="ch-cell-label">Region heatmap · members</div>
         <p
           style={{
@@ -36,7 +36,7 @@ export default function RegionHeatmap({ payload }) {
   const restMembers = rest.reduce((s, r) => s + (Number(r.members) || 0), 0);
 
   return (
-    <section className="ch-cell" style={{ padding: 26 }}>
+    <section className="ch-cell-static" style={{ padding: 26 }}>
       <div
         style={{
           display: "flex",
@@ -52,7 +52,7 @@ export default function RegionHeatmap({ payload }) {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: "0.1em",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           {(Number(totals.members) || 0).toLocaleString("en-US")} builders ·{" "}
@@ -67,10 +67,11 @@ export default function RegionHeatmap({ payload }) {
           const pct = Math.round((members / max) * 100);
           const name = r.name_en || r.name_uz || r.name_ru || "—";
           return (
-            <div key={r.id ?? name} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div key={r.id ?? name} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div
                 style={{
-                  flex: "0 0 148px",
+                  flex: "0 1 148px",
+                  minWidth: 110,
                   fontFamily: "var(--font-display)",
                   fontWeight: 600,
                   fontSize: 15,
@@ -82,7 +83,7 @@ export default function RegionHeatmap({ payload }) {
               >
                 {name}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: "1 1 120px", minWidth: 90 }}>
                 <div
                   style={{
                     position: "relative",
@@ -114,7 +115,7 @@ export default function RegionHeatmap({ payload }) {
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   letterSpacing: "0.04em",
-                  color: "var(--muted)",
+                  color: "var(--muted-strong)",
                   minWidth: 190,
                 }}
               >
@@ -135,7 +136,7 @@ export default function RegionHeatmap({ payload }) {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: "0.08em",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           + {rest.length} more {rest.length === 1 ? "region" : "regions"} ·{" "}

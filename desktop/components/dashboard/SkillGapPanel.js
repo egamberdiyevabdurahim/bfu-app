@@ -11,7 +11,7 @@ export default function SkillGapPanel({ payload }) {
   const skills = (payload?.skills || []).slice(0, TOP_N);
 
   return (
-    <section className="ch-cell" style={{ padding: 26 }}>
+    <section className="ch-cell-static" style={{ padding: 26 }}>
       <div
         style={{
           display: "flex",
@@ -30,7 +30,7 @@ export default function SkillGapPanel({ payload }) {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: "0.08em",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -38,7 +38,7 @@ export default function SkillGapPanel({ payload }) {
             demand
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <i style={{ width: 9, height: 9, borderRadius: 2, background: "#5EC5B6" }} />
+            <i style={{ width: 9, height: 9, borderRadius: 2, background: "var(--teal-bright)" }} />
             supply
           </span>
         </div>
@@ -95,7 +95,7 @@ export default function SkillGapPanel({ payload }) {
                       fontFamily: "var(--font-mono)",
                       fontSize: 11.5,
                       fontWeight: 700,
-                      color: needs ? "var(--amber)" : "var(--muted)",
+                      color: needs ? "var(--amber)" : "var(--muted-strong)",
                     }}
                   >
                     {needs ? `gap +${gap} · needs people` : `covered (${gap})`}
@@ -112,7 +112,7 @@ export default function SkillGapPanel({ payload }) {
                   <Bar
                     value={supply}
                     scale={scale}
-                    gradient="linear-gradient(90deg, var(--teal), #5EC5B6)"
+                    gradient="linear-gradient(90deg, var(--teal), var(--teal-bright))"
                     glow="rgba(94,197,182,0.24)"
                   />
                 </div>
@@ -158,7 +158,7 @@ function Bar({ value, scale, gradient, glow }) {
           textAlign: "right",
           fontFamily: "var(--font-mono)",
           fontSize: 11,
-          color: "var(--muted)",
+          color: "var(--muted-strong)",
         }}
       >
         {value}

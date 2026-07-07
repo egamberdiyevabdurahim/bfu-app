@@ -6,6 +6,7 @@ import FilterBar from "@/components/FilterBar";
 import RegionCluster from "@/components/RegionCluster";
 import ThreadsRail from "@/components/ThreadsRail";
 import PresenceToast from "@/components/PresenceToast";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route must render per-request (it can no longer be statically cached). The
@@ -22,7 +23,10 @@ export const dynamic = "force-dynamic";
 // Fidelity reference: docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html.
 
 export async function generateMetadata() {
-  const title = "Bright Futures Uzbekistan — a city of builders";
+  // Title order normalized to match every sibling page ("<Page> — Bright
+  // Futures Uzbekistan"); the OG/Twitter title keeps its own richer phrasing.
+  const title = "The city — Bright Futures Uzbekistan";
+  const ogTitle = "Bright Futures Uzbekistan — a city of builders";
   const description =
     "Wander the bazaar of Uzbekistan's builders. See who is building right now, " +
     "which cities are lit tonight, and pull a thread you can't unsee.";
@@ -36,7 +40,7 @@ export async function generateMetadata() {
     title,
     description,
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       url,
       siteName: "Bright Futures Uzbekistan",
@@ -45,7 +49,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: ogTitle,
       description,
       images: [ogImage],
     },
@@ -163,40 +167,7 @@ export default async function CityPage() {
 
         <ThreadsRail threads={threads} />
 
-        <div
-          style={{
-            marginTop: 64,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            The city never really sleeps.
-          </span>
-        </div>
+        <SiteFooter tagline="The city never really sleeps." />
 
       <PresenceToast builders={onlineBuilders} />
     </SiteTopBar>

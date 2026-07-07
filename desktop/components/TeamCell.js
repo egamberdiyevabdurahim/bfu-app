@@ -17,7 +17,7 @@ export default function TeamCell({ team, teamCount }) {
 
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}
     >
       <div className="ch-cell-label">Team</div>
@@ -36,8 +36,8 @@ export default function TeamCell({ team, teamCount }) {
           >
             Just the founder so far
           </p>
-          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
-            The fire's just been lit — this could be where you come in.
+          <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+            The fire&rsquo;s just been lit — this could be where you come in.
           </p>
         </div>
       ) : (
@@ -79,19 +79,21 @@ export default function TeamCell({ team, teamCount }) {
                 )}
                 {m.checked && (
                   <span
+                    role="img"
+                    aria-label="Verified"
                     style={{
                       position: "absolute",
                       bottom: -1,
                       right: -1,
-                      width: 15,
-                      height: 15,
+                      width: 16,
+                      height: 16,
                       borderRadius: "50%",
                       background: "var(--green)",
                       border: "2px solid var(--surface)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 8,
+                      fontSize: 10,
                       color: "#160E08",
                       fontWeight: 900,
                     }}
@@ -103,6 +105,7 @@ export default function TeamCell({ team, teamCount }) {
             ))}
             {extra > 0 && (
               <div
+                title={`${extra} more ${extra === 1 ? "teammate" : "teammates"}`}
                 style={{
                   width: 48,
                   height: 48,
@@ -116,7 +119,7 @@ export default function TeamCell({ team, teamCount }) {
                   fontFamily: "var(--font-mono)",
                   fontWeight: 700,
                   fontSize: 13,
-                  color: "var(--muted)",
+                  color: "var(--muted-strong)",
                 }}
               >
                 +{extra}

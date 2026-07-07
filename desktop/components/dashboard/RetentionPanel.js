@@ -26,7 +26,7 @@ export default function RetentionPanel({ payload }) {
   const cohorts = [...raw].reverse();
 
   return (
-    <section className="ch-cell" style={{ padding: 26, display: "flex", flexDirection: "column" }}>
+    <section className="ch-cell-static" style={{ padding: 26, display: "flex", flexDirection: "column" }}>
       <div
         style={{
           display: "flex",
@@ -42,7 +42,7 @@ export default function RetentionPanel({ payload }) {
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: "0.1em",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           active in last {activeDays}d
@@ -124,9 +124,9 @@ export default function RetentionPanel({ payload }) {
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 10,
+                    fontSize: 10.5,
                     letterSpacing: "0.06em",
-                    color: "var(--muted)",
+                    color: "var(--muted-strong)",
                     textAlign: "center",
                     whiteSpace: "nowrap",
                   }}
@@ -136,8 +136,8 @@ export default function RetentionPanel({ payload }) {
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    color: "var(--muted)",
+                    fontSize: 10.5,
+                    color: "var(--muted-strong)",
                     textAlign: "center",
                   }}
                 >

@@ -9,6 +9,8 @@ import { gradientFor, initials } from "@/lib/avatar";
 // Each card links to the partner detail page /partners/{id}.
 
 function Logo({ id, name, url, size = 48 }) {
+  const [broken, setBroken] = useState(false);
+  const showImg = url && !broken;
   return (
     <div
       style={{
@@ -16,7 +18,7 @@ function Logo({ id, name, url, size = 48 }) {
         height: size,
         borderRadius: 12,
         flex: "0 0 auto",
-        background: url ? "var(--surface-2)" : gradientFor(id),
+        background: showImg ? "var(--surface-2)" : gradientFor(id),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -27,8 +29,13 @@ function Logo({ id, name, url, size = 48 }) {
         overflow: "hidden",
       }}
     >
-      {url ? (
-        <img src={url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
+      {showImg ? (
+        <img
+          src={url}
+          alt={`${name} logo`}
+          onError={() => setBroken(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }}
+        />
       ) : (
         initials(name)
       )}
@@ -56,7 +63,7 @@ export default function PartnersList() {
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading partners…
       </div>
@@ -64,8 +71,11 @@ export default function PartnersList() {
   }
   if (state === "error") {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load partners. Refresh to try again.
+      <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load partners.</span>
+        <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
+          Try again
+        </button>
       </div>
     );
   }
@@ -84,9 +94,9 @@ export default function PartnersList() {
   }
 
   return (
-    <div className="ch-grid" style={{ marginTop: 24, gridTemplateColumns: "repeat(3, 1fr)" }}>
+    <div className="ch-grid" style={{ marginTop: 24 }}>
       {partners.map((p) => (
-        <a key={p.id} href={`/partners/${p.id}`} className="ch-cell" style={{ display: "block", padding: 22, color: "var(--text)", textDecoration: "none" }}>
+        <a key={p.id} href={`/partners/${p.id}`} className="ch-cell" style={{ display: "block", padding: 28, color: "var(--text)", textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Logo id={p.id} name={p.name} url={p.logo_url} />
             <div style={{ minWidth: 0 }}>
@@ -94,11 +104,13 @@ export default function PartnersList() {
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>
                   {p.name}
                 </span>
-                {p.verified ? <span style={{ color: "var(--green)", fontSize: 12 }} title="Verified">✓</span> : null}
+                {p.verified ? (
+                  <span role="img" aria-label="Verified partner" style={{ color: "var(--green)", fontSize: 12 }}>✓</span>
+                ) : null}
               </div>
               {p.website ? (
-                <div style={{ marginTop: 3, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {p.website.replace(/^https?:\/\//, "")}
+                <div style={{ marginTop: 3, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                 </div>
               ) : null}
             </div>

@@ -8,7 +8,7 @@ export default function LookingForCell({ lookingFor }) {
   if (!lookingFor) return null;
 
   return (
-    <div className="ch-cell" style={{ gridColumn: "span 2",
+    <div className="ch-cell-static" style={{ gridColumn: "span 2",
       borderColor: "rgba(127,176,105,0.3)",
       background: "linear-gradient(150deg, rgba(127,176,105,0.10), var(--surface) 60%)",
       display: "flex", flexDirection: "column", justifyContent: "center" }}>

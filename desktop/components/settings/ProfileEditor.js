@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { downloadResume } from "@/lib/resume";
+import { useToast } from "@/lib/useToast";
 import AchievementsCell from "@/components/AchievementsCell";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -23,14 +24,26 @@ function portfolioRows(links) {
 
 const SECTION_GAP = 26;
 
-// A labelled section card in the Chorsu grammar.
+// A labelled section card in the Chorsu grammar. These are PASSIVE containers,
+// so they use .ch-cell-static (firelit surface, no hover lift/glow) — the glow
+// is reserved for the real clickable "View public profile" tile below.
 function Section({ label, hint, children, style }) {
   return (
-    <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 16, ...style }}>
+    <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 16, ...style }}>
       <div>
-        <div className="ch-cell-label">{label}</div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 16,
+            letterSpacing: "-0.01em",
+            color: "var(--text)",
+          }}
+        >
+          {label}
+        </div>
         {hint ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
             {hint}
           </div>
         ) : null}
@@ -49,8 +62,8 @@ const inputBase = {
   fontFamily: "var(--font-body)",
   fontSize: 15,
   padding: "12px 14px",
-  outline: "none",
-  transition: "border-color 0.18s ease",
+  // No inline outline:none / onFocus border hacks — the global :focus-visible
+  // ring on input/select/textarea (globals.css) handles focus visibility.
 };
 
 // Toggle switch (looking-for). Reduced-motion respected via CSS class on knob.
@@ -104,7 +117,7 @@ function Toggle({ on, onChange, label, sub }) {
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{label}</span>
         {sub ? (
-          <span style={{ display: "block", marginTop: 2, fontSize: 13, color: "var(--muted)" }}>
+          <span style={{ display: "block", marginTop: 2, fontSize: 13, color: "var(--muted-strong)" }}>
             {sub}
           </span>
         ) : null}
@@ -158,13 +171,10 @@ export default function ProfileEditor({ initial, regions }) {
   const [saveError, setSaveError] = useState("");
   const savedTimer = useRef(null);
 
-  // Toast (lightweight, shared feedback for secondary actions).
-  const [toast, setToast] = useState(null); // { text, tone }
-  const toastTimer = useRef(null);
-  const showToast = useCallback((text, tone = "ok") => {
-    setToast({ text, tone });
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  // Toast (shared managed-timer hook — no leaked setTimeout / setState-after-unmount).
+  const { toast, flash: showToast } = useToast(3200);
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
   }, []);
 
   const cleanLinks = useMemo(
@@ -239,19 +249,23 @@ export default function ProfileEditor({ initial, regions }) {
     setAnalyzeBusy(true);
     try {
       let next;
+      let savedBio = false;
       if (about !== baseline.current.about) {
+        // Re-analysis reads the SAVED bio, so an unsaved edit is persisted first.
+        // We tell the user this happened rather than PATCHing silently.
         const updated = await bfu("/users/me", { method: "PATCH", body: { about } });
         baseline.current.about = about;
+        savedBio = true;
         next = ((updated?.analysis?.skills) || updated?.skills || []).filter(Boolean);
       } else {
         const res = await bfu("/users/me/analyze", { method: "POST" });
         next = (res?.skills || []).filter(Boolean);
       }
       setSkills(next);
-      showToast(
-        next.length ? `Found ${next.length} skill${next.length === 1 ? "" : "s"}` : "No skills detected yet",
-        "ok"
-      );
+      const found = next.length
+        ? `Found ${next.length} skill${next.length === 1 ? "" : "s"}`
+        : "No skills detected yet";
+      showToast(savedBio ? `Bio saved · ${found}` : found, "ok");
     } catch (err) {
       showToast(err.message || "Analysis is on cooldown — try again shortly", "err");
     } finally {
@@ -265,6 +279,13 @@ export default function ProfileEditor({ initial, regions }) {
       showToast("Nothing to save yet", "ok");
       return;
     }
+    // A row with only a label OR only a URL is dropped by cleanLinks — warn the
+    // user rather than silently discarding it under a "Saved ✓".
+    const droppedLinks = links.some((l) => {
+      const label = (l.label || "").trim();
+      const url = (l.url || "").trim();
+      return (label || url) && !(label && url);
+    });
     setSaveState("saving");
     setSaveError("");
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -282,6 +303,9 @@ export default function ProfileEditor({ initial, regions }) {
       // The PATCH auto-reanalyzes when the bio changes — reflect fresh skills.
       if (updated?.analysis?.skills) setSkills(updated.analysis.skills.filter(Boolean));
       setSaveState("saved");
+      if (droppedLinks) {
+        showToast("Saved — but some links were incomplete and skipped", "err");
+      }
       savedTimer.current = setTimeout(() => setSaveState("idle"), 2600);
     } catch (err) {
       setSaveState("error");
@@ -328,18 +352,29 @@ export default function ProfileEditor({ initial, regions }) {
           {/* Identity */}
           <Section label="Identity" hint="Your bio is what the city reads first — and what the AI reads to place you.">
             <label style={{ display: "block" }}>
-              <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
+              <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
                 About you
               </span>
               <textarea
                 value={about}
-                onChange={(e) => setAbout(e.target.value)}
+                onChange={(e) => setAbout(e.target.value.slice(0, 600))}
                 rows={6}
+                maxLength={600}
                 placeholder="What are you building, what you care about, what you're good at…"
                 style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
-                onFocus={(e) => (e.target.style.borderColor = "var(--amber)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--hair)")}
               />
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 6,
+                  textAlign: "right",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: about.length > 560 ? "var(--amber)" : "var(--muted-strong)",
+                }}
+              >
+                {about.length}/600
+              </span>
             </label>
 
             {/* AI bio coach */}
@@ -351,10 +386,10 @@ export default function ProfileEditor({ initial, regions }) {
                 disabled={coachBusy}
                 style={{ opacity: coachBusy ? 0.6 : 1 }}
               >
-                <span style={{ color: "var(--amber)" }}>✦</span>
+                <span style={{ color: "var(--amber)" }} aria-hidden>✦</span>
                 {coachBusy ? "Polishing…" : "AI bio coach"}
               </button>
-              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
                 Let the coach tighten your draft — you decide whether to keep it.
               </span>
             </div>
@@ -396,7 +431,7 @@ export default function ProfileEditor({ initial, regions }) {
 
             {/* Currently building */}
             <label style={{ display: "block", marginTop: 4 }}>
-              <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted)" }}>
+              <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
                 What you're building right now
               </span>
               <input
@@ -410,9 +445,12 @@ export default function ProfileEditor({ initial, regions }) {
                     : "e.g. a delivery app for Tashkent bazaars"
                 }
                 style={inputBase}
-                onFocus={(e) => (e.target.style.borderColor = "var(--amber)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--hair)")}
               />
+              {me.currently_building_source === "auto" && me.currently_building && !currentlyBuilding ? (
+                <span style={{ display: "block", marginTop: 6, fontSize: 12, color: "var(--muted-strong)" }}>
+                  Auto-filled from your active project. Type here to override it.
+                </span>
+              ) : null}
             </label>
           </Section>
 
@@ -435,7 +473,7 @@ export default function ProfileEditor({ initial, regions }) {
           {/* Skills */}
           <Section
             label="Skills"
-            hint="These are derived by the AI from your bio. Re-run after you edit your bio to refresh them."
+            hint="These are derived by the AI from your bio. Re-running reads your latest bio — if you've edited it, that draft is saved first."
           >
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {skills.length ? (
@@ -457,7 +495,7 @@ export default function ProfileEditor({ initial, regions }) {
                   </span>
                 ))
               ) : (
-                <span style={{ fontSize: 13.5, color: "var(--muted)", fontStyle: "italic", fontFamily: "var(--font-accent)" }}>
+                <span style={{ fontSize: 14, color: "var(--muted-strong)", fontStyle: "italic", fontFamily: "var(--font-accent)" }}>
                   No skills yet — write a bio and run the analysis.
                 </span>
               )}
@@ -470,7 +508,7 @@ export default function ProfileEditor({ initial, regions }) {
                 disabled={analyzeBusy}
                 style={{ opacity: analyzeBusy ? 0.6 : 1 }}
               >
-                <span style={{ color: "var(--amber)" }}>↻</span>
+                <span style={{ color: "var(--amber)" }} aria-hidden>↻</span>
                 {analyzeBusy ? "Reading your bio…" : "Re-run AI analysis"}
               </button>
             </div>
@@ -479,11 +517,14 @@ export default function ProfileEditor({ initial, regions }) {
           {/* Portfolio links */}
           <Section label="Portfolio links" hint="Up to 5 links — GitHub, a demo, a deck, your writing. Label + URL.">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {links.map((row, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {links.map((row, i) => {
+                const incomplete = (row.label.trim() || row.url.trim()) && !(row.label.trim() && row.url.trim());
+                return (
+                <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                   <input
                     type="text"
                     value={row.label}
+                    aria-label={`Portfolio link ${i + 1} label`}
                     onChange={(e) => {
                       const next = links.slice();
                       next[i] = { ...next[i], label: e.target.value };
@@ -491,26 +532,30 @@ export default function ProfileEditor({ initial, regions }) {
                     }}
                     placeholder="Label"
                     maxLength={40}
-                    style={{ ...inputBase, flex: "0 0 34%" }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--amber)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--hair)")}
+                    style={{ ...inputBase, flex: "1 1 140px", minWidth: 0 }}
                   />
                   <input
                     type="url"
                     value={row.url}
+                    aria-label={`Portfolio link ${i + 1} URL`}
+                    aria-invalid={incomplete && !row.url.trim() ? true : undefined}
                     onChange={(e) => {
                       const next = links.slice();
                       next[i] = { ...next[i], url: e.target.value };
                       setLinks(next);
                     }}
                     placeholder="https://…"
-                    style={{ ...inputBase, flex: 1 }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--amber)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--hair)")}
+                    style={{
+                      ...inputBase,
+                      flex: "2 1 200px",
+                      minWidth: 0,
+                      borderColor: incomplete ? "rgba(192,86,59,0.5)" : "var(--hair)",
+                    }}
                   />
                   <button
                     type="button"
-                    aria-label="Remove link"
+                    aria-label={`Remove portfolio link ${i + 1}`}
+                    title="Remove link"
                     onClick={() => {
                       const next = links.filter((_, j) => j !== i);
                       setLinks(next.length ? next : [{ label: "", url: "" }]);
@@ -522,15 +567,21 @@ export default function ProfileEditor({ initial, regions }) {
                       borderRadius: "var(--radius-sm)",
                       background: "var(--surface-2)",
                       border: "1px solid var(--hair)",
-                      color: "var(--muted)",
+                      color: "var(--muted-strong)",
                       cursor: "pointer",
                       fontSize: 16,
                     }}
                   >
                     ×
                   </button>
+                  {incomplete ? (
+                    <span style={{ flexBasis: "100%", fontSize: 12, color: "var(--terra)" }}>
+                      {row.url.trim() ? "Add a label" : "Add a URL"} — this link won't be saved until it has both.
+                    </span>
+                  ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
             {links.length < 5 ? (
               <div>
@@ -539,7 +590,7 @@ export default function ProfileEditor({ initial, regions }) {
                   className="ch-btn-ghost"
                   onClick={() => setLinks([...links, { label: "", url: "" }])}
                 >
-                  <span style={{ color: "var(--amber)" }}>+</span> Add link
+                  <span style={{ color: "var(--amber)" }} aria-hidden>+</span> Add link
                 </button>
               </div>
             ) : null}
@@ -550,7 +601,20 @@ export default function ProfileEditor({ initial, regions }) {
             <select
               value={regionId}
               onChange={(e) => setRegionId(e.target.value)}
-              style={{ ...inputBase, cursor: "pointer", appearance: "auto" }}
+              aria-label="Your region"
+              style={{
+                ...inputBase,
+                cursor: "pointer",
+                appearance: "none",
+                WebkitAppearance: "none",
+                MozAppearance: "none",
+                colorScheme: "dark",
+                paddingRight: 40,
+                backgroundImage:
+                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23C6BEAF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 14px center",
+              }}
             >
               <option value="">— Select your region —</option>
               {regionOptions.map((r) => (
@@ -577,7 +641,8 @@ export default function ProfileEditor({ initial, regions }) {
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
-                color: "var(--muted)",
+                color: me.invite?.link ? "var(--muted-strong)" : "var(--muted)",
+                fontStyle: me.invite?.link ? "normal" : "italic",
                 wordBreak: "break-all",
                 background: "var(--surface-2)",
                 border: "1px solid var(--hair)",
@@ -585,14 +650,20 @@ export default function ProfileEditor({ initial, regions }) {
                 padding: "11px 13px",
               }}
             >
-              {me.invite?.link || "Loading your link…"}
+              {me.invite?.link || "Preparing your link…"}
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <button type="button" className="ch-btn-primary" onClick={copyInvite}>
+              <button
+                type="button"
+                className="ch-btn-primary"
+                onClick={copyInvite}
+                disabled={!me.invite?.link}
+                style={{ opacity: me.invite?.link ? 1 : 0.55, cursor: me.invite?.link ? "pointer" : "default" }}
+              >
                 Copy invite link
               </button>
               {me.invite?.invited_count != null ? (
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
                   {me.invite.invited_count} invited so far
                 </span>
               ) : null}
@@ -609,7 +680,7 @@ export default function ProfileEditor({ initial, regions }) {
                 disabled={cvBusy}
                 style={{ opacity: cvBusy ? 0.6 : 1 }}
               >
-                <span style={{ color: "var(--amber)" }}>↓</span>
+                <span style={{ color: "var(--amber)" }} aria-hidden>↓</span>
                 {cvBusy ? "Building your CV…" : "Download CV (PDF)"}
               </button>
             </div>
@@ -675,11 +746,11 @@ export default function ProfileEditor({ initial, regions }) {
               Saved ✓
             </span>
           ) : dirty ? (
-            <span style={{ fontSize: 13.5, color: "var(--muted)" }}>
+            <span style={{ fontSize: 13.5, color: "var(--muted-strong)" }}>
               You have unsaved changes.
             </span>
           ) : (
-            <span style={{ fontSize: 13.5, color: "var(--muted)" }}>
+            <span style={{ fontSize: 13.5, color: "var(--muted-strong)" }}>
               Your profile is up to date.
             </span>
           )}
@@ -704,12 +775,14 @@ export default function ProfileEditor({ initial, regions }) {
         </button>
       </div>
 
-      {/* Toast */}
+      {/* Toast — lifted above the sticky save bar so the two don't overlap. */}
       {toast ? (
         <div
           className="ch-toast ch-toast-show"
           role="status"
+          aria-live="polite"
           style={{
+            bottom: 96,
             borderColor:
               toast.tone === "err" ? "rgba(192,86,59,0.5)" : "rgba(127,176,105,0.5)",
           }}
@@ -731,13 +804,15 @@ export default function ProfileEditor({ initial, regions }) {
 // endpoint). Small, self-contained loader so the rail still lights up.
 function AchievementsLoader() {
   const [achievements, setAchievements] = useState(null);
-  const started = useRef(false);
-  if (!started.current) {
-    started.current = true;
+  useEffect(() => {
+    let alive = true;
     bfu("/users/me/achievements")
-      .then((res) => setAchievements(res?.achievements || []))
-      .catch(() => setAchievements([]));
-  }
+      .then((res) => alive && setAchievements(res?.achievements || []))
+      .catch(() => alive && setAchievements([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
   if (!achievements) {
     return (
       <Section label="Achievements">

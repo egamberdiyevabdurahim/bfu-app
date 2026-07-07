@@ -9,24 +9,44 @@ import { bfu } from "@/lib/client-api";
 // nothing (the page stays a clean public discovery surface). Purely additive —
 // the SSR grid is untouched.
 export default function StartProjectCTA() {
-  const [authed, setAuthed] = useState(false);
+  // loading → reserve space; authed → show CTAs; anon/other → render nothing.
+  const [state, setState] = useState("loading"); // loading | authed | hidden
 
   useEffect(() => {
     let alive = true;
     bfu("/users/me")
-      .then((me) => alive && setAuthed(!!me?.id))
-      .catch(() => {});
+      .then((me) => {
+        if (alive) setState(me?.id ? "authed" : "hidden");
+      })
+      .catch(() => {
+        // 401 = genuinely anonymous → stay hidden; any transient error also
+        // hides the CTA rather than risking a broken action on a public page.
+        if (alive) setState("hidden");
+      });
     return () => {
       alive = false;
     };
   }, []);
 
-  if (!authed) return null;
+  if (state === "hidden") return null;
+
+  // Reserve the control row's height while probing auth so the header doesn't
+  // shift when the CTAs fade in on the common logged-in path.
+  if (state === "loading") {
+    return <div aria-hidden style={{ height: 44 }} />;
+  }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
       <a href="/projects/mine" className="ch-btn-ghost">
-        <span style={{ fontSize: 15, color: "var(--amber)" }}>◆</span> Your projects
+        <span style={{ fontSize: 15, color: "var(--amber)" }} aria-hidden>◆</span> Your projects
       </a>
       <a href="/projects/new" className="ch-btn-primary">
         + Start a project

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ConnectionsList from "@/components/people/ConnectionsList";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /connections — "Your network". Per-user + uncacheable. The server wrapper
 // gates on the session (unauth → /login); the client list loads
@@ -38,10 +39,11 @@ export default async function ConnectionsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Your{" "}
@@ -56,45 +58,24 @@ export default async function ConnectionsPage() {
               network
             </span>
           </h1>
+          <p
+            style={{
+              margin: "16px 0 0",
+              fontFamily: "var(--font-accent)",
+              fontStyle: "italic",
+              fontSize: 20,
+              lineHeight: 1.35,
+              color: "var(--muted-strong)",
+              maxWidth: 560,
+            }}
+          >
+            The builders you&rsquo;re connected to and the ones you follow.
+          </p>
         </div>
 
         <ConnectionsList />
 
-        {/* Footer */}
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            Every connection started with a hello.
-          </span>
-        </div>
+        <SiteFooter tagline="Every connection started with a hello." />
     </AppTopBar>
   );
 }

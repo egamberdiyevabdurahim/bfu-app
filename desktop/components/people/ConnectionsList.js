@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 
@@ -10,17 +10,21 @@ import { gradientFor, initials } from "@/lib/avatar";
 //   GET /users/me/following   → { users:[{id,display_name,photo_url}],
 //                                 projects:[{id,name,type}] }
 // Rendered as two sections (Connections + Following) of Chorsu people cards
-// linking to /u/{id}, with per-section empty states.
+// linking to /u/{id}, with per-section empty + error states.
 
-function PersonCard({ person }) {
+function PersonCard({ person, variant }) {
   const name = person.display_name || person.name || "Builder";
   const seed = person.id != null ? person.id : name;
   const building = person.currently_building;
+  // The /me/following projection carries only id/name/photo, so a Following
+  // card can't promise a build line or verified tick — render a quieter
+  // "Following" variant instead of a broken/empty one.
+  const following = variant === "following";
   return (
     <a
       href={`/u/${person.id}`}
       className="ch-card"
-      style={{ animation: "none", opacity: 1, transform: "none", textDecoration: "none", padding: "22px 22px 20px" }}
+      style={{ textDecoration: "none", padding: "22px 22px 20px" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div
@@ -41,7 +45,13 @@ function PersonCard({ person }) {
           }}
         >
           {person.photo_url ? (
-            <img src={person.photo_url} alt={name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+            <img
+              src={person.photo_url}
+              alt=""
+              width={52}
+              height={52}
+              style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+            />
           ) : (
             initials(name)
           )}
@@ -49,14 +59,22 @@ function PersonCard({ person }) {
         <div style={{ minWidth: 0 }}>
           <div className="ch-card-nm" style={{ fontSize: 17 }}>
             {name}
-            {person.checked && <span className="ch-card-vf">✓</span>}
+            {person.checked && (
+              <span className="ch-card-vf" role="img" aria-label="Verified">
+                ✓
+              </span>
+            )}
           </div>
-          {building ? (
+          {following ? (
+            <div className="ch-card-reg" style={{ marginTop: 5, color: "var(--muted-strong)" }}>
+              You follow them
+            </div>
+          ) : building ? (
             <div className="ch-card-bld" style={{ fontSize: 14, marginTop: 3 }}>
               building <b>{building}</b>
             </div>
           ) : (
-            <div className="ch-card-reg" style={{ marginTop: 5 }}>
+            <div className="ch-card-reg" style={{ marginTop: 5, color: "var(--muted-strong)" }}>
               View profile →
             </div>
           )}
@@ -89,43 +107,76 @@ function EmptySection({ title, body }) {
   );
 }
 
+function ErrorSection({ body, onRetry }) {
+  return (
+    <div className="ch-grace" style={{ minHeight: 150 }}>
+      <span className="ch-grace-k" style={{ color: "var(--terra)" }}>
+        Couldn't load
+      </span>
+      <div className="ch-grace-t">{body}</div>
+      <button
+        type="button"
+        className="ch-btn-ghost"
+        onClick={onRetry}
+        style={{ marginTop: 14 }}
+      >
+        <span className="ch-spin" aria-hidden style={{ marginRight: 6 }}>
+          ↻
+        </span>
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export default function ConnectionsList() {
-  const [state, setState] = useState("loading"); // loading | ready | error
-  const [connections, setConnections] = useState([]);
-  const [following, setFollowing] = useState([]);
+  // Per-section status so a real failure on one endpoint shows a section-level
+  // error (with retry) instead of masquerading as an empty "nobody here" state.
+  const [state, setState] = useState("loading"); // loading | ready
+  const [connections, setConnections] = useState({ status: "loading", items: [] });
+  const [following, setFollowing] = useState({ status: "loading", items: [] });
+
+  const loadConnections = useCallback(() => {
+    setConnections((s) => ({ ...s, status: "loading" }));
+    return bfu("/users/me/connections").then(
+      (res) => setConnections({ status: "ready", items: Array.isArray(res) ? res : [] }),
+      () => setConnections({ status: "error", items: [] })
+    );
+  }, []);
+
+  const loadFollowing = useCallback(() => {
+    setFollowing((s) => ({ ...s, status: "loading" }));
+    return bfu("/users/me/following").then(
+      (res) =>
+        setFollowing({
+          status: "ready",
+          items: Array.isArray(res?.users) ? res.users : [],
+        }),
+      () => setFollowing({ status: "error", items: [] })
+    );
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      bfu("/users/me/connections").catch(() => []),
-      bfu("/users/me/following").catch(() => ({ users: [], projects: [] })),
-    ])
-      .then(([conns, follow]) => {
-        if (!alive) return;
-        setConnections(Array.isArray(conns) ? conns : []);
-        setFollowing(Array.isArray(follow?.users) ? follow.users : []);
-        setState("ready");
-      })
-      .catch(() => {
-        if (alive) setState("error");
-      });
+    Promise.all([loadConnections(), loadFollowing()]).finally(() => {
+      if (alive) setState("ready");
+    });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadConnections, loadFollowing]);
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
-        <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}
+      >
+        <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
+          ◠
+        </span>
         Loading your network…
-      </div>
-    );
-  }
-  if (state === "error") {
-    return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load your network. Refresh to try again.
       </div>
     );
   }
@@ -133,14 +184,16 @@ export default function ConnectionsList() {
   return (
     <div style={{ marginTop: 24 }}>
       <Section label="Your connections" kicker="Mutual interest">
-        {connections.length === 0 ? (
+        {connections.status === "error" ? (
+          <ErrorSection body="We couldn't reach your connections." onRetry={loadConnections} />
+        ) : connections.items.length === 0 ? (
           <EmptySection
             title="No mutual connections yet."
             body="When you and another builder both express interest, they'll show up here. Wander the city and say hello."
           />
         ) : (
           <div className="ch-grid" style={{ marginTop: 18 }}>
-            {connections.map((p) => (
+            {connections.items.map((p) => (
               <PersonCard key={p.id} person={p} />
             ))}
           </div>
@@ -148,15 +201,17 @@ export default function ConnectionsList() {
       </Section>
 
       <Section label="Following" kicker="People you follow">
-        {following.length === 0 ? (
+        {following.status === "error" ? (
+          <ErrorSection body="We couldn't reach the people you follow." onRetry={loadFollowing} />
+        ) : following.items.length === 0 ? (
           <EmptySection
             title="You're not following anyone yet."
             body="Follow builders you admire and their work will surface for you. Open any profile and tap Follow."
           />
         ) : (
           <div className="ch-grid" style={{ marginTop: 18 }}>
-            {following.map((p) => (
-              <PersonCard key={p.id} person={p} />
+            {following.items.map((p) => (
+              <PersonCard key={p.id} person={p} variant="following" />
             ))}
           </div>
         )}

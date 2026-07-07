@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useCountUp } from "@/lib/useCountUp";
+import { useToast } from "@/lib/useToast";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 import StarInput from "@/components/projects/StarInput";
 
@@ -53,7 +54,7 @@ function StatusChip({ project }) {
         fontSize: 10,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
-        color: project.is_hiring ? "var(--green)" : "var(--muted)",
+        color: project.is_hiring ? "var(--green)" : "var(--muted-strong)",
         background: project.is_hiring ? "rgba(127,176,105,0.12)" : "var(--surface-2)",
         border: `1px solid ${project.is_hiring ? "rgba(127,176,105,0.3)" : "var(--hair)"}`,
         borderRadius: "var(--radius-pill)",
@@ -95,10 +96,10 @@ function Avatar({ id, name, photo, size = 44 }) {
 
 function ApplicantRow({ app, onDecision, busy }) {
   const a = app.applicant || {};
-  const name = a.display_name || `Builder #${a.id}`;
+  const name = a.display_name || "A builder";
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{
         display: "flex",
         alignItems: "center",
@@ -122,7 +123,7 @@ function ApplicantRow({ app, onDecision, busy }) {
           {name}
         </a>
         {app.role ? (
-          <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted)" }}>
+          <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)" }}>
             Applying as <span style={{ color: "var(--amber)" }}>{app.role}</span>
           </div>
         ) : null}
@@ -131,7 +132,7 @@ function ApplicantRow({ app, onDecision, busy }) {
             style={{
               marginTop: 5,
               fontSize: 13,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
               lineHeight: 1.5,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -184,7 +185,7 @@ function StatTile({ label, value, suffix, accent }) {
   const shown = typeof value === "number" ? animated : value;
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -193,6 +194,7 @@ function StatTile({ label, value, suffix, accent }) {
         background: accent
           ? "linear-gradient(155deg, rgba(232,161,92,0.08), var(--surface) 62%)"
           : undefined,
+        borderColor: accent ? "rgba(232,161,92,0.3)" : undefined,
       }}
     >
       <div className="ch-cell-label">{label}</div>
@@ -208,14 +210,16 @@ function StatTile({ label, value, suffix, accent }) {
       >
         {shown}
         {suffix ? (
-          <span style={{ fontSize: 15, color: "var(--muted)", marginLeft: 4 }}>{suffix}</span>
+          <span style={{ fontSize: 15, color: "var(--muted-strong)", marginLeft: 4 }}>{suffix}</span>
         ) : null}
       </div>
     </div>
   );
 }
 
-function StatsStrip({ projectId }) {
+// `refreshKey` lets the parent force a refetch after accept/reject so the tiles
+// never disagree with the applicants list.
+function StatsStrip({ projectId, refreshKey = 0 }) {
   const [stats, setStats] = useState(null);
   const [state, setState] = useState("loading"); // loading | ready | hidden
 
@@ -233,11 +237,12 @@ function StatsStrip({ projectId }) {
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   if (state !== "ready" || !stats) return null;
 
   const avg = stats.avg_decision_hours;
+  const pending = stats.pending || 0;
   return (
     <div
       style={{
@@ -246,10 +251,11 @@ function StatsStrip({ projectId }) {
         gap: 14,
       }}
     >
-      <StatTile label="Views" value={stats.views || 0} accent />
-      <StatTile label="Pending" value={stats.pending || 0} />
+      {/* Accent moved to the actionable metric (Pending, when there is work). */}
+      <StatTile label="Pending" value={pending} accent={pending > 0} />
       <StatTile label="Accepted" value={stats.accepted || 0} />
       <StatTile label="Declined" value={stats.declined || 0} />
+      <StatTile label="Views" value={stats.views || 0} />
       <StatTile
         label="Avg. decision"
         value={avg == null ? "—" : avg}
@@ -337,7 +343,7 @@ function RolesEditor({ projectId, flash }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="ch-cell-label">Add an open role</div>
         <form onSubmit={addRole} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
@@ -370,16 +376,16 @@ function RolesEditor({ projectId, flash }) {
       </div>
 
       {state === "loading" ? (
-        <div style={{ color: "var(--muted)", fontSize: 14 }}>
+        <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
           Loading roles…
         </div>
       ) : state === "error" ? (
-        <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load roles. Refresh to try again.</div>
+        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load roles. Refresh to try again.</div>
       ) : roles.length === 0 ? (
         <div className="ch-empty" style={{ minHeight: 160 }}>
           <span className="ch-empty-k">No roles yet</span>
-          <div className="ch-empty-t" style={{ fontSize: 22 }}>Tell the city who you need.</div>
+          <div className="ch-empty-t">Tell the city who you need.</div>
           <div className="ch-empty-s">
             Add the roles you're looking for — applicants will see them on your public page and can apply for a specific one.
           </div>
@@ -389,7 +395,7 @@ function RolesEditor({ projectId, flash }) {
           {roles.map((r) => (
             <div
               key={r.id}
-              className="ch-cell"
+              className="ch-cell-static"
               style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, flexWrap: "wrap" }}
             >
               <span
@@ -511,7 +517,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">Post an update</div>
         <form onSubmit={post} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <textarea
@@ -534,7 +540,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
             }}
           />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
               {text.length}/500
             </span>
             <button
@@ -550,16 +556,17 @@ function UpdatesComposer({ projectId, meId, flash }) {
       </div>
 
       {state === "loading" ? (
-        <div style={{ color: "var(--muted)", fontSize: 14 }}>
+        <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
           Loading updates…
         </div>
       ) : state === "error" ? (
-        <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load updates.</div>
+        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load updates.</div>
       ) : updates.length === 0 ? (
         <div className="ch-empty" style={{ minHeight: 140 }}>
           <span className="ch-empty-k">No updates yet</span>
-          <div className="ch-empty-s" style={{ marginTop: 8 }}>
+          <div className="ch-empty-t">Nothing posted so far.</div>
+          <div className="ch-empty-s">
             Your first update will reach everyone following this project.
           </div>
         </div>
@@ -568,7 +575,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
           {updates.map((u) => (
             <div
               key={u.id}
-              className="ch-cell"
+              className="ch-cell-static"
               style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: 16 }}
             >
               <p
@@ -577,7 +584,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
                   margin: 0,
                   fontSize: 14,
                   lineHeight: 1.55,
-                  color: "var(--muted)",
+                  color: "var(--muted-strong)",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
                 }}
@@ -621,7 +628,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(person.rated_by_me);
-  const name = person.display_name || `#${person.id}`;
+  const name = person.display_name || "A teammate";
 
   async function submit() {
     if (!stars || saving) return;
@@ -642,7 +649,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
   }
 
   return (
-    <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 14, padding: 18 }}>
+    <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 14, padding: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Avatar id={person.id} name={name} photo={person.photo_url} size={40} />
         <a
@@ -739,7 +746,7 @@ function RatingsPanel({ projectId, flash }) {
 
   if (state === "loading") {
     return (
-      <div style={{ color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading your team…
       </div>
@@ -749,7 +756,7 @@ function RatingsPanel({ projectId, flash }) {
     return (
       <div className="ch-empty" style={{ minHeight: 180 }}>
         <span className="ch-empty-k">Ratings open when the project closes</span>
-        <div className="ch-empty-t" style={{ fontSize: 22 }}>Still building.</div>
+        <div className="ch-empty-t">Still building.</div>
         <div className="ch-empty-s">
           Once this project is no longer active, you'll be able to rate the
           teammates you worked with — and they can rate you. It's how trust gets
@@ -779,12 +786,12 @@ function RatingsPanel({ projectId, flash }) {
     );
   }
   if (state === "error") {
-    return <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load ratings. Refresh to try again.</div>;
+    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load ratings. Refresh to try again.</div>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55, maxWidth: 560 }}>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
         Rate the teammates you worked with 1–5 stars. Your ratings feed each
         builder's reputation across BFU.
       </p>
@@ -805,17 +812,16 @@ export default function ProjectManager({ projectId, meId }) {
   const [state, setState] = useState("loading"); // loading | ready | error | forbidden
   const [project, setProject] = useState(null);
   const [apps, setApps] = useState([]);
+  const [appsFailed, setAppsFailed] = useState(false); // inbox fetch failed
   const [busyApp, setBusyApp] = useState(null); // app id currently deciding
   const [tab, setTab] = useState("applicants"); // applicants | edit | danger
   const [regions, setRegions] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  function flash(text, tone = "ok") {
-    setToast({ text, tone });
-    setTimeout(() => setToast(null), 3000);
-  }
+  // Bumped after each decision so the stats tiles refetch and stay in sync.
+  const [statsKey, setStatsKey] = useState(0);
+  // Shared, timer-managed toast (no leaked setTimeout / setState-after-unmount).
+  const { toast, flash } = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -840,9 +846,15 @@ export default function ProjectManager({ projectId, meId }) {
                 (x) => x.project_id === Number(projectId) || x.project_id === projectId
               )
             );
+            setAppsFailed(false);
           }
         } catch {
-          if (alive) setApps([]);
+          // Distinguish "no applicants" from "couldn't load applicants" so the
+          // Applicants tab doesn't show an empty state while stats claim pending.
+          if (alive) {
+            setApps([]);
+            setAppsFailed(true);
+          }
         }
         // Regions for the edit form. /public/regions is a public backend route,
         // but the authed proxy forwards any path — so bfu() reaches it fine.
@@ -878,16 +890,19 @@ export default function ProjectManager({ projectId, meId }) {
         body: { action },
       });
       flash(action === "accept" ? "Applicant accepted — they're on the team." : "Application declined.");
-      // Keep the header count in sync.
+      // Keep the header count in sync (derive from the now-shorter list, not a
+      // possibly-stale server count that masks 0/null as 1).
       setProject((p) =>
         p
           ? {
               ...p,
-              pending_applications_count: Math.max(0, (p.pending_applications_count || 1) - 1),
+              pending_applications_count: Math.max(0, (prev.length || 0) - 1),
               member_count: action === "accept" ? (p.member_count || 0) + 1 : p.member_count,
             }
           : p
       );
+      // Refetch the stats tiles so Pending/Accepted/Declined match the list.
+      setStatsKey((k) => k + 1);
     } catch (err) {
       // Roll back on failure.
       setApps(prev);
@@ -911,7 +926,7 @@ export default function ProjectManager({ projectId, meId }) {
 
   if (state === "loading" || state === "forbidden") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ marginTop: 8, color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         {state === "forbidden" ? "Taking you to the project…" : "Loading your project…"}
       </div>
@@ -919,7 +934,7 @@ export default function ProjectManager({ projectId, meId }) {
   }
   if (state === "error" || !project) {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
+      <div style={{ marginTop: 8, color: "var(--terra)", fontSize: 14 }}>
         Couldn't load this project. Refresh to try again.
       </div>
     );
@@ -927,22 +942,25 @@ export default function ProjectManager({ projectId, meId }) {
 
   const pending = apps.length;
 
-  const tabBtn = (key, label, count) => {
+  const tabBtn = (key, label, count, danger = false) => {
     const on = tab === key;
+    const activeColor = danger ? "var(--terra)" : "var(--amber)";
+    const activeBg = danger ? "rgba(192,86,59,0.12)" : "rgba(232,161,92,0.12)";
     return (
       <button
         type="button"
         onClick={() => setTab(key)}
+        aria-current={on ? "true" : undefined}
         style={{
           padding: "9px 16px",
           borderRadius: "var(--radius-pill)",
-          border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
-          background: on ? "rgba(232,161,92,0.12)" : "transparent",
-          color: on ? "var(--amber)" : "var(--muted)",
+          border: `1px solid ${on ? activeColor : "var(--hair)"}`,
+          background: on ? activeBg : "transparent",
+          color: on ? activeColor : danger ? "var(--terra)" : "var(--muted-strong)",
           cursor: "pointer",
           fontFamily: "var(--font-body)",
           fontWeight: 600,
-          fontSize: 13.5,
+          fontSize: 13,
         }}
       >
         {label}
@@ -971,10 +989,10 @@ export default function ProjectManager({ projectId, meId }) {
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: "var(--muted)",
+                color: "var(--muted-strong)",
               }}
             >
               {project.type === "volunteering" ? "Volunteering" : "Startup"} · {project.member_count || 0} members · {project.view_count || 0} views
@@ -1000,27 +1018,39 @@ export default function ProjectManager({ projectId, meId }) {
       </div>
 
       {/* Owner stats — firelit tiles, count-up (reduced-motion respected). */}
-      <StatsStrip projectId={projectId} />
+      <StatsStrip projectId={projectId} refreshKey={statsKey} />
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      {/* Tabs — the destructive "Delete" is pushed to the right with a divider
+          so it never reads as a peer of the everyday tabs. */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }} role="tablist">
         {tabBtn("applicants", "Applicants", pending)}
         {tabBtn("roles", "Roles")}
         {tabBtn("updates", "Updates")}
         {tabBtn("ratings", "Ratings")}
         {tabBtn("edit", "Edit project")}
-        {tabBtn("danger", "Delete")}
+        <span
+          aria-hidden
+          style={{ marginLeft: "auto", width: 1, height: 22, background: "var(--hair)" }}
+        />
+        {tabBtn("danger", "Delete", null, true)}
       </div>
 
       {/* Applicants tab */}
       {tab === "applicants" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {pending === 0 ? (
+          {appsFailed ? (
+            <div className="ch-empty" style={{ minHeight: 220 }}>
+              <span className="ch-empty-k">Couldn't load applicants</span>
+              <div className="ch-empty-t">Something went wrong.</div>
+              <div className="ch-empty-s">
+                We couldn't reach your applicant inbox. Refresh the page to try
+                again.
+              </div>
+            </div>
+          ) : pending === 0 ? (
             <div className="ch-empty" style={{ minHeight: 220 }}>
               <span className="ch-empty-k">No pending applicants</span>
-              <div className="ch-empty-t" style={{ fontSize: 24 }}>
-                Quiet for now.
-              </div>
+              <div className="ch-empty-t">Quiet for now.</div>
               <div className="ch-empty-s">
                 When builders apply to join, they'll appear here for you to accept
                 or decline.
@@ -1049,7 +1079,7 @@ export default function ProjectManager({ projectId, meId }) {
       {/* Danger tab */}
       {tab === "danger" && (
         <div
-          className="ch-cell"
+          className="ch-cell-static"
           style={{
             display: "flex",
             flexDirection: "column",
@@ -1061,7 +1091,7 @@ export default function ProjectManager({ projectId, meId }) {
           <div className="ch-cell-label" style={{ color: "var(--terra)" }}>
             Delete this project
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55, maxWidth: 560 }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
             This removes <b style={{ color: "var(--text)" }}>{project.name}</b> from
             the city. Members lose access and applicants can no longer join. This
             can't be undone.

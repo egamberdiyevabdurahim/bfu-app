@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import MentorsBrowser from "@/components/community/MentorsBrowser";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /mentors — book a 15-minute session with an experienced builder, and (if you
 // are a mentor) offer + manage your own slots. Per-user + uncacheable: the
@@ -37,8 +38,8 @@ export default async function MentorsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -72,33 +73,7 @@ export default async function MentorsPage() {
 
         <MentorsBrowser />
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18, color: "var(--muted)" }}>
-            Every builder was once a beginner.
-          </span>
-        </div>
+        <SiteFooter tagline="Every builder was once a beginner." />
     </AppTopBar>
   );
 }

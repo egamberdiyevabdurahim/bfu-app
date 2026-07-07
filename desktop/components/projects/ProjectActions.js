@@ -59,10 +59,13 @@ export default function ProjectActions({ projectId }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [me, setMe] = useState(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
     async function load() {
+      setState("loading");
       try {
         const [p, meRes] = await Promise.all([
           bfu(`/projects/${projectId}`),
@@ -89,9 +92,16 @@ export default function ProjectActions({ projectId }) {
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, reloadKey]);
 
-  const isOwner = project && me && project.creator_id === me.id;
+  // Prefer a server-provided ownership flag when present so a transient
+  // /users/me failure never mislabels an owner as a would-be applicant; fall
+  // back to the creator_id ↔ me.id match only when the flag is absent.
+  const isOwner =
+    project &&
+    (typeof project.is_owner === "boolean"
+      ? project.is_owner
+      : !!(me && project.creator_id === me.id));
 
   async function apply(role) {
     setBusy(true);
@@ -130,6 +140,7 @@ export default function ProjectActions({ projectId }) {
     try {
       await bfu(`/projects/${projectId}/join`, { method: "DELETE" });
       setProject((p) => ({ ...p, is_member: false }));
+      setConfirmLeave(false);
     } catch (e) {
       setErr(e?.message || "Couldn't leave the team.");
     } finally {
@@ -141,7 +152,7 @@ export default function ProjectActions({ projectId }) {
 
   if (state === "loading") {
     return (
-      <div style={{ ...card, color: "var(--muted)", fontSize: 14, textAlign: "center" }}>
+      <div style={{ ...card, color: "var(--muted-strong)", fontSize: 14, textAlign: "center" }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading…
       </div>
@@ -152,7 +163,7 @@ export default function ProjectActions({ projectId }) {
     return (
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">Want to join?</div>
-        <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55 }}>
           Log in with Telegram to apply to this project and join the team.
         </p>
         <a href="/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
@@ -164,8 +175,26 @@ export default function ProjectActions({ projectId }) {
 
   if (state === "error" || !project) {
     return (
-      <div style={{ ...card, color: "var(--terra)", fontSize: 14, textAlign: "center" }}>
-        Couldn't load the join options. Refresh to try again.
+      <div
+        style={{
+          ...card,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ color: "var(--terra)", fontSize: 14 }}>
+          Couldn&rsquo;t load the join options.
+        </div>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="ch-btn-ghost"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -185,14 +214,57 @@ export default function ProjectActions({ projectId }) {
       </a>
     );
   } else if (project.is_member) {
-    control = (
+    control = confirmLeave ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+          Leave this team? You can apply again later while it&rsquo;s hiring.
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            type="button"
+            onClick={leave}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              borderRadius: "var(--radius-sm)",
+              background: "rgba(192,86,59,0.12)",
+              border: "1px solid rgba(192,86,59,0.35)",
+              color: "var(--terra)",
+              cursor: busy ? "default" : "pointer",
+              fontWeight: 600,
+              fontSize: 13.5,
+            }}
+          >
+            {busy ? "Leaving…" : "Yes, leave"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmLeave(false)}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--hair)",
+              color: "var(--text)",
+              cursor: busy ? "default" : "pointer",
+              fontSize: 13.5,
+            }}
+          >
+            Stay
+          </button>
+        </div>
+      </div>
+    ) : (
       <div style={{ display: "flex", gap: 10 }}>
         <Pill color="var(--green)" bg="rgba(127,176,105,0.12)" border="rgba(127,176,105,0.35)">
-          You're on this team
+          You&rsquo;re on this team
         </Pill>
         <button
           type="button"
-          onClick={leave}
+          onClick={() => setConfirmLeave(true)}
           disabled={busy}
           style={{
             flex: "0 0 auto",
@@ -225,7 +297,7 @@ export default function ProjectActions({ projectId }) {
             borderRadius: "var(--radius-sm)",
             background: "var(--surface-2)",
             border: "1px solid var(--hair)",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
             cursor: busy ? "default" : "pointer",
             fontSize: 13,
           }}
@@ -236,8 +308,8 @@ export default function ProjectActions({ projectId }) {
     );
   } else if (s === "accepted") {
     control = (
-      <Pill color="#5EC5B6" bg="rgba(94,197,182,0.14)" border="rgba(94,197,182,0.3)">
-        You're accepted 🎉
+      <Pill color="var(--teal-bright)" bg="rgba(94,197,182,0.14)" border="rgba(94,197,182,0.3)">
+        You&rsquo;re accepted 🎉
       </Pill>
     );
   } else if (s === "declined") {
@@ -257,14 +329,18 @@ export default function ProjectActions({ projectId }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">Pick a role (optional)</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {roles.map((r) => {
+          {roles.map((r, i) => {
             const on = selectedRole === r;
             return (
               <button
-                key={r}
+                key={`${i}-${r}`}
                 type="button"
+                aria-pressed={on}
                 onClick={() => setSelectedRole(on ? "" : r)}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   padding: "7px 12px",
@@ -272,9 +348,11 @@ export default function ProjectActions({ projectId }) {
                   cursor: "pointer",
                   background: on ? "rgba(232,161,92,0.16)" : "var(--surface-2)",
                   border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
-                  color: on ? "var(--amber)" : "var(--muted)",
+                  color: on ? "var(--amber)" : "var(--muted-strong)",
+                  fontWeight: on ? 700 : 400,
                 }}
               >
+                {on && <span aria-hidden>✓</span>}
                 {r}
               </button>
             );
@@ -287,7 +365,27 @@ export default function ProjectActions({ projectId }) {
           disabled={busy}
           style={{ justifyContent: "center", opacity: busy ? 0.6 : 1 }}
         >
-          {busy ? "Submitting…" : selectedRole ? `Apply as ${selectedRole}` : "Apply"}
+          {busy ? "Submitting…" : selectedRole ? `Apply as ${selectedRole}` : "Apply without a role"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowRolePicker(false);
+            setSelectedRole("");
+          }}
+          disabled={busy}
+          style={{
+            alignSelf: "center",
+            background: "none",
+            border: "none",
+            color: "var(--muted-strong)",
+            fontSize: 12.5,
+            cursor: busy ? "default" : "pointer",
+            textDecoration: "underline",
+            textUnderlineOffset: 2,
+          }}
+        >
+          Back
         </button>
       </div>
     );

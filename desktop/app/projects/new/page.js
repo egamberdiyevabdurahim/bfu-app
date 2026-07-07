@@ -3,6 +3,7 @@ import { getMe } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /projects/new — the "start a project" surface. Reads the httpOnly session
 // cookie (per-user), so it can never be cached.
@@ -39,10 +40,11 @@ export default async function NewProjectPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Start a{" "}
@@ -64,16 +66,18 @@ export default async function NewProjectPage() {
               fontStyle: "italic",
               fontSize: 20,
               lineHeight: 1.35,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
               maxWidth: 560,
             }}
           >
-            Describe what you're building. Once it's approved, the city can find
-            it — and builders can ask to join.
+            Describe what you&rsquo;re building. Once it&rsquo;s approved, the city
+            can find it — and builders can ask to join.
           </p>
         </div>
 
         <CreateProjectForm regions={regions} mode="create" />
+
+        <SiteFooter tagline="Every window in the city started as one person's idea." />
     </AppTopBar>
   );
 }

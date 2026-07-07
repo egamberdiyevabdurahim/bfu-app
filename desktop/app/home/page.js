@@ -3,6 +3,7 @@ import { getMe } from "@/lib/session";
 import { gradientFor, initials } from "@/lib/avatar";
 import AppTopBar from "@/components/nav/AppTopBar";
 import { ADMIN_ROLES } from "@/components/nav/navConfig";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /home reads the httpOnly session cookie, so it can never be statically cached
 // or ISR-revalidated — it is per-user and must render fresh each request.
@@ -29,16 +30,17 @@ const EXPLORE_TILES = [
   { href: "/city", icon: "✦", label: "City", blurb: "See who's building right now, city by city.", accent: "amber" },
   { href: "/projects", icon: "◆", label: "Projects", blurb: "Browse the teams that are hiring tonight.", accent: "amber" },
   { href: "/connections", icon: "❋", label: "People", blurb: "Discover builders and grow your circle.", accent: "teal" },
-  { href: "/mentors", icon: "◈", label: "Mentors", blurb: "Book fifteen minutes with someone ahead of you.", accent: "teal" },
+  { href: "/mentors", icon: "◈", label: "Mentors", blurb: "Book 15 minutes with someone ahead of you.", accent: "teal" },
   { href: "/events", icon: "✧", label: "Events", blurb: "Find the next hackathon, grant or meetup.", accent: "teal" },
   { href: "/partners", icon: "⬡", label: "Partners", blurb: "Meet the orgs opening doors for builders.", accent: "teal" },
 ];
 
+// Note: /connections is reached via the "People" tile in EXPLORE_TILES above, so
+// we don't repeat a second tile pointing at the same route here.
 const YOU_TILES = [
   { href: "/projects/mine", icon: "◆", label: "Your projects", blurb: "The teams you run and the ones you've joined.", accent: "teal" },
-  { href: "/requests", icon: "✒", label: "Applications", blurb: "Track who's asked to join, and where you've applied.", accent: "amber" },
+  { href: "/requests", icon: "✒", label: "Applications", blurb: "See who's asked to join the projects you've started.", accent: "amber" },
   { href: "/favorites", icon: "❥", label: "Saved", blurb: "Builders and projects you've kept for later.", accent: "amber" },
-  { href: "/connections", icon: "❋", label: "Connections", blurb: "The people in your circle.", accent: "teal" },
   { href: "/bookings", icon: "◷", label: "Sessions", blurb: "Your mentor bookings, upcoming and past.", accent: "teal" },
   { href: "/settings", icon: "✎", label: "Settings", blurb: "Edit your profile and preferences.", accent: "amber" },
 ];
@@ -54,7 +56,7 @@ const ACCENTS = {
   teal: {
     border: "rgba(94,197,182,0.26)",
     glow: "linear-gradient(155deg, rgba(18,86,79,0.14), var(--surface) 62%)",
-    icon: "#5EC5B6",
+    icon: "var(--teal-bright)",
   },
 };
 
@@ -103,7 +105,7 @@ function Tile({ tile }) {
       >
         {tile.label}
       </div>
-      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>{tile.blurb}</p>
+      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "var(--muted-strong)" }}>{tile.blurb}</p>
       <div
         style={{
           marginTop: "auto",
@@ -129,7 +131,7 @@ function SectionLabel({ children }) {
         fontSize: 11,
         letterSpacing: "0.16em",
         textTransform: "uppercase",
-        color: "var(--muted)",
+        color: "var(--muted-strong)",
         margin: "44px 0 18px",
       }}
     >
@@ -166,10 +168,11 @@ export default async function HomePage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 62,
-              lineHeight: 0.98,
+              fontSize: "clamp(38px, 8vw, 62px)",
+              lineHeight: 1.02,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Welcome back,{" "}
@@ -189,9 +192,9 @@ export default async function HomePage() {
               margin: "18px 0 0",
               fontFamily: "var(--font-accent)",
               fontStyle: "italic",
-              fontSize: 22,
+              fontSize: "clamp(18px, 2.4vw, 22px)",
               lineHeight: 1.35,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
               maxWidth: 560,
             }}
           >
@@ -226,7 +229,10 @@ export default async function HomePage() {
           >
             <div className="ch-cell-label">Your profile</div>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              <div style={{ position: "relative", flex: "0 0 auto" }}>
+              {/* No presence dot here: `me` carries no reliable online signal,
+                  so we don't assert a fake "online" state on the viewer's own
+                  profile summary. */}
+              <div style={{ flex: "0 0 auto" }}>
                 <div
                   style={{
                     width: 84,
@@ -260,27 +266,6 @@ export default async function HomePage() {
                     initials(name)
                   )}
                 </div>
-                <span
-                  style={{
-                    position: "absolute",
-                    bottom: 4,
-                    right: 4,
-                    display: "inline-flex",
-                    width: 16,
-                    height: 16,
-                  }}
-                >
-                  <span className="ch-online-ping" />
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "50%",
-                      background: "var(--ember)",
-                      border: "3px solid var(--surface)",
-                    }}
-                  />
-                </span>
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -298,6 +283,8 @@ export default async function HomePage() {
                   </h2>
                   {me.checked && (
                     <span
+                      role="img"
+                      aria-label="Verified"
                       title="Verified"
                       style={{
                         display: "inline-flex",
@@ -364,7 +351,7 @@ export default async function HomePage() {
                       fontSize: 11,
                       letterSpacing: "0.14em",
                       textTransform: "uppercase",
-                      color: "var(--muted)",
+                      color: "var(--muted-strong)",
                     }}
                   >
                     {me.region.name_en}
@@ -476,13 +463,13 @@ export default async function HomePage() {
                 <p
                   style={{
                     margin: "8px 0 0",
-                    fontSize: 13.5,
+                    fontSize: 14,
                     lineHeight: 1.5,
-                    color: "var(--muted)",
+                    color: "var(--muted-strong)",
                     maxWidth: 560,
                   }}
                 >
-                  The whole bazaar at a glance — builders, regions, retention and
+                  The whole bazaar at a glance &mdash; builders, regions, retention and
                   the skills the city still needs.
                 </p>
               </div>
@@ -503,40 +490,7 @@ export default async function HomePage() {
         )}
 
         {/* Footer */}
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            The city never really sleeps.
-          </span>
-        </div>
+        <SiteFooter tagline="Your workshop is right where you left it." />
 
       {/* Responsive grids — the launchpad tiles flow from 3 → 2 → 1 columns,
           and the hero grid stacks below ~760px. */}

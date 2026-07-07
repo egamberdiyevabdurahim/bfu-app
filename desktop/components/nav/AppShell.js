@@ -154,12 +154,54 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     };
   }, [menuOpen]);
 
-  // Close the mobile drawer on Escape.
+  // Mobile drawer: Escape to close + a focus trap while open. On open we move
+  // focus into the drawer and keep Tab cycling inside it; on close we restore
+  // focus to the element that opened it (the hamburger). Off-canvas links are
+  // additionally taken out of the tab order via `inert` (see the aside below),
+  // so keyboard users never land on hidden nav.
+  const drawerRef = useRef(null);
+  const hamburgerRef = useRef(null);
   useEffect(() => {
     if (!drawerOpen) return;
-    const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
+    const opener = document.activeElement;
+    const node = drawerRef.current;
+    // Move initial focus into the drawer.
+    const focusables = () =>
+      node
+        ? Array.from(
+            node.querySelectorAll(
+              'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ).filter((el) => el.offsetParent !== null)
+        : [];
+    const first = focusables()[0];
+    if (first) first.focus();
+
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const els = focusables();
+      if (!els.length) return;
+      const firstEl = els[0];
+      const lastEl = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // Restore focus to the opener (hamburger) when the drawer closes.
+      const restore = hamburgerRef.current || opener;
+      if (restore && typeof restore.focus === "function") restore.focus();
+    };
   }, [drawerOpen]);
 
   const isAdmin = !!me && ADMIN_ROLES.has(me.role);
@@ -293,9 +335,23 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         <Sidebar />
       </aside>
 
-      {/* Mobile off-canvas drawer + scrim (<1024px) */}
-      <div className={`ash-scrim${drawerOpen ? " ash-scrim-on" : ""}`} onClick={closeDrawer} aria-hidden={!drawerOpen} />
-      <aside className={`ash-drawer${drawerOpen ? " ash-drawer-on" : ""}`} aria-hidden={!drawerOpen} aria-label="Sidebar navigation">
+      {/* Mobile off-canvas drawer + scrim (<1024px). While closed the drawer is
+          `inert` so its links stay out of the tab order and a11y tree (fixes the
+          WCAG 4.1.2 hidden-focusable violation); the scrim is inert too. */}
+      <div
+        className={`ash-scrim${drawerOpen ? " ash-scrim-on" : ""}`}
+        onClick={closeDrawer}
+        aria-hidden="true"
+        {...(!drawerOpen ? { inert: "" } : {})}
+      />
+      <aside
+        ref={drawerRef}
+        className={`ash-drawer${drawerOpen ? " ash-drawer-on" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        {...(!drawerOpen ? { inert: "" } : {})}
+      >
         <Sidebar />
       </aside>
 
@@ -306,9 +362,11 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         {/* Slim mobile top bar with the hamburger (only visible <1024px) */}
         <div className="ash-topbar">
           <button
+            ref={hamburgerRef}
             type="button"
             className="ash-hamburger"
-            aria-label="Open menu"
+            aria-label="Open navigation menu"
+            aria-haspopup="dialog"
             aria-expanded={drawerOpen}
             onClick={() => setDrawerOpen(true)}
           >
@@ -364,7 +422,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           font-size: 12px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: var(--muted);
+          color: var(--muted-strong);
         }
         .ash-brand-hair {
           height: 1px;
@@ -386,11 +444,10 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         .ash-group { display: flex; flex-direction: column; gap: 2px; }
         .ash-grouplabel {
           font-family: var(--font-mono);
-          font-size: 9.5px;
+          font-size: 10px;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: var(--muted);
-          opacity: 0.7;
+          color: var(--muted-strong);
           padding: 4px 12px 6px;
         }
 
@@ -404,7 +461,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           padding: 0 12px;
           border-radius: 11px;
           text-decoration: none;
-          color: var(--muted);
+          color: var(--muted-strong);
           font-size: 14px;
           font-family: var(--font-body);
           transition: background 0.16s ease, color 0.16s ease;
@@ -637,6 +694,11 @@ export default function AppShell({ active, me: initialMe = null, children }) {
             transition: transform 0.26s cubic-bezier(0.2,0.9,0.3,1);
           }
           .ash-drawer-on { transform: translateX(0); }
+        }
+
+        @media (max-width: 480px) {
+          .ash-content { padding: 16px 16px 84px; }
+          .ash-topbar { padding: 10px 14px; }
         }
 
         @media (prefers-reduced-motion: reduce) {

@@ -40,17 +40,30 @@ function LoginInner() {
   const [deepLink, setDeepLink] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [liveError, setLiveError] = useState(null);
+  // `terminal` marks an error the user can't recover from by waiting (a failed
+  // start or a hard poll error) — we then offer an explicit "Try again". A plain
+  // network blip is NOT terminal (the poller self-heals).
+  const [terminal, setTerminal] = useState(false);
   const [starting, setStarting] = useState(true);
 
   // The active nonce lives in a ref so the polling interval always reads the
   // freshest value without needing to be torn down and rebuilt on each start.
   const nonceRef = useRef(null);
   const mountedRef = useRef(true);
+  // liveError is mirrored into a ref so the 2s poll interval can read it without
+  // being torn down and rebuilt on every error transition (which perturbed the
+  // poll cadence). The mirror is kept in sync in an effect (never during render).
+  const liveErrorRef = useRef(null);
+  useEffect(() => {
+    liveErrorRef.current = liveError;
+  }, [liveError]);
 
   // Kick off (or restart) the handshake: ask the server for a fresh
   // nonce + deep_link, render a QR for it, and let the poller pick it up.
   const startHandshake = useCallback(async () => {
     setStarting(true);
+    setTerminal(false);
+    setLiveError(null);
     try {
       const res = await fetch("/api/auth/web-login/start", { method: "POST" });
       const data = await res.json();
@@ -58,6 +71,7 @@ function LoginInner() {
 
       if (data?.status === "error" || !data?.nonce || !data?.deep_link) {
         setLiveError(POLL_ERROR_COPY.default);
+        setTerminal(true);
         setStarting(false);
         return;
       }
@@ -65,13 +79,15 @@ function LoginInner() {
       nonceRef.current = data.nonce;
       setDeepLink(data.deep_link);
       setLiveError(null);
+      setTerminal(false);
       setStarting(false);
 
       // Generate the QR data-URL from the deep link (best-effort).
       try {
         const url = await QRCode.toDataURL(data.deep_link, {
           margin: 1,
-          width: 220,
+          // Render at 2× the 168px display box so it stays crisp on retina.
+          width: 336,
           color: { dark: "#160E08", light: "#F0E6D6" },
         });
         if (mountedRef.current) setQrDataUrl(url);
@@ -81,7 +97,10 @@ function LoginInner() {
       }
     } catch {
       if (!mountedRef.current) return;
+      // A failed start (vs a mid-poll blip) leaves no nonce to recover, so it's
+      // terminal — offer an explicit retry rather than spinning forever.
       setLiveError(POLL_ERROR_COPY.network);
+      setTerminal(true);
       setStarting(false);
     }
   }, []);
@@ -125,17 +144,20 @@ function LoginInner() {
         return;
       }
       if (data?.status === "error") {
+        // A "banned" (or other explicit) error is terminal; surface a retry.
         setLiveError(POLL_ERROR_COPY[data.reason] || POLL_ERROR_COPY.default);
+        setTerminal(true);
         return;
       }
-      // pending → clear any transient error line and keep waiting.
-      if (data?.status === "pending" && liveError === POLL_ERROR_COPY.network) {
+      // pending → we're back in a healthy state. Clear any lingering transient
+      // (non-terminal) error line so it doesn't stick around after recovery.
+      if (data?.status === "pending" && liveErrorRef.current) {
         setLiveError(null);
       }
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(id);
-  }, [startHandshake, liveError]);
+  }, [startHandshake]);
 
   return (
     <main
@@ -173,7 +195,7 @@ function LoginInner() {
         />
 
         <div
-          className="ch-cell"
+          className="ch-cell-static"
           style={{
             padding: "40px 36px 36px",
             background:
@@ -197,8 +219,8 @@ function LoginInner() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 38,
-              lineHeight: 1.05,
+              fontSize: "clamp(30px, 8vw, 38px)",
+              lineHeight: 1.08,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -221,9 +243,9 @@ function LoginInner() {
             style={{
               margin: "14px auto 0",
               maxWidth: 340,
-              fontSize: 14.5,
+              fontSize: 15,
               lineHeight: 1.55,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             The lamps are lit and the workshops are humming. Sign in with Telegram
@@ -250,15 +272,18 @@ function LoginInner() {
           )}
 
           {/* Primary action: open the BFU bot. Anchor (not button) so it opens
-              a new tab and the poller in this tab catches the Start tap. */}
+              a new tab and the poller in this tab catches the Start tap. When the
+              start failed terminally we show a real "Try again" instead of a dead
+              disabled control. */}
           <div style={{ marginTop: 28 }}>
             {deepLink ? (
               <a
                 href={deepLink}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="ch-btn-primary"
                 style={{
+                  position: "relative",
                   justifyContent: "center",
                   width: "100%",
                   fontSize: 15,
@@ -266,7 +291,37 @@ function LoginInner() {
                 }}
               >
                 Continue with Telegram
+                <span style={{ marginLeft: 8, fontSize: 12 }} aria-hidden>
+                  ↗
+                </span>
+                <span
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    overflow: "hidden",
+                    clip: "rect(0 0 0 0)",
+                  }}
+                >
+                  (opens in a new tab)
+                </span>
               </a>
+            ) : terminal ? (
+              <button
+                type="button"
+                onClick={startHandshake}
+                className="ch-btn-primary"
+                style={{
+                  justifyContent: "center",
+                  width: "100%",
+                  fontSize: 15,
+                  padding: "14px 20px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Try again
+              </button>
             ) : (
               <div
                 className="ch-btn-primary"
@@ -276,7 +331,10 @@ function LoginInner() {
                   width: "100%",
                   fontSize: 15,
                   padding: "14px 20px",
-                  opacity: 0.6,
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--hair)",
+                  color: "var(--muted-strong)",
+                  boxShadow: "none",
                   cursor: "default",
                   pointerEvents: "none",
                 }}
@@ -286,33 +344,49 @@ function LoginInner() {
             )}
           </div>
 
-          {/* QR fallback for signing in from a phone. */}
+          {/* QR fallback for signing in from a phone. The label only appears
+              once a QR actually exists, so we never show "or scan" with nothing
+              beneath it; a dashed placeholder holds the space while it renders. */}
           {deepLink && (
             <div style={{ marginTop: 24 }}>
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--muted)",
-                  marginBottom: 12,
-                }}
-              >
-                or scan with your phone
-              </div>
-              {qrDataUrl && (
-                <img
-                  src={qrDataUrl}
-                  alt="Scan to open the BFU bot"
-                  width={168}
-                  height={168}
+              {qrDataUrl ? (
+                <>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: "var(--muted-strong)",
+                      marginBottom: 12,
+                    }}
+                  >
+                    or scan with your phone
+                  </div>
+                  <img
+                    src={qrDataUrl}
+                    alt="Scan to open the BFU bot"
+                    width={168}
+                    height={168}
+                    style={{
+                      display: "block",
+                      margin: "0 auto",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--hair)",
+                      boxShadow: "0 8px 26px rgba(0,0,0,0.35)",
+                    }}
+                  />
+                </>
+              ) : (
+                <div
+                  aria-hidden
                   style={{
-                    display: "block",
+                    width: 168,
+                    height: 168,
                     margin: "0 auto",
                     borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--hair)",
-                    boxShadow: "0 8px 26px rgba(0,0,0,0.35)",
+                    border: "1px dashed var(--hair)",
+                    background: "var(--surface-2)",
                   }}
                 />
               )}
@@ -326,7 +400,7 @@ function LoginInner() {
               marginTop: 20,
               fontSize: 13,
               lineHeight: 1.5,
-              color: liveError ? "var(--terra)" : "var(--muted)",
+              color: liveError ? "var(--terra)" : "var(--muted-strong)",
               minHeight: 20,
             }}
           >
@@ -344,7 +418,7 @@ function LoginInner() {
               borderTop: "1px solid var(--hair)",
               fontSize: 13,
               lineHeight: 1.5,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             New here?{" "}

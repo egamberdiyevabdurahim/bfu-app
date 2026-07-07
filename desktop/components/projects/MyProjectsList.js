@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
 
@@ -78,16 +78,22 @@ function OwnedCard({ project }) {
 
       <div className="ch-pcard-foot" style={{ alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)" }}>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: pending > 0 ? "var(--amber)" : "var(--muted-strong)",
+            }}
+          >
             {pending > 0 ? `${pending} pending` : "No new applicants"}
           </span>
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 9.5,
+              fontSize: 10,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             {members} {members === 1 ? "member" : "members"} · {project.view_count || 0} views
@@ -121,7 +127,7 @@ function JoinedCard({ project }) {
         <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 9.5,
+            fontSize: 10,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             color: "var(--green)",
@@ -136,10 +142,10 @@ function JoinedCard({ project }) {
         <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 9.5,
+            fontSize: 10,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           {project.member_count || 0} {(project.member_count || 0) === 1 ? "member" : "members"}
@@ -160,7 +166,7 @@ function FunnelTile({ label, value, accent }) {
   const animated = useCountUp(value || 0);
   return (
     <div
-      className="ch-cell"
+      className="ch-cell-static"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -210,18 +216,20 @@ function FunnelStrip({ fallback }) {
   const hasFunnel = Boolean(totals && totals.project_count);
   if (!hasFunnel && (!fallback || !fallback.projects)) return null;
 
+  // Accent the ACTIONABLE metric (Pending applicants when there are any) rather
+  // than the vanity "Views" number, so the eye lands on what needs a decision.
   const tiles = hasFunnel
     ? [
         { label: "Projects", value: totals.project_count },
-        { label: "Views", value: totals.views, accent: true },
+        { label: "Views", value: totals.views },
         { label: "Applications", value: totals.applications },
         { label: "Accepted", value: totals.accepted },
-        { label: "Pending", value: totals.pending },
+        { label: "Pending", value: totals.pending, accent: (totals.pending || 0) > 0 },
       ]
     : [
         { label: "Projects", value: fallback.projects },
-        { label: "Total views", value: fallback.views, accent: true },
-        { label: "Hiring now", value: fallback.hiring },
+        { label: "Total views", value: fallback.views },
+        { label: "Hiring now", value: fallback.hiring, accent: (fallback.hiring || 0) > 0 },
       ];
 
   return (
@@ -259,8 +267,23 @@ export default function MyProjectsList({ meId }) {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [projects, setProjects] = useState([]);
   const [justCreated, setJustCreated] = useState(null);
+  const aliveRef = useRef(true);
+
+  function load() {
+    setState("loading");
+    bfu("/projects/mine")
+      .then((res) => {
+        if (!aliveRef.current) return;
+        setProjects(Array.isArray(res) ? res : []);
+        setState("ready");
+      })
+      .catch(() => {
+        if (aliveRef.current) setState("error");
+      });
+  }
 
   useEffect(() => {
+    aliveRef.current = true;
     // Surface a one-time "submitted — pending approval" banner after a create.
     try {
       const id = sessionStorage.getItem("bfu:justCreated");
@@ -270,24 +293,19 @@ export default function MyProjectsList({ meId }) {
       }
     } catch {}
 
-    let alive = true;
-    bfu("/projects/mine")
-      .then((res) => {
-        if (!alive) return;
-        setProjects(Array.isArray(res) ? res : []);
-        setState("ready");
-      })
-      .catch(() => {
-        if (alive) setState("error");
-      });
+    load();
     return () => {
-      alive = false;
+      aliveRef.current = false;
     };
   }, []);
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}
+      >
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading your projects…
       </div>
@@ -296,8 +314,15 @@ export default function MyProjectsList({ meId }) {
 
   if (state === "error") {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load your projects. Refresh to try again.
+      <div className="ch-empty" style={{ marginTop: 28 }}>
+        <span className="ch-empty-k" style={{ color: "var(--terra)" }}>
+          Couldn't load
+        </span>
+        <div className="ch-empty-t">We couldn't load your projects.</div>
+        <button type="button" className="ch-btn-primary" onClick={load} style={{ marginTop: 8 }}>
+          <span className="ch-spin" aria-hidden style={{ marginRight: 6 }}>↻</span>
+          Try again
+        </button>
       </div>
     );
   }

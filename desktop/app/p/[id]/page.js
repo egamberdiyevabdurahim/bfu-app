@@ -78,47 +78,41 @@ export default async function ProjectPage({ params }) {
         <ProjectHero project={project} />
 
         {/* Additive client island: the viewer-specific join / manage control.
-            Calls the authed GET /projects/{id} on mount; degrades to a login
-            prompt when the reader isn't signed in. The SSR content above/below
-            stays fully public. */}
-        <div style={{ marginTop: 28, maxWidth: 460, display: "flex", flexDirection: "column", gap: 14 }}>
-          <ProjectActions projectId={project.id} />
-          {/* Save/heart toggle — additive island; self-hides for anon readers. */}
-          <FavoriteButton projectId={project.id} />
-        </div>
-
+            Sits in the left column of the bento band so it reads as an anchored
+            action rail beside the project's About/Team story rather than a
+            floating 460px island. Calls the authed GET /projects/{id} on mount;
+            degrades to a login prompt when the reader isn't signed in. The SSR
+            content stays fully public. */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 20,
-            marginTop: 40,
-            alignItems: "stretch",
-          }}
+          className="ch-grid"
+          style={{ marginTop: 40, alignItems: "start" }}
         >
+          <div
+            style={{
+              gridColumn: "span 2",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <ProjectActions projectId={project.id} />
+            {/* Save/heart toggle — additive island; self-hides for anon readers. */}
+            <FavoriteButton projectId={project.id} />
+            {/* Open roles the team is hiring for. Auth-gated read, so it
+                self-hides for anon readers or when there are no open roles. */}
+            <OpenRolesCell projectId={project.id} />
+          </div>
+
           <ProjectAboutCell about={project.about} />
           <FounderCell founder={project.founder} />
           <TeamCell team={project.team} teamCount={project.team_count} />
           {hasLookingFor && (
             <ProjectLookingForCell lookingFor={lookingFor} requirements={requirements} />
           )}
-          {/* Additive island: open roles the team is hiring for. Auth-gated read,
-              so it self-hides for anon readers or when there are no open roles. */}
-          <OpenRolesCell projectId={project.id} />
-        </div>
 
-        {/* Additive island: the project update feed (warm timeline). Read for
-            everyone with a session; self-hides for anon readers. SSR content
-            above stays intact. */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 20,
-            marginTop: 20,
-            alignItems: "stretch",
-          }}
-        >
+          {/* Additive island: the project update feed (warm timeline). Read for
+              everyone with a session; self-hides for anon readers, in which case
+              it renders nothing and no empty band is left behind. */}
           <ProjectUpdates projectId={project.id} />
         </div>
 
@@ -129,31 +123,33 @@ export default async function ProjectPage({ params }) {
             borderTop: "1px solid var(--hair)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: canonicalHost ? "space-between" : "flex-end",
             gap: 20,
             flexWrap: "wrap",
           }}
         >
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            {canonicalHost}
-          </div>
+          {canonicalHost && (
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--muted-strong)",
+              }}
+            >
+              {canonicalHost}
+            </div>
+          )}
           <div
             style={{
               fontFamily: "var(--font-accent)",
               fontStyle: "italic",
               fontSize: 18,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
-            Every great thing started as someone's project.
+            Every great thing started as someone&rsquo;s project.
           </div>
         </div>
     </SiteTopBar>

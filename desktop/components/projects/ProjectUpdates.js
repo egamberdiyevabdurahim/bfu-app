@@ -90,25 +90,25 @@ export default function ProjectUpdates({ projectId }) {
 
   return (
     <div
-      className="ch-cell"
-      style={{ display: "flex", flexDirection: "column", gap: 20, gridColumn: "span 2" }}
+      className="ch-cell-static"
+      style={{ display: "flex", flexDirection: "column", gap: 20, gridColumn: "span 4" }}
     >
       <div className="ch-cell-label">Project updates</div>
 
       {updates.length === 0 ? (
-        <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
+        <div style={{ fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55 }}>
           <span
             style={{
               fontFamily: "var(--font-accent)",
               fontStyle: "italic",
               fontSize: 18,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             No updates yet.
           </span>
           <div style={{ marginTop: 6 }}>
-            When the founder shares progress, it'll appear here.
+            When the founder shares progress, it&rsquo;ll appear here.
           </div>
         </div>
       ) : (
@@ -143,9 +143,9 @@ export default function ProjectUpdates({ projectId }) {
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10.5,
+                      fontSize: 11,
                       letterSpacing: "0.06em",
-                      color: "var(--muted)",
+                      color: "var(--muted-strong)",
                     }}
                   >
                     {timeAgo(u.created_at)}

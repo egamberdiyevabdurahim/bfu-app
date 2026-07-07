@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getToken } from "@/lib/session";
 import { getAdminStats, getRegions, getRetention, getSkillGap } from "@/lib/admin";
+import Atmosphere from "@/components/Atmosphere";
+import SiteFooter from "@/components/ui/SiteFooter";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
 import StatCards from "@/components/dashboard/StatCards";
@@ -76,8 +78,8 @@ export default async function DashboardPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 800,
-              fontSize: 60,
-              lineHeight: 0.98,
+              fontSize: "clamp(34px, 8vw, 60px)",
+              lineHeight: 1.02,
               letterSpacing: "-0.02em",
               color: "var(--text)",
             }}
@@ -122,16 +124,9 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* Retention + skill gap side by side (stacks on narrow viewports). */}
-        <div
-          style={{
-            marginTop: 22,
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: 22,
-            alignItems: "start",
-          }}
-        >
+        {/* Retention + skill gap side by side; genuinely stacks to one column
+            on narrow viewports (the inline grid alone never collapsed). */}
+        <div className="dash-two-col" style={{ marginTop: 22 }}>
           <PanelOrNote
             result={retention}
             label="Retention · by signup cohort"
@@ -145,40 +140,22 @@ export default async function DashboardPage() {
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz · command center
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            You keep the lamps lit for everyone.
-          </span>
-        </div>
+        <SiteFooter
+          host="brightfuturesuzbekistan.uz · command center"
+          tagline="You keep the lamps lit for everyone."
+        />
+
+        <style>{`
+          .dash-two-col {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 22px;
+            align-items: start;
+          }
+          @media (max-width: 900px) {
+            .dash-two-col { grid-template-columns: 1fr; }
+          }
+        `}</style>
     </AppTopBar>
   );
 }
@@ -190,10 +167,10 @@ function PanelOrNote({ result, label, render }) {
   if (result?.status === "ok") return render(result.data);
   const quiet =
     result?.status === "forbidden"
-      ? "This slice is restricted."
-      : "This slice couldn't load just now — it'll refresh on the next visit.";
+      ? "This view is restricted."
+      : "This panel couldn't load just now — it'll refresh on the next visit.";
   return (
-    <section className="ch-cell" style={{ padding: 26 }}>
+    <section className="ch-cell-static" style={{ padding: 26 }}>
       <div className="ch-cell-label">{label}</div>
       <p
         style={{
@@ -201,7 +178,7 @@ function PanelOrNote({ result, label, render }) {
           fontFamily: "var(--font-accent)",
           fontStyle: "italic",
           fontSize: 19,
-          color: "var(--muted)",
+          color: "var(--muted-strong)",
         }}
       >
         {quiet}
@@ -262,7 +239,7 @@ function AdminsOnly() {
           }}
         >
           <section
-            className="ch-cell"
+            className="ch-cell-static"
             style={{
               width: "100%",
               padding: 44,
@@ -288,7 +265,7 @@ function AdminsOnly() {
                 margin: "16px 0 0",
                 fontFamily: "var(--font-display)",
                 fontWeight: 800,
-                fontSize: 40,
+                fontSize: "clamp(30px, 6vw, 40px)",
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 color: "var(--text)",

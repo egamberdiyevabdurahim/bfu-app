@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProjectManager from "@/components/projects/ProjectManager";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /projects/[id]/manage — the OWNER cockpit. Per-user + uncacheable. The server
 // wrapper gates on the session; the client ProjectManager loads the authed
@@ -24,6 +25,8 @@ export default async function ManageProjectPage({ params }) {
         <div style={{ marginTop: 8 }}>
           <ProjectManager projectId={id} meId={me.id} />
         </div>
+
+        <SiteFooter tagline="A good team is worth more than a good idea." />
     </AppTopBar>
   );
 }

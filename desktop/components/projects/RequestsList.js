@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useToast } from "@/lib/useToast";
 
 // "Applications" — the founder's inbox. Loads GET /projects/my-requests, which
 // returns the PENDING applications submitted TO the current user's projects
@@ -48,12 +49,8 @@ export default function RequestsList() {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [apps, setApps] = useState([]);
   const [busy, setBusy] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  function flash(text, tone = "ok") {
-    setToast({ text, tone });
-    setTimeout(() => setToast(null), 3000);
-  }
+  // Shared, timer-managed toast (no leaked setTimeout / setState-after-unmount).
+  const { toast, flash } = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -89,7 +86,7 @@ export default function RequestsList() {
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading applications…
       </div>
@@ -97,7 +94,7 @@ export default function RequestsList() {
   }
   if (state === "error") {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
+      <div style={{ marginTop: 8, color: "var(--terra)", fontSize: 14 }} role="status">
         Couldn't load your applications. Refresh to try again.
       </div>
     );
@@ -105,7 +102,7 @@ export default function RequestsList() {
 
   if (apps.length === 0) {
     return (
-      <div className="ch-empty" style={{ marginTop: 28 }}>
+      <div className="ch-empty" style={{ marginTop: 8 }}>
         <span className="ch-empty-k">Inbox clear</span>
         <div className="ch-empty-t">No one is waiting on you.</div>
         <div className="ch-empty-s">
@@ -132,7 +129,15 @@ export default function RequestsList() {
         <section key={pid}>
           <div className="ch-slab" style={{ margin: "0 0 16px" }}>
             <span className="ch-slab-k">{list[0].project_type === "volunteering" ? "Volunteering" : "Startup"}</span>
-            <h2>{list[0].project_name}</h2>
+            <h2>
+              {/* The project name itself is now the link to its cockpit. */}
+              <a
+                href={`/projects/${pid}/manage`}
+                style={{ color: "inherit", textDecoration: "none" }}
+              >
+                {list[0].project_name}
+              </a>
+            </h2>
             <span className="ch-slab-line" />
             <a
               href={`/projects/${pid}/manage`}
@@ -145,11 +150,11 @@ export default function RequestsList() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {list.map((app) => {
               const a = app.applicant || {};
-              const name = a.display_name || `Builder #${a.id}`;
+              const name = a.display_name || "A builder";
               return (
                 <div
                   key={app.id}
-                  className="ch-cell"
+                  className="ch-cell-static"
                   style={{ display: "flex", alignItems: "center", gap: 16, padding: 18, flexWrap: "wrap" }}
                 >
                   <Avatar id={a.id} name={name} photo={a.photo_url} />
@@ -161,7 +166,7 @@ export default function RequestsList() {
                       {name}
                     </a>
                     {app.role ? (
-                      <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted)" }}>
+                      <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)" }}>
                         Applying as <span style={{ color: "var(--amber)" }}>{app.role}</span>
                       </div>
                     ) : null}
@@ -170,7 +175,7 @@ export default function RequestsList() {
                         style={{
                           marginTop: 5,
                           fontSize: 13,
-                          color: "var(--muted)",
+                          color: "var(--muted-strong)",
                           lineHeight: 1.5,
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
@@ -182,7 +187,7 @@ export default function RequestsList() {
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 10, marginLeft: "auto", alignItems: "center" }}>
                     <button
                       type="button"
                       onClick={() => decide(app, "accept")}

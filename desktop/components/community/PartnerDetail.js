@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useToast } from "@/lib/useToast";
 
 // Partner detail (Batch 4). Loads, for a given partner id:
 //   GET /partners/{id}   → { id, name, about, website, logo_url, region_id,
@@ -22,9 +23,9 @@ const TYPE_STYLE = {
   hackathon: { color: "var(--amber)", bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
   grant: { color: "var(--green)", bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
   scholarship: { color: "var(--green)", bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
-  meetup: { color: "#5EC5B6", bg: "rgba(94,197,182,0.14)", bd: "rgba(94,197,182,0.34)" },
+  meetup: { color: "var(--teal-bright)", bg: "rgba(94,197,182,0.14)", bd: "rgba(94,197,182,0.34)" },
 };
-const DEFAULT_TYPE = { color: "var(--muted)", bg: "var(--surface-2)", bd: "var(--hair)" };
+const DEFAULT_TYPE = { color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" };
 
 function fmtDeadline(iso) {
   if (!iso) return null;
@@ -47,10 +48,10 @@ const inputStyle = {
 const labelStyle = {
   display: "block",
   fontFamily: "var(--font-mono)",
-  fontSize: 10,
+  fontSize: 11,
   letterSpacing: "0.12em",
   textTransform: "uppercase",
-  color: "var(--muted)",
+  color: "var(--muted-strong)",
   margin: "0 0 8px",
 };
 
@@ -76,14 +77,14 @@ function OpportunityCard({ ev }) {
           {ev.type || "event"}
         </span>
         {deadline ? (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>by {deadline}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)" }}>by {deadline}</span>
         ) : null}
       </div>
       <h3 style={{ margin: "12px 0 0", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, lineHeight: 1.2 }}>
         {ev.title}
       </h3>
       {ev.description ? (
-        <p style={{ margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)" }}>{ev.description}</p>
+        <p style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.5, color: "var(--muted)" }}>{ev.description}</p>
       ) : null}
       {ev.link ? (
         <div style={{ marginTop: 12, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)" }}>
@@ -92,13 +93,13 @@ function OpportunityCard({ ev }) {
       ) : null}
     </>
   );
-  const style = { display: "block", padding: 20, color: "var(--text)", textDecoration: "none" };
+  const style = { display: "block", padding: 24, color: "var(--text)", textDecoration: "none" };
   return ev.link ? (
     <a href={ev.link} target="_blank" rel="noopener noreferrer" className="ch-cell" style={style}>
       {inner}
     </a>
   ) : (
-    <div className="ch-cell" style={style}>
+    <div className="ch-cell-static" style={style}>
       {inner}
     </div>
   );
@@ -145,7 +146,7 @@ function PostForm({ onPosted, flash }) {
   }
 
   return (
-    <div className="ch-cell" style={{ marginTop: 4, background: "linear-gradient(155deg, rgba(232,161,92,0.06), var(--surface) 60%)" }}>
+    <div className="ch-cell-static" style={{ marginTop: 4, background: "linear-gradient(155deg, rgba(232,161,92,0.06), var(--surface) 60%)" }}>
       <form onSubmit={submit} style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 160px" }}>
@@ -200,12 +201,7 @@ export default function PartnerDetail({ partnerId }) {
   const [state, setState] = useState("loading"); // loading | ready | notfound | error
   const [partner, setPartner] = useState(null);
   const [owns, setOwns] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  function flash(text, tone = "ok") {
-    setToast({ text, tone });
-    setTimeout(() => setToast(null), 3500);
-  }
+  const { toast, flash } = useToast(3500);
 
   useEffect(() => {
     let alive = true;
@@ -216,7 +212,8 @@ export default function PartnerDetail({ partnerId }) {
       .then(([p, mine]) => {
         if (!alive) return;
         setPartner(p);
-        setOwns(Boolean(mine?.partner && Number(mine.partner.id) === Number(partnerId)));
+        // Compare as strings — ids may arrive as number or string from either source.
+        setOwns(Boolean(mine?.partner && String(mine.partner.id) === String(partnerId)));
         setState("ready");
       })
       .catch((e) => {
@@ -230,7 +227,7 @@ export default function PartnerDetail({ partnerId }) {
 
   if (state === "loading") {
     return (
-      <div style={{ marginTop: 28, color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
         Loading partner…
       </div>
@@ -250,8 +247,11 @@ export default function PartnerDetail({ partnerId }) {
   }
   if (state === "error" || !partner) {
     return (
-      <div style={{ marginTop: 28, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load this partner. Refresh to try again.
+      <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load this partner.</span>
+        <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
+          Try again
+        </button>
       </div>
     );
   }
@@ -260,8 +260,8 @@ export default function PartnerDetail({ partnerId }) {
 
   return (
     <div style={{ marginTop: 24 }}>
-      {/* Partner header card */}
-      <div className="ch-cell" style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
+      {/* Partner header card — passive info panel, no hover glow */}
+      <div className="ch-cell-static" style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
         <div
           style={{
             width: 72,
@@ -287,11 +287,21 @@ export default function PartnerDetail({ partnerId }) {
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 26, letterSpacing: "-0.01em" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: "clamp(22px, 4vw, 28px)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.01em",
+                overflowWrap: "anywhere",
+              }}
+            >
               {partner.name}
-            </h2>
+            </h1>
             {partner.verified ? (
-              <span style={{ color: "var(--green)", fontSize: 14 }} title="Verified partner">✓</span>
+              <span role="img" aria-label="Verified partner" style={{ color: "var(--green)", fontSize: 14 }}>✓</span>
             ) : null}
           </div>
           {partner.about ? (
@@ -340,7 +350,7 @@ export default function PartnerDetail({ partnerId }) {
             </div>
           </div>
         ) : (
-          <div className="ch-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div className="ch-grid">
             {events.map((ev) => (
               <OpportunityCard key={ev.id} ev={ev} />
             ))}

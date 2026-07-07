@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import AppTopBar from "@/components/nav/AppTopBar";
 import RequestsList from "@/components/projects/RequestsList";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // /requests — "Applications": the founder's inbox of pending applications
 // submitted TO the current user's projects (GET /projects/my-requests). Per-user
@@ -20,7 +21,7 @@ export default async function RequestsPage() {
 
   return (
     <AppTopBar active="requests" me={me}>
-        <div style={{ marginTop: 8, marginBottom: 8 }}>
+        <div style={{ marginTop: 8, marginBottom: 30 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -37,10 +38,11 @@ export default async function RequestsPage() {
               margin: "14px 0 0",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
-              fontSize: 52,
-              lineHeight: 1.0,
+              fontSize: "clamp(34px, 6vw, 52px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.02em",
               color: "var(--text)",
+              overflowWrap: "break-word",
             }}
           >
             Your{" "}
@@ -62,15 +64,17 @@ export default async function RequestsPage() {
               fontStyle: "italic",
               fontSize: 20,
               lineHeight: 1.35,
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
               maxWidth: 560,
             }}
           >
-            Builders asking to join the projects you've started.
+            Builders asking to join the projects you&rsquo;ve started.
           </p>
         </div>
 
         <RequestsList />
+
+        <SiteFooter tagline="Every great team starts with a knock at the door." />
     </AppTopBar>
   );
 }

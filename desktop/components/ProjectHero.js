@@ -101,6 +101,37 @@ export default function ProjectHero({ project }) {
           </span>
         )}
 
+        {/* Active but not hiring — a designed neutral status rather than a gap. */}
+        {isActive && !isHiring && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 13px",
+              borderRadius: "var(--radius-pill)",
+              background: "rgba(232,161,92,0.1)",
+              border: "1px solid rgba(232,161,92,0.28)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--amber)",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--amber)",
+                boxShadow: "0 0 10px var(--amber)",
+              }}
+            />
+            In progress
+          </span>
+        )}
+
         {!isActive && (
           <span
             style={{
@@ -115,7 +146,7 @@ export default function ProjectHero({ project }) {
               fontSize: 11,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "var(--muted)",
+              color: "var(--muted-strong)",
             }}
           >
             <span
@@ -123,7 +154,7 @@ export default function ProjectHero({ project }) {
                 width: 6,
                 height: 6,
                 borderRadius: "50%",
-                background: "var(--muted)",
+                background: "var(--muted-strong)",
               }}
             />
             Completed
@@ -137,10 +168,12 @@ export default function ProjectHero({ project }) {
           margin: "22px 0 0",
           fontFamily: "var(--font-display)",
           fontWeight: 700,
-          fontSize: 64,
-          lineHeight: 0.98,
+          fontSize: "clamp(40px, 6vw, 64px)",
+          lineHeight: 1.05,
           letterSpacing: "-0.02em",
           color: "var(--text)",
+          maxWidth: 900,
+          overflowWrap: "break-word",
         }}
       >
         {name}
@@ -153,10 +186,11 @@ export default function ProjectHero({ project }) {
             margin: "18px 0 0",
             fontFamily: "var(--font-accent)",
             fontStyle: "italic",
-            fontSize: 30,
+            fontSize: "clamp(22px, 3vw, 30px)",
             lineHeight: 1.3,
             color: "var(--amber)",
             maxWidth: 820,
+            overflowWrap: "break-word",
           }}
         >
           {goal}
@@ -171,7 +205,7 @@ export default function ProjectHero({ project }) {
             fontSize: 12,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
-            color: "var(--muted)",
+            color: "var(--muted-strong)",
           }}
         >
           {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}

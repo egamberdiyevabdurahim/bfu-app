@@ -37,12 +37,48 @@ export default function OpenRolesCell({ projectId }) {
     };
   }, [projectId]);
 
-  if (state === "loading" || state === "hidden") return null;
+  // Anon / no-roles → render nothing (SSR "looking for" already covers that
+  // story). While the auth-gated fetch is in flight we reserve a slim skeleton
+  // so the action rail doesn't jump when roles resolve.
+  if (state === "hidden") return null;
+
+  if (state === "loading") {
+    return (
+      <div
+        className="ch-cell-static"
+        aria-hidden
+        style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 118 }}
+      >
+        <div className="ch-cell-label">Open roles</div>
+        <div
+          style={{
+            height: 12,
+            width: "62%",
+            borderRadius: 6,
+            background: "var(--surface-2)",
+          }}
+        />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {[64, 88, 52].map((w) => (
+            <div
+              key={w}
+              style={{
+                height: 28,
+                width: w,
+                borderRadius: "var(--radius-pill)",
+                background: "var(--surface-2)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="ch-cell-label">Open roles</div>
-      <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.5 }}>
         The team is looking for:
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

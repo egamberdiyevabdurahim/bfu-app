@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { gradientFor, initials } from "@/lib/avatar";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import { ADMIN_ROLES } from "@/components/nav/navConfig";
 
@@ -148,25 +147,9 @@ export default async function HomePage() {
   const isAdmin = ADMIN_ROLES.has(me.role);
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        {/* Shared logged-in top bar — brand mark, primary nav, notifications
-            bell + "You" account menu. /home is the launchpad, so no primary nav
-            item is highlighted here. */}
-        <AppTopBar active="home" />
-
+    <AppTopBar active="home" me={me}>
         {/* Welcome hero — Bricolage headline + Instrument-serif accent line. */}
-        <div style={{ marginTop: 48 }}>
+        <div style={{ marginTop: 8 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -554,7 +537,6 @@ export default async function HomePage() {
             The city never really sleeps.
           </span>
         </div>
-      </div>
 
       {/* Responsive grids — the launchpad tiles flow from 3 → 2 → 1 columns,
           and the hero grid stacks below ~760px. */}
@@ -575,6 +557,6 @@ export default async function HomePage() {
           .home-tile-grid { grid-template-columns: 1fr; }
         }
       `}</style>
-    </main>
+    </AppTopBar>
   );
 }

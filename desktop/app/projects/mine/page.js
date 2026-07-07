@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import MyProjectsList from "@/components/projects/MyProjectsList";
 
@@ -20,21 +19,8 @@ export default async function MyProjectsPage() {
   if (!me) redirect("/login");
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="projects" />
-
-        <div style={{ marginTop: 40, marginBottom: 30 }}>
+    <AppTopBar active="projects-mine" me={me}>
+        <div style={{ marginTop: 8, marginBottom: 30 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -72,7 +58,6 @@ export default async function MyProjectsPage() {
         </div>
 
         <MyProjectsList meId={me.id} />
-      </div>
-    </main>
+    </AppTopBar>
   );
 }

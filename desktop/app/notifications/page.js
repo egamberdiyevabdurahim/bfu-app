@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import NotificationsInbox from "@/components/nav/NotificationsInbox";
 
@@ -19,21 +18,9 @@ export default async function NotificationsPage() {
   if (!me) redirect("/login");
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 820,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="notifications" />
-
-        <div style={{ marginTop: 40, marginBottom: 6 }}>
+    <AppTopBar active="notifications" me={me}>
+      <div style={{ maxWidth: 820, margin: "0 auto" }}>
+        <div style={{ marginTop: 8, marginBottom: 6 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -100,6 +87,6 @@ export default async function NotificationsPage() {
           </span>
         </div>
       </div>
-    </main>
+    </AppTopBar>
   );
 }

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import BookingsList from "@/components/community/BookingsList";
 
@@ -20,21 +19,8 @@ export default async function BookingsPage() {
   if (!me) redirect("/login");
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1000,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="sessions" />
-
-        <div style={{ marginTop: 40, marginBottom: 6 }}>
+    <AppTopBar active="sessions" me={me}>
+        <div style={{ marginTop: 8, marginBottom: 6 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -113,7 +99,6 @@ export default async function BookingsPage() {
             The best advice arrives on time.
           </span>
         </div>
-      </div>
-    </main>
+    </AppTopBar>
   );
 }

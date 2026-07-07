@@ -1,6 +1,5 @@
 import { getProjects } from "@/lib/bfu-api";
 import SiteTopBar from "@/components/nav/SiteTopBar";
-import Atmosphere from "@/components/Atmosphere";
 import ProjectsHeader from "@/components/ProjectsHeader";
 import ProjectFilterBar from "@/components/ProjectFilterBar";
 import ProjectBrowseCard from "@/components/ProjectBrowseCard";
@@ -76,19 +75,7 @@ export default async function ProjectsPage() {
   const hasProjects = projects.length > 0;
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "22px 40px 120px",
-        }}
-      >
-        <SiteTopBar active="projects" />
+    <SiteTopBar active="projects" maxWidth={1280}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
           <StartProjectCTA />
         </div>
@@ -152,7 +139,6 @@ export default async function ProjectsPage() {
             Every great thing started as someone's project.
           </span>
         </div>
-      </div>
-    </main>
+    </SiteTopBar>
   );
 }

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 
@@ -22,21 +21,8 @@ export default async function NewProjectPage() {
   const regions = await getRegions();
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="projects" />
-
-        <div style={{ marginTop: 40, marginBottom: 34 }}>
+    <AppTopBar active="projects-mine" me={me}>
+        <div style={{ marginTop: 8, marginBottom: 34 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -88,7 +74,6 @@ export default async function NewProjectPage() {
         </div>
 
         <CreateProjectForm regions={regions} mode="create" />
-      </div>
-    </main>
+    </AppTopBar>
   );
 }

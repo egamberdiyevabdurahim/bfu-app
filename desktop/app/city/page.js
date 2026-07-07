@@ -1,7 +1,6 @@
 import { getCity } from "@/lib/bfu-api";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
-import Atmosphere from "@/components/Atmosphere";
 import CityHeader from "@/components/CityHeader";
 import FilterBar from "@/components/FilterBar";
 import RegionCluster from "@/components/RegionCluster";
@@ -149,19 +148,7 @@ export default async function CityPage() {
   const tickerLines = buildTickerLines(stats, threads);
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "22px 40px 120px",
-        }}
-      >
-        <SiteTopBar active="city" />
+    <SiteTopBar active="city" maxWidth={1280}>
         <AmbientTicker lines={tickerLines} />
         <CityHeader stats={stats} weekday={weekday} />
 
@@ -210,9 +197,8 @@ export default async function CityPage() {
             The city never really sleeps.
           </span>
         </div>
-      </div>
 
       <PresenceToast builders={onlineBuilders} />
-    </main>
+    </SiteTopBar>
   );
 }

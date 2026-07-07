@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getToken } from "@/lib/session";
 import { getAdminStats, getRegions, getRetention, getSkillGap } from "@/lib/admin";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
 import StatCards from "@/components/dashboard/StatCards";
@@ -56,25 +55,11 @@ export default async function DashboardPage() {
   const weekday = weekdayLabel();
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        {/* Shared logged-in top bar (Batch 5). The Dashboard nav item only
-            appears for admins, and is highlighted here. */}
-        <AppTopBar active="dashboard" />
+    <AppTopBar active="dashboard">
         <AdminSubNav active="overview" />
 
         {/* Command-center hero — overline + Bricolage headline + Instrument-serif sub. */}
-        <div style={{ marginTop: 34 }}>
+        <div style={{ marginTop: 8 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -194,8 +179,7 @@ export default async function DashboardPage() {
             You keep the lamps lit for everyone.
           </span>
         </div>
-      </div>
-    </main>
+    </AppTopBar>
   );
 }
 

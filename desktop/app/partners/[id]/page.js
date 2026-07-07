@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnerDetail from "@/components/community/PartnerDetail";
 
@@ -22,21 +21,8 @@ export default async function PartnerPage({ params }) {
   const { id } = await params;
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1000,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="partners" />
-
-        <div style={{ marginTop: 32 }}>
+    <AppTopBar active="partners" me={me}>
+        <div style={{ marginTop: 8 }}>
           <a
             href="/partners"
             style={{
@@ -81,7 +67,6 @@ export default async function PartnerPage({ params }) {
             Opportunity, made local.
           </span>
         </div>
-      </div>
-    </main>
+    </AppTopBar>
   );
 }

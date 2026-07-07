@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
-import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
 
@@ -57,24 +56,9 @@ export default async function SettingsPage() {
   };
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        {/* Shared logged-in top bar (Batch 5). Settings is reachable from the
-            profile menu, so no primary-nav item is highlighted. */}
-        <AppTopBar active="settings" />
-
+    <AppTopBar active="settings" me={me}>
         {/* Header */}
-        <div style={{ marginTop: 40, marginBottom: 34 }}>
+        <div style={{ marginTop: 8, marginBottom: 34 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -125,7 +109,6 @@ export default async function SettingsPage() {
         </div>
 
         <ProfileEditor initial={initial} regions={regions} />
-      </div>
-    </main>
+    </AppTopBar>
   );
 }

@@ -2,6 +2,12 @@ import Atmosphere from "@/components/Atmosphere";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
 
+// The admin console pages (Users, Projects, Reports, …) render inside the
+// left-sidebar AppShell (via AppTopBar), with the AdminSubNav as a secondary tab
+// strip. AppShell self-fetches `me` so the sidebar's admin group + profile block
+// populate. The graceful non-admin refusal (AdminsOnly) keeps its own standalone
+// firelit layout.
+
 // Shared server-rendered shell for the /dashboard/* console pages (Users,
 // Projects, Reports, Broadcast). Renders the firelit Atmosphere, the shared
 // AppTopBar (active="dashboard"), the admin sub-nav (active tab), and a compact
@@ -24,21 +30,10 @@ export default function AdminShell({
   if (forbidden) return <AdminsOnly />;
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <AppTopBar active="dashboard" />
+    <AppTopBar active="dashboard">
         <AdminSubNav active={active} />
 
-        <div style={{ marginTop: 34 }}>
+        <div style={{ marginTop: 8 }}>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -128,8 +123,7 @@ export default function AdminShell({
             You keep the lamps lit for everyone.
           </span>
         </div>
-      </div>
-    </main>
+    </AppTopBar>
   );
 }
 

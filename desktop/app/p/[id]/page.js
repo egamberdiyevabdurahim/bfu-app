@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/bfu-api";
 import SiteTopBar from "@/components/nav/SiteTopBar";
-import Atmosphere from "@/components/Atmosphere";
 import ProjectHero from "@/components/ProjectHero";
 import ProjectAboutCell from "@/components/ProjectAboutCell";
 import FounderCell from "@/components/FounderCell";
@@ -75,20 +74,7 @@ export default async function ProjectPage({ params }) {
   const canonicalHost = (project.canonical_url || "").replace(/^https?:\/\//, "");
 
   return (
-    <main style={{ position: "relative", minHeight: "100vh" }}>
-      <Atmosphere />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "26px 40px 96px",
-        }}
-      >
-        <SiteTopBar active="projects" />
-
+    <SiteTopBar active="projects" maxWidth={1200}>
         <ProjectHero project={project} />
 
         {/* Additive client island: the viewer-specific join / manage control.
@@ -170,7 +156,6 @@ export default async function ProjectPage({ params }) {
             Every great thing started as someone's project.
           </div>
         </div>
-      </div>
-    </main>
+    </SiteTopBar>
   );
 }

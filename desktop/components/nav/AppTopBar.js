@@ -1,16 +1,20 @@
 "use client";
 
-import AppNav from "@/components/nav/AppNav";
+import AppShell from "@/components/nav/AppShell";
 
-// Thin compatibility wrapper kept for the many AUTHED pages that import
-// AppTopBar and pass only `active` (/home, /settings, projects/*, /mentors,
-// /bookings, /events, /partners, /connections, /favorites, /requests,
-// /dashboard, /notifications). The real nav now lives in AppNav, which is also
-// used (with a server-fetched `me`) by SiteTopBar on public pages.
+// Thin compatibility wrapper. The nav is now the left-sidebar AppShell, which
+// OWNS the page chrome (the firelit <main>/<Atmosphere>/content container). So
+// AppTopBar simply forwards to AppShell — pages pass their content as children:
 //
-// With no `initialMe`, AppNav self-fetches GET /users/me on mount — the
-// original AppTopBar behavior — so these pages need no changes.
+//   <AppTopBar active="mentors" me={me}>{pageContent}</AppTopBar>
+//
+// With no `me`, AppShell self-fetches GET /users/me on mount (the original
+// AppTopBar behavior), so the sidebar's profile block still populates.
 
-export default function AppTopBar({ active }) {
-  return <AppNav active={active} />;
+export default function AppTopBar({ active, me = null, children }) {
+  return (
+    <AppShell active={active} me={me}>
+      {children}
+    </AppShell>
+  );
 }

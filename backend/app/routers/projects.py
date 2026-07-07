@@ -696,6 +696,13 @@ async def update_project(
     for field, value in data.items():
         setattr(project, field, value)
 
+    # exclude_none dropped explicitly-nulled optional restriction fields; re-apply
+    # the ones the client explicitly sent as null so a founder can CLEAR them
+    # (goal/about/gender_req/age_from/age_to) instead of being stuck with the old value.
+    for field in ("goal", "about", "gender_req", "age_from", "age_to"):
+        if field in body.model_fields_set and getattr(body, field) is None:
+            setattr(project, field, None)
+
     if req_region_ids is not None or req_skills is not None or req_knowledges is not None:
         await _set_requirements(
             db, project,

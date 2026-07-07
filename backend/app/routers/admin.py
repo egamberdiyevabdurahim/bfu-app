@@ -577,8 +577,11 @@ class EventOut(BaseModel):
 @router.get("/events", response_model=list[EventOut])
 async def admin_list_events(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     # Pending (partner-submitted) events float to the top for the queue.
+    # Exclude soft-deleted rows (mirrors every sibling admin list endpoint) —
+    # otherwise a deleted event resurrects on the next refresh.
     res = await db.execute(
-        select(Event).order_by(Event.is_approved.asc(), Event.id.desc()).limit(200)
+        select(Event).where(Event.is_deleted == False)
+        .order_by(Event.is_approved.asc(), Event.id.desc()).limit(200)
     )
     return res.scalars().all()
 
@@ -889,9 +892,12 @@ async def update_school(
     s = await db.get(School, school_id)
     if not s:
         raise HTTPException(404, "School not found")
-    if body.group_id is not None:
+    # Use model_fields_set so an explicitly-sent null CLEARS the column (unlink a
+    # Telegram group / remove a map pin); an absent field is left untouched.
+    fset = body.model_fields_set
+    if "group_id" in fset:
         s.group_id = body.group_id
-    if body.group_link is not None:
+    if "group_link" in fset:
         s.group_link = body.group_link
     if body.name is not None:
         name = body.name.strip()
@@ -902,9 +908,9 @@ async def update_school(
         if not await db.get(Region, body.region_id):
             raise HTTPException(400, "Region not found")
         s.region_id = body.region_id
-    if body.latitude is not None:
+    if "latitude" in fset:
         s.latitude = body.latitude
-    if body.longitude is not None:
+    if "longitude" in fset:
         s.longitude = body.longitude
     await db.commit()
     return s
@@ -958,9 +964,11 @@ async def update_lc(
     lc = await db.get(LearningCenter, lc_id)
     if not lc:
         raise HTTPException(404, "Learning Center not found")
-    if body.group_id is not None:
+    # Honor explicit nulls (clear the column) via model_fields_set; absent = untouched.
+    fset = body.model_fields_set
+    if "group_id" in fset:
         lc.group_id = body.group_id
-    if body.group_link is not None:
+    if "group_link" in fset:
         lc.group_link = body.group_link
     if body.name is not None:
         name = body.name.strip()
@@ -971,9 +979,9 @@ async def update_lc(
         if not await db.get(Region, body.region_id):
             raise HTTPException(400, "Region not found")
         lc.region_id = body.region_id
-    if body.latitude is not None:
+    if "latitude" in fset:
         lc.latitude = body.latitude
-    if body.longitude is not None:
+    if "longitude" in fset:
         lc.longitude = body.longitude
     await db.commit()
     return lc

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Ports the mockup's `.filters` chip row
 // (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html lines 70-76, 177-189).
@@ -105,8 +106,21 @@ function cardMatches(el, chip) {
 export default function FilterBar({ regions = [], nameKey = "name_en", children }) {
   const [active, setActive] = useState(ALL);
   const rootRef = useRef(null);
+  const searchParams = useSearchParams();
 
   const chips = useMemo(() => deriveChips(regions, nameKey), [regions, nameKey]);
+
+  // Deep-link support: a `?f=<key>` param (e.g. from a Serendipity thread on the
+  // city) opens the page already-filtered. Guard so an absent/`all`/unknown key
+  // is a no-op and the default "All" view stands. Runs after the server-rendered
+  // clusters are in the DOM (effect fires post-paint), so applyFilter can walk them.
+  useEffect(() => {
+    const f = searchParams?.get("f");
+    if (!f || f === ALL) return;
+    if (!chips.some((c) => c.key === f)) return; // unknown chip → no-op
+    applyFilter(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, chips]);
 
   function applyFilter(key) {
     setActive(key);

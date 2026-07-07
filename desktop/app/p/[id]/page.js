@@ -10,6 +10,7 @@ import ProjectActions from "@/components/projects/ProjectActions";
 import FavoriteButton from "@/components/projects/FavoriteButton";
 import OpenRolesCell from "@/components/projects/OpenRolesCell";
 import ProjectUpdates from "@/components/projects/ProjectUpdates";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route renders per-request rather than being statically cached.
@@ -116,42 +117,10 @@ export default async function ProjectPage({ params }) {
           <ProjectUpdates projectId={project.id} />
         </div>
 
-        <div
-          style={{
-            marginTop: 60,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: canonicalHost ? "space-between" : "flex-end",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          {canonicalHost && (
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--muted-strong)",
-              }}
-            >
-              {canonicalHost}
-            </div>
-          )}
-          <div
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted-strong)",
-            }}
-          >
-            Every great thing started as someone&rsquo;s project.
-          </div>
-        </div>
+        <SiteFooter
+          tagline="Every great thing started as someone’s project."
+          host={canonicalHost}
+        />
     </SiteTopBar>
   );
 }

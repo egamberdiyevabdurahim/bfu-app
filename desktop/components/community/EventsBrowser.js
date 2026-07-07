@@ -183,6 +183,7 @@ export default function EventsBrowser() {
         aria-label="Event feed"
         style={{
           display: "inline-flex",
+          alignItems: "center",
           gap: 4,
           padding: 4,
           borderRadius: "var(--radius-pill)",
@@ -201,17 +202,21 @@ export default function EventsBrowser() {
               aria-selected={active}
               onClick={() => setTab(t.id)}
               style={{
-                padding: "8px 16px",
+                // Active segment is deliberately larger + solid-amber filled so
+                // the chosen side clearly dominates the inactive one at a glance.
+                padding: active ? "11px 22px" : "8px 16px",
                 borderRadius: "var(--radius-pill)",
                 border: "none",
                 cursor: "pointer",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
+                fontSize: active ? 13.5 : 12,
                 letterSpacing: "0.06em",
+                textTransform: "uppercase",
                 background: active ? "var(--amber)" : "transparent",
                 color: active ? "#160E08" : "var(--muted-strong)",
-                fontWeight: active ? 700 : 500,
-                transition: "background 0.15s ease, color 0.15s ease",
+                fontWeight: active ? 800 : 500,
+                boxShadow: active ? "0 6px 18px rgba(232,161,92,0.32)" : "none",
+                transition: "background 0.15s ease, color 0.15s ease, padding 0.15s ease, font-size 0.15s ease, box-shadow 0.15s ease",
               }}
             >
               {t.label}

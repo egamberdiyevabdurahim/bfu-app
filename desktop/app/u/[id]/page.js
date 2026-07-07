@@ -10,6 +10,7 @@ import AchievementsCell from "@/components/AchievementsCell";
 import VouchesCell from "@/components/VouchesCell";
 import ConnectionsCell from "@/components/ConnectionsCell";
 import PersonActions from "@/components/people/PersonActions";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route renders per-request rather than being statically cached.
@@ -88,20 +89,7 @@ export default async function ProfilePage({ params }) {
           </aside>
         </div>
 
-        <div style={{ marginTop: 60, paddingTop: 26, borderTop: "1px solid var(--hair)",
-          display: "flex", alignItems: "center", justifyContent: host ? "space-between" : "flex-end",
-          gap: 20, flexWrap: "wrap" }}>
-          {host && (
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.16em",
-              textTransform: "uppercase", color: "var(--muted-strong)" }}>
-              {host}
-            </div>
-          )}
-          <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 18,
-            color: "var(--muted-strong)" }}>
-            Someone is always building right now.
-          </div>
-        </div>
+        <SiteFooter tagline="Someone is always building right now." host={host} />
 
         {/* Layout: rail beside the bento on wide screens, stacked below it once
             there isn't room for both. Because the rail steals ~360px, the bento

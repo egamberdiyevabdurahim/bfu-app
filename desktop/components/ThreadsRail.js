@@ -34,8 +34,27 @@ export default function ThreadsRail({ threads = [] }) {
   );
 }
 
+// Map a thread's machine `kind` to the FilterBar chip key that best expresses
+// it, so clicking the thread opens /city already filtered (via FilterBar's
+// `?f=` deep-link). Keys MUST match FilterBar's chip keys exactly. Threads with
+// no sensible generic chip fall back to "all" (a no-op the FilterBar ignores).
+function threadFilterKey(kind) {
+  switch (kind) {
+    case "new_in_city":
+      return "online"; // just-arrived / new builders → "Online now"
+    case "rising":
+      return "online"; // gaining momentum tonight → the active-now set
+    case "open_roles":
+      return "open_to_work"; // builders who need collaborators → "Looking for co-founder"
+    default:
+      // skill_cluster (needs a specific skill slug we can't know here) and any
+      // future kind → no sensible generic chip.
+      return "all";
+  }
+}
+
 function Thread({ thread = {}, index = 0 }) {
-  const { title, subtitle, faces = [], href } = thread;
+  const { title, subtitle, faces = [] } = thread;
   const body = (
     <>
       {thread.kind && <div className="ch-thread-k">{kindLabel(thread.kind)}</div>}
@@ -56,10 +75,12 @@ function Thread({ thread = {}, index = 0 }) {
     </>
   );
 
-  // Threads point at a destination (defaults to /city); an anchor keeps the
-  // whole card clickable while the hover-lift stays pure CSS.
+  // Each thread deep-links back to the city with a real FilterBar filter
+  // applied (?f=<key>), so clicking it actually narrows the bazaar instead of
+  // just returning to an unfiltered /city. The hover-lift stays pure CSS.
+  const href = `/city?f=${threadFilterKey(thread.kind)}`;
   return (
-    <a className="ch-thread" href={href || "/city"}>
+    <a className="ch-thread" href={href}>
       {body}
     </a>
   );

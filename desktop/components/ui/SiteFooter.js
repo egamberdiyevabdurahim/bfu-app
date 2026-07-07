@@ -12,22 +12,24 @@ export default function SiteFooter({
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: host ? "space-between" : "flex-end",
           gap: 20,
           flexWrap: "wrap",
         }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "var(--muted)",
-          }}
-        >
-          {host}
-        </span>
+        {host && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+            }}
+          >
+            {host}
+          </span>
+        )}
         <span
           style={{
             fontFamily: "var(--font-accent)",

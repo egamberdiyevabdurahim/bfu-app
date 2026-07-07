@@ -422,6 +422,7 @@ export default function MentorsBrowser() {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [mentors, setMentors] = useState([]);
   const [isMentor, setIsMentor] = useState(false);
+  const [meId, setMeId] = useState(null); // viewer's own id → mark their own mentor card "This is you"
   const [openId, setOpenId] = useState(null); // which mentor's BookPanel is open
   const [requestedSlots, setRequestedSlots] = useState({}); // slotId -> true, lifted so re-opening a panel keeps requested state
   const { toast, flash } = useToast();
@@ -436,6 +437,7 @@ export default function MentorsBrowser() {
         if (!alive) return;
         setMentors(Array.isArray(list) ? list : []);
         setIsMentor(Boolean(me?.mentor?.is_mentor));
+        setMeId(me?.id ?? null);
         setState("ready");
       })
       .catch(() => alive && setState("error"));
@@ -487,6 +489,7 @@ export default function MentorsBrowser() {
           {mentors.map((m) => {
             const name = m.display_name || "A builder";
             const isOpen = openId === m.id;
+            const isSelf = meId != null && m.id === meId;
             return (
               <div key={m.id} className="ch-cell-static" style={{ padding: 22 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
@@ -522,18 +525,38 @@ export default function MentorsBrowser() {
                       {m.open_slots > 0 ? `${m.open_slots} open slot${m.open_slots === 1 ? "" : "s"}` : "No open slots"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(isOpen ? null : m.id)}
-                    className={isOpen ? "ch-btn-ghost" : "ch-btn-primary"}
-                    aria-expanded={isOpen}
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    {isOpen ? "Close" : "Book a session"}
-                  </button>
+                  {isSelf ? (
+                    <span
+                      aria-label="This is your mentor profile"
+                      style={{
+                        whiteSpace: "nowrap",
+                        padding: "9px 16px",
+                        borderRadius: "var(--radius-pill)",
+                        border: "1px solid rgba(232,161,92,0.4)",
+                        background: "rgba(232,161,92,0.14)",
+                        color: "var(--amber)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 12,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      This is you
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(isOpen ? null : m.id)}
+                      className={isOpen ? "ch-btn-ghost" : "ch-btn-primary"}
+                      aria-expanded={isOpen}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      {isOpen ? "Close" : "Book a session"}
+                    </button>
+                  )}
                 </div>
 
-                {isOpen ? (
+                {isOpen && !isSelf ? (
                   <BookPanel
                     mentor={m}
                     flash={flash}

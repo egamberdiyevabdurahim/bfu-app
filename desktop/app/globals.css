@@ -235,6 +235,7 @@ html, body {
   overflow: hidden;
   cursor: pointer;
   color: var(--text);
+  text-decoration: none;
   transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.3s, border-color 0.3s;
   opacity: 0;
   transform: translateY(14px);
@@ -451,6 +452,7 @@ html, body {
   overflow: hidden;
   cursor: pointer;
   color: var(--text);
+  text-decoration: none;
   transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.3s, border-color 0.3s;
   opacity: 0;
   transform: translateY(14px);

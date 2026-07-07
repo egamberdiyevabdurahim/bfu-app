@@ -4,6 +4,7 @@ import ProjectsHeader from "@/components/ProjectsHeader";
 import ProjectFilterBar from "@/components/ProjectFilterBar";
 import ProjectBrowseCard from "@/components/ProjectBrowseCard";
 import StartProjectCTA from "@/components/projects/StartProjectCTA";
+import SiteFooter from "@/components/ui/SiteFooter";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route must render per-request. The projects data is still ISR-cached inside
@@ -105,40 +106,10 @@ export default async function ProjectsPage() {
           </div>
         )}
 
-        <div
-          style={{
-            marginTop: 64,
-            paddingTop: 26,
-            borderTop: "1px solid var(--hair)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            brightfuturesuzbekistan.uz
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 18,
-              color: "var(--muted)",
-            }}
-          >
-            Every great thing started as someone's project.
-          </span>
-        </div>
+        <SiteFooter
+          tagline="Every great thing started as someone's project."
+          host="brightfuturesuzbekistan.uz"
+        />
     </SiteTopBar>
   );
 }

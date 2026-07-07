@@ -80,6 +80,9 @@ export default async function HomePage() {
             <a href="/projects/mine" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>◆</span> Your projects
             </a>
+            <a href="/favorites" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>♥</span> Saved
+            </a>
             <a href="/settings" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>✎</span> Edit profile
             </a>

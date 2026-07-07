@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useCountUp } from "@/lib/useCountUp";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
+import StarInput from "@/components/projects/StarInput";
 
 // Owner cockpit for a single project. Loads the AUTHED GET /projects/{id}
 // (viewer-specific fields) on mount, then:
@@ -169,6 +171,631 @@ function ApplicantRow({ app, onDecision, busy }) {
           Reject
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Owner stats tiles ────────────────────────────────────────────────────────
+// GET /projects/{id}/stats → {pending, accepted, declined, views, avg_decision_hours|null}
+
+function StatTile({ label, value, suffix, accent }) {
+  const n = typeof value === "number" ? value : 0;
+  const animated = useCountUp(n);
+  const shown = typeof value === "number" ? animated : value;
+  return (
+    <div
+      className="ch-cell"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: 20,
+        background: accent
+          ? "linear-gradient(155deg, rgba(232,161,92,0.08), var(--surface) 62%)"
+          : undefined,
+      }}
+    >
+      <div className="ch-cell-label">{label}</div>
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 34,
+          lineHeight: 1,
+          letterSpacing: "-0.01em",
+          color: accent ? "var(--amber)" : "var(--text)",
+        }}
+      >
+        {shown}
+        {suffix ? (
+          <span style={{ fontSize: 15, color: "var(--muted)", marginLeft: 4 }}>{suffix}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function StatsStrip({ projectId }) {
+  const [stats, setStats] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ready | hidden
+
+  useEffect(() => {
+    let alive = true;
+    bfu(`/projects/${projectId}/stats`)
+      .then((s) => {
+        if (!alive) return;
+        setStats(s);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("hidden");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  if (state !== "ready" || !stats) return null;
+
+  const avg = stats.avg_decision_hours;
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: 14,
+      }}
+    >
+      <StatTile label="Views" value={stats.views || 0} accent />
+      <StatTile label="Pending" value={stats.pending || 0} />
+      <StatTile label="Accepted" value={stats.accepted || 0} />
+      <StatTile label="Declined" value={stats.declined || 0} />
+      <StatTile
+        label="Avg. decision"
+        value={avg == null ? "—" : avg}
+        suffix={avg == null ? "" : "h"}
+      />
+    </div>
+  );
+}
+
+// ── Roles editor ─────────────────────────────────────────────────────────────
+// GET  /projects/{id}/roles                → { roles:[{id,name,is_filled,created_at}] }
+// POST /projects/{id}/roles {name}          → {ok,id}  (409 on dupe)
+// PATCH /projects/{id}/roles/{rid} {is_filled} → {ok,is_filled}
+// DELETE /projects/{id}/roles/{rid}         → 204
+
+function RolesEditor({ projectId, flash }) {
+  const [roles, setRoles] = useState([]);
+  const [state, setState] = useState("loading"); // loading | ready | error
+  const [name, setName] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    bfu(`/projects/${projectId}/roles`)
+      .then((res) => {
+        if (!alive) return;
+        setRoles(Array.isArray(res?.roles) ? res.roles : []);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  async function addRole(e) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || adding) return;
+    setAdding(true);
+    try {
+      const res = await bfu(`/projects/${projectId}/roles`, {
+        method: "POST",
+        body: { name: trimmed },
+      });
+      // Optimistic append with the server-issued id.
+      setRoles((cur) => [{ id: res.id, name: trimmed, is_filled: false }, ...cur]);
+      setName("");
+      flash("Role added.");
+    } catch (err) {
+      flash(err?.status === 409 ? "That role is already listed." : err?.message || "Couldn't add the role.", "err");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function toggleFilled(role) {
+    const next = !role.is_filled;
+    const prev = roles;
+    setRoles((cur) => cur.map((r) => (r.id === role.id ? { ...r, is_filled: next } : r)));
+    try {
+      await bfu(`/projects/${projectId}/roles/${role.id}`, {
+        method: "PATCH",
+        body: { is_filled: next },
+      });
+    } catch (err) {
+      setRoles(prev);
+      flash(err?.message || "Couldn't update the role.", "err");
+    }
+  }
+
+  async function removeRole(role) {
+    const prev = roles;
+    setRoles((cur) => cur.filter((r) => r.id !== role.id));
+    try {
+      await bfu(`/projects/${projectId}/roles/${role.id}`, { method: "DELETE" });
+      flash("Role removed.");
+    } catch (err) {
+      setRoles(prev);
+      flash(err?.message || "Couldn't remove the role.", "err");
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="ch-cell-label">Add an open role</div>
+        <form onSubmit={addRole} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Frontend developer, Designer, Community lead"
+            maxLength={80}
+            style={{
+              flex: 1,
+              minWidth: 220,
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--hair)",
+              color: "var(--text)",
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+            }}
+          />
+          <button
+            type="submit"
+            className="ch-btn-primary"
+            disabled={adding || !name.trim()}
+            style={{ opacity: adding || !name.trim() ? 0.6 : 1 }}
+          >
+            {adding ? "Adding…" : "Add role"}
+          </button>
+        </form>
+      </div>
+
+      {state === "loading" ? (
+        <div style={{ color: "var(--muted)", fontSize: 14 }}>
+          <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+          Loading roles…
+        </div>
+      ) : state === "error" ? (
+        <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load roles. Refresh to try again.</div>
+      ) : roles.length === 0 ? (
+        <div className="ch-empty" style={{ minHeight: 160 }}>
+          <span className="ch-empty-k">No roles yet</span>
+          <div className="ch-empty-t" style={{ fontSize: 22 }}>Tell the city who you need.</div>
+          <div className="ch-empty-s">
+            Add the roles you're looking for — applicants will see them on your public page and can apply for a specific one.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {roles.map((r) => (
+            <div
+              key={r.id}
+              className="ch-cell"
+              style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, flexWrap: "wrap" }}
+            >
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 160,
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: 16,
+                  color: r.is_filled ? "var(--muted)" : "var(--text)",
+                  textDecoration: r.is_filled ? "line-through" : "none",
+                }}
+              >
+                {r.name}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: r.is_filled ? "var(--green)" : "var(--amber)",
+                }}
+              >
+                {r.is_filled ? "Filled" : "Open"}
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleFilled(r)}
+                className="ch-btn-ghost"
+                style={{ padding: "8px 14px", fontSize: 12.5 }}
+              >
+                {r.is_filled ? "Reopen" : "Mark filled"}
+              </button>
+              <button
+                type="button"
+                onClick={() => removeRole(r)}
+                aria-label={`Remove ${r.name}`}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-pill)",
+                  background: "rgba(192,86,59,0.1)",
+                  border: "1px solid rgba(192,86,59,0.28)",
+                  color: "var(--terra)",
+                  cursor: "pointer",
+                  fontSize: 12.5,
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Updates composer + own-update list ───────────────────────────────────────
+// POST   /projects/{id}/updates {text}       → {ok,id}
+// GET    /projects/{id}/updates              → {updates:[{id,text,author,created_at}]}
+// DELETE /projects/{id}/updates/{uid}        → 204
+
+function UpdatesComposer({ projectId, meId, flash }) {
+  const [updates, setUpdates] = useState([]);
+  const [state, setState] = useState("loading");
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    bfu(`/projects/${projectId}/updates`)
+      .then((res) => {
+        if (!alive) return;
+        setUpdates(Array.isArray(res?.updates) ? res.updates : []);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  async function post(e) {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || posting) return;
+    setPosting(true);
+    try {
+      const res = await bfu(`/projects/${projectId}/updates`, {
+        method: "POST",
+        body: { text: trimmed },
+      });
+      setUpdates((cur) => [
+        { id: res.id, text: trimmed, author: { id: meId }, created_at: new Date().toISOString() },
+        ...cur,
+      ]);
+      setText("");
+      flash("Update posted — your team and followers were notified.");
+    } catch (err) {
+      flash(err?.message || "Couldn't post the update.", "err");
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  async function remove(u) {
+    const prev = updates;
+    setUpdates((cur) => cur.filter((x) => x.id !== u.id));
+    try {
+      await bfu(`/projects/${projectId}/updates/${u.id}`, { method: "DELETE" });
+    } catch (err) {
+      setUpdates(prev);
+      flash(err?.message || "Couldn't delete the update.", "err");
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="ch-cell-label">Post an update</div>
+        <form onSubmit={post} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Share progress with your team and followers…"
+            maxLength={500}
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--hair)",
+              color: "var(--text)",
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              lineHeight: 1.5,
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+              {text.length}/500
+            </span>
+            <button
+              type="submit"
+              className="ch-btn-primary"
+              disabled={posting || !text.trim()}
+              style={{ opacity: posting || !text.trim() ? 0.6 : 1 }}
+            >
+              {posting ? "Posting…" : "Post update"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {state === "loading" ? (
+        <div style={{ color: "var(--muted)", fontSize: 14 }}>
+          <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+          Loading updates…
+        </div>
+      ) : state === "error" ? (
+        <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load updates.</div>
+      ) : updates.length === 0 ? (
+        <div className="ch-empty" style={{ minHeight: 140 }}>
+          <span className="ch-empty-k">No updates yet</span>
+          <div className="ch-empty-s" style={{ marginTop: 8 }}>
+            Your first update will reach everyone following this project.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {updates.map((u) => (
+            <div
+              key={u.id}
+              className="ch-cell"
+              style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: 16 }}
+            >
+              <p
+                style={{
+                  flex: 1,
+                  margin: 0,
+                  fontSize: 14,
+                  lineHeight: 1.55,
+                  color: "var(--muted)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {u.text}
+              </p>
+              {u.author?.id === meId ? (
+                <button
+                  type="button"
+                  onClick={() => remove(u)}
+                  aria-label="Delete update"
+                  style={{
+                    flex: "0 0 auto",
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    background: "rgba(192,86,59,0.1)",
+                    border: "1px solid rgba(192,86,59,0.28)",
+                    color: "var(--terra)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Delete
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Member ratings ───────────────────────────────────────────────────────────
+// GET  /projects/{id}/rateable → {closed, cohort:[{id,display_name,photo_url,rated_by_me}]}
+// POST /projects/{id}/ratings {ratee_id, stars, note?} → {ok,id}
+// The backend only allows rating once the project is CLOSED (is_active=false).
+
+function RateableRow({ projectId, person, flash, onRated }) {
+  const [stars, setStars] = useState(0);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(person.rated_by_me);
+  const name = person.display_name || `#${person.id}`;
+
+  async function submit() {
+    if (!stars || saving) return;
+    setSaving(true);
+    try {
+      await bfu(`/projects/${projectId}/ratings`, {
+        method: "POST",
+        body: { ratee_id: person.id, stars, note: note.trim() || null },
+      });
+      setDone(true);
+      flash(`You rated ${name}. Thanks for building trust in the city.`);
+      onRated && onRated(person.id);
+    } catch (err) {
+      flash(err?.message || "Couldn't save your rating.", "err");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="ch-cell" style={{ display: "flex", flexDirection: "column", gap: 14, padding: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <Avatar id={person.id} name={name} photo={person.photo_url} size={40} />
+        <a
+          href={`/u/${person.id}`}
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 16,
+            color: "var(--text)",
+            textDecoration: "none",
+          }}
+        >
+          {name}
+        </a>
+        {done ? (
+          <span
+            style={{
+              marginLeft: "auto",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--green)",
+            }}
+          >
+            ✓ Rated
+          </span>
+        ) : null}
+      </div>
+
+      {done ? null : (
+        <>
+          <StarInput value={stars} onChange={setStars} disabled={saving} />
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a short note (optional)"
+            maxLength={200}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--hair)",
+              color: "var(--text)",
+              fontFamily: "var(--font-body)",
+              fontSize: 13.5,
+            }}
+          />
+          <div>
+            <button
+              type="button"
+              onClick={submit}
+              className="ch-btn-primary"
+              disabled={!stars || saving}
+              style={{ opacity: !stars || saving ? 0.6 : 1, padding: "10px 18px", fontSize: 13 }}
+            >
+              {saving ? "Saving…" : "Submit rating"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RatingsPanel({ projectId, flash }) {
+  const [state, setState] = useState("loading"); // loading | ready | closed-empty | not-closed | forbidden | error
+  const [cohort, setCohort] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    bfu(`/projects/${projectId}/rateable`)
+      .then((res) => {
+        if (!alive) return;
+        if (!res?.closed) {
+          setState("not-closed");
+          return;
+        }
+        const people = Array.isArray(res?.cohort) ? res.cohort : [];
+        setCohort(people);
+        setState(people.length === 0 ? "closed-empty" : "ready");
+      })
+      .catch((err) => {
+        if (!alive) return;
+        if (err?.status === 403) setState("forbidden");
+        else setState("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  if (state === "loading") {
+    return (
+      <div style={{ color: "var(--muted)", fontSize: 14 }}>
+        <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+        Loading your team…
+      </div>
+    );
+  }
+  if (state === "not-closed") {
+    return (
+      <div className="ch-empty" style={{ minHeight: 180 }}>
+        <span className="ch-empty-k">Ratings open when the project closes</span>
+        <div className="ch-empty-t" style={{ fontSize: 22 }}>Still building.</div>
+        <div className="ch-empty-s">
+          Once this project is no longer active, you'll be able to rate the
+          teammates you worked with — and they can rate you. It's how trust gets
+          built across the city.
+        </div>
+      </div>
+    );
+  }
+  if (state === "forbidden") {
+    return (
+      <div className="ch-empty" style={{ minHeight: 160 }}>
+        <span className="ch-empty-k">Ratings are for the team</span>
+        <div className="ch-empty-s" style={{ marginTop: 8 }}>
+          Only people who were part of this project can leave ratings.
+        </div>
+      </div>
+    );
+  }
+  if (state === "closed-empty") {
+    return (
+      <div className="ch-empty" style={{ minHeight: 160 }}>
+        <span className="ch-empty-k">No teammates to rate</span>
+        <div className="ch-empty-s" style={{ marginTop: 8 }}>
+          This project closed without other members on the team.
+        </div>
+      </div>
+    );
+  }
+  if (state === "error") {
+    return <div style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load ratings. Refresh to try again.</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55, maxWidth: 560 }}>
+        Rate the teammates you worked with 1–5 stars. Your ratings feed each
+        builder's reputation across BFU.
+      </p>
+      {cohort.map((person) => (
+        <RateableRow
+          key={person.id}
+          projectId={projectId}
+          person={person}
+          flash={flash}
+        />
+      ))}
     </div>
   );
 }
@@ -372,9 +999,15 @@ export default function ProjectManager({ projectId, meId }) {
         </a>
       </div>
 
+      {/* Owner stats — firelit tiles, count-up (reduced-motion respected). */}
+      <StatsStrip projectId={projectId} />
+
       {/* Tabs */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {tabBtn("applicants", "Applicants", pending)}
+        {tabBtn("roles", "Roles")}
+        {tabBtn("updates", "Updates")}
+        {tabBtn("ratings", "Ratings")}
         {tabBtn("edit", "Edit project")}
         {tabBtn("danger", "Delete")}
       </div>
@@ -400,6 +1033,15 @@ export default function ProjectManager({ projectId, meId }) {
           )}
         </div>
       )}
+
+      {/* Roles tab — owner-only roles editor. */}
+      {tab === "roles" && <RolesEditor projectId={projectId} flash={flash} />}
+
+      {/* Updates tab — composer + own-update list. */}
+      {tab === "updates" && <UpdatesComposer projectId={projectId} meId={meId} flash={flash} />}
+
+      {/* Ratings tab — rate teammates once the project has closed. */}
+      {tab === "ratings" && <RatingsPanel projectId={projectId} flash={flash} />}
 
       {/* Edit tab — reuse the create form, pre-filled, in PATCH mode. */}
       {tab === "edit" && <CreateProjectForm regions={regions} mode="edit" initial={project} />}

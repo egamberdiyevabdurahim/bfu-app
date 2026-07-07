@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useCountUp } from "@/lib/useCountUp";
 
 // Client-side "Your projects" list. Loads GET /projects/mine on mount
 // (per-user, uncacheable) and splits the result into OWNED (creator_id === me.id)
@@ -151,6 +152,82 @@ function JoinedCard({ project }) {
   );
 }
 
+// At-a-glance owner funnel across ALL the founder's projects.
+// GET /projects/mine/funnel →
+//   { totals:{project_count,views,applications,accepted,pending,declined},
+//     projects:[...] }
+function FunnelTile({ label, value, accent }) {
+  const animated = useCountUp(value || 0);
+  return (
+    <div
+      className="ch-cell"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: 18,
+        background: accent
+          ? "linear-gradient(155deg, rgba(232,161,92,0.08), var(--surface) 62%)"
+          : undefined,
+      }}
+    >
+      <div className="ch-cell-label">{label}</div>
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 30,
+          lineHeight: 1,
+          letterSpacing: "-0.01em",
+          color: accent ? "var(--amber)" : "var(--text)",
+        }}
+      >
+        {animated}
+      </div>
+    </div>
+  );
+}
+
+function FunnelStrip() {
+  const [totals, setTotals] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ready | hidden
+
+  useEffect(() => {
+    let alive = true;
+    bfu("/projects/mine/funnel")
+      .then((res) => {
+        if (!alive) return;
+        setTotals(res?.totals || null);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("hidden");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Only worth showing once there's at least one project with activity.
+  if (state !== "ready" || !totals || !totals.project_count) return null;
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+        gap: 14,
+      }}
+    >
+      <FunnelTile label="Projects" value={totals.project_count} />
+      <FunnelTile label="Views" value={totals.views} accent />
+      <FunnelTile label="Applications" value={totals.applications} />
+      <FunnelTile label="Accepted" value={totals.accepted} />
+      <FunnelTile label="Pending" value={totals.pending} />
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="ch-empty" style={{ marginTop: 28 }}>
@@ -239,6 +316,9 @@ export default function MyProjectsList({ meId }) {
           city once approved.
         </div>
       ) : null}
+
+      {/* At-a-glance owner funnel — self-hides when there are no projects. */}
+      <FunnelStrip />
 
       {owned.length === 0 && joined.length === 0 ? (
         <EmptyState />

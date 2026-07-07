@@ -8,6 +8,9 @@ import FounderCell from "@/components/FounderCell";
 import TeamCell from "@/components/TeamCell";
 import ProjectLookingForCell from "@/components/ProjectLookingForCell";
 import ProjectActions from "@/components/projects/ProjectActions";
+import FavoriteButton from "@/components/projects/FavoriteButton";
+import OpenRolesCell from "@/components/projects/OpenRolesCell";
+import ProjectUpdates from "@/components/projects/ProjectUpdates";
 
 // Screen 3 of the Chorsu desktop app: the public, logged-out project page
 // (`/p/[id]`). SERVER component — does the single batched getProject() fetch
@@ -88,8 +91,10 @@ export default async function ProjectPage({ params }) {
             Calls the authed GET /projects/{id} on mount; degrades to a login
             prompt when the reader isn't signed in. The SSR content above/below
             stays fully public. */}
-        <div style={{ marginTop: 28, maxWidth: 460 }}>
+        <div style={{ marginTop: 28, maxWidth: 460, display: "flex", flexDirection: "column", gap: 14 }}>
           <ProjectActions projectId={project.id} />
+          {/* Save/heart toggle — additive island; self-hides for anon readers. */}
+          <FavoriteButton projectId={project.id} />
         </div>
 
         <div
@@ -107,6 +112,24 @@ export default async function ProjectPage({ params }) {
           {hasLookingFor && (
             <ProjectLookingForCell lookingFor={lookingFor} requirements={requirements} />
           )}
+          {/* Additive island: open roles the team is hiring for. Auth-gated read,
+              so it self-hides for anon readers or when there are no open roles. */}
+          <OpenRolesCell projectId={project.id} />
+        </div>
+
+        {/* Additive island: the project update feed (warm timeline). Read for
+            everyone with a session; self-hides for anon readers. SSR content
+            above stays intact. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 20,
+            marginTop: 20,
+            alignItems: "stretch",
+          }}
+        >
+          <ProjectUpdates projectId={project.id} />
         </div>
 
         <div

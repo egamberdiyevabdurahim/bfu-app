@@ -46,6 +46,7 @@ export default function ProjectsTopBar({ active }) {
       </a>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         {link("/projects/mine", "Your projects", "mine", "◆")}
+        {link("/favorites", "Saved", "saved", "♥")}
         {link("/requests", "Applications", "requests", "✉")}
         {link("/projects/new", "Start a project", "new", "+")}
         <a href="/home" className="ch-btn-ghost">

@@ -232,16 +232,21 @@ export default function ProfileEditor({ initial, regions }) {
   }
 
   async function runAnalyze() {
-    // The backend derives skills from the SAVED bio. If the bio has unsaved
-    // edits, save first so analyze sees the latest text.
+    // The backend derives skills from the SAVED bio. Saving the bio ALSO triggers
+    // a server-side re-analysis (and consumes the shared 'analyze' cooldown), so
+    // when the bio changed we read the fresh skills straight from the PATCH
+    // response — firing a second /analyze here would just 429 on that cooldown.
     setAnalyzeBusy(true);
     try {
+      let next;
       if (about !== baseline.current.about) {
-        await bfu("/users/me", { method: "PATCH", body: { about } });
+        const updated = await bfu("/users/me", { method: "PATCH", body: { about } });
         baseline.current.about = about;
+        next = ((updated?.analysis?.skills) || updated?.skills || []).filter(Boolean);
+      } else {
+        const res = await bfu("/users/me/analyze", { method: "POST" });
+        next = (res?.skills || []).filter(Boolean);
       }
-      const res = await bfu("/users/me/analyze", { method: "POST" });
-      const next = (res?.skills || []).filter(Boolean);
       setSkills(next);
       showToast(
         next.length ? `Found ${next.length} skill${next.length === 1 ? "" : "s"}` : "No skills detected yet",

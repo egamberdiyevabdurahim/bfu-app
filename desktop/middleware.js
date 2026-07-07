@@ -157,11 +157,17 @@ function buildForwardedCookieHeader(cookieHeader, newAccess, newRefresh) {
 
 // Only run on the authed surfaces. Public routes (/, /city, /u, /p, /projects,
 // /login) are intentionally excluded so they stay fast + never redirect.
+// /settings + /api/resume are authed like /home: they get the same proactive
+// token refresh so an about-to-expire (but refreshable) session isn't bounced
+// to /login mid-edit or when downloading the CV.
 export const config = {
   matcher: [
     "/home",
     "/home/:path*",
+    "/settings",
+    "/settings/:path*",
     "/dashboard/:path*",
     "/api/bfu/:path*",
+    "/api/resume",
   ],
 };

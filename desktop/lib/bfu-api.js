@@ -63,6 +63,24 @@ export const getProjects = cache(async (opts = {}) => {
 });
 
 /**
+ * Fetches the public list of regions (id + localized names + counts) for the
+ * profile-editor region dropdown. Public endpoint (no auth). ISR-cached with
+ * revalidate: 300 — the region set barely changes. Returns [] on error so a
+ * transient backend hiccup never blocks the settings form from rendering.
+ */
+export const getRegions = cache(async () => {
+  try {
+    const res = await fetch(`${API_BASE}/public/regions`, {
+      next: { revalidate: 300, tags: ["regions"] },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+});
+
+/**
  * Fetches a public BFU project ("startup"/"volunteering") by id. Wrapped in
  * React's cache() so generateMetadata() and the page component share one
  * network call per request instead of fetching twice. ISR-cached with

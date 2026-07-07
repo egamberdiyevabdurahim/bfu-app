@@ -77,6 +77,9 @@ export default async function HomePage() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <a href="/settings" className="ch-btn-ghost">
+              <span style={{ fontSize: 15, color: "var(--amber)" }}>✎</span> Edit profile
+            </a>
             <a href="/city" className="ch-btn-ghost">
               <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> The city
             </a>

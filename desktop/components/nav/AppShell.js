@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import Atmosphere from "@/components/Atmosphere";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
+import CommandPalette from "@/components/search/CommandPalette";
 import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
@@ -82,7 +83,6 @@ function NavRow({ item, on, isCollapsed, badge, onNavigate }) {
 
 export default function AppShell({ active, me: initialMe = null, children }) {
   const pathname = usePathname();
-  const router = useRouter();
 
   const [me, setMe] = useState(initialMe);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -283,16 +283,21 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     deriveActiveKey(pathname, [...EXPLORE, ...YOU, ...ADMIN]) || active || null;
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  const goSearch = useCallback(() => {
+  // The sidebar search control no longer navigates — it OPENS the ⌘K command
+  // palette (mounted once below) via a window event the palette listens for.
+  const openSearch = useCallback(() => {
+    // Ignore the focus event the palette itself fires when it restores focus to
+    // this field on close (otherwise closing would instantly reopen it).
+    if (typeof window !== "undefined" && window.__bfuSuppressSearchFocus) return;
     setDrawerOpen(false);
-    router.push("/city");
-  }, [router]);
+    window.dispatchEvent(new CustomEvent("bfu:open-search"));
+  }, []);
   const onSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      goSearch();
+      openSearch();
     },
-    [goSearch]
+    [openSearch]
   );
 
   const Avatar = ({ size }) => (
@@ -375,13 +380,13 @@ export default function AppShell({ active, me: initialMe = null, children }) {
             </a>
           )}
 
-          {/* Search */}
+          {/* Search — opens the ⌘K command palette (never navigates). */}
           {isCollapsed ? (
             <button
               type="button"
               className="ash-icon-btn"
-              onClick={goSearch}
-              title="Search"
+              onClick={openSearch}
+              title="Search (⌘K)"
               aria-label="Search"
             >
               ⌕
@@ -396,6 +401,13 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                 className="ash-search-in"
                 placeholder="Search the city…"
                 aria-label="Search the city"
+                readOnly
+                onFocus={openSearch}
+                onMouseDown={(e) => {
+                  // Open on click without leaving the field focused/caret-blinking.
+                  e.preventDefault();
+                  openSearch();
+                }}
               />
               <kbd className="ash-search-k" aria-hidden>
                 ⌘K
@@ -516,6 +528,9 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     <div className="ash-root" style={{ "--ash-w": `${collapsed ? RAIL_W : SIDEBAR_W}px` }}>
       {/* Real-presence pinger (renders nothing) — keeps this user "online". */}
       <PresenceHeartbeat />
+      {/* Global ⌘K / Ctrl-K command palette. Self-manages open state; also
+          opens on the "bfu:open-search" event the search field dispatches. */}
+      <CommandPalette />
 
       {/* Fixed desktop sidebar (≥1024px) */}
       <aside

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getCity } from "@/lib/bfu-api";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import SiteFooter from "@/components/ui/SiteFooter";
 import HomeDashboard from "@/components/home/HomeDashboard";
@@ -50,6 +51,8 @@ export default async function HomePage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   let cityRaw;
   try {
     cityRaw = (await getCity()) || EMPTY_CITY;
@@ -76,7 +79,7 @@ export default async function HomePage() {
               color: "var(--amber)",
             }}
           >
-            The lamps are lit
+            {t("home.lamps_lit")}
           </div>
           <h1
             style={{
@@ -90,7 +93,7 @@ export default async function HomePage() {
               overflowWrap: "break-word",
             }}
           >
-            Welcome back,{" "}
+            {t("home.welcome_prefix")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -113,13 +116,13 @@ export default async function HomePage() {
               maxWidth: 560,
             }}
           >
-            The bazaar is humming and your workshop is right where you left it.
+            {t("home.hero_sub")}
           </p>
         </div>
 
         <HomeDashboard profile={me} city={city} />
 
-        <SiteFooter tagline="The city never really sleeps." />
+        <SiteFooter tagline={t("home.footer_tagline")} />
     </AppTopBar>
   );
 }

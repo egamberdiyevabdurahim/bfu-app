@@ -8,6 +8,8 @@ import Atmosphere from "@/components/Atmosphere";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import CommandPalette from "@/components/search/CommandPalette";
 import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
+import { useT } from "@/components/i18n/LocaleProvider";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
 // (the "Hybrid" design). It owns the page chrome so pages only supply content:
@@ -57,7 +59,7 @@ function deriveActiveKey(pathname, items) {
 // A single sidebar nav row. Active → warm amber wash + left accent bar + amber
 // text; hover → gentle surface-2 lift. In the collapsed rail the label is hidden
 // (CSS) and surfaced as a hover tooltip via `title`.
-function NavRow({ item, on, isCollapsed, badge, onNavigate }) {
+function NavRow({ item, label, on, isCollapsed, badge, onNavigate }) {
   return (
     <a
       href={item.href}
@@ -65,13 +67,13 @@ function NavRow({ item, on, isCollapsed, badge, onNavigate }) {
       aria-current={on ? "page" : undefined}
       className="ash-row"
       data-on={on ? "1" : undefined}
-      title={isCollapsed ? item.label : undefined}
+      title={isCollapsed ? label : undefined}
     >
       <span className="ash-row-accent" aria-hidden />
       <span className="ash-row-icon" aria-hidden>
         {item.icon}
       </span>
-      <span className="ash-row-label">{item.label}</span>
+      <span className="ash-row-label">{label}</span>
       {badge > 0 && (
         <span className="ash-row-badge" aria-label={`${badge} pending`}>
           {badge > 99 ? "99+" : badge}
@@ -83,6 +85,7 @@ function NavRow({ item, on, isCollapsed, badge, onNavigate }) {
 
 export default function AppShell({ active, me: initialMe = null, children }) {
   const pathname = usePathname();
+  const t = useT();
 
   const [me, setMe] = useState(initialMe);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -282,9 +285,9 @@ export default function AppShell({ active, me: initialMe = null, children }) {
   // for other people — this is scoped to the viewer's own avatar).
   const selfOnline = me?.is_online !== false;
   const groups = [
-    { label: "Explore", items: EXPLORE },
-    { label: "You", items: YOU },
-    ...(isAdmin ? [{ label: "Admin", items: ADMIN }] : []),
+    { id: "explore", label: t("nav.group.explore"), items: EXPLORE },
+    { id: "you", label: t("nav.group.you"), items: YOU },
+    ...(isAdmin ? [{ id: "admin", label: t("nav.group.admin"), items: ADMIN }] : []),
   ];
   // Pathname wins; the `active` prop is only a first-paint fallback.
   const activeKey =
@@ -374,8 +377,8 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               href="/projects/new"
               className="ash-cta ash-cta-icon"
               onClick={closeDrawer}
-              title="Start a project"
-              aria-label="Start a project"
+              title={t("common.start_project")}
+              aria-label={t("common.start_project")}
             >
               ＋
             </a>
@@ -384,7 +387,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               <span aria-hidden style={{ fontSize: 16, lineHeight: 1 }}>
                 ＋
               </span>
-              Start a project
+              {t("common.start_project")}
             </a>
           )}
 
@@ -394,8 +397,8 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               type="button"
               className="ash-icon-btn"
               onClick={openSearch}
-              title="Search (⌘K)"
-              aria-label="Search"
+              title={`${t("common.search")} (⌘K)`}
+              aria-label={t("common.search")}
             >
               ⌕
             </button>
@@ -407,8 +410,8 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               <input
                 type="text"
                 className="ash-search-in"
-                placeholder="Search the city…"
-                aria-label="Search the city"
+                placeholder={t("common.search_city")}
+                aria-label={t("common.search_city")}
                 readOnly
                 onFocus={openSearch}
                 onMouseDown={(e) => {
@@ -431,12 +434,13 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           {...(!isDrawer ? { ref: navRefCb, onScroll: onNavScroll } : {})}
         >
           {groups.map((g) => (
-            <div key={g.label} className="ash-group">
+            <div key={g.id} className="ash-group">
               <div className="ash-grouplabel">{g.label}</div>
               {g.items.map((item) => (
                 <NavRow
                   key={item.key}
                   item={item}
+                  label={t(`nav.${item.key}`)}
                   on={activeKey === item.key}
                   isCollapsed={isCollapsed}
                   badge={
@@ -464,7 +468,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               onClick={() => setMenuOpen((v) => !v)}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              aria-label="Your account"
+              aria-label={t("common.your_account")}
               title={isCollapsed ? name : undefined}
             >
               <span className="ash-avatar-wrap">
@@ -473,7 +477,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               </span>
               <span className="ash-profile-meta">
                 <span className="ash-profile-name">{name}</span>
-                <span className="ash-profile-role">{isAdmin ? "Admin" : "Builder"}</span>
+                <span className="ash-profile-role">{isAdmin ? t("common.admin") : t("common.builder")}</span>
               </span>
               <span className="ash-profile-caret" aria-hidden>
                 {menuOpen ? "▾" : "▸"}
@@ -492,7 +496,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                     <span className="ash-menu-icon" aria-hidden>
                       ✦
                     </span>
-                    View public profile
+                    {t("common.view_public_profile")}
                   </a>
                 )}
                 <a
@@ -504,27 +508,33 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                   <span className="ash-menu-icon" aria-hidden>
                     ✎
                   </span>
-                  Edit profile
+                  {t("common.edit_profile")}
                 </a>
                 <div className="ash-menu-hair" />
                 <a href="/api/auth/logout" role="menuitem" className="ash-menu-item ash-menu-muted">
                   <span className="ash-menu-icon" aria-hidden>
                     ↩
                   </span>
-                  Log out
+                  {t("common.log_out")}
                 </a>
               </div>
             )}
           </div>
+
+          {!isCollapsed && (
+            <div className="ash-lang">
+              <LanguageSwitcher variant="rail" />
+            </div>
+          )}
 
           <a
             href="https://marstiff.uz"
             target="_blank"
             rel="noopener noreferrer"
             className="ash-credit"
-            title="Powered by Marstiff"
+            title={`${t("common.powered_by")} Marstiff`}
           >
-            <span className="ash-credit-by">Powered by</span>
+            <span className="ash-credit-by">{t("common.powered_by")}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/marstiff-mark.png" alt="" className="ash-credit-mark" />
             <span className="ash-credit-nm">Marstiff</span>

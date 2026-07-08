@@ -1,14 +1,17 @@
 import "./globals.css";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
+import { LocaleProvider } from "@/components/i18n/LocaleProvider";
+import { getServerLang } from "@/lib/i18n/server";
 
 export const metadata = {
   title: "Bright Futures Uzbekistan",
   description: "A city of builders, lit up at dusk.",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const lang = await getServerLang();
   return (
-    <html lang="en">
+    <html lang={lang}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -19,7 +22,9 @@ export default function RootLayout({ children }) {
         <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <SmoothScrollProvider>{children}</SmoothScrollProvider>
+        <LocaleProvider lang={lang}>
+          <SmoothScrollProvider>{children}</SmoothScrollProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

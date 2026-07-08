@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Atmosphere from "@/components/Atmosphere";
 import { bfu } from "@/lib/client-api";
 import { useT, useLang } from "@/components/i18n/LocaleProvider";
+import { nearestRegionId } from "@/lib/regionCentroids";
 
 // Mirrors the Telegram Mini App's 6-step registration (src/screens/AuthScreen.jsx):
 // language → basic info → location/school/centers → about → intentions → groups.
@@ -46,7 +47,7 @@ const LABEL = {
 };
 const ERR = { color: "var(--terra)", fontSize: 12, marginTop: 5 };
 
-export default function RegisterFlow({ me }) {
+export default function RegisterFlow({ me, preview = false }) {
   const t = useT();
   const { lang, setLang } = useLang();
 
@@ -126,8 +127,18 @@ export default function RegisterFlow({ me }) {
     setLocStatus("sharing");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        set("latitude", pos.coords.latitude);
-        set("longitude", pos.coords.longitude);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // Auto-pick the nearest region (matches the Mini App) — but never
+        // overwrite a region the user already chose.
+        const auto = nearestRegionId(regions, lat, lng);
+        setForm((f) => ({
+          ...f,
+          latitude: lat,
+          longitude: lng,
+          region_id: f.region_id || (auto ? String(auto) : f.region_id),
+        }));
+        if (auto && !form.region_id) fetchSchoolsAndLCs(auto);
         setLocStatus("shared");
       },
       () => setLocStatus("failed"),
@@ -152,6 +163,7 @@ export default function RegisterFlow({ me }) {
   }
 
   const canContinue = (() => {
+    if (preview) return true; // review mode — walk every step freely
     if (step === 0) return !!form.language;
     if (step === 1) return !!(form.name && form.surname && form.gender && form.birth_year && form.phone_number);
     if (step === 2) return !!form.region_id;
@@ -194,9 +206,9 @@ export default function RegisterFlow({ me }) {
 
   const STEPS = 6;
   function goNext() {
-    if (step === 1 && !validateBasics()) return;
+    if (!preview && step === 1 && !validateBasics()) return;
     if (step === STEPS - 1) {
-      submit();
+      if (!preview) submit();
       return;
     }
     if (step === STEPS - 2) refreshGroups(); // entering groups step → load them
@@ -248,6 +260,12 @@ export default function RegisterFlow({ me }) {
             background: "linear-gradient(160deg, rgba(232,161,92,0.06), rgba(192,86,59,0.04) 55%, var(--surface))",
           }}
         >
+          {preview && (
+            <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(94,197,182,0.12)", border: "1px solid rgba(94,197,182,0.4)", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--teal-bright)", textAlign: "center" }}>
+              Preview — walk every step freely · sign-up disabled
+            </div>
+          )}
+
           {/* Progress + step counter */}
           <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 99, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, var(--amber), var(--ember))", borderRadius: 99, transition: "width 0.4s ease" }} />
@@ -501,9 +519,11 @@ export default function RegisterFlow({ me }) {
                 {t("register.previous")}
               </button>
             )}
-            <button type="button" onClick={goNext} className="ch-btn-primary" disabled={loading || !canContinue}
-              style={{ flex: 1, justifyContent: "center", fontSize: 15, padding: "14px 20px", border: "none", cursor: loading || !canContinue ? "default" : "pointer", opacity: !canContinue ? 0.5 : loading ? 0.7 : 1 }}>
-              {loading ? t("register.saving") : step < STEPS - 1 ? t("register.continue") : t("register.complete")}
+            <button type="button" onClick={goNext} className="ch-btn-primary" disabled={loading || !canContinue || (preview && step === STEPS - 1)}
+              style={{ flex: 1, justifyContent: "center", fontSize: 15, padding: "14px 20px", border: "none", cursor: loading || !canContinue || (preview && step === STEPS - 1) ? "default" : "pointer", opacity: !canContinue ? 0.5 : loading ? 0.7 : 1 }}>
+              {preview && step === STEPS - 1
+                ? "👁 Preview — sign-up disabled"
+                : loading ? t("register.saving") : step < STEPS - 1 ? t("register.continue") : t("register.complete")}
             </button>
           </div>
         </div>

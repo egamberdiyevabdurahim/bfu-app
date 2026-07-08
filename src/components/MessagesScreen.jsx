@@ -264,6 +264,20 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   const isDm = active?.kind === "dm";
   const showThread = !!activeId;
 
+  // Read receipts: how many OTHER members have read a message (last_read_at at
+  // or after the message's time). DM → 0/1 (✓/✓✓); project → "seen by N".
+  const msOf = (iso) => {
+    if (!iso) return 0;
+    let s = String(iso); if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += "Z";
+    const ts = new Date(s).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  };
+  const otherMembers = (threadMembers?.members || []).filter((mm) => mm.id !== meId);
+  const seenCount = (iso) => {
+    const ts = msOf(iso);
+    return otherMembers.filter((mm) => mm.last_read_at && msOf(mm.last_read_at) >= ts).length;
+  };
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 300, background: "var(--bg)",
@@ -403,7 +417,18 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
                       ? { borderTopRightRadius: 6, background: "linear-gradient(135deg, rgba(232,161,92,0.92), rgba(255,106,61,0.85))", border: "1px solid rgba(232,161,92,0.5)", color: "#1A1206", fontWeight: 500 }
                       : { borderTopLeftRadius: 6, background: "var(--surface-2)", border: "1px solid var(--hair)", color: "var(--text)" }),
                   }}>{m.body}</div>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", padding: "0 4px" }}>{relTime(m.created_at)}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", padding: "0 4px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    {relTime(m.created_at)}
+                    {mine && (() => {
+                      const n = seenCount(m.created_at);
+                      const seen = n > 0;
+                      return (
+                        <span title={seen ? t("msg.seen") : t("msg.sent")} style={{ color: seen ? "var(--teal-bright)" : "var(--muted)", fontWeight: 700 }}>
+                          {seen ? (active?.kind === "project" ? `✓✓ ${n}` : "✓✓") : "✓"}
+                        </span>
+                      );
+                    })()}
+                  </span>
                 </div>
               </div>
             );

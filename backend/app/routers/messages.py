@@ -360,6 +360,14 @@ async def conversation_members(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Per-member last_read_at — drives read receipts ("seen" / "seen by N").
+    read_by_uid = {
+        uid: lr for uid, lr in (await db.execute(
+            select(ConversationMember.user_id, ConversationMember.last_read_at)
+            .where(ConversationMember.conversation_id == conversation_id)
+        )).all()
+    }
+
     if conv.kind == "project" and conv.project_id:
         project = await db.get(Project, conv.project_id)
         mem_rows = (await db.execute(
@@ -389,6 +397,7 @@ async def conversation_members(
                 "joined_at": joined,
                 "role": (m.role if m else None),
                 "is_creator": is_creator,
+                "last_read_at": read_by_uid.get(uid),
             })
         out.sort(key=lambda x: (x["joined_at"] or datetime.min))
         return {
@@ -407,7 +416,8 @@ async def conversation_members(
         for u in (await db.execute(select(User).where(User.id.in_(uids)))).scalars().all():
             users_map[u.id] = u
     members = [
-        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url}
+        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url,
+         "last_read_at": read_by_uid.get(u.id)}
         for u in users_map.values()
     ]
     # Whether *I* have blocked the other person — so the thread rehydrates the

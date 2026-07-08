@@ -57,6 +57,8 @@ const STRINGS = {
   "msg.joinedTeam": { en: "{name} joined the team · {date}", uz: "{name} jamoaga qo‘shildi · {date}", ru: "{name} присоединился к команде · {date}" },
   "msg.startedProject": { en: "{name} started the project · {date}", uz: "{name} loyihani boshladi · {date}", ru: "{name} создал проект · {date}" },
   "msg.chatStarted": { en: "Chat started · {date}", uz: "Suhbat boshlandi · {date}", ru: "Чат начат · {date}" },
+  "msg.sent": { en: "Sent", uz: "Yuborildi", ru: "Отправлено" },
+  "msg.seen": { en: "Seen", uz: "Ko‘rildi", ru: "Просмотрено" },
 
   // ── Home command center ───────────────────────────────────────────────────
   "home.needsYou": { en: "Needs you now", uz: "Diqqatingiz kerak", ru: "Требует внимания" },

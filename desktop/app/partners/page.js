@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnersList from "@/components/community/PartnersList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -17,6 +18,7 @@ export const metadata = {
 export default async function PartnersPage() {
   const me = await getMe();
   if (!me) redirect("/login");
+  const { t } = await getT();
 
   return (
     <AppTopBar active="partners" me={me}>
@@ -30,7 +32,7 @@ export default async function PartnersPage() {
               color: "var(--amber)",
             }}
           >
-            The people in your corner
+            {t("community.partners.kicker")}
           </div>
           <h1
             style={{
@@ -43,7 +45,7 @@ export default async function PartnersPage() {
               color: "var(--text)",
             }}
           >
-            The{" "}
+            {t("community.partners.titleLead")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -52,7 +54,7 @@ export default async function PartnersPage() {
                 color: "var(--amber)",
               }}
             >
-              partners
+              {t("community.partners.titleAccent")}
             </span>
           </h1>
           <p
@@ -66,13 +68,13 @@ export default async function PartnersPage() {
               maxWidth: 560,
             }}
           >
-            Universities, incubators and companies that open doors for builders.
+            {t("community.partners.subtitle")}
           </p>
         </div>
 
         <PartnersList />
 
-        <SiteFooter tagline="No one builds a future alone." />
+        <SiteFooter tagline={t("community.partners.footer")} />
     </AppTopBar>
   );
 }

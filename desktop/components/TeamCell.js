@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Team cell — the FULL project roster on `/p/[id]`: the founder first (marked
 // "Founder"), then each teammate as a row (avatar + online dot + name linking to
@@ -12,7 +15,8 @@ import { gradientFor, initials } from "@/lib/avatar";
 // the OPEN roles the project is hiring for (see OpenRolesCell).
 
 function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
-  const label = name || "A builder";
+  const t = useT();
+  const label = name || t("messages.team_member_fallback");
   return (
     <Link
       href={`/u/${id}`}
@@ -57,7 +61,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
         )}
         {online && (
           <span
-            aria-label="Online now"
+            aria-label={t("messages.online_now")}
             style={{
               position: "absolute",
               bottom: -1,
@@ -92,7 +96,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
           {checked && (
             <span
               role="img"
-              aria-label="Verified"
+              aria-label={t("messages.verified")}
               style={{
                 flex: "0 0 auto",
                 width: 15,
@@ -129,7 +133,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
             padding: "4px 10px",
           }}
         >
-          Founder{role ? ` · ${role}` : ""}
+          {t("messages.founder")}{role ? ` · ${role}` : ""}
         </span>
       ) : role ? (
         <span
@@ -154,6 +158,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
 }
 
 export default function TeamCell({ team, teamCount, founder, founderRole }) {
+  const t = useT();
   const members = Array.isArray(team) ? team : [];
   const count = typeof teamCount === "number" ? teamCount : members.length;
   const soloFounder = count === 0;
@@ -164,7 +169,7 @@ export default function TeamCell({ team, teamCount, founder, founderRole }) {
       className="ch-cell-static"
       style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}
     >
-      <div className="ch-cell-label">Team</div>
+      <div className="ch-cell-label">{t("messages.team")}</div>
 
       <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
         {founder ? (
@@ -200,12 +205,12 @@ export default function TeamCell({ team, teamCount, founder, founderRole }) {
             lineHeight: 1.5,
           }}
         >
-          The fire&rsquo;s just been lit — this could be where you come in.
+          {t("messages.solo_founder")}
         </p>
       ) : (
         <div style={{ marginTop: 14, padding: "0 4px", fontSize: 14, color: "var(--text)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{total}</span>{" "}
-          building together
+          {t("messages.building_together")}
         </div>
       )}
     </div>

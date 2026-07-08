@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Read-only "Open roles" island for the public /p/[id] page. The roles GET is
 // auth-gated (needs a session), so this is an additive client island rather than
@@ -13,6 +14,7 @@ import { bfu } from "@/lib/client-api";
 // Shape confirmed: GET /projects/{id}/roles → { roles: [ {id,name,is_filled,created_at} ] }
 
 export default function OpenRolesCell({ projectId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | hidden
   const [roles, setRoles] = useState([]);
 
@@ -49,7 +51,7 @@ export default function OpenRolesCell({ projectId }) {
         aria-hidden
         style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 118 }}
       >
-        <div className="ch-cell-label">Open roles</div>
+        <div className="ch-cell-label">{t("projects.open_roles")}</div>
         <div
           style={{
             height: 12,
@@ -77,9 +79,9 @@ export default function OpenRolesCell({ projectId }) {
 
   return (
     <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="ch-cell-label">Open roles</div>
+      <div className="ch-cell-label">{t("projects.open_roles")}</div>
       <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-        The team is looking for:
+        {t("projects.team_looking")}
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {roles.map((r) => (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Partner detail (Batch 4). Loads, for a given partner id:
 //   GET /partners/{id}   → { id, name, about, website, logo_url, region_id,
@@ -56,7 +57,8 @@ const labelStyle = {
 };
 
 function OpportunityCard({ ev }) {
-  const t = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
+  const t = useT();
+  const ts = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = fmtDeadline(ev.deadline);
   const inner = (
     <>
@@ -65,19 +67,19 @@ function OpportunityCard({ ev }) {
           style={{
             padding: "5px 11px",
             borderRadius: "var(--radius-pill)",
-            background: t.bg,
-            border: `1px solid ${t.bd}`,
-            color: t.color,
+            background: ts.bg,
+            border: `1px solid ${ts.bd}`,
+            color: ts.color,
             fontFamily: "var(--font-mono)",
             fontSize: 10,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
           }}
         >
-          {ev.type || "event"}
+          {ev.type || t("community.events.typeFallback")}
         </span>
         {deadline ? (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)" }}>by {deadline}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)" }}>{t("community.events.by", { date: deadline })}</span>
         ) : null}
       </div>
       <h3 style={{ margin: "12px 0 0", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, lineHeight: 1.2 }}>
@@ -88,7 +90,7 @@ function OpportunityCard({ ev }) {
       ) : null}
       {ev.link ? (
         <div style={{ marginTop: 12, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)" }}>
-          Open details →
+          {t("community.openDetails")}
         </div>
       ) : null}
     </>
@@ -106,6 +108,7 @@ function OpportunityCard({ ev }) {
 }
 
 function PostForm({ onPosted, flash }) {
+  const t = useT();
   const [type, setType] = useState("hackathon");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -116,7 +119,7 @@ function PostForm({ onPosted, flash }) {
   async function submit(e) {
     e.preventDefault();
     if (!title.trim()) {
-      flash("Give the opportunity a title.", "err");
+      flash(t("community.opp.needTitle"), "err");
       return;
     }
     setBusy(true);
@@ -131,7 +134,7 @@ function PostForm({ onPosted, flash }) {
     };
     try {
       await bfu("/partners/mine/opportunity", { method: "POST", body });
-      flash("Submitted — it goes live once an admin approves it.");
+      flash(t("community.opp.submitted"));
       setTitle("");
       setDescription("");
       setLink("");
@@ -139,7 +142,7 @@ function PostForm({ onPosted, flash }) {
       setType("hackathon");
       onPosted?.();
     } catch (err) {
-      flash(err?.message || "Couldn't submit the opportunity.", "err");
+      flash(err?.message || t("community.opp.submitError"), "err");
     } finally {
       setBusy(false);
     }
@@ -150,46 +153,46 @@ function PostForm({ onPosted, flash }) {
       <form onSubmit={submit} style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 160px" }}>
-            <label style={labelStyle}>Type</label>
+            <label style={labelStyle}>{t("community.opp.typeLabel")}</label>
             <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }}>
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t[0].toUpperCase() + t.slice(1)}
+              {TYPES.map((ty) => (
+                <option key={ty} value={ty}>
+                  {t(`community.opp.type.${ty}`)}
                 </option>
               ))}
             </select>
           </div>
           <div style={{ flex: "1 1 160px" }}>
-            <label style={labelStyle}>Deadline (optional)</label>
+            <label style={labelStyle}>{t("community.opp.deadlineLabel")}</label>
             <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Title</label>
+          <label style={labelStyle}>{t("community.opp.titleLabel")}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value.slice(0, 160))}
-            placeholder="e.g. AI for Uzbekistan Hackathon 2026"
+            placeholder={t("community.opp.titlePlaceholder")}
             style={inputStyle}
           />
         </div>
         <div>
-          <label style={labelStyle}>Description (optional)</label>
+          <label style={labelStyle}>{t("community.opp.descLabel")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="What is it, who's it for, what's the prize or benefit?"
+            placeholder={t("community.opp.descPlaceholder")}
             style={{ ...inputStyle, resize: "vertical" }}
           />
         </div>
         <div>
-          <label style={labelStyle}>Link (optional)</label>
+          <label style={labelStyle}>{t("community.opp.linkLabel")}</label>
           <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://…" style={inputStyle} />
         </div>
         <div>
           <button type="submit" className="ch-btn-primary" disabled={busy || !title.trim()} style={{ opacity: busy || !title.trim() ? 0.6 : 1 }}>
-            {busy ? "Submitting…" : "Post opportunity"}
+            {busy ? t("community.opp.submitting") : t("community.opp.postOpportunity")}
           </button>
         </div>
       </form>
@@ -198,6 +201,7 @@ function PostForm({ onPosted, flash }) {
 }
 
 export default function PartnerDetail({ partnerId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | notfound | error
   const [partner, setPartner] = useState(null);
   const [owns, setOwns] = useState(false);
@@ -229,18 +233,18 @@ export default function PartnerDetail({ partnerId }) {
     return (
       <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading partner…
+        {t("community.partnerDetail.loading")}
       </div>
     );
   }
   if (state === "notfound") {
     return (
       <div className="ch-grace" style={{ marginTop: 24 }}>
-        <span className="ch-grace-k">Not found</span>
-        <div className="ch-grace-t">That partner isn't here.</div>
-        <div className="ch-grace-s">It may have been removed, or isn't verified yet.</div>
+        <span className="ch-grace-k">{t("community.partnerDetail.notFoundKicker")}</span>
+        <div className="ch-grace-t">{t("community.partnerDetail.notFoundTitle")}</div>
+        <div className="ch-grace-s">{t("community.partnerDetail.notFoundBody")}</div>
         <a href="/partners" className="ch-btn-ghost" style={{ marginTop: 12 }}>
-          ← All partners
+          {t("community.partnerDetail.back")}
         </a>
       </div>
     );
@@ -248,9 +252,9 @@ export default function PartnerDetail({ partnerId }) {
   if (state === "error" || !partner) {
     return (
       <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
-        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load this partner.</span>
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>{t("community.partnerDetail.loadError")}</span>
         <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
-          Try again
+          {t("community.tryAgain")}
         </button>
       </div>
     );
@@ -301,7 +305,7 @@ export default function PartnerDetail({ partnerId }) {
               {partner.name}
             </h1>
             {partner.verified ? (
-              <span role="img" aria-label="Verified partner" style={{ color: "var(--green)", fontSize: 14 }}>✓</span>
+              <span role="img" aria-label={t("community.partners.verified")} style={{ color: "var(--green)", fontSize: 14 }}>✓</span>
             ) : null}
           </div>
           {partner.about ? (
@@ -324,8 +328,8 @@ export default function PartnerDetail({ partnerId }) {
       {owns ? (
         <section style={{ marginTop: 8 }}>
           <div className="ch-slab">
-            <span className="ch-slab-k">You manage this org</span>
-            <h2>Post an opportunity</h2>
+            <span className="ch-slab-k">{t("community.partnerDetail.manageKicker")}</span>
+            <h2>{t("community.partnerDetail.postTitle")}</h2>
             <span className="ch-slab-line" />
           </div>
           <PostForm flash={flash} />
@@ -335,18 +339,18 @@ export default function PartnerDetail({ partnerId }) {
       {/* Opportunities */}
       <section>
         <div className="ch-slab">
-          <span className="ch-slab-k">What they're offering</span>
-          <h2>Opportunities</h2>
+          <span className="ch-slab-k">{t("community.partnerDetail.offeringKicker")}</span>
+          <h2>{t("community.partnerDetail.opportunitiesTitle")}</h2>
           <span className="ch-slab-line" />
         </div>
         {events.length === 0 ? (
           <div className="ch-grace">
-            <span className="ch-grace-k">Nothing live yet</span>
-            <div className="ch-grace-t">No open opportunities right now.</div>
+            <span className="ch-grace-k">{t("community.partnerDetail.emptyKicker")}</span>
+            <div className="ch-grace-t">{t("community.partnerDetail.emptyTitle")}</div>
             <div className="ch-grace-s">
               {owns
-                ? "Post one above — it'll appear here once an admin approves it."
-                : "Check back soon, or follow their events in the Events tab."}
+                ? t("community.partnerDetail.emptyBodyOwner")
+                : t("community.partnerDetail.emptyBody")}
             </div>
           </div>
         ) : (

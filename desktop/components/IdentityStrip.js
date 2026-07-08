@@ -1,9 +1,13 @@
+"use client";
+
 import { initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export default function IdentityStrip({ profile }) {
+  const t = useT();
   const roleParts = [
     profile.region?.name_en,
-    profile.stats?.projects_founded > 0 ? "Founder" : null,
+    profile.stats?.projects_founded > 0 ? t("profile.role_founder") : null,
   ].filter(Boolean);
 
   // Only show the live presence dot when the backend actually reports the
@@ -25,7 +29,7 @@ export default function IdentityStrip({ profile }) {
           ) : initials(profile.name)}
         </div>
         {isOnline && (
-          <span title="Active recently" style={{ position: "absolute", bottom: 8, right: 8,
+          <span title={t("profile.active_recently")} style={{ position: "absolute", bottom: 8, right: 8,
             display: "inline-flex", width: 20, height: 20 }}>
             <span className="ch-online-ping" />
             <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--ember)",
@@ -41,7 +45,7 @@ export default function IdentityStrip({ profile }) {
             {profile.name}
           </h1>
           {profile.checked && (
-            <span role="img" aria-label="Verified" title="Verified" style={{ flex: "0 0 auto",
+            <span role="img" aria-label={t("profile.verified")} title={t("profile.verified")} style={{ flex: "0 0 auto",
               display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30,
               borderRadius: "50%", background: "rgba(127,176,105,0.16)", color: "var(--green)", fontSize: 16 }}>✓</span>
           )}
@@ -51,7 +55,7 @@ export default function IdentityStrip({ profile }) {
             color: "var(--text)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
             overflow: "hidden" }}>
             <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", color: "var(--muted-strong)" }}>
-              is building
+              {t("profile.is_building")}
             </span>{" "}
             <span style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", color: "var(--amber)" }}>
               {profile.currently_building}

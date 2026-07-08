@@ -1,18 +1,22 @@
+"use client";
+
 import Link from "next/link";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Founder cell — a bento tile presenting the project's founder as a card that
-// links to their /u/[id] profile. SERVER component. Uses the shared seeded
-// gradient avatar (gradientFor(founder.id) + initials) exactly like the profile
-// avatars, with a ✓ when the founder is checked/verified.
+// links to their /u/[id] profile. CLIENT component (uses useT for i18n). Uses
+// the shared seeded gradient avatar (gradientFor(founder.id) + initials) exactly
+// like the profile avatars, with a ✓ when the founder is checked/verified.
 export default function FounderCell({ founder }) {
+  const t = useT();
   if (!founder) return null;
 
-  const displayName = founder.display_name || founder.name || "Founder";
+  const displayName = founder.display_name || founder.name || t("profile.founder_fallback");
 
   return (
     <div className="ch-cell" style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
-      <div className="ch-cell-label">Founder</div>
+      <div className="ch-cell-label">{t("profile.founder")}</div>
 
       <Link
         href={`/u/${founder.id}`}
@@ -70,8 +74,8 @@ export default function FounderCell({ founder }) {
             {founder.checked && (
               <span
                 role="img"
-                aria-label="Verified"
-                title="Verified"
+                aria-label={t("profile.verified")}
+                title={t("profile.verified")}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -98,7 +102,7 @@ export default function FounderCell({ founder }) {
               color: "var(--muted-strong)",
             }}
           >
-            View profile →
+            {t("profile.view_profile")} →
           </div>
         </div>
       </Link>

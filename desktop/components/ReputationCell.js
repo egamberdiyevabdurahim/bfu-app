@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 const CIRCUMFERENCE = 2 * Math.PI * 52; // r=52, matches the SVG below
 
@@ -12,6 +13,7 @@ function elasticEaseOut(t) {
 }
 
 export default function ReputationCell({ rating = {} }) {
+  const t = useT();
   const ringRef = useRef(null);
   const average = rating?.average;
   const count = rating?.count || 0;
@@ -73,15 +75,15 @@ export default function ReputationCell({ rating = {} }) {
         </div>
       </div>
       <div>
-        <div className="ch-cell-label">Reputation</div>
+        <div className="ch-cell-label">{t("profile.reputation")}</div>
         <div style={{ marginTop: 10, fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 22,
           color: "var(--text)", lineHeight: 1.15 }}>
-          {count > 0 ? <>Trusted across<br />the community</> : "New to the bazaar"}
+          {count > 0 ? t("profile.trusted") : t("profile.new_to_bazaar")}
         </div>
         <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, fontSize: 13,
           color: "var(--muted-strong)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{count}</span>{" "}
-          {count === 1 ? "rating" : "ratings"}
+          {count === 1 ? t("profile.rating_one") : t("profile.rating_many")}
         </div>
       </div>
     </div>

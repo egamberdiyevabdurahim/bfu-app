@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Events (Batch 4). Two feeds:
 //   GET /events         → EventOut[] { id, type, title, description, link,
@@ -26,7 +27,8 @@ function fmtDeadline(iso) {
 }
 
 function EventCard({ ev }) {
-  const t = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
+  const t = useT();
+  const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = fmtDeadline(ev.deadline);
   const inner = (
     <>
@@ -37,20 +39,20 @@ function EventCard({ ev }) {
             alignItems: "center",
             padding: "5px 11px",
             borderRadius: "var(--radius-pill)",
-            background: t.bg,
-            border: `1px solid ${t.bd}`,
-            color: t.color,
+            background: style.bg,
+            border: `1px solid ${style.bd}`,
+            color: style.color,
             fontFamily: "var(--font-mono)",
             fontSize: 10,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
           }}
         >
-          {ev.type || "event"}
+          {ev.type || t("community.events.typeFallback")}
         </span>
         {deadline ? (
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)", letterSpacing: "0.04em" }}>
-            by {deadline}
+            {t("community.events.by", { date: deadline })}
           </span>
         ) : null}
       </div>
@@ -111,7 +113,7 @@ function EventCard({ ev }) {
             color: "var(--amber)",
           }}
         >
-          Open details →
+          {t("community.openDetails")}
         </div>
       ) : null}
     </>
@@ -132,6 +134,7 @@ function EventCard({ ev }) {
 }
 
 export default function EventsBrowser() {
+  const t = useT();
   const [tab, setTab] = useState("all"); // all | forme
   const [state, setState] = useState("loading"); // loading | ready | error
   const [all, setAll] = useState(null);
@@ -171,8 +174,8 @@ export default function EventsBrowser() {
   }
 
   const TABS = [
-    { id: "all", label: "All opportunities" },
-    { id: "forme", label: "For you" },
+    { id: "all", label: t("community.events.tabAll") },
+    { id: "forme", label: t("community.events.tabForMe") },
   ];
 
   return (
@@ -180,7 +183,7 @@ export default function EventsBrowser() {
       {/* Real segmented control: one container, filled active pill distinct from hover. */}
       <div
         role="tablist"
-        aria-label="Event feed"
+        aria-label={t("community.events.tablistAria")}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -229,29 +232,29 @@ export default function EventsBrowser() {
         {state === "loading" ? (
           <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}>
             <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-            Loading opportunities…
+            {t("community.events.loading")}
           </div>
         ) : state === "error" ? (
           <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load opportunities.</span>
+            <span style={{ color: "var(--terra)", fontSize: 14 }}>{t("community.events.loadError")}</span>
             <button type="button" onClick={retry} className="ch-btn-ghost">
-              Try again
+              {t("community.tryAgain")}
             </button>
           </div>
         ) : !list || list.length === 0 ? (
           <div className="ch-grace" style={{ marginTop: 24 }}>
-            <span className="ch-grace-k">Nothing scheduled</span>
+            <span className="ch-grace-k">{t("community.events.emptyKicker")}</span>
             <div className="ch-grace-t">
-              {tab === "forme" ? "No matches for you just yet." : "No opportunities are posted right now."}
+              {tab === "forme" ? t("community.events.emptyTitleForMe") : t("community.events.emptyTitleAll")}
             </div>
             <div className="ch-grace-s">
               {tab === "forme"
-                ? "Round out your skills and interests in your profile and we'll surface the events that fit."
-                : "Hackathons, grants, scholarships and meetups will appear here as partners post them."}
+                ? t("community.events.emptyBodyForMe")
+                : t("community.events.emptyBodyAll")}
             </div>
             {tab === "forme" ? (
               <a href="/settings" className="ch-btn-ghost" style={{ marginTop: 14 }}>
-                Complete your profile →
+                {t("community.events.completeProfile")}
               </a>
             ) : null}
           </div>

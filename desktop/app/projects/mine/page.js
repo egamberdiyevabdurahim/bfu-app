@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import MyProjectsList from "@/components/projects/MyProjectsList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -16,6 +17,7 @@ export const metadata = {
 };
 
 export default async function MyProjectsPage() {
+  const { t } = await getT();
   const me = await getMe();
   if (!me) redirect("/login");
 
@@ -31,7 +33,7 @@ export default async function MyProjectsPage() {
               color: "var(--amber)",
             }}
           >
-            Your corner of the bazaar
+            {t("projects.mine_overline")}
           </div>
           <h1
             style={{
@@ -45,7 +47,7 @@ export default async function MyProjectsPage() {
               overflowWrap: "break-word",
             }}
           >
-            Your{" "}
+            {t("projects.mine_your")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -54,7 +56,7 @@ export default async function MyProjectsPage() {
                 color: "var(--amber)",
               }}
             >
-              projects
+              {t("projects.mine_projects")}
             </span>
           </h1>
           <p
@@ -68,13 +70,13 @@ export default async function MyProjectsPage() {
               maxWidth: 560,
             }}
           >
-            The teams you&rsquo;ve started and the ones you&rsquo;ve joined.
+            {t("projects.mine_sub")}
           </p>
         </div>
 
         <MyProjectsList meId={me.id} />
 
-        <SiteFooter tagline="Every team began with one lit window." />
+        <SiteFooter tagline={t("projects.mine_footer_tagline")} />
     </AppTopBar>
   );
 }

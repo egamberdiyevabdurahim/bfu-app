@@ -1,4 +1,7 @@
+"use client";
+
 import { initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 const STACK_GRADIENTS = [
   "linear-gradient(140deg,#E8A15C,#C0563B)",
@@ -8,6 +11,7 @@ const STACK_GRADIENTS = [
 ];
 
 export default function ConnectionsCell({ collaborators, followerCount, region }) {
+  const t = useT();
   const preview = collaborators?.preview || [];
   const collabCount = collaborators?.count || 0;
   const extra = Math.max(0, collabCount - preview.length);
@@ -48,12 +52,12 @@ export default function ConnectionsCell({ collaborators, followerCount, region }
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>
               {followers}
             </span>{" "}
-            {followers === 1 ? "follower" : "followers"}
+            {followers === 1 ? t("profile.follower_one") : t("profile.follower_many")}
             {collabCount > 0 && (
               <>
                 {" · "}
                 <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{collabCount}</span>{" "}
-                {collabCount === 1 ? "collaborator" : "collaborators"}
+                {collabCount === 1 ? t("profile.collaborator_one") : t("profile.collaborator_many")}
               </>
             )}
           </div>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCountUp } from "@/lib/useCountUp";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export default function HeroBuildingCell({ profile }) {
+  const t = useT();
   const project = profile.founded_projects?.[0];
   // Real open-roles count when the payload carries it; otherwise we hide the
   // stat entirely rather than animate a fabricated number on every profile.
@@ -14,7 +16,7 @@ export default function HeroBuildingCell({ profile }) {
   return (
     <div className="ch-cell-static" style={{ gridColumn: "span 2", gridRow: "span 2",
       display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div className="ch-cell-label">Currently building</div>
+      <div className="ch-cell-label">{t("profile.currently_building")}</div>
       <div style={{ position: "relative", marginTop: 16, height: 190, borderRadius: 14,
         overflow: "hidden", background: "linear-gradient(160deg,#12564F 0%,#1A1815 42%,#C0563B 130%)",
         border: "1px solid var(--hair)" }}>
@@ -24,7 +26,7 @@ export default function HeroBuildingCell({ profile }) {
       </div>
       <h2 style={{ margin: "20px 0 0", fontFamily: "var(--font-display)", fontWeight: 700,
         fontSize: 34, letterSpacing: "-0.02em", color: "var(--text)" }}>
-        {project?.name || profile.currently_building || "No project yet"}
+        {project?.name || profile.currently_building || t("profile.no_project_yet")}
       </h2>
       {profile.about && (
         <p style={{ margin: "10px 0 0", fontSize: 15, lineHeight: 1.55, color: "var(--muted-strong)",
@@ -39,7 +41,7 @@ export default function HeroBuildingCell({ profile }) {
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 30, color: "var(--amber)" }}>
                 {openRoles}
               </div>
-              <div className="ch-metric-label">Open roles</div>
+              <div className="ch-metric-label">{t("profile.open_roles")}</div>
             </div>
             <div style={{ width: 1, background: "var(--hair)" }} />
           </>
@@ -48,7 +50,7 @@ export default function HeroBuildingCell({ profile }) {
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 30, color: "var(--text)" }}>
             {coFounders}
           </div>
-          <div className="ch-metric-label">Collaborators</div>
+          <div className="ch-metric-label">{t("profile.collaborators")}</div>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // "Applications" — the founder's inbox. Loads GET /projects/my-requests, which
 // returns the PENDING applications submitted TO the current user's projects
@@ -46,6 +47,7 @@ function Avatar({ id, name, photo, size = 42 }) {
 }
 
 export default function RequestsList() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [apps, setApps] = useState([]);
   const [busy, setBusy] = useState(null);
@@ -75,10 +77,10 @@ export default function RequestsList() {
         method: "PATCH",
         body: { action },
       });
-      flash(action === "accept" ? "Accepted — they're on the team." : "Application declined.");
+      flash(action === "accept" ? t("projmanage.req_accepted") : t("projmanage.application_declined"));
     } catch (e) {
       setApps(prev);
-      flash(e?.message || "Couldn't update the application.", "err");
+      flash(e?.message || t("projmanage.application_update_error"), "err");
     } finally {
       setBusy(null);
     }
@@ -88,14 +90,14 @@ export default function RequestsList() {
     return (
       <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading applications…
+        {t("projmanage.req_loading")}
       </div>
     );
   }
   if (state === "error") {
     return (
       <div style={{ marginTop: 8, color: "var(--terra)", fontSize: 14 }} role="status">
-        Couldn't load your applications. Refresh to try again.
+        {t("projmanage.req_load_error")}
       </div>
     );
   }
@@ -103,14 +105,13 @@ export default function RequestsList() {
   if (apps.length === 0) {
     return (
       <div className="ch-empty" style={{ marginTop: 8 }}>
-        <span className="ch-empty-k">Inbox clear</span>
-        <div className="ch-empty-t">No one is waiting on you.</div>
+        <span className="ch-empty-k">{t("projmanage.req_empty_k")}</span>
+        <div className="ch-empty-t">{t("projmanage.req_empty_t")}</div>
         <div className="ch-empty-s">
-          When builders apply to join your projects, their requests land here for
-          you to accept or decline.
+          {t("projmanage.req_empty_s")}
         </div>
         <a href="/projects/mine" className="ch-btn-ghost" style={{ marginTop: 8 }}>
-          Your projects →
+          {t("projmanage.your_projects")} →
         </a>
       </div>
     );
@@ -128,7 +129,7 @@ export default function RequestsList() {
       {[...byProject.entries()].map(([pid, list]) => (
         <section key={pid}>
           <div className="ch-slab" style={{ margin: "0 0 16px" }}>
-            <span className="ch-slab-k">{list[0].project_type === "volunteering" ? "Volunteering" : "Startup"}</span>
+            <span className="ch-slab-k">{list[0].project_type === "volunteering" ? t("projmanage.type_volunteering") : t("projmanage.type_startup")}</span>
             <h2>
               {/* The project name itself is now the link to its cockpit. */}
               <a
@@ -143,14 +144,14 @@ export default function RequestsList() {
               href={`/projects/${pid}/manage`}
               style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)", textDecoration: "none", whiteSpace: "nowrap" }}
             >
-              Manage →
+              {t("projmanage.manage_link")} →
             </a>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {list.map((app) => {
               const a = app.applicant || {};
-              const name = a.display_name || "A builder";
+              const name = a.display_name || t("projmanage.a_builder");
               return (
                 <div
                   key={app.id}
@@ -167,7 +168,7 @@ export default function RequestsList() {
                     </a>
                     {app.role ? (
                       <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)" }}>
-                        Applying as <span style={{ color: "var(--amber)" }}>{app.role}</span>
+                        {t("projmanage.applying_as")} <span style={{ color: "var(--amber)" }}>{app.role}</span>
                       </div>
                     ) : null}
                     {a.about ? (
@@ -195,7 +196,7 @@ export default function RequestsList() {
                       className="ch-btn-primary"
                       style={{ padding: "10px 18px", fontSize: 13, opacity: busy === app.id ? 0.6 : 1 }}
                     >
-                      Accept
+                      {t("projmanage.accept")}
                     </button>
                     <button
                       type="button"
@@ -212,7 +213,7 @@ export default function RequestsList() {
                         opacity: busy === app.id ? 0.6 : 1,
                       }}
                     >
-                      Reject
+                      {t("projmanage.reject")}
                     </button>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ import { useCountUp } from "@/lib/useCountUp";
 import { useToast } from "@/lib/useToast";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 import StarInput from "@/components/projects/StarInput";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Owner cockpit for a single project. Loads the AUTHED GET /projects/{id}
 // (viewer-specific fields) on mount, then:
@@ -28,6 +29,7 @@ import StarInput from "@/components/projects/StarInput";
 // inbox across ALL their projects) — we fetch it and filter to this project_id.
 
 function StatusChip({ project }) {
+  const t = useT();
   if (project.is_approved === false) {
     return (
       <span
@@ -43,7 +45,7 @@ function StatusChip({ project }) {
           padding: "5px 12px",
         }}
       >
-        Pending approval
+        {t("projmanage.status_pending")}
       </span>
     );
   }
@@ -61,7 +63,7 @@ function StatusChip({ project }) {
         padding: "5px 12px",
       }}
     >
-      {project.is_hiring ? "Hiring" : "Not hiring"}
+      {project.is_hiring ? t("projmanage.status_hiring") : t("projmanage.status_not_hiring")}
     </span>
   );
 }
@@ -95,8 +97,9 @@ function Avatar({ id, name, photo, size = 44 }) {
 }
 
 function ApplicantRow({ app, onDecision, busy }) {
+  const t = useT();
   const a = app.applicant || {};
-  const name = a.display_name || "A builder";
+  const name = a.display_name || t("projmanage.a_builder");
   return (
     <div
       className="ch-cell-static"
@@ -124,7 +127,7 @@ function ApplicantRow({ app, onDecision, busy }) {
         </a>
         {app.role ? (
           <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)" }}>
-            Applying as <span style={{ color: "var(--amber)" }}>{app.role}</span>
+            {t("projmanage.applying_as")} <span style={{ color: "var(--amber)" }}>{app.role}</span>
           </div>
         ) : null}
         {a.about ? (
@@ -152,7 +155,7 @@ function ApplicantRow({ app, onDecision, busy }) {
           className="ch-btn-primary"
           style={{ padding: "10px 18px", fontSize: 13, opacity: busy ? 0.6 : 1 }}
         >
-          Accept
+          {t("projmanage.accept")}
         </button>
         <button
           type="button"
@@ -169,7 +172,7 @@ function ApplicantRow({ app, onDecision, busy }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          Reject
+          {t("projmanage.reject")}
         </button>
       </div>
     </div>
@@ -220,6 +223,7 @@ function StatTile({ label, value, suffix, accent }) {
 // `refreshKey` lets the parent force a refetch after accept/reject so the tiles
 // never disagree with the applicants list.
 function StatsStrip({ projectId, refreshKey = 0 }) {
+  const t = useT();
   const [stats, setStats] = useState(null);
   const [state, setState] = useState("loading"); // loading | ready | hidden
 
@@ -252,14 +256,14 @@ function StatsStrip({ projectId, refreshKey = 0 }) {
       }}
     >
       {/* Accent moved to the actionable metric (Pending, when there is work). */}
-      <StatTile label="Pending" value={pending} accent={pending > 0} />
-      <StatTile label="Accepted" value={stats.accepted || 0} />
-      <StatTile label="Declined" value={stats.declined || 0} />
-      <StatTile label="Views" value={stats.views || 0} />
+      <StatTile label={t("projmanage.stat_pending")} value={pending} accent={pending > 0} />
+      <StatTile label={t("projmanage.stat_accepted")} value={stats.accepted || 0} />
+      <StatTile label={t("projmanage.stat_declined")} value={stats.declined || 0} />
+      <StatTile label={t("projmanage.stat_views")} value={stats.views || 0} />
       <StatTile
-        label="Avg. decision"
+        label={t("projmanage.stat_avg_decision")}
         value={avg == null ? "—" : avg}
-        suffix={avg == null ? "" : "h"}
+        suffix={avg == null ? "" : t("projmanage.stat_hours_suffix")}
       />
     </div>
   );
@@ -272,6 +276,7 @@ function StatsStrip({ projectId, refreshKey = 0 }) {
 // DELETE /projects/{id}/roles/{rid}         → 204
 
 function RolesEditor({ projectId, flash }) {
+  const t = useT();
   const [roles, setRoles] = useState([]);
   const [state, setState] = useState("loading"); // loading | ready | error
   const [name, setName] = useState("");
@@ -306,9 +311,9 @@ function RolesEditor({ projectId, flash }) {
       // Optimistic append with the server-issued id.
       setRoles((cur) => [{ id: res.id, name: trimmed, is_filled: false }, ...cur]);
       setName("");
-      flash("Role added.");
+      flash(t("projmanage.roles_added"));
     } catch (err) {
-      flash(err?.status === 409 ? "That role is already listed." : err?.message || "Couldn't add the role.", "err");
+      flash(err?.status === 409 ? t("projmanage.roles_dupe") : err?.message || t("projmanage.roles_add_error"), "err");
     } finally {
       setAdding(false);
     }
@@ -325,7 +330,7 @@ function RolesEditor({ projectId, flash }) {
       });
     } catch (err) {
       setRoles(prev);
-      flash(err?.message || "Couldn't update the role.", "err");
+      flash(err?.message || t("projmanage.roles_update_error"), "err");
     }
   }
 
@@ -334,23 +339,23 @@ function RolesEditor({ projectId, flash }) {
     setRoles((cur) => cur.filter((r) => r.id !== role.id));
     try {
       await bfu(`/projects/${projectId}/roles/${role.id}`, { method: "DELETE" });
-      flash("Role removed.");
+      flash(t("projmanage.roles_removed"));
     } catch (err) {
       setRoles(prev);
-      flash(err?.message || "Couldn't remove the role.", "err");
+      flash(err?.message || t("projmanage.roles_remove_error"), "err");
     }
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div className="ch-cell-label">Add an open role</div>
+        <div className="ch-cell-label">{t("projmanage.roles_add_label")}</div>
         <form onSubmit={addRole} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Frontend developer, Designer, Community lead"
+            placeholder={t("projmanage.roles_placeholder")}
             maxLength={80}
             style={{
               flex: 1,
@@ -370,7 +375,7 @@ function RolesEditor({ projectId, flash }) {
             disabled={adding || !name.trim()}
             style={{ opacity: adding || !name.trim() ? 0.6 : 1 }}
           >
-            {adding ? "Adding…" : "Add role"}
+            {adding ? t("projmanage.roles_adding") : t("projmanage.roles_add_btn")}
           </button>
         </form>
       </div>
@@ -378,16 +383,16 @@ function RolesEditor({ projectId, flash }) {
       {state === "loading" ? (
         <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-          Loading roles…
+          {t("projmanage.roles_loading")}
         </div>
       ) : state === "error" ? (
-        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load roles. Refresh to try again.</div>
+        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">{t("projmanage.roles_load_error")}</div>
       ) : roles.length === 0 ? (
         <div className="ch-empty" style={{ minHeight: 160 }}>
-          <span className="ch-empty-k">No roles yet</span>
-          <div className="ch-empty-t">Tell the city who you need.</div>
+          <span className="ch-empty-k">{t("projmanage.roles_empty_k")}</span>
+          <div className="ch-empty-t">{t("projmanage.roles_empty_t")}</div>
           <div className="ch-empty-s">
-            Add the roles you're looking for — applicants will see them on your public page and can apply for a specific one.
+            {t("projmanage.roles_empty_s")}
           </div>
         </div>
       ) : (
@@ -420,7 +425,7 @@ function RolesEditor({ projectId, flash }) {
                   color: r.is_filled ? "var(--green)" : "var(--amber)",
                 }}
               >
-                {r.is_filled ? "Filled" : "Open"}
+                {r.is_filled ? t("projmanage.role_filled") : t("projmanage.role_open")}
               </span>
               <button
                 type="button"
@@ -428,12 +433,12 @@ function RolesEditor({ projectId, flash }) {
                 className="ch-btn-ghost"
                 style={{ padding: "8px 14px", fontSize: 12.5 }}
               >
-                {r.is_filled ? "Reopen" : "Mark filled"}
+                {r.is_filled ? t("projmanage.role_reopen") : t("projmanage.role_mark_filled")}
               </button>
               <button
                 type="button"
                 onClick={() => removeRole(r)}
-                aria-label={`Remove ${r.name}`}
+                aria-label={t("projmanage.remove_name_aria", { name: r.name })}
                 style={{
                   padding: "8px 12px",
                   borderRadius: "var(--radius-pill)",
@@ -444,7 +449,7 @@ function RolesEditor({ projectId, flash }) {
                   fontSize: 12.5,
                 }}
               >
-                Delete
+                {t("projmanage.delete")}
               </button>
             </div>
           ))}
@@ -460,6 +465,7 @@ function RolesEditor({ projectId, flash }) {
 // DELETE /projects/{id}/updates/{uid}        → 204
 
 function UpdatesComposer({ projectId, meId, flash }) {
+  const t = useT();
   const [updates, setUpdates] = useState([]);
   const [state, setState] = useState("loading");
   const [text, setText] = useState("");
@@ -496,9 +502,9 @@ function UpdatesComposer({ projectId, meId, flash }) {
         ...cur,
       ]);
       setText("");
-      flash("Update posted — your team and followers were notified.");
+      flash(t("projmanage.updates_posted"));
     } catch (err) {
-      flash(err?.message || "Couldn't post the update.", "err");
+      flash(err?.message || t("projmanage.updates_post_error"), "err");
     } finally {
       setPosting(false);
     }
@@ -511,19 +517,19 @@ function UpdatesComposer({ projectId, meId, flash }) {
       await bfu(`/projects/${projectId}/updates/${u.id}`, { method: "DELETE" });
     } catch (err) {
       setUpdates(prev);
-      flash(err?.message || "Couldn't delete the update.", "err");
+      flash(err?.message || t("projmanage.updates_delete_error"), "err");
     }
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">Post an update</div>
+        <div className="ch-cell-label">{t("projmanage.updates_post_label")}</div>
         <form onSubmit={post} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Share progress with your team and followers…"
+            placeholder={t("projmanage.updates_placeholder")}
             maxLength={500}
             rows={3}
             style={{
@@ -549,7 +555,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
               disabled={posting || !text.trim()}
               style={{ opacity: posting || !text.trim() ? 0.6 : 1 }}
             >
-              {posting ? "Posting…" : "Post update"}
+              {posting ? t("projmanage.updates_posting") : t("projmanage.updates_post_btn")}
             </button>
           </div>
         </form>
@@ -558,16 +564,16 @@ function UpdatesComposer({ projectId, meId, flash }) {
       {state === "loading" ? (
         <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-          Loading updates…
+          {t("projmanage.updates_loading")}
         </div>
       ) : state === "error" ? (
-        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load updates.</div>
+        <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">{t("projmanage.updates_load_error")}</div>
       ) : updates.length === 0 ? (
         <div className="ch-empty" style={{ minHeight: 140 }}>
-          <span className="ch-empty-k">No updates yet</span>
-          <div className="ch-empty-t">Nothing posted so far.</div>
+          <span className="ch-empty-k">{t("projmanage.updates_empty_k")}</span>
+          <div className="ch-empty-t">{t("projmanage.updates_empty_t")}</div>
           <div className="ch-empty-s">
-            Your first update will reach everyone following this project.
+            {t("projmanage.updates_empty_s")}
           </div>
         </div>
       ) : (
@@ -595,7 +601,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
                 <button
                   type="button"
                   onClick={() => remove(u)}
-                  aria-label="Delete update"
+                  aria-label={t("projmanage.updates_delete_aria")}
                   style={{
                     flex: "0 0 auto",
                     padding: "6px 12px",
@@ -607,7 +613,7 @@ function UpdatesComposer({ projectId, meId, flash }) {
                     fontSize: 12,
                   }}
                 >
-                  Delete
+                  {t("projmanage.delete")}
                 </button>
               ) : null}
             </div>
@@ -624,11 +630,12 @@ function UpdatesComposer({ projectId, meId, flash }) {
 // The backend only allows rating once the project is CLOSED (is_active=false).
 
 function RateableRow({ projectId, person, flash, onRated }) {
+  const t = useT();
   const [stars, setStars] = useState(0);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(person.rated_by_me);
-  const name = person.display_name || "A teammate";
+  const name = person.display_name || t("projmanage.a_teammate");
 
   async function submit() {
     if (!stars || saving) return;
@@ -639,10 +646,10 @@ function RateableRow({ projectId, person, flash, onRated }) {
         body: { ratee_id: person.id, stars, note: note.trim() || null },
       });
       setDone(true);
-      flash(`You rated ${name}. Thanks for building trust in the city.`);
+      flash(t("projmanage.rating_thanks", { name }));
       onRated && onRated(person.id);
     } catch (err) {
-      flash(err?.message || "Couldn't save your rating.", "err");
+      flash(err?.message || t("projmanage.rating_save_error"), "err");
     } finally {
       setSaving(false);
     }
@@ -675,7 +682,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
               color: "var(--green)",
             }}
           >
-            ✓ Rated
+            ✓ {t("projmanage.rated")}
           </span>
         ) : null}
       </div>
@@ -687,7 +694,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Add a short note (optional)"
+            placeholder={t("projmanage.rating_note_placeholder")}
             maxLength={200}
             style={{
               width: "100%",
@@ -708,7 +715,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
               disabled={!stars || saving}
               style={{ opacity: !stars || saving ? 0.6 : 1, padding: "10px 18px", fontSize: 13 }}
             >
-              {saving ? "Saving…" : "Submit rating"}
+              {saving ? t("projmanage.saving") : t("projmanage.rating_submit")}
             </button>
           </div>
         </>
@@ -718,6 +725,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
 }
 
 function RatingsPanel({ projectId, flash }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | closed-empty | not-closed | forbidden | error
   const [cohort, setCohort] = useState([]);
 
@@ -748,19 +756,17 @@ function RatingsPanel({ projectId, flash }) {
     return (
       <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading your team…
+        {t("projmanage.team_loading")}
       </div>
     );
   }
   if (state === "not-closed") {
     return (
       <div className="ch-empty" style={{ minHeight: 180 }}>
-        <span className="ch-empty-k">Ratings open when the project closes</span>
-        <div className="ch-empty-t">Still building.</div>
+        <span className="ch-empty-k">{t("projmanage.ratings_notclosed_k")}</span>
+        <div className="ch-empty-t">{t("projmanage.ratings_notclosed_t")}</div>
         <div className="ch-empty-s">
-          Once this project is no longer active, you'll be able to rate the
-          teammates you worked with — and they can rate you. It's how trust gets
-          built across the city.
+          {t("projmanage.ratings_notclosed_s")}
         </div>
       </div>
     );
@@ -768,9 +774,9 @@ function RatingsPanel({ projectId, flash }) {
   if (state === "forbidden") {
     return (
       <div className="ch-empty" style={{ minHeight: 160 }}>
-        <span className="ch-empty-k">Ratings are for the team</span>
+        <span className="ch-empty-k">{t("projmanage.ratings_forbidden_k")}</span>
         <div className="ch-empty-s" style={{ marginTop: 8 }}>
-          Only people who were part of this project can leave ratings.
+          {t("projmanage.ratings_forbidden_s")}
         </div>
       </div>
     );
@@ -778,22 +784,21 @@ function RatingsPanel({ projectId, flash }) {
   if (state === "closed-empty") {
     return (
       <div className="ch-empty" style={{ minHeight: 160 }}>
-        <span className="ch-empty-k">No teammates to rate</span>
+        <span className="ch-empty-k">{t("projmanage.ratings_empty_k")}</span>
         <div className="ch-empty-s" style={{ marginTop: 8 }}>
-          This project closed without other members on the team.
+          {t("projmanage.ratings_empty_s")}
         </div>
       </div>
     );
   }
   if (state === "error") {
-    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load ratings. Refresh to try again.</div>;
+    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">{t("projmanage.ratings_load_error")}</div>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
-        Rate the teammates you worked with 1–5 stars. Your ratings feed each
-        builder's reputation across BFU.
+        {t("projmanage.ratings_intro")}
       </p>
       {cohort.map((person) => (
         <RateableRow
@@ -815,8 +820,9 @@ function RatingsPanel({ projectId, flash }) {
 // hiring roles managed in the Roles tab.
 
 function TeamRow({ projectId, member, onRemoved, flash }) {
+  const t = useT();
   const u = member.user || {};
-  const name = u.display_name || "A teammate";
+  const name = u.display_name || t("projmanage.a_teammate");
   const [role, setRole] = useState(member.role || "");
   const [savedRole, setSavedRole] = useState(member.role || "");
   const [saving, setSaving] = useState(false);
@@ -835,9 +841,9 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
       const next = res?.role || "";
       setSavedRole(next);
       setRole(next);
-      flash(next ? `Saved ${name}'s role.` : `Cleared ${name}'s role.`);
+      flash(next ? t("projmanage.team_role_saved", { name }) : t("projmanage.team_role_cleared", { name }));
     } catch (err) {
-      flash(err?.message || "Couldn't save the role.", "err");
+      flash(err?.message || t("projmanage.team_role_save_error"), "err");
     } finally {
       setSaving(false);
     }
@@ -847,10 +853,10 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
     setRemoving(true);
     try {
       await bfu(`/projects/${projectId}/team/${u.id}`, { method: "DELETE" });
-      flash(`Removed ${name} from the team.`);
+      flash(t("projmanage.team_removed", { name }));
       onRemoved(u.id);
     } catch (err) {
-      flash(err?.message || "Couldn't remove the member.", "err");
+      flash(err?.message || t("projmanage.team_remove_error"), "err");
       setRemoving(false);
       setConfirming(false);
     }
@@ -886,11 +892,11 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
                 color: "var(--amber)",
               }}
             >
-              Founder · you
+              {t("projmanage.team_founder_you")}
             </span>
           )}
           {u.is_online && (
-            <span style={{ fontSize: 12, color: "var(--green)" }}>● online</span>
+            <span style={{ fontSize: 12, color: "var(--green)" }}>● {t("projmanage.online")}</span>
           )}
         </div>
       </div>
@@ -907,9 +913,9 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
               saveRole();
             }
           }}
-          placeholder="Role (e.g. Designer)"
+          placeholder={t("projmanage.team_role_placeholder")}
           maxLength={80}
-          aria-label={`${name}'s role`}
+          aria-label={t("projmanage.team_role_aria", { name })}
           style={{
             width: 170,
             padding: "9px 12px",
@@ -928,7 +934,7 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
           className="ch-btn-ghost"
           style={{ padding: "8px 14px", fontSize: 12.5, opacity: !dirty || saving ? 0.5 : 1 }}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("projmanage.saving") : t("projmanage.save")}
         </button>
       </div>
 
@@ -937,7 +943,7 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          aria-label={`Remove ${name}`}
+          aria-label={t("projmanage.remove_name_aria", { name })}
           style={{
             padding: "8px 12px",
             borderRadius: "var(--radius-pill)",
@@ -948,11 +954,11 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
             fontSize: 12.5,
           }}
         >
-          Remove
+          {t("projmanage.remove")}
         </button>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12.5, color: "var(--text)" }}>Remove?</span>
+          <span style={{ fontSize: 12.5, color: "var(--text)" }}>{t("projmanage.remove_confirm")}</span>
           <button
             type="button"
             onClick={remove}
@@ -969,10 +975,10 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
               opacity: removing ? 0.6 : 1,
             }}
           >
-            {removing ? "Removing…" : "Yes"}
+            {removing ? t("projmanage.removing") : t("projmanage.yes")}
           </button>
           <button type="button" className="ch-btn-ghost" onClick={() => setConfirming(false)} style={{ padding: "8px 12px", fontSize: 12.5 }}>
-            No
+            {t("projmanage.no")}
           </button>
         </div>
       )}
@@ -981,6 +987,7 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
 }
 
 function TeamPanel({ projectId, flash }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [roster, setRoster] = useState([]);
 
@@ -1010,20 +1017,18 @@ function TeamPanel({ projectId, flash }) {
     return (
       <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading your team…
+        {t("projmanage.team_loading")}
       </div>
     );
   }
   if (state === "error") {
-    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load your team. Refresh to try again.</div>;
+    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">{t("projmanage.team_load_error")}</div>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
-        Everyone on the team, with their role. Give each teammate a title, or
-        remove someone who&rsquo;s moved on. You can set your own founder role,
-        but you can&rsquo;t remove yourself.
+        {t("projmanage.team_intro")}
       </p>
       {roster.map((m) => (
         <TeamRow key={m.user?.id} projectId={projectId} member={m} onRemoved={onRemoved} flash={flash} />
@@ -1033,6 +1038,7 @@ function TeamPanel({ projectId, flash }) {
 }
 
 export default function ProjectManager({ projectId, meId }) {
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState("loading"); // loading | ready | error | forbidden
   const [project, setProject] = useState(null);
@@ -1114,7 +1120,7 @@ export default function ProjectManager({ projectId, meId }) {
         method: "PATCH",
         body: { action },
       });
-      flash(action === "accept" ? "Applicant accepted — they're on the team." : "Application declined.");
+      flash(action === "accept" ? t("projmanage.applicant_accepted") : t("projmanage.application_declined"));
       // Keep the header count in sync (derive from the now-shorter list, not a
       // possibly-stale server count that masks 0/null as 1).
       setProject((p) =>
@@ -1131,7 +1137,7 @@ export default function ProjectManager({ projectId, meId }) {
     } catch (err) {
       // Roll back on failure.
       setApps(prev);
-      flash(err?.message || "Couldn't update the application.", "err");
+      flash(err?.message || t("projmanage.application_update_error"), "err");
     } finally {
       setBusyApp(null);
     }
@@ -1144,7 +1150,7 @@ export default function ProjectManager({ projectId, meId }) {
       router.push("/projects/mine");
       router.refresh();
     } catch (err) {
-      flash(err?.message || "Couldn't delete the project.", "err");
+      flash(err?.message || t("projmanage.delete_project_error"), "err");
       setDeleting(false);
     }
   }
@@ -1153,14 +1159,14 @@ export default function ProjectManager({ projectId, meId }) {
     return (
       <div style={{ marginTop: 8, color: "var(--muted-strong)", fontSize: 14 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        {state === "forbidden" ? "Taking you to the project…" : "Loading your project…"}
+        {state === "forbidden" ? t("projmanage.redirecting") : t("projmanage.loading_project")}
       </div>
     );
   }
   if (state === "error" || !project) {
     return (
       <div style={{ marginTop: 8, color: "var(--terra)", fontSize: 14 }}>
-        Couldn't load this project. Refresh to try again.
+        {t("projmanage.load_project_error")}
       </div>
     );
   }
@@ -1220,7 +1226,7 @@ export default function ProjectManager({ projectId, meId }) {
                 color: "var(--muted-strong)",
               }}
             >
-              {project.type === "volunteering" ? "Volunteering" : "Startup"} · {project.member_count || 0} members · {project.view_count || 0} views
+              {project.type === "volunteering" ? t("projmanage.type_volunteering") : t("projmanage.type_startup")} · {t("projmanage.members_count", { n: project.member_count || 0 })} · {t("projmanage.views_count", { n: project.view_count || 0 })}
             </span>
           </div>
           <h1
@@ -1238,7 +1244,7 @@ export default function ProjectManager({ projectId, meId }) {
           </h1>
         </div>
         <a href={`/p/${project.id}`} className="ch-btn-ghost">
-          View public page <span style={{ fontSize: 14 }}>↗</span>
+          {t("projmanage.view_public_page")} <span style={{ fontSize: 14 }}>↗</span>
         </a>
       </div>
 
@@ -1248,17 +1254,17 @@ export default function ProjectManager({ projectId, meId }) {
       {/* Tabs — the destructive "Delete" is pushed to the right with a divider
           so it never reads as a peer of the everyday tabs. */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }} role="tablist">
-        {tabBtn("applicants", "Applicants", pending)}
-        {tabBtn("team", "Team", project.member_count || 0)}
-        {tabBtn("roles", "Roles")}
-        {tabBtn("updates", "Updates")}
-        {tabBtn("ratings", "Ratings")}
-        {tabBtn("edit", "Edit project")}
+        {tabBtn("applicants", t("projmanage.tab_applicants"), pending)}
+        {tabBtn("team", t("projmanage.tab_team"), project.member_count || 0)}
+        {tabBtn("roles", t("projmanage.tab_roles"))}
+        {tabBtn("updates", t("projmanage.tab_updates"))}
+        {tabBtn("ratings", t("projmanage.tab_ratings"))}
+        {tabBtn("edit", t("projmanage.tab_edit"))}
         <span
           aria-hidden
           style={{ marginLeft: "auto", width: 1, height: 22, background: "var(--hair)" }}
         />
-        {tabBtn("danger", "Delete", null, true)}
+        {tabBtn("danger", t("projmanage.tab_delete"), null, true)}
       </div>
 
       {/* Applicants tab */}
@@ -1266,20 +1272,18 @@ export default function ProjectManager({ projectId, meId }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {appsFailed ? (
             <div className="ch-empty" style={{ minHeight: 220 }}>
-              <span className="ch-empty-k">Couldn't load applicants</span>
-              <div className="ch-empty-t">Something went wrong.</div>
+              <span className="ch-empty-k">{t("projmanage.applicants_error_k")}</span>
+              <div className="ch-empty-t">{t("projmanage.applicants_error_t")}</div>
               <div className="ch-empty-s">
-                We couldn't reach your applicant inbox. Refresh the page to try
-                again.
+                {t("projmanage.applicants_error_s")}
               </div>
             </div>
           ) : pending === 0 ? (
             <div className="ch-empty" style={{ minHeight: 220 }}>
-              <span className="ch-empty-k">No pending applicants</span>
-              <div className="ch-empty-t">Quiet for now.</div>
+              <span className="ch-empty-k">{t("projmanage.applicants_empty_k")}</span>
+              <div className="ch-empty-t">{t("projmanage.applicants_empty_t")}</div>
               <div className="ch-empty-s">
-                When builders apply to join, they'll appear here for you to accept
-                or decline.
+                {t("projmanage.applicants_empty_s")}
               </div>
             </div>
           ) : (
@@ -1318,12 +1322,10 @@ export default function ProjectManager({ projectId, meId }) {
           }}
         >
           <div className="ch-cell-label" style={{ color: "var(--terra)" }}>
-            Delete this project
+            {t("projmanage.danger_title")}
           </div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
-            This removes <b style={{ color: "var(--text)" }}>{project.name}</b> from
-            the city. Members lose access and applicants can no longer join. This
-            can't be undone.
+            {t("projmanage.danger_desc_pre")}<b style={{ color: "var(--text)" }}>{project.name}</b>{t("projmanage.danger_desc_post")}
           </p>
           {!confirmDelete ? (
             <div>
@@ -1341,12 +1343,12 @@ export default function ProjectManager({ projectId, meId }) {
                   fontSize: 14,
                 }}
               >
-                Delete project
+                {t("projmanage.delete_project_btn")}
               </button>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 14, color: "var(--text)" }}>Are you sure?</span>
+              <span style={{ fontSize: 14, color: "var(--text)" }}>{t("projmanage.are_you_sure")}</span>
               <button
                 type="button"
                 onClick={doDelete}
@@ -1363,10 +1365,10 @@ export default function ProjectManager({ projectId, meId }) {
                   opacity: deleting ? 0.6 : 1,
                 }}
               >
-                {deleting ? "Deleting…" : "Yes, delete it"}
+                {deleting ? t("projmanage.deleting") : t("projmanage.yes_delete")}
               </button>
               <button type="button" className="ch-btn-ghost" onClick={() => setConfirmDelete(false)}>
-                Keep it
+                {t("projmanage.keep_it")}
               </button>
             </div>
           )}

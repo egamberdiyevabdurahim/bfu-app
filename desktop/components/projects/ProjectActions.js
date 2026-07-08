@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Additive client island mounted on the public /p/[id] page. The SSR content
 // (hero, about, team, looking-for) stays intact and public; this island calls
@@ -51,6 +52,7 @@ function Pill({ children, color, bg, border }) {
 }
 
 export default function ProjectActions({ projectId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | anon | ready | error
   const [project, setProject] = useState(null);
   const [roles, setRoles] = useState([]); // open roles (name strings)
@@ -115,7 +117,7 @@ export default function ProjectActions({ projectId }) {
       setProject((p) => ({ ...p, my_application_status: "pending" }));
       setShowRolePicker(false);
     } catch (e) {
-      setErr(e?.message || "Couldn't submit your application.");
+      setErr(e?.message || t("projects.err_apply"));
     } finally {
       setBusy(false);
     }
@@ -128,7 +130,7 @@ export default function ProjectActions({ projectId }) {
       await bfu(`/projects/${projectId}/apply`, { method: "DELETE" });
       setProject((p) => ({ ...p, my_application_status: null }));
     } catch (e) {
-      setErr(e?.message || "Couldn't withdraw your application.");
+      setErr(e?.message || t("projects.err_cancel"));
     } finally {
       setBusy(false);
     }
@@ -142,7 +144,7 @@ export default function ProjectActions({ projectId }) {
       setProject((p) => ({ ...p, is_member: false }));
       setConfirmLeave(false);
     } catch (e) {
-      setErr(e?.message || "Couldn't leave the team.");
+      setErr(e?.message || t("projects.err_leave"));
     } finally {
       setBusy(false);
     }
@@ -154,7 +156,7 @@ export default function ProjectActions({ projectId }) {
     return (
       <div style={{ ...card, color: "var(--muted-strong)", fontSize: 14, textAlign: "center" }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading…
+        {t("projects.loading")}
       </div>
     );
   }
@@ -162,12 +164,12 @@ export default function ProjectActions({ projectId }) {
   if (state === "anon") {
     return (
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">Want to join?</div>
+        <div className="ch-cell-label">{t("projects.want_join")}</div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55 }}>
-          Log in with Telegram to apply to this project and join the team.
+          {t("projects.anon_body")}
         </p>
         <a href="/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
-          Log in to apply <span style={{ fontSize: 14 }}>→</span>
+          {t("projects.login_to_apply")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>
     );
@@ -186,14 +188,14 @@ export default function ProjectActions({ projectId }) {
         }}
       >
         <div style={{ color: "var(--terra)", fontSize: 14 }}>
-          Couldn&rsquo;t load the join options.
+          {t("projects.err_load_join")}
         </div>
         <button
           type="button"
           onClick={() => setReloadKey((k) => k + 1)}
           className="ch-btn-ghost"
         >
-          Try again
+          {t("projects.try_again")}
         </button>
       </div>
     );
@@ -210,14 +212,14 @@ export default function ProjectActions({ projectId }) {
         className="ch-btn-primary"
         style={{ width: "100%", justifyContent: "center" }}
       >
-        Manage applicants {n > 0 ? `(${n})` : ""}
+        {t("projects.manage_applicants")} {n > 0 ? `(${n})` : ""}
       </a>
     );
   } else if (project.is_member) {
     control = confirmLeave ? (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-          Leave this team? You can apply again later while it&rsquo;s hiring.
+          {t("projects.leave_confirm")}
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -236,7 +238,7 @@ export default function ProjectActions({ projectId }) {
               fontSize: 13.5,
             }}
           >
-            {busy ? "Leaving…" : "Yes, leave"}
+            {busy ? t("projects.leaving") : t("projects.yes_leave")}
           </button>
           <button
             type="button"
@@ -253,14 +255,14 @@ export default function ProjectActions({ projectId }) {
               fontSize: 13.5,
             }}
           >
-            Stay
+            {t("projects.stay")}
           </button>
         </div>
       </div>
     ) : (
       <div style={{ display: "flex", gap: 10 }}>
         <Pill color="var(--green)" bg="rgba(127,176,105,0.12)" border="rgba(127,176,105,0.35)">
-          You&rsquo;re on this team
+          {t("projects.on_team")}
         </Pill>
         <button
           type="button"
@@ -277,7 +279,7 @@ export default function ProjectActions({ projectId }) {
             fontSize: 13,
           }}
         >
-          Leave
+          {t("projects.leave")}
         </button>
       </div>
     );
@@ -285,7 +287,7 @@ export default function ProjectActions({ projectId }) {
     control = (
       <div style={{ display: "flex", gap: 10 }}>
         <Pill color="var(--amber)" bg="rgba(232,161,92,0.14)" border="rgba(232,161,92,0.4)">
-          Application pending
+          {t("projects.app_pending")}
         </Pill>
         <button
           type="button"
@@ -302,32 +304,32 @@ export default function ProjectActions({ projectId }) {
             fontSize: 13,
           }}
         >
-          Cancel
+          {t("projects.cancel")}
         </button>
       </div>
     );
   } else if (s === "accepted") {
     control = (
       <Pill color="var(--teal-bright)" bg="rgba(94,197,182,0.14)" border="rgba(94,197,182,0.3)">
-        You&rsquo;re accepted 🎉
+        {t("projects.accepted")} 🎉
       </Pill>
     );
   } else if (s === "declined") {
     control = (
       <Pill color="var(--terra)" bg="rgba(192,86,59,0.1)" border="rgba(192,86,59,0.25)">
-        Not accepted this time
+        {t("projects.declined")}
       </Pill>
     );
   } else if (!project.is_hiring) {
     control = (
       <Pill color="var(--muted)" bg="var(--surface-2)" border="var(--hair)">
-        Not accepting applications
+        {t("projects.not_accepting")}
       </Pill>
     );
   } else if (showRolePicker && roles.length) {
     control = (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">Pick a role (optional)</div>
+        <div className="ch-cell-label">{t("projects.pick_role")}</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {roles.map((r, i) => {
             const on = selectedRole === r;
@@ -365,7 +367,11 @@ export default function ProjectActions({ projectId }) {
           disabled={busy}
           style={{ justifyContent: "center", opacity: busy ? 0.6 : 1 }}
         >
-          {busy ? "Submitting…" : selectedRole ? `Apply as ${selectedRole}` : "Apply without a role"}
+          {busy
+            ? t("projects.submitting")
+            : selectedRole
+            ? t("projects.apply_as", { role: selectedRole })
+            : t("projects.apply_no_role")}
         </button>
         <button
           type="button"
@@ -385,7 +391,7 @@ export default function ProjectActions({ projectId }) {
             textUnderlineOffset: 2,
           }}
         >
-          Back
+          {t("projects.back")}
         </button>
       </div>
     );
@@ -398,7 +404,7 @@ export default function ProjectActions({ projectId }) {
         disabled={busy}
         style={{ width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
       >
-        {busy ? "Submitting…" : "Apply to join"}
+        {busy ? t("projects.submitting") : t("projects.apply_join")}
       </button>
     );
   }
@@ -406,7 +412,11 @@ export default function ProjectActions({ projectId }) {
   return (
     <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
       <div className="ch-cell-label">
-        {isOwner ? "Your project" : project.is_member ? "Your team" : "Join this project"}
+        {isOwner
+          ? t("projects.actions_your_project")
+          : project.is_member
+          ? t("projects.actions_your_team")
+          : t("projects.actions_join")}
       </div>
       {control}
       {err ? <div style={{ fontSize: 13, color: "var(--terra)" }}>{err}</div> : null}

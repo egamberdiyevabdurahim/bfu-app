@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import RequestsList from "@/components/projects/RequestsList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -19,6 +20,8 @@ export default async function RequestsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   return (
     <AppTopBar active="requests" me={me}>
         <div style={{ marginTop: 8, marginBottom: 30 }}>
@@ -31,7 +34,7 @@ export default async function RequestsPage() {
               color: "var(--amber)",
             }}
           >
-            Who wants in
+            {t("projmanage.req_eyebrow")}
           </div>
           <h1
             style={{
@@ -45,7 +48,7 @@ export default async function RequestsPage() {
               overflowWrap: "break-word",
             }}
           >
-            Your{" "}
+            {t("projmanage.req_title_prefix")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -54,7 +57,7 @@ export default async function RequestsPage() {
                 color: "var(--amber)",
               }}
             >
-              applications
+              {t("projmanage.req_title_accent")}
             </span>
           </h1>
           <p
@@ -68,13 +71,13 @@ export default async function RequestsPage() {
               maxWidth: 560,
             }}
           >
-            Builders asking to join the projects you&rsquo;ve started.
+            {t("projmanage.req_lede")}
           </p>
         </div>
 
         <RequestsList />
 
-        <SiteFooter tagline="Every great team starts with a knock at the door." />
+        <SiteFooter tagline={t("projmanage.req_footer")} />
     </AppTopBar>
   );
 }

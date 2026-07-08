@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Additive island mounted on the public /p/[id] page: the project's update feed.
 // SSR content stays intact; this loads GET /projects/{id}/updates on mount and
@@ -15,25 +16,26 @@ import { gradientFor, initials } from "@/lib/avatar";
 //   { updates: [ { id, text, author: {id,display_name,photo_url}|null,
 //                  created_at (ISO) } ] }
 
-function timeAgo(iso) {
+function timeAgo(iso, t) {
   if (!iso) return "";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const s = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (s < 60) return "just now";
+  if (s < 60) return t("projects.time_just_now");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return t("projects.time_minutes", { n: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("projects.time_hours", { n: h });
   const d = Math.round(h / 24);
-  if (d < 7) return `${d}d ago`;
+  if (d < 7) return t("projects.time_days", { n: d });
   const w = Math.round(d / 7);
-  if (w < 5) return `${w}w ago`;
+  if (w < 5) return t("projects.time_weeks", { n: w });
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function Dot({ author }) {
-  const name = author?.display_name || "Founder";
+  const t = useT();
+  const name = author?.display_name || t("projects.founder");
   return (
     <div
       style={{
@@ -66,6 +68,7 @@ function Dot({ author }) {
 }
 
 export default function ProjectUpdates({ projectId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | hidden
   const [updates, setUpdates] = useState([]);
 
@@ -93,7 +96,7 @@ export default function ProjectUpdates({ projectId }) {
       className="ch-cell-static"
       style={{ display: "flex", flexDirection: "column", gap: 20, gridColumn: "span 4" }}
     >
-      <div className="ch-cell-label">Project updates</div>
+      <div className="ch-cell-label">{t("projects.updates")}</div>
 
       {updates.length === 0 ? (
         <div style={{ fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55 }}>
@@ -105,11 +108,9 @@ export default function ProjectUpdates({ projectId }) {
               color: "var(--muted-strong)",
             }}
           >
-            No updates yet.
+            {t("projects.no_updates")}
           </span>
-          <div style={{ marginTop: 6 }}>
-            When the founder shares progress, it&rsquo;ll appear here.
-          </div>
+          <div style={{ marginTop: 6 }}>{t("projects.updates_hint")}</div>
         </div>
       ) : (
         <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -138,7 +139,7 @@ export default function ProjectUpdates({ projectId }) {
                       color: "var(--text)",
                     }}
                   >
-                    {u.author?.display_name || "Founder"}
+                    {u.author?.display_name || t("projects.founder")}
                   </span>
                   <span
                     style={{
@@ -148,7 +149,7 @@ export default function ProjectUpdates({ projectId }) {
                       color: "var(--muted-strong)",
                     }}
                   >
-                    {timeAgo(u.created_at)}
+                    {timeAgo(u.created_at, t)}
                   </span>
                 </div>
                 <p

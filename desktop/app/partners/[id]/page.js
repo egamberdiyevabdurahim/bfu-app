@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnerDetail from "@/components/community/PartnerDetail";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -20,6 +21,7 @@ export default async function PartnerPage({ params }) {
   const me = await getMe();
   if (!me) redirect("/login");
   const { id } = await params;
+  const { t } = await getT();
 
   return (
     <AppTopBar active="partners" me={me}>
@@ -35,13 +37,13 @@ export default async function PartnerPage({ params }) {
               textDecoration: "none",
             }}
           >
-            ← All partners
+            {t("community.partnerDetail.back")}
           </a>
         </div>
 
         <PartnerDetail partnerId={id} />
 
-        <SiteFooter tagline="Opportunity, made local." />
+        <SiteFooter tagline={t("community.partnerDetail.footer")} />
     </AppTopBar>
   );
 }

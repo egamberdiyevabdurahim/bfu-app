@@ -1,11 +1,17 @@
+"use client";
+
+import { useT } from "@/components/i18n/LocaleProvider";
+
 // Shared page footer — the "brightfuturesuzbekistan.uz · <tagline>" strip that
 // was copy-pasted inline across ~12 pages (and missing entirely on /requests &
-// /settings). Server component; pass a `tagline` (and optionally override the
-// host label). flexWrap keeps the host + tagline from colliding on narrow widths.
+// /settings). Pass a `tagline` (already translated by the caller) and optionally
+// override the host label. flexWrap keeps the host + tagline from colliding on
+// narrow widths.
 export default function SiteFooter({
   tagline = "Someone is always building right now.",
   host = "brightfuturesuzbekistan.uz",
 }) {
+  const t = useT();
   return (
     <div style={{ marginTop: 60, paddingTop: 26, borderTop: "1px solid var(--hair)" }}>
       <div
@@ -66,7 +72,7 @@ export default function SiteFooter({
             textTransform: "uppercase",
           }}
         >
-          Powered by
+          {t("misc.powered_by")}
         </span>
         <img
           src="/marstiff-mark.png"

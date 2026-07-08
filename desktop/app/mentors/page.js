@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import MentorsBrowser from "@/components/community/MentorsBrowser";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -18,6 +19,7 @@ export const metadata = {
 export default async function MentorsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
+  const { t } = await getT();
 
   return (
     <AppTopBar active="mentors" me={me}>
@@ -31,7 +33,7 @@ export default async function MentorsPage() {
               color: "var(--amber)",
             }}
           >
-            Learn from those ahead of you
+            {t("community.mentors.kicker")}
           </div>
           <h1
             style={{
@@ -44,7 +46,7 @@ export default async function MentorsPage() {
               color: "var(--text)",
             }}
           >
-            The{" "}
+            {t("community.mentors.titleLead")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -53,7 +55,7 @@ export default async function MentorsPage() {
                 color: "var(--amber)",
               }}
             >
-              mentors
+              {t("community.mentors.titleAccent")}
             </span>
           </h1>
           <p
@@ -67,13 +69,13 @@ export default async function MentorsPage() {
               maxWidth: 560,
             }}
           >
-            Fifteen honest minutes with someone a few steps down the road.
+            {t("community.mentors.subtitle")}
           </p>
         </div>
 
         <MentorsBrowser />
 
-        <SiteFooter tagline="Every builder was once a beginner." />
+        <SiteFooter tagline={t("community.mentors.footer")} />
     </AppTopBar>
   );
 }

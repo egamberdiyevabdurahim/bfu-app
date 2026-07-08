@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Small heart/save toggle island for /p/[id]. Loads the authed GET /projects/{id}
 // on mount to learn the initial `is_favorited` state (confirmed exposed in
@@ -11,6 +12,7 @@ import { bfu } from "@/lib/client-api";
 // Anon readers (401) get nothing — favoriting requires a session.
 
 export default function FavoriteButton({ projectId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | hidden
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -42,7 +44,7 @@ export default function FavoriteButton({ projectId }) {
       await bfu(`/projects/${projectId}/favorite`, { method: next ? "POST" : "DELETE" });
     } catch {
       setSaved(!next); // roll back
-      setErr(next ? "Couldn't save — try again." : "Couldn't remove — try again.");
+      setErr(next ? t("projmanage.favbtn_save_error") : t("projmanage.favbtn_remove_error"));
     } finally {
       setBusy(false);
     }
@@ -80,8 +82,8 @@ export default function FavoriteButton({ projectId }) {
         onClick={toggle}
         disabled={busy}
         aria-pressed={saved}
-        aria-label={saved ? "Remove from saved" : "Save this project"}
-        title={saved ? "Saved — click to unsave" : "Save this project"}
+        aria-label={saved ? t("projmanage.fav_remove_title") : t("projmanage.favbtn_save_aria")}
+        title={saved ? t("projmanage.favbtn_saved_title") : t("projmanage.favbtn_save_aria")}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -110,7 +112,7 @@ export default function FavoriteButton({ projectId }) {
         >
           {saved ? "♥" : "♡"}
         </span>
-        {saved ? "Saved" : "Save"}
+        {saved ? t("projmanage.favbtn_saved") : t("projmanage.favbtn_save")}
       </button>
       <span role="status" aria-live="polite" style={{ minHeight: err ? undefined : 0 }}>
         {err ? (

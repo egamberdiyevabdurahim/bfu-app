@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/components/i18n/LocaleProvider";
+
 // Compact, self-contained paginator for the admin lists. Client-side only — the
 // caller already holds the full array in state and slices the current page with
 // the exported `paginate()` helper; this bar just drives the 1-based page index.
@@ -38,6 +40,7 @@ function pageItems(current, totalPages) {
 }
 
 export default function Pagination({ page, pageSize, total, onPageChange }) {
+  const t = useT();
   if (!total || total <= pageSize) return null;
 
   const totalPages = Math.ceil(total / pageSize);
@@ -52,18 +55,18 @@ export default function Pagination({ page, pageSize, total, onPageChange }) {
 
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={t("misc.pagination")}
       style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 22 }}
     >
       <button
         type="button"
         className="ch-btn-ghost"
-        aria-label="Previous page"
+        aria-label={t("misc.previous_page")}
         disabled={current === 1}
         onClick={() => go(current - 1)}
         style={{ padding: "7px 12px", fontSize: 12.5 }}
       >
-        ← Prev
+        ← {t("misc.prev")}
       </button>
 
       {pageItems(current, totalPages).map((it) =>
@@ -79,7 +82,7 @@ export default function Pagination({ page, pageSize, total, onPageChange }) {
           <button
             key={it.key}
             type="button"
-            aria-label={`Page ${it.page}`}
+            aria-label={t("misc.page_n", { n: it.page })}
             aria-current={it.page === current ? "page" : undefined}
             onClick={() => go(it.page)}
             style={{
@@ -103,12 +106,12 @@ export default function Pagination({ page, pageSize, total, onPageChange }) {
       <button
         type="button"
         className="ch-btn-ghost"
-        aria-label="Next page"
+        aria-label={t("misc.next_page")}
         disabled={current === totalPages}
         onClick={() => go(current + 1)}
         style={{ padding: "7px 12px", fontSize: 12.5 }}
       >
-        Next →
+        {t("misc.next")} →
       </button>
 
       <span
@@ -121,7 +124,7 @@ export default function Pagination({ page, pageSize, total, onPageChange }) {
           whiteSpace: "nowrap",
         }}
       >
-        {from}–{to} of {total}
+        {t("misc.range_of_total", { from, to, total })}
       </span>
     </nav>
   );

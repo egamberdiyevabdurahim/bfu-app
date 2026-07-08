@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Screen 4 (/projects) filter row. Mirrors FilterBar's pattern: CLIENT-SIDE
 // filtering over the already-loaded project set — no refetch. This wrapper
@@ -20,10 +21,10 @@ const VOLUNTEERING = "volunteering";
 const HIRING = "hiring";
 
 const CHIPS = [
-  { key: ALL, label: "All" },
-  { key: STARTUP, label: "Startups" },
-  { key: VOLUNTEERING, label: "Volunteering" },
-  { key: HIRING, label: "Hiring now", marker: "green" },
+  { key: ALL, labelKey: "projects.filter_all" },
+  { key: STARTUP, labelKey: "projects.filter_startups" },
+  { key: VOLUNTEERING, labelKey: "projects.filter_volunteering" },
+  { key: HIRING, labelKey: "projects.filter_hiring", marker: "green" },
 ];
 
 // Decide whether a single project card element passes the active filter.
@@ -36,6 +37,7 @@ function cardMatches(el, key) {
 }
 
 export default function ProjectFilterBar({ children }) {
+  const t = useT();
   const [active, setActive] = useState(ALL);
   const rootRef = useRef(null);
   const [empty, setEmpty] = useState(false);
@@ -58,7 +60,7 @@ export default function ProjectFilterBar({ children }) {
     <div ref={rootRef}>
       <div
         role="tablist"
-        aria-label="Filter projects"
+        aria-label={t("projects.filter_aria")}
         style={{
           marginTop: 34,
           display: "flex",
@@ -111,7 +113,7 @@ export default function ProjectFilterBar({ children }) {
                   }}
                 />
               )}
-              {chip.label}
+              {t(chip.labelKey)}
             </button>
           );
         })}
@@ -134,7 +136,7 @@ export default function ProjectFilterBar({ children }) {
             color: "var(--muted)",
           }}
         >
-          Nothing here yet under this filter — try another.
+          {t("projects.filter_empty")}
         </div>
       )}
     </div>

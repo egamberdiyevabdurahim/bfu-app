@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/components/i18n/LocaleProvider";
+
 // The logged-OUT site nav, rendered by SiteTopBar when getMe() returns null.
 // Deliberately minimal, NOT the old wrapping-pill bar: brand left, two calm
 // explore links (City, Projects), and a single prominent "Log in" button right.
@@ -7,8 +9,8 @@
 // nudges the visitor to sign in via the Log in button.
 
 const LINKS = [
-  { key: "city", href: "/city", label: "City", icon: "✦" },
-  { key: "projects", href: "/projects", label: "Projects", icon: "◆" },
+  { key: "city", href: "/city", labelKey: "misc.nav_city", icon: "✦" },
+  { key: "projects", href: "/projects", labelKey: "misc.nav_projects", icon: "◆" },
 ];
 
 function Brand() {
@@ -39,6 +41,7 @@ function Brand() {
 }
 
 export default function PublicNav({ active }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -74,14 +77,14 @@ export default function PublicNav({ active }) {
               <span style={{ fontSize: 13, color: on ? "var(--amber)" : "inherit" }} aria-hidden>
                 {item.icon}
               </span>
-              {item.label}
+              {t(item.labelKey)}
             </a>
           );
         })}
       </nav>
 
       <a href="/login" className="ch-btn-primary" style={{ marginLeft: "auto", flex: "0 0 auto" }}>
-        Log in <span style={{ fontSize: 14 }}>↗</span>
+        {t("misc.log_in")} <span style={{ fontSize: 14 }}>↗</span>
       </a>
 
       <style>{`

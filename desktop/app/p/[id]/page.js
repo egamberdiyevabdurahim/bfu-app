@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/bfu-api";
+import { getT } from "@/lib/i18n/server";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import ProjectHero from "@/components/ProjectHero";
 import ProjectAboutCell from "@/components/ProjectAboutCell";
@@ -59,6 +60,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function ProjectPage({ params }) {
+  const { t } = await getT();
   const { id } = await params;
   const project = await getProject(id);
   if (!project) notFound();
@@ -126,7 +128,7 @@ export default async function ProjectPage({ params }) {
         </div>
 
         <SiteFooter
-          tagline="Every great thing started as someone’s project."
+          tagline={t("projects.footer_tagline")}
           host={canonicalHost}
         />
     </SiteTopBar>

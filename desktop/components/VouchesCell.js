@@ -1,11 +1,15 @@
+"use client";
+
 import { initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export default function VouchesCell({ vouches, vouchCount }) {
+  const t = useT();
   const top = vouches?.[0];
 
   return (
     <div className="ch-cell-static" style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
-      <div className="ch-cell-label">Vouches ({vouchCount || 0})</div>
+      <div className="ch-cell-label">{t("profile.vouches", { n: vouchCount || 0 })}</div>
       {top ? (
         <>
           <p style={{ margin: "16px 0 0", fontFamily: "var(--font-accent)", fontStyle: "italic",
@@ -21,13 +25,13 @@ export default function VouchesCell({ vouches, vouchCount }) {
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
-                {top.author?.display_name || "A BFU builder"}
+                {top.author?.display_name || t("profile.a_bfu_builder")}
               </div>
             </div>
           </div>
         </>
       ) : (
-        <p style={{ marginTop: 16, color: "var(--muted-strong)" }}>No vouches yet.</p>
+        <p style={{ marginTop: 16, color: "var(--muted-strong)" }}>{t("profile.no_vouches")}</p>
       )}
     </div>
   );

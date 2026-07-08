@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Client-side "Your projects" list. Loads GET /projects/mine on mount
 // (per-user, uncacheable) and splits the result into OWNED (creator_id === me.id)
@@ -16,12 +17,13 @@ import { useCountUp } from "@/lib/useCountUp";
 
 function typeMeta(type) {
   if (type === "volunteering") {
-    return { label: "Volunteering", cls: "ch-pcard-badge-volunteering" };
+    return { labelKey: "projects.type_volunteering", cls: "ch-pcard-badge-volunteering" };
   }
-  return { label: "Startup", cls: "ch-pcard-badge-startup" };
+  return { labelKey: "projects.type_startup", cls: "ch-pcard-badge-startup" };
 }
 
 function StatusBadge({ project }) {
+  const t = useT();
   // Approval / hiring status marker in the top-right of a card.
   if (project.is_approved === false) {
     return (
@@ -38,7 +40,7 @@ function StatusBadge({ project }) {
           padding: "4px 10px",
         }}
       >
-        Pending approval
+        {t("projects.status_pending")}
       </span>
     );
   }
@@ -48,7 +50,7 @@ function StatusBadge({ project }) {
         <span className="ch-pcard-ping">
           <i />
         </span>
-        Hiring
+        {t("projects.hiring")}
       </span>
     );
   }
@@ -56,6 +58,7 @@ function StatusBadge({ project }) {
 }
 
 function OwnedCard({ project }) {
+  const t = useT();
   const router = useRouter();
   const meta = typeMeta(project.type);
   const pending = project.pending_applications_count || 0;
@@ -78,7 +81,7 @@ function OwnedCard({ project }) {
       <div className="ch-pcard-top">
         <span className={`ch-pcard-badge ${meta.cls}`}>
           <i />
-          {meta.label}
+          {t(meta.labelKey)}
         </span>
         <div className="ch-pcard-marks">
           <StatusBadge project={project} />
@@ -97,7 +100,9 @@ function OwnedCard({ project }) {
               color: pending > 0 ? "var(--amber)" : "var(--muted-strong)",
             }}
           >
-            {pending > 0 ? `${pending} pending` : "No new applicants"}
+            {pending > 0
+              ? t("projects.pending_count", { n: pending })
+              : t("projects.no_new_applicants")}
           </span>
           <span
             style={{
@@ -108,7 +113,10 @@ function OwnedCard({ project }) {
               color: "var(--muted-strong)",
             }}
           >
-            {members} {members === 1 ? "member" : "members"} · {project.view_count || 0} views
+            {members === 1
+              ? t("projects.member_one", { n: members })
+              : t("projects.member_many", { n: members })}{" "}
+            · {t("projects.views_count", { n: project.view_count || 0 })}
           </span>
         </div>
         <a
@@ -117,7 +125,7 @@ function OwnedCard({ project }) {
           className="ch-btn-primary"
           style={{ padding: "9px 16px", fontSize: 13 }}
         >
-          Manage {pending > 0 ? `(${pending})` : ""}
+          {t("projects.manage")} {pending > 0 ? `(${pending})` : ""}
         </a>
       </div>
     </div>
@@ -125,6 +133,7 @@ function OwnedCard({ project }) {
 }
 
 function JoinedCard({ project }) {
+  const t = useT();
   const meta = typeMeta(project.type);
   return (
     <a
@@ -135,7 +144,7 @@ function JoinedCard({ project }) {
       <div className="ch-pcard-top">
         <span className={`ch-pcard-badge ${meta.cls}`}>
           <i />
-          {meta.label}
+          {t(meta.labelKey)}
         </span>
         <span
           style={{
@@ -146,7 +155,7 @@ function JoinedCard({ project }) {
             color: "var(--green)",
           }}
         >
-          On the team
+          {t("projects.on_the_team")}
         </span>
       </div>
       <div className="ch-pcard-nm">{project.name}</div>
@@ -161,10 +170,12 @@ function JoinedCard({ project }) {
             color: "var(--muted-strong)",
           }}
         >
-          {project.member_count || 0} {(project.member_count || 0) === 1 ? "member" : "members"}
+          {(project.member_count || 0) === 1
+            ? t("projects.member_one", { n: project.member_count || 0 })
+            : t("projects.member_many", { n: project.member_count || 0 })}
         </span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)" }}>
-          Open →
+          {t("projects.open_arrow")} →
         </span>
       </div>
     </a>
@@ -208,6 +219,7 @@ function FunnelTile({ label, value, accent }) {
 }
 
 function FunnelStrip({ fallback }) {
+  const t = useT();
   const [totals, setTotals] = useState(null);
 
   useEffect(() => {
@@ -233,16 +245,16 @@ function FunnelStrip({ fallback }) {
   // than the vanity "Views" number, so the eye lands on what needs a decision.
   const tiles = hasFunnel
     ? [
-        { label: "Projects", value: totals.project_count },
-        { label: "Views", value: totals.views },
-        { label: "Applications", value: totals.applications },
-        { label: "Accepted", value: totals.accepted },
-        { label: "Pending", value: totals.pending, accent: (totals.pending || 0) > 0 },
+        { label: t("projects.funnel_projects"), value: totals.project_count },
+        { label: t("projects.funnel_views"), value: totals.views },
+        { label: t("projects.funnel_applications"), value: totals.applications },
+        { label: t("projects.funnel_accepted"), value: totals.accepted },
+        { label: t("projects.funnel_pending"), value: totals.pending, accent: (totals.pending || 0) > 0 },
       ]
     : [
-        { label: "Projects", value: fallback.projects },
-        { label: "Total views", value: fallback.views },
-        { label: "Hiring now", value: fallback.hiring, accent: (fallback.hiring || 0) > 0 },
+        { label: t("projects.funnel_projects"), value: fallback.projects },
+        { label: t("projects.funnel_total_views"), value: fallback.views },
+        { label: t("projects.funnel_hiring"), value: fallback.hiring, accent: (fallback.hiring || 0) > 0 },
       ];
 
   return (
@@ -261,22 +273,21 @@ function FunnelStrip({ fallback }) {
 }
 
 function EmptyState() {
+  const t = useT();
   return (
     <div className="ch-empty" style={{ marginTop: 28 }}>
-      <span className="ch-empty-k">Your workshop is empty</span>
-      <div className="ch-empty-t">You haven't started a project yet.</div>
-      <div className="ch-empty-s">
-        Every team on BFU began with one person lighting a window. Describe what
-        you want to build and let the city gather around it.
-      </div>
+      <span className="ch-empty-k">{t("projects.empty_mine_k")}</span>
+      <div className="ch-empty-t">{t("projects.empty_mine_t")}</div>
+      <div className="ch-empty-s">{t("projects.empty_mine_s")}</div>
       <a href="/projects/new" className="ch-btn-primary" style={{ marginTop: 8 }}>
-        Start one <span style={{ fontSize: 14 }}>→</span>
+        {t("projects.start_one")} <span style={{ fontSize: 14 }}>→</span>
       </a>
     </div>
   );
 }
 
 export default function MyProjectsList({ meId }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [projects, setProjects] = useState([]);
   const [justCreated, setJustCreated] = useState(null);
@@ -320,7 +331,7 @@ export default function MyProjectsList({ meId }) {
         style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }}
       >
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading your projects…
+        {t("projects.loading_yours")}
       </div>
     );
   }
@@ -329,12 +340,12 @@ export default function MyProjectsList({ meId }) {
     return (
       <div className="ch-empty" style={{ marginTop: 28 }}>
         <span className="ch-empty-k" style={{ color: "var(--terra)" }}>
-          Couldn't load
+          {t("projects.err_load_k")}
         </span>
-        <div className="ch-empty-t">We couldn't load your projects.</div>
+        <div className="ch-empty-t">{t("projects.err_load_t")}</div>
         <button type="button" className="ch-btn-primary" onClick={load} style={{ marginTop: 8 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 6 }}>↻</span>
-          Try again
+          {t("projects.try_again")}
         </button>
       </div>
     );
@@ -368,8 +379,7 @@ export default function MyProjectsList({ meId }) {
           }}
         >
           <span style={{ color: "var(--green)", fontSize: 16 }}>✓</span>
-          Submitted — your project is pending admin approval. It'll appear in the
-          city once approved.
+          {t("projects.just_created")}
         </div>
       ) : null}
 
@@ -383,8 +393,8 @@ export default function MyProjectsList({ meId }) {
           {owned.length > 0 && (
             <section>
               <div className="ch-slab" style={{ margin: "0 0 18px" }}>
-                <span className="ch-slab-k">Yours</span>
-                <h2>Projects you started</h2>
+                <span className="ch-slab-k">{t("projects.slab_yours_k")}</span>
+                <h2>{t("projects.slab_yours_h")}</h2>
                 <span className="ch-slab-line" />
               </div>
               <div className="ch-grid">
@@ -398,8 +408,8 @@ export default function MyProjectsList({ meId }) {
           {joined.length > 0 && (
             <section>
               <div className="ch-slab" style={{ margin: "0 0 18px" }}>
-                <span className="ch-slab-k">Joined</span>
-                <h2>Teams you're on</h2>
+                <span className="ch-slab-k">{t("projects.slab_joined_k")}</span>
+                <h2>{t("projects.slab_joined_h")}</h2>
                 <span className="ch-slab-line" />
               </div>
               <div className="ch-grid">

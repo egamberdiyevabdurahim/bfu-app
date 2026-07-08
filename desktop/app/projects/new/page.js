@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -18,6 +19,8 @@ export default async function NewProjectPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   // Region options for the multi-select (public, ISR-cached).
   const regions = await getRegions();
 
@@ -33,7 +36,7 @@ export default async function NewProjectPage() {
               color: "var(--amber)",
             }}
           >
-            Light a new window
+            {t("projmanage.new_eyebrow")}
           </div>
           <h1
             style={{
@@ -47,7 +50,7 @@ export default async function NewProjectPage() {
               overflowWrap: "break-word",
             }}
           >
-            Start a{" "}
+            {t("projmanage.new_title_prefix")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -56,7 +59,7 @@ export default async function NewProjectPage() {
                 color: "var(--amber)",
               }}
             >
-              project
+              {t("projmanage.new_title_accent")}
             </span>
           </h1>
           <p
@@ -70,14 +73,13 @@ export default async function NewProjectPage() {
               maxWidth: 560,
             }}
           >
-            Describe what you&rsquo;re building. Once it&rsquo;s approved, the city
-            can find it — and builders can ask to join.
+            {t("projmanage.new_lede")}
           </p>
         </div>
 
         <CreateProjectForm regions={regions} mode="create" />
 
-        <SiteFooter tagline="Every window in the city started as one person's idea." />
+        <SiteFooter tagline={t("projmanage.new_footer")} />
     </AppTopBar>
   );
 }

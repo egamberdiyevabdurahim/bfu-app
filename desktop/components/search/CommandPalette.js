@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // CommandPalette — the app-wide ⌘K / Ctrl-K search overlay.
 //
@@ -23,15 +24,16 @@ import { gradientFor, initials } from "@/lib/avatar";
 const DEBOUNCE_MS = 200;
 
 // Static quick-actions shown when the query is empty (command-palette feel).
-// Every href is a real, existing route in this app.
+// Every href is a real, existing route in this app. Labels are i18n keys,
+// resolved to the current language where the rows are built.
 const QUICK_ACTIONS = [
-  { id: "new", href: "/projects/new", title: "Start a project", subtitle: "Post a startup or volunteering brief", icon: "＋" },
-  { id: "city", href: "/city", title: "Go to City", subtitle: "Discover builders", icon: "✦" },
-  { id: "projects", href: "/projects", title: "Browse projects", subtitle: "Startups & volunteering", icon: "◆" },
-  { id: "mentors", href: "/mentors", title: "Mentors", subtitle: "Book a session", icon: "◈" },
-  { id: "events", href: "/events", title: "Events", subtitle: "Hackathons, grants, meetups", icon: "✧" },
-  { id: "mine", href: "/projects/mine", title: "Your projects", subtitle: "Manage what you founded", icon: "❖" },
-  { id: "connections", href: "/connections", title: "Connections", subtitle: "People you're linked with", icon: "❋" },
+  { id: "new", href: "/projects/new", titleKey: "misc.qa_new_title", subtitleKey: "misc.qa_new_sub", icon: "＋" },
+  { id: "city", href: "/city", titleKey: "misc.qa_city_title", subtitleKey: "misc.qa_city_sub", icon: "✦" },
+  { id: "projects", href: "/projects", titleKey: "misc.qa_projects_title", subtitleKey: "misc.qa_projects_sub", icon: "◆" },
+  { id: "mentors", href: "/mentors", titleKey: "misc.qa_mentors_title", subtitleKey: "misc.qa_mentors_sub", icon: "◈" },
+  { id: "events", href: "/events", titleKey: "misc.qa_events_title", subtitleKey: "misc.qa_events_sub", icon: "✧" },
+  { id: "mine", href: "/projects/mine", titleKey: "misc.qa_mine_title", subtitleKey: "misc.qa_mine_sub", icon: "❖" },
+  { id: "connections", href: "/connections", titleKey: "misc.qa_connections_title", subtitleKey: "misc.qa_connections_sub", icon: "❋" },
 ];
 
 function ProjectIcon({ type }) {
@@ -59,6 +61,7 @@ function PersonAvatar({ person }) {
 
 export default function CommandPalette() {
   const router = useRouter();
+  const t = useT();
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -156,12 +159,12 @@ export default function CommandPalette() {
     if (showActions) {
       return QUICK_ACTIONS.map((a) => ({
         kind: "action", key: `a-${a.id}`, href: a.href,
-        title: a.title, subtitle: a.subtitle, icon: a.icon,
+        title: t(a.titleKey), subtitle: t(a.subtitleKey), icon: a.icon,
       }));
     }
     const people = (results?.people || []).map((p) => ({
       kind: "person", key: `u-${p.id}`, href: `/u/${p.id}`,
-      title: p.display_name || p.name || "Member",
+      title: p.display_name || p.name || t("misc.member"),
       subtitle: p.region || null, person: p,
     }));
     const projects = (results?.projects || []).map((p) => ({
@@ -169,7 +172,7 @@ export default function CommandPalette() {
       title: p.name, subtitle: p.goal || null, type: p.type, hiring: p.is_hiring,
     }));
     return [...people, ...projects];
-  }, [showActions, results]);
+  }, [showActions, results, t]);
 
   // Reset the highlight whenever the visible set changes.
   useEffect(() => {
@@ -272,7 +275,7 @@ export default function CommandPalette() {
         <span className="cmdk-row-body">
           <span className="cmdk-row-title">
             {it.title}
-            {it.kind === "project" && it.hiring && <span className="cmdk-tag">Hiring</span>}
+            {it.kind === "project" && it.hiring && <span className="cmdk-tag">{t("misc.hiring")}</span>}
           </span>
           {it.subtitle && <span className="cmdk-row-sub">{it.subtitle}</span>}
         </span>
@@ -289,7 +292,7 @@ export default function CommandPalette() {
       className="cmdk-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Search"
+      aria-label={t("misc.search_dialog")}
       onClick={(e) => {
         if (e.target === overlayRef.current) close();
       }}
@@ -305,8 +308,8 @@ export default function CommandPalette() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="cmdk-input"
-            placeholder="Search people, projects…"
-            aria-label="Search people and projects"
+            placeholder={t("misc.search_placeholder")}
+            aria-label={t("misc.search_aria")}
             autoComplete="off"
             spellCheck={false}
           />
@@ -317,27 +320,27 @@ export default function CommandPalette() {
         <div className="cmdk-body">
           {showActions ? (
             <div className="cmdk-group">
-              <div className="cmdk-grouplabel">Jump to</div>
+              <div className="cmdk-grouplabel">{t("misc.jump_to")}</div>
               {items.map(renderRow)}
             </div>
           ) : (
             <>
-              {loading && !results && <div className="cmdk-note">Searching…</div>}
+              {loading && !results && <div className="cmdk-note">{t("misc.searching")}</div>}
               {peopleRows.length > 0 && (
                 <div className="cmdk-group">
-                  <div className="cmdk-grouplabel">People</div>
+                  <div className="cmdk-grouplabel">{t("misc.group_people")}</div>
                   {peopleRows.map(renderRow)}
                 </div>
               )}
               {projectRows.length > 0 && (
                 <div className="cmdk-group">
-                  <div className="cmdk-grouplabel">Projects</div>
+                  <div className="cmdk-grouplabel">{t("misc.group_projects")}</div>
                   {projectRows.map(renderRow)}
                 </div>
               )}
               {isEmpty && (
                 <div className="cmdk-note">
-                  No results for “{q.trim()}”
+                  {t("misc.no_results", { q: q.trim() })}
                 </div>
               )}
             </>
@@ -347,13 +350,13 @@ export default function CommandPalette() {
         <div className="cmdk-foot">
           <span>
             <kbd>↑</kbd>
-            <kbd>↓</kbd> to navigate
+            <kbd>↓</kbd> {t("misc.foot_navigate")}
           </span>
           <span>
-            <kbd>↵</kbd> to open
+            <kbd>↵</kbd> {t("misc.foot_open")}
           </span>
           <span>
-            <kbd>Esc</kbd> to close
+            <kbd>Esc</kbd> {t("misc.foot_close")}
           </span>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import BookingsList from "@/components/community/BookingsList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -18,6 +19,7 @@ export const metadata = {
 export default async function BookingsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
+  const { t } = await getT();
 
   return (
     <AppTopBar active="sessions" me={me}>
@@ -31,7 +33,7 @@ export default async function BookingsPage() {
               color: "var(--amber)",
             }}
           >
-            Fifteen minutes, well spent
+            {t("community.bookings.kicker")}
           </div>
           <h1
             style={{
@@ -44,7 +46,7 @@ export default async function BookingsPage() {
               color: "var(--text)",
             }}
           >
-            Your{" "}
+            {t("community.bookings.titleLead")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -53,7 +55,7 @@ export default async function BookingsPage() {
                 color: "var(--amber)",
               }}
             >
-              sessions
+              {t("community.bookings.titleAccent")}
             </span>
           </h1>
           <p
@@ -67,13 +69,13 @@ export default async function BookingsPage() {
               maxWidth: 560,
             }}
           >
-            The conversations you've lined up — and the ones people want with you.
+            {t("community.bookings.subtitle")}
           </p>
         </div>
 
         <BookingsList />
 
-        <SiteFooter tagline="The best advice arrives on time." />
+        <SiteFooter tagline={t("community.bookings.footer")} />
     </AppTopBar>
   );
 }

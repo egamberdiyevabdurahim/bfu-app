@@ -11,6 +11,7 @@ import VouchesCell from "@/components/VouchesCell";
 import ConnectionsCell from "@/components/ConnectionsCell";
 import PersonActions from "@/components/people/PersonActions";
 import SiteFooter from "@/components/ui/SiteFooter";
+import { getT } from "@/lib/i18n/server";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route renders per-request rather than being statically cached.
@@ -52,6 +53,7 @@ export default async function ProfilePage({ params }) {
   const profile = await getPublicProfile(id);
   if (!profile) notFound();
 
+  const { t } = await getT();
   const host = profile.canonical_url?.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
   return (
@@ -89,7 +91,7 @@ export default async function ProfilePage({ params }) {
           </aside>
         </div>
 
-        <SiteFooter tagline="Someone is always building right now." host={host} />
+        <SiteFooter tagline={t("profile.footer_tagline")} host={host} />
 
         {/* Layout: rail beside the bento on wide screens, stacked below it once
             there isn't room for both. Because the rail steals ~360px, the bento

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Additive client island for the public /p/[id] project page. Calls the authed
 // GET /projects/{id}/conversation on mount — which find-or-creates the project's
@@ -10,6 +11,7 @@ import { bfu } from "@/lib/client-api";
 // else. Self-hides (renders nothing) unless the viewer is on the team, so anon
 // readers and non-members never see it. On click it opens the team chat thread.
 export default function TeamChatButton({ projectId }) {
+  const t = useT();
   const router = useRouter();
   const [convId, setConvId] = useState(null); // null until known / hidden
 
@@ -41,14 +43,14 @@ export default function TeamChatButton({ projectId }) {
         gap: 12,
       }}
     >
-      <div className="ch-cell-label">Team chat</div>
+      <div className="ch-cell-label">{t("messages.team_chat")}</div>
       <button
         type="button"
         className="ch-btn-primary"
         onClick={() => router.push(`/messages?c=${convId}`)}
         style={{ width: "100%", justifyContent: "center" }}
       >
-        <span aria-hidden>✉</span> Open team chat
+        <span aria-hidden>✉</span> {t("messages.open_team_chat")}
       </button>
     </div>
   );

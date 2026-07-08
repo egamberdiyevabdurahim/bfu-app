@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProjectManager from "@/components/projects/ProjectManager";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -20,13 +21,15 @@ export default async function ManageProjectPage({ params }) {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   return (
     <AppTopBar active="projects-mine" me={me}>
         <div style={{ marginTop: 8 }}>
           <ProjectManager projectId={id} meId={me.id} />
         </div>
 
-        <SiteFooter tagline="A good team is worth more than a good idea." />
+        <SiteFooter tagline={t("projmanage.manage_footer")} />
     </AppTopBar>
   );
 }

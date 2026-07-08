@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Small reusable 1–5 star input. Controlled if `value`+`onChange` are passed;
 // otherwise self-contained. Read-only mode shows a static rating. Firelit amber
@@ -17,6 +18,7 @@ export default function StarInput({
   size = 26,
   disabled = false,
 }) {
+  const t = useT();
   const [hover, setHover] = useState(0);
   const shown = hover || value;
 
@@ -59,7 +61,7 @@ export default function StarInput({
     <div
       style={{ display: "inline-flex", gap: 4 }}
       role={readOnly ? "img" : "radiogroup"}
-      aria-label={readOnly ? `${value} out of 5 stars` : "Rate 1 to 5 stars"}
+      aria-label={readOnly ? t("projmanage.stars_readonly_aria", { value }) : t("projmanage.stars_rate_aria")}
       aria-disabled={!readOnly && disabled ? "true" : undefined}
       onKeyDown={readOnly ? undefined : onKeyDown}
     >
@@ -86,7 +88,7 @@ export default function StarInput({
             type="button"
             role="radio"
             aria-checked={value === n}
-            aria-label={`${n} star${n > 1 ? "s" : ""}`}
+            aria-label={n > 1 ? t("projmanage.stars_many", { n }) : t("projmanage.stars_one", { n })}
             tabIndex={n === rovingIndex ? 0 : -1}
             disabled={disabled}
             onMouseEnter={() => !disabled && setHover(n)}

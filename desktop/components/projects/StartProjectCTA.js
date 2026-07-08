@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Small additive island for the public /projects browse page. Probes auth via
 // GET /users/me (through the authed proxy): when the reader is logged in it
@@ -9,6 +10,7 @@ import { bfu } from "@/lib/client-api";
 // nothing (the page stays a clean public discovery surface). Purely additive —
 // the SSR grid is untouched.
 export default function StartProjectCTA() {
+  const t = useT();
   // loading → reserve space; authed → show CTAs; anon/other → render nothing.
   const [state, setState] = useState("loading"); // loading | authed | hidden
 
@@ -46,10 +48,11 @@ export default function StartProjectCTA() {
       }}
     >
       <a href="/projects/mine" className="ch-btn-ghost">
-        <span style={{ fontSize: 15, color: "var(--amber)" }} aria-hidden>◆</span> Your projects
+        <span style={{ fontSize: 15, color: "var(--amber)" }} aria-hidden>◆</span>{" "}
+        {t("projects.your_projects")}
       </a>
       <a href="/projects/new" className="ch-btn-primary">
-        + Start a project
+        + {t("projects.start_project")}
       </a>
     </div>
   );

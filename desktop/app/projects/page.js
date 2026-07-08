@@ -1,4 +1,5 @@
 import { getProjects } from "@/lib/bfu-api";
+import { getT } from "@/lib/i18n/server";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import ProjectsHeader from "@/components/ProjectsHeader";
 import ProjectFilterBar from "@/components/ProjectFilterBar";
@@ -70,6 +71,7 @@ async function loadProjects() {
 }
 
 export default async function ProjectsPage() {
+  const { t } = await getT();
   const data = await loadProjects();
   const stats = data?.stats || {};
   const projects = Array.isArray(data?.projects) ? data.projects : [];
@@ -96,18 +98,15 @@ export default async function ProjectsPage() {
         ) : (
           <div style={{ marginTop: 40 }}>
             <div className="ch-empty">
-              <span className="ch-empty-k">The workshop is quiet</span>
-              <div className="ch-empty-t">Post the first project.</div>
-              <div className="ch-empty-s">
-                The city grows around whoever shows up. Light the first window —
-                a startup or a volunteering effort — and others will gather.
-              </div>
+              <span className="ch-empty-k">{t("projects.empty_quiet_k")}</span>
+              <div className="ch-empty-t">{t("projects.empty_quiet_t")}</div>
+              <div className="ch-empty-s">{t("projects.empty_quiet_s")}</div>
             </div>
           </div>
         )}
 
         <SiteFooter
-          tagline="Every great thing started as someone's project."
+          tagline={t("projects.footer_tagline")}
           host="brightfuturesuzbekistan.uz"
         />
     </SiteTopBar>

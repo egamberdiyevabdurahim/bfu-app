@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Shared create/edit form for a BFU project, in the Chorsu firelit grammar.
 // Reused by:
@@ -69,6 +70,7 @@ function Section({ label, hint, children, style }) {
 
 // A labelled chip editor: type + Enter (or "Add") to append, × to remove.
 function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
+  const t = useT();
   const [draft, setDraft] = useState("");
   // Brief inline notice when a duplicate is typed, so the cleared draft doesn't
   // read as "nothing happened".
@@ -79,7 +81,7 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
     if (!v) return;
     // Case-insensitive dedupe with visible feedback.
     if (items.some((x) => x.toLowerCase() === v.toLowerCase())) {
-      setDupe(`"${v}" is already added.`);
+      setDupe(t("projmanage.chip_dupe", { value: v }));
       setDraft("");
       return;
     }
@@ -112,7 +114,7 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
               {it}
               <button
                 type="button"
-                aria-label={`Remove ${it}`}
+                aria-label={t("projmanage.chip_remove_aria", { item: it })}
                 onClick={() => onChange(items.filter((_, j) => j !== i))}
                 style={{
                   display: "inline-flex",
@@ -155,7 +157,7 @@ function ChipEditor({ items, onChange, placeholder, accent = "var(--amber)" }) {
           style={{ ...inputBase, flex: 1 }}
         />
         <button type="button" className="ch-btn-ghost" onClick={add}>
-          <span style={{ color: accent }}>+</span> Add
+          <span style={{ color: accent }}>+</span> {t("projmanage.chip_add")}
         </button>
       </div>
       {dupe ? (
@@ -307,6 +309,7 @@ function serializeBody(init) {
 // req_regions [{region_id}], req_skills [{skill_name}], req_knowledges
 // [{knowledge_name}] — we normalize those into flat state below.
 export default function CreateProjectForm({ regions = [], mode = "create", initial = null }) {
+  const t = useT();
   const router = useRouter();
   const isEdit = mode === "edit";
   const regionOptions = Array.isArray(regions) ? regions : [];
@@ -373,22 +376,22 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
   async function submit() {
     setError("");
     if (!nameOk) {
-      setError("Give your project a name (at least 3 characters).");
+      setError(t("projmanage.form_err_name"));
       return;
     }
     const from = ageFrom.trim() === "" ? null : Number(ageFrom);
     const to = ageTo.trim() === "" ? null : Number(ageTo);
     // Client-side age-bound validation before the network call.
     if (from != null && (!Number.isFinite(from) || from < 13 || from > 100)) {
-      setError("Minimum age should be between 13 and 100.");
+      setError(t("projmanage.form_err_min_age"));
       return;
     }
     if (to != null && (!Number.isFinite(to) || to < 13 || to > 100)) {
-      setError("Maximum age should be between 13 and 100.");
+      setError(t("projmanage.form_err_max_age"));
       return;
     }
     if (from != null && to != null && from > to) {
-      setError("The minimum age can't be higher than the maximum age.");
+      setError(t("projmanage.form_err_age_range"));
       return;
     }
     const body = buildBody();
@@ -407,7 +410,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
         req_knowledges: [...body.req_knowledges].sort(),
       });
       if (currentBody === initialBody) {
-        showToast("No changes to save.");
+        showToast(t("projmanage.form_no_changes"));
         return;
       }
     }
@@ -434,94 +437,94 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       }
     } catch (err) {
       setState("error");
-      setError(err?.message || "Something went wrong. Please try again.");
+      setError(err?.message || t("projmanage.form_err_generic"));
     }
   }
 
   const typeOptions = [
-    { value: "startup", label: "Startup", bg: "rgba(232,161,92,0.16)", fg: "var(--amber)", dot: "var(--amber)" },
-    { value: "volunteering", label: "Volunteering", bg: "rgba(127,176,105,0.16)", fg: "var(--green)", dot: "var(--green)" },
+    { value: "startup", label: t("projmanage.type_startup"), bg: "rgba(232,161,92,0.16)", fg: "var(--amber)", dot: "var(--amber)" },
+    { value: "volunteering", label: t("projmanage.type_volunteering"), bg: "rgba(127,176,105,0.16)", fg: "var(--green)", dot: "var(--green)" },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 780 }}>
       {/* Type — create only (immutable after) */}
       {!isEdit && (
-        <Section label="What are you building?" hint="Startups can hire paid teammates; volunteering gathers community hands.">
+        <Section label={t("projmanage.form_type_label")} hint={t("projmanage.form_type_hint")}>
           <Segmented value={type} onChange={setType} options={typeOptions} />
         </Section>
       )}
 
       {/* Name + goal */}
-      <Section label="The essentials" hint="A clear name and a one-line goal are what the city sees first.">
+      <Section label={t("projmanage.form_essentials_label")} hint={t("projmanage.form_essentials_hint")}>
         <label style={{ display: "block" }}>
-          <span style={fieldLabel}>Project name</span>
+          <span style={fieldLabel}>{t("projmanage.form_name_label")}</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
-            placeholder="e.g. Bazaar Runner — same-day delivery for Chorsu sellers"
+            placeholder={t("projmanage.form_name_placeholder")}
             style={inputBase}
           />
           {name.length > 0 && !nameOk ? (
             <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--muted-strong)" }}>
-              At least 3 characters.
+              {t("projmanage.form_name_min")}
             </span>
           ) : null}
         </label>
         <label style={{ display: "block" }}>
-          <span style={fieldLabel}>One-line goal</span>
+          <span style={fieldLabel}>{t("projmanage.form_goal_label")}</span>
           <input
             type="text"
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             maxLength={200}
-            placeholder="What will exist when this works?"
+            placeholder={t("projmanage.form_goal_placeholder")}
             style={inputBase}
           />
         </label>
       </Section>
 
       {/* About */}
-      <Section label="Tell the story" hint="What you're making, why it matters, and where you are now.">
+      <Section label={t("projmanage.form_story_label")} hint={t("projmanage.form_story_hint")}>
         <textarea
           value={about}
           onChange={(e) => setAbout(e.target.value)}
           rows={6}
           maxLength={4000}
-          placeholder="The longer description builders read before they decide to join…"
+          placeholder={t("projmanage.form_story_placeholder")}
           style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
         />
       </Section>
 
       {/* Hiring */}
-      <Section label="Are you hiring?" hint="Turn this on to accept applications from builders across Uzbekistan.">
+      <Section label={t("projmanage.form_hiring_label")} hint={t("projmanage.form_hiring_hint")}>
         <Toggle
           on={isHiring}
           onChange={setIsHiring}
-          label="Open to applications"
-          sub="Builders can apply to join your team."
+          label={t("projmanage.form_hiring_toggle")}
+          sub={t("projmanage.form_hiring_toggle_sub")}
         />
       </Section>
 
       {/* Required skills */}
-      <Section label="Skills you're looking for" hint="Optional — the abilities a teammate should bring. Type and press Enter.">
-        <ChipEditor items={skills} onChange={setSkills} placeholder="e.g. Flutter, growth, illustration" />
+      <Section label={t("projmanage.form_skills_label")} hint={t("projmanage.form_skills_hint")}>
+        <ChipEditor items={skills} onChange={setSkills} placeholder={t("projmanage.form_skills_placeholder")} />
       </Section>
 
       {/* Required knowledges */}
-      <Section label="Domains that help" hint="Optional — fields or subject areas relevant to the work." style={{}}>
+      <Section label={t("projmanage.form_domains_label")} hint={t("projmanage.form_domains_hint")} style={{}}>
         <ChipEditor
           items={knowledges}
           onChange={setKnowledges}
-          placeholder="e.g. logistics, education, fintech"
+          placeholder={t("projmanage.form_domains_placeholder")}
           accent="var(--teal-bright)"
         />
       </Section>
 
       {/* Regions */}
-      <Section label="Regions" hint="Optional — leave empty to welcome builders from anywhere. Selecting regions narrows who fits.">
+      <Section label={t("projmanage.form_regions_label")} hint={t("projmanage.form_regions_hint")}>
         {regionOptions.length ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {regionOptions.map((r) => {
@@ -552,15 +555,15 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 13, color: "var(--muted-strong)" }}>Region list unavailable right now.</div>
+          <div style={{ fontSize: 13, color: "var(--muted-strong)" }}>{t("projmanage.form_regions_unavailable")}</div>
         )}
       </Section>
 
       {/* Age + gender (optional) */}
-      <Section label="Who can join" hint="Optional constraints — most projects leave these open.">
+      <Section label={t("projmanage.form_whocanjoin_label")} hint={t("projmanage.form_whocanjoin_hint")}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <label style={{ flex: "1 1 120px" }}>
-            <span style={fieldLabel}>Min age</span>
+            <span style={fieldLabel}>{t("projmanage.form_min_age")}</span>
             <input
               type="number"
               min={13}
@@ -572,7 +575,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
             />
           </label>
           <label style={{ flex: "1 1 120px" }}>
-            <span style={fieldLabel}>Max age</span>
+            <span style={fieldLabel}>{t("projmanage.form_max_age")}</span>
             <input
               type="number"
               min={13}
@@ -584,15 +587,15 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
             />
           </label>
           <label style={{ flex: "1 1 160px" }}>
-            <span style={fieldLabel}>Gender</span>
+            <span style={fieldLabel}>{t("projmanage.form_gender")}</span>
             <select
               value={genderReq}
               onChange={(e) => setGenderReq(e.target.value)}
               style={{ ...inputBase, cursor: "pointer", appearance: "none", colorScheme: "dark" }}
             >
-              <option value="">Any</option>
-              <option value="Male">Male only</option>
-              <option value="Female">Female only</option>
+              <option value="">{t("projmanage.form_gender_any")}</option>
+              <option value="Male">{t("projmanage.form_gender_male")}</option>
+              <option value="Female">{t("projmanage.form_gender_female")}</option>
             </select>
           </label>
         </div>
@@ -621,10 +624,10 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
           {error ? (
             <span style={{ fontSize: 13, color: "var(--terra)" }}>{error}</span>
           ) : isEdit ? (
-            <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>Editing your project.</span>
+            <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>{t("projmanage.form_editing")}</span>
           ) : (
             <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
-              New projects go live after a quick admin approval.
+              {t("projmanage.form_new_note")}
             </span>
           )}
         </div>
@@ -640,7 +643,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
                   : undefined
               }
             >
-              Cancel
+              {t("projmanage.cancel")}
             </a>
           )}
           <button
@@ -655,12 +658,12 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
           >
             {state === "saving" ? (
               <>
-                <span className="ch-spin" aria-hidden>◠</span> {isEdit ? "Saving…" : "Submitting…"}
+                <span className="ch-spin" aria-hidden>◠</span> {isEdit ? t("projmanage.saving") : t("projmanage.form_submitting")}
               </>
             ) : isEdit ? (
-              "Save changes"
+              t("projmanage.form_save_changes")
             ) : (
-              "Create project"
+              t("projmanage.form_create_project")
             )}
           </button>
         </div>

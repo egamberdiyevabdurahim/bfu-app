@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import EventsBrowser from "@/components/community/EventsBrowser";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -18,6 +19,7 @@ export const metadata = {
 export default async function EventsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
+  const { t } = await getT();
 
   return (
     <AppTopBar active="events" me={me}>
@@ -31,7 +33,7 @@ export default async function EventsPage() {
               color: "var(--amber)",
             }}
           >
-            Doors worth walking through
+            {t("community.events.kicker")}
           </div>
           <h1
             style={{
@@ -44,7 +46,7 @@ export default async function EventsPage() {
               color: "var(--text)",
             }}
           >
-            The{" "}
+            {t("community.events.titleLead")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -53,7 +55,7 @@ export default async function EventsPage() {
                 color: "var(--amber)",
               }}
             >
-              events
+              {t("community.events.titleAccent")}
             </span>
           </h1>
           <p
@@ -67,13 +69,13 @@ export default async function EventsPage() {
               maxWidth: 560,
             }}
           >
-            Hackathons, grants, scholarships and meetups — some picked just for you.
+            {t("community.events.subtitle")}
           </p>
         </div>
 
         <EventsBrowser />
 
-        <SiteFooter tagline="The right door, at the right time." />
+        <SiteFooter tagline={t("community.events.footer")} />
     </AppTopBar>
   );
 }

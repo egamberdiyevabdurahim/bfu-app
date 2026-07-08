@@ -1,10 +1,12 @@
-const LABELS = {
-  work: "Open to co-founder / team opportunities",
-  volunteering: "Open to volunteering",
-  both: "Open to co-founder opportunities and volunteering",
-};
+"use client";
+
+import { useT } from "@/components/i18n/LocaleProvider";
+
+// Known "looking for" ids — labels resolve at render via t(`profile.looking_${id}`).
+const KNOWN = ["work", "volunteering", "both"];
 
 export default function LookingForCell({ lookingFor }) {
+  const t = useT();
   if (!lookingFor) return null;
 
   return (
@@ -16,11 +18,11 @@ export default function LookingForCell({ lookingFor }) {
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)",
           boxShadow: "0 0 12px rgba(127,176,105,0.8)" }} />
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.16em",
-          textTransform: "uppercase", color: "var(--green)" }}>Looking for</span>
+          textTransform: "uppercase", color: "var(--green)" }}>{t("profile.looking_for")}</span>
       </div>
       <p style={{ margin: "16px 0 0", fontSize: 20, lineHeight: 1.4, color: "var(--text)",
         fontFamily: "var(--font-display)", fontWeight: 500 }}>
-        {LABELS[lookingFor]}
+        {KNOWN.includes(lookingFor) ? t(`profile.looking_${lookingFor}`) : null}
       </p>
     </div>
   );

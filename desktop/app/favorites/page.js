@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import FavoritesList from "@/components/projects/FavoritesList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -18,6 +19,8 @@ export default async function FavoritesPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   return (
     <AppTopBar active="favorites" me={me}>
         <div style={{ marginTop: 8, marginBottom: 30 }}>
@@ -30,7 +33,7 @@ export default async function FavoritesPage() {
               color: "var(--amber)",
             }}
           >
-            Your quiet shelf
+            {t("projmanage.fav_eyebrow")}
           </div>
           <h1
             style={{
@@ -44,7 +47,7 @@ export default async function FavoritesPage() {
               overflowWrap: "break-word",
             }}
           >
-            Saved{" "}
+            {t("projmanage.fav_title_prefix")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -53,7 +56,7 @@ export default async function FavoritesPage() {
                 color: "var(--amber)",
               }}
             >
-              projects
+              {t("projmanage.fav_title_accent")}
             </span>
           </h1>
           <p
@@ -67,13 +70,13 @@ export default async function FavoritesPage() {
               maxWidth: 560,
             }}
           >
-            The projects you tapped the heart on &mdash; things worth coming back to.
+            {t("projmanage.fav_lede")}
           </p>
         </div>
 
         <FavoritesList />
 
-        <SiteFooter tagline="The best ideas are worth a second look." />
+        <SiteFooter tagline={t("projmanage.fav_footer")} />
     </AppTopBar>
   );
 }

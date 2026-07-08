@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import Messenger from "@/components/messages/Messenger";
 
@@ -20,6 +21,8 @@ export default async function MessagesPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   return (
     <AppTopBar active="messages" me={me}>
       <div style={{ marginTop: 8, marginBottom: 22 }}>
@@ -32,7 +35,7 @@ export default async function MessagesPage() {
             color: "var(--amber)",
           }}
         >
-          Talk to the city, one thread at a time
+          {t("messages.page_eyebrow")}
         </div>
         <h1
           style={{
@@ -45,7 +48,7 @@ export default async function MessagesPage() {
             color: "var(--text)",
           }}
         >
-          Your{" "}
+          {t("messages.page_title_prefix")}{" "}
           <span
             style={{
               fontFamily: "var(--font-accent)",
@@ -54,7 +57,7 @@ export default async function MessagesPage() {
               color: "var(--amber)",
             }}
           >
-            messages
+            {t("messages.page_title_accent")}
           </span>
         </h1>
       </div>
@@ -62,7 +65,7 @@ export default async function MessagesPage() {
       <Suspense
         fallback={
           <div style={{ color: "var(--muted-strong)", fontSize: 14, padding: 40, textAlign: "center" }}>
-            <span className="ch-spin" aria-hidden>◠</span> Loading messages…
+            <span className="ch-spin" aria-hidden>◠</span> {t("messages.loading")}
           </div>
         }
       >

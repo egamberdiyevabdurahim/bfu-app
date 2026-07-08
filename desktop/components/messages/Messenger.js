@@ -6,6 +6,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // The in-app messenger. Two-pane on desktop (conversation list left, thread
 // right); single-column on mobile (list → thread with a back arrow). Reads
@@ -75,12 +76,13 @@ function ProjectGlyph({ size = 40 }) {
   );
 }
 
-function convTitle(c) {
-  if (c.kind === "project") return c.project?.name || "Team chat";
-  return c.other?.display_name || "Conversation";
+function convTitle(c, t) {
+  if (c.kind === "project") return c.project?.name || t("messages.team_chat");
+  return c.other?.display_name || t("messages.conversation_fallback");
 }
 
 export default function Messenger({ meId }) {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const { toast, flash } = useToast(3200);
@@ -249,12 +251,12 @@ export default function Messenger({ meId }) {
       requestAnimationFrame(() => composerRef.current?.focus());
     } catch (e) {
       if (e?.status === 429) {
-        flash("Slow down — you're sending messages too fast.", "error");
+        flash(t("messages.toast_too_fast"), "error");
       } else if (e?.status === 403) {
         setBlockedLocal(true);
-        flash("Messaging is unavailable in this conversation.", "error");
+        flash(t("messages.toast_unavailable"), "error");
       } else {
-        flash(e?.message || "Couldn't send your message.", "error");
+        flash(e?.message || t("messages.toast_send_failed"), "error");
       }
     } finally {
       setSending(false);
@@ -304,14 +306,14 @@ export default function Messenger({ meId }) {
       if (blockedLocal) {
         await bfu(`/users/${otherId}/block`, { method: "DELETE" });
         setBlockedLocal(false);
-        flash("Unblocked.");
+        flash(t("messages.toast_unblocked"));
       } else {
         await bfu(`/users/${otherId}/block`, { method: "POST" });
         setBlockedLocal(true);
-        flash("Blocked. They can no longer message you.");
+        flash(t("messages.toast_blocked"));
       }
     } catch (e) {
-      flash(e?.message || "Couldn't update block.", "error");
+      flash(e?.message || t("messages.toast_block_failed"), "error");
     }
   }
 
@@ -319,7 +321,7 @@ export default function Messenger({ meId }) {
     // Report the most recent message NOT sent by me.
     const incoming = [...messages].reverse().find((m) => m.sender_id !== meId);
     if (!incoming) {
-      flash("Nothing to report yet.");
+      flash(t("messages.toast_nothing_report"));
       setShowReport(false);
       return;
     }
@@ -331,9 +333,9 @@ export default function Messenger({ meId }) {
       setShowReport(false);
       setReportReason("");
       setMenuOpen(false);
-      flash("Report sent. Thank you.");
+      flash(t("messages.toast_report_sent"));
     } catch (e) {
-      flash(e?.message || "Couldn't send the report.", "error");
+      flash(e?.message || t("messages.toast_report_failed"), "error");
     }
   }
 
@@ -357,34 +359,35 @@ export default function Messenger({ meId }) {
   const ListPane = (
     <div className="msg-list">
       <div className="msg-list-head">
-        <span className="ch-cell-label" style={{ margin: 0 }}>Conversations</span>
+        <span className="ch-cell-label" style={{ margin: 0 }}>{t("messages.list_heading")}</span>
       </div>
       <div className="msg-list-body">
         {listState === "loading" && conversations === null && (
           <div className="msg-hint">
-            <span className="ch-spin" aria-hidden>◠</span> Loading conversations…
+            <span className="ch-spin" aria-hidden>◠</span> {t("messages.loading_conversations")}
           </div>
         )}
         {listState === "error" && (
           <div className="msg-hint" style={{ color: "var(--terra)" }}>
-            Couldn&rsquo;t load conversations.{" "}
-            <button type="button" className="msg-linkbtn" onClick={loadList}>Retry</button>
+            {t("messages.list_load_error")}{" "}
+            <button type="button" className="msg-linkbtn" onClick={loadList}>{t("messages.retry")}</button>
           </div>
         )}
         {Array.isArray(conversations) && conversations.length === 0 && (
           <div className="msg-empty">
             <div style={{ fontSize: 34 }} aria-hidden>✉️</div>
             <p style={{ margin: "10px 0 0", color: "var(--muted-strong)", fontSize: 14, lineHeight: 1.5 }}>
-              No conversations yet. Open someone&rsquo;s profile and tap{" "}
-              <b style={{ color: "var(--amber)" }}>Message</b> to start one.
+              {t("messages.empty_list_pre")}
+              <b style={{ color: "var(--amber)" }}>{t("messages.empty_list_cta")}</b>
+              {t("messages.empty_list_post")}
             </p>
           </div>
         )}
         {Array.isArray(conversations) &&
           conversations.map((c) => {
             const on = c.id === activeId;
-            const title = convTitle(c);
-            const preview = c.last_message?.body || "No messages yet";
+            const title = convTitle(c, t);
+            const preview = c.last_message?.body || t("messages.no_messages_preview");
             const when = c.last_message?.created_at ? relTime(c.last_message.created_at) : "";
             return (
               <button
@@ -427,13 +430,13 @@ export default function Messenger({ meId }) {
         <div className="msg-thread-empty">
           <div style={{ fontSize: 44 }} aria-hidden>💬</div>
           <p style={{ margin: "12px 0 0", color: "var(--muted-strong)", fontSize: 15 }}>
-            Select a conversation to start reading.
+            {t("messages.thread_empty_select")}
           </p>
         </div>
       ) : (
         <>
           <div className="msg-thread-head">
-            <button type="button" className="msg-back" onClick={backToList} aria-label="Back to conversations">
+            <button type="button" className="msg-back" onClick={backToList} aria-label={t("messages.back_aria")}>
               ‹
             </button>
             {active && (
@@ -442,7 +445,7 @@ export default function Messenger({ meId }) {
                   {active.kind === "project" ? (
                     <ProjectGlyph size={38} />
                   ) : (
-                    <Avatar id={active.other?.id} name={convTitle(active)} photoUrl={active.other?.photo_url} size={38} />
+                    <Avatar id={active.other?.id} name={convTitle(active, t)} photoUrl={active.other?.photo_url} size={38} />
                   )}
                 </span>
                 <div className="msg-thread-id">
@@ -451,14 +454,14 @@ export default function Messenger({ meId }) {
                       {active.other.display_name}
                     </a>
                   ) : (
-                    <span className="msg-thread-name">{convTitle(active)}</span>
+                    <span className="msg-thread-name">{convTitle(active, t)}</span>
                   )}
                   <span className="msg-thread-sub">
                     {active.kind === "project"
-                      ? "Team chat"
+                      ? t("messages.team_chat")
                       : active.other?.is_online
-                        ? "Online now"
-                        : "Direct message"}
+                        ? t("messages.online_now")
+                        : t("messages.direct_message")}
                   </span>
                 </div>
               </>
@@ -477,7 +480,7 @@ export default function Messenger({ meId }) {
                 {menuOpen && (
                   <div role="menu" className="msg-menu">
                     <button type="button" role="menuitem" className="msg-menu-item" onClick={toggleBlock}>
-                      {blockedLocal ? "Unblock" : "Block"}
+                      {blockedLocal ? t("messages.unblock") : t("messages.block")}
                     </button>
                     <button
                       type="button"
@@ -485,7 +488,7 @@ export default function Messenger({ meId }) {
                       className="msg-menu-item msg-menu-danger"
                       onClick={() => { setShowReport(true); setMenuOpen(false); }}
                     >
-                      Report
+                      {t("messages.report")}
                     </button>
                   </div>
                 )}
@@ -498,38 +501,38 @@ export default function Messenger({ meId }) {
               <textarea
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
-                placeholder="What's wrong? (optional)"
+                placeholder={t("messages.report_placeholder")}
                 rows={2}
                 className="msg-report-ta"
               />
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button type="button" className="msg-btn-ghost" onClick={() => setShowReport(false)}>Cancel</button>
-                <button type="button" className="msg-btn-ghost msg-btn-danger" onClick={submitReport}>Send report</button>
+                <button type="button" className="msg-btn-ghost" onClick={() => setShowReport(false)}>{t("messages.cancel")}</button>
+                <button type="button" className="msg-btn-ghost msg-btn-danger" onClick={submitReport}>{t("messages.send_report")}</button>
               </div>
             </div>
           )}
 
           <div className="msg-thread-body" ref={threadBodyRef}>
             {threadState === "loading" && (
-              <div className="msg-hint"><span className="ch-spin" aria-hidden>◠</span> Loading messages…</div>
+              <div className="msg-hint"><span className="ch-spin" aria-hidden>◠</span> {t("messages.loading_messages")}</div>
             )}
             {threadState === "error" && (
               <div className="msg-hint" style={{ color: "var(--terra)" }}>
-                Couldn&rsquo;t load messages.{" "}
-                <button type="button" className="msg-linkbtn" onClick={() => loadThread(activeId)}>Retry</button>
+                {t("messages.thread_load_error")}{" "}
+                <button type="button" className="msg-linkbtn" onClick={() => loadThread(activeId)}>{t("messages.retry")}</button>
               </div>
             )}
             {threadState === "ready" && hasMore && (
               <div style={{ textAlign: "center", padding: "4px 0 12px" }}>
                 <button type="button" className="msg-linkbtn" onClick={loadOlder} disabled={loadingMore}>
-                  {loadingMore ? "Loading…" : "Load earlier messages"}
+                  {loadingMore ? t("messages.loading_short") : t("messages.load_earlier")}
                 </button>
               </div>
             )}
             {threadState === "ready" && messages.length === 0 && (
               <div className="msg-empty" style={{ paddingTop: 40 }}>
                 <p style={{ margin: 0, color: "var(--muted-strong)", fontSize: 14 }}>
-                  No messages yet — say hello 👋
+                  {t("messages.thread_empty_hello")}
                 </p>
               </div>
             )}
@@ -541,7 +544,7 @@ export default function Messenger({ meId }) {
                 <div key={m.id} className={`msg-row${mine ? " msg-row-mine" : ""}`}>
                   <div className="msg-bubble-wrap">
                     {showSender && (
-                      <span className="msg-sender">{m.sender?.display_name || "Someone"}</span>
+                      <span className="msg-sender">{m.sender?.display_name || t("messages.sender_fallback")}</span>
                     )}
                     <div className={`msg-bubble${mine ? " msg-bubble-mine" : ""}`}>{m.body}</div>
                     <span className="msg-time">{relTime(m.created_at)}</span>
@@ -554,8 +557,8 @@ export default function Messenger({ meId }) {
           <div className="msg-composer">
             {blockedLocal ? (
               <div className="msg-blocked-note">
-                You&rsquo;ve blocked this person.{" "}
-                <button type="button" className="msg-linkbtn" onClick={toggleBlock}>Unblock</button>
+                {t("messages.blocked_note")}{" "}
+                <button type="button" className="msg-linkbtn" onClick={toggleBlock}>{t("messages.unblock")}</button>
               </div>
             ) : (
               <>
@@ -565,7 +568,7 @@ export default function Messenger({ meId }) {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value.slice(0, 4000))}
                   onKeyDown={onComposerKey}
-                  placeholder="Write a message…"
+                  placeholder={t("messages.composer_placeholder")}
                   rows={1}
                   disabled={sending}
                 />
@@ -574,9 +577,9 @@ export default function Messenger({ meId }) {
                   className="ch-btn-primary msg-send"
                   onClick={send}
                   disabled={sending || !draft.trim()}
-                  aria-label="Send message"
+                  aria-label={t("messages.send_aria")}
                 >
-                  {sending ? "…" : "Send"}
+                  {sending ? "…" : t("messages.send")}
                 </button>
               </>
             )}

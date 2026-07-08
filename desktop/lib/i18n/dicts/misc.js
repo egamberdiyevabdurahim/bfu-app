@@ -1,4 +1,144 @@
-// "misc" surface translations (flat dotted keys). Populated by the i18n pass.
-// Shape: { en: { "misc.key": "…" }, uz: {…}, ru: {…} }. Missing uz/ru keys fall
-// back to English (see ../translate.js).
-export const misc = { en: {}, uz: {}, ru: {} };
+// "misc" surface translations (shared nav + UI chrome + command palette).
+// Flat dotted keys, one table per language. Missing uz/ru keys fall back to
+// English (see ../translate.js). {placeholders} are interpolated at call sites.
+export const misc = {
+  en: {
+    // — Public nav —
+    "misc.nav_city": "City",
+    "misc.nav_projects": "Projects",
+    "misc.log_in": "Log in",
+
+    // — Site footer —
+    "misc.powered_by": "Powered by",
+
+    // — Pagination —
+    "misc.pagination": "Pagination",
+    "misc.prev": "Prev",
+    "misc.next": "Next",
+    "misc.previous_page": "Previous page",
+    "misc.next_page": "Next page",
+    "misc.page_n": "Page {n}",
+    "misc.range_of_total": "{from}–{to} of {total}",
+
+    // — Command palette: quick actions —
+    "misc.qa_new_title": "Start a project",
+    "misc.qa_new_sub": "Post a startup or volunteering brief",
+    "misc.qa_city_title": "Go to City",
+    "misc.qa_city_sub": "Discover builders",
+    "misc.qa_projects_title": "Browse projects",
+    "misc.qa_projects_sub": "Startups & volunteering",
+    "misc.qa_mentors_title": "Mentors",
+    "misc.qa_mentors_sub": "Book a session",
+    "misc.qa_events_title": "Events",
+    "misc.qa_events_sub": "Hackathons, grants, meetups",
+    "misc.qa_mine_title": "Your projects",
+    "misc.qa_mine_sub": "Manage what you founded",
+    "misc.qa_connections_title": "Connections",
+    "misc.qa_connections_sub": "People you're linked with",
+
+    // — Command palette: search UI —
+    "misc.search_dialog": "Search",
+    "misc.search_placeholder": "Search people, projects…",
+    "misc.search_aria": "Search people and projects",
+    "misc.jump_to": "Jump to",
+    "misc.searching": "Searching…",
+    "misc.group_people": "People",
+    "misc.group_projects": "Projects",
+    "misc.no_results": "No results for “{q}”",
+    "misc.foot_navigate": "to navigate",
+    "misc.foot_open": "to open",
+    "misc.foot_close": "to close",
+    "misc.hiring": "Hiring",
+    "misc.member": "Member",
+  },
+
+  uz: {
+    "misc.nav_city": "Shahar",
+    "misc.nav_projects": "Loyihalar",
+    "misc.log_in": "Kirish",
+
+    "misc.powered_by": "Hamkorlikda",
+
+    "misc.pagination": "Sahifalash",
+    "misc.prev": "Oldingi",
+    "misc.next": "Keyingi",
+    "misc.previous_page": "Oldingi sahifa",
+    "misc.next_page": "Keyingi sahifa",
+    "misc.page_n": "{n}-sahifa",
+    "misc.range_of_total": "{total} tadan {from}–{to}",
+
+    "misc.qa_new_title": "Loyiha boshlash",
+    "misc.qa_new_sub": "Startap yoki ko‘ngillilik e’lonini joylang",
+    "misc.qa_city_title": "Shaharga o‘tish",
+    "misc.qa_city_sub": "Bunyodkorlarni kashf eting",
+    "misc.qa_projects_title": "Loyihalarni ko‘rib chiqish",
+    "misc.qa_projects_sub": "Startaplar va ko‘ngillilik",
+    "misc.qa_mentors_title": "Mentorlar",
+    "misc.qa_mentors_sub": "Sessiyaga yoziling",
+    "misc.qa_events_title": "Tadbirlar",
+    "misc.qa_events_sub": "Xakatonlar, grantlar, uchrashuvlar",
+    "misc.qa_mine_title": "Loyihalaringiz",
+    "misc.qa_mine_sub": "O‘zingiz tashkil qilganlarni boshqaring",
+    "misc.qa_connections_title": "Aloqalar",
+    "misc.qa_connections_sub": "Siz bog‘langan odamlar",
+
+    "misc.search_dialog": "Qidirish",
+    "misc.search_placeholder": "Odamlar, loyihalarni qidiring…",
+    "misc.search_aria": "Odamlar va loyihalarni qidirish",
+    "misc.jump_to": "O‘tish",
+    "misc.searching": "Qidirilmoqda…",
+    "misc.group_people": "Odamlar",
+    "misc.group_projects": "Loyihalar",
+    "misc.no_results": "“{q}” bo‘yicha natija yo‘q",
+    "misc.foot_navigate": "harakatlanish uchun",
+    "misc.foot_open": "ochish uchun",
+    "misc.foot_close": "yopish uchun",
+    "misc.hiring": "Ishga olmoqda",
+    "misc.member": "A’zo",
+  },
+
+  ru: {
+    "misc.nav_city": "Город",
+    "misc.nav_projects": "Проекты",
+    "misc.log_in": "Войти",
+
+    "misc.powered_by": "При поддержке",
+
+    "misc.pagination": "Постраничная навигация",
+    "misc.prev": "Назад",
+    "misc.next": "Вперёд",
+    "misc.previous_page": "Предыдущая страница",
+    "misc.next_page": "Следующая страница",
+    "misc.page_n": "Страница {n}",
+    "misc.range_of_total": "{from}–{to} из {total}",
+
+    "misc.qa_new_title": "Создать проект",
+    "misc.qa_new_sub": "Опубликуйте стартап или волонтёрскую заявку",
+    "misc.qa_city_title": "Перейти в Город",
+    "misc.qa_city_sub": "Знакомьтесь с создателями",
+    "misc.qa_projects_title": "Просмотреть проекты",
+    "misc.qa_projects_sub": "Стартапы и волонтёрство",
+    "misc.qa_mentors_title": "Менторы",
+    "misc.qa_mentors_sub": "Записаться на сессию",
+    "misc.qa_events_title": "События",
+    "misc.qa_events_sub": "Хакатоны, гранты, митапы",
+    "misc.qa_mine_title": "Ваши проекты",
+    "misc.qa_mine_sub": "Управляйте тем, что создали",
+    "misc.qa_connections_title": "Связи",
+    "misc.qa_connections_sub": "Люди, с которыми вы связаны",
+
+    "misc.search_dialog": "Поиск",
+    "misc.search_placeholder": "Искать людей, проекты…",
+    "misc.search_aria": "Поиск людей и проектов",
+    "misc.jump_to": "Перейти к",
+    "misc.searching": "Поиск…",
+    "misc.group_people": "Люди",
+    "misc.group_projects": "Проекты",
+    "misc.no_results": "Нет результатов по запросу «{q}»",
+    "misc.foot_navigate": "для навигации",
+    "misc.foot_open": "чтобы открыть",
+    "misc.foot_close": "чтобы закрыть",
+    "misc.hiring": "Нанимает",
+    "misc.member": "Участник",
+  },
+};

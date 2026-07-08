@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Client-side "Saved" list. Loads GET /projects/favorites on mount (per-user,
 // uncacheable) → array of ProjectResponse. Renders each as a Chorsu project card
@@ -11,11 +12,12 @@ import { useToast } from "@/lib/useToast";
 //   DELETE /projects/{id}/favorite → 204  (optimistic remove from the list)
 
 function typeMeta(type) {
-  if (type === "volunteering") return { label: "Volunteering", cls: "ch-pcard-badge-volunteering" };
-  return { label: "Startup", cls: "ch-pcard-badge-startup" };
+  if (type === "volunteering") return { labelKey: "projmanage.type_volunteering", cls: "ch-pcard-badge-volunteering" };
+  return { labelKey: "projmanage.type_startup", cls: "ch-pcard-badge-startup" };
 }
 
 function SavedCard({ project, onUnsave, busy }) {
+  const t = useT();
   const meta = typeMeta(project.type);
   return (
     <a
@@ -26,7 +28,7 @@ function SavedCard({ project, onUnsave, busy }) {
       <div className="ch-pcard-top">
         <span className={`ch-pcard-badge ${meta.cls}`}>
           <i />
-          {meta.label}
+          {t(meta.labelKey)}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {project.is_hiring ? (
@@ -34,13 +36,13 @@ function SavedCard({ project, onUnsave, busy }) {
               <span className="ch-pcard-ping">
                 <i />
               </span>
-              Hiring
+              {t("projmanage.status_hiring")}
             </span>
           ) : null}
           <button
             type="button"
-            title="Remove from saved"
-            aria-label={`Remove ${project.name} from saved`}
+            title={t("projmanage.fav_remove_title")}
+            aria-label={t("projmanage.fav_remove_aria", { name: project.name })}
             disabled={busy}
             onClick={(e) => {
               // The card is an <a>; keep the click from navigating.
@@ -82,10 +84,13 @@ function SavedCard({ project, onUnsave, busy }) {
             color: "var(--muted-strong)",
           }}
         >
-          {project.member_count || 0} {(project.member_count || 0) === 1 ? "member" : "members"} · {project.view_count || 0} views
+          {(project.member_count || 0) === 1
+            ? t("projmanage.member_one", { n: project.member_count || 0 })
+            : t("projmanage.member_many", { n: project.member_count || 0 })}{" "}
+          · {t("projmanage.views_count", { n: project.view_count || 0 })}
         </span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)" }}>
-          Open →
+          {t("projmanage.open_link")} →
         </span>
       </div>
     </a>
@@ -93,39 +98,41 @@ function SavedCard({ project, onUnsave, busy }) {
 }
 
 function EmptyState() {
+  const t = useT();
   return (
     <div className="ch-empty" style={{ marginTop: 28 }}>
-      <span className="ch-empty-k">Nothing saved yet</span>
-      <div className="ch-empty-t">You haven't saved any projects.</div>
+      <span className="ch-empty-k">{t("projmanage.fav_empty_k")}</span>
+      <div className="ch-empty-t">{t("projmanage.fav_empty_t")}</div>
       <div className="ch-empty-s">
-        Tap the heart on any project to keep it here — the things you want to
-        come back to, gathered in one quiet place.
+        {t("projmanage.fav_empty_s")}
       </div>
       <a href="/city" className="ch-btn-primary" style={{ marginTop: 8 }}>
-        Explore the city <span style={{ fontSize: 14 }}>→</span>
+        {t("projmanage.fav_explore")} <span style={{ fontSize: 14 }}>→</span>
       </a>
     </div>
   );
 }
 
 function ErrorState({ onRetry }) {
+  const t = useT();
   return (
     <div className="ch-empty" style={{ marginTop: 28 }}>
       <span className="ch-empty-k" style={{ color: "var(--terra)" }}>
-        Couldn't load
+        {t("projmanage.fav_error_k")}
       </span>
-      <div className="ch-empty-t">We couldn't load your saved projects.</div>
+      <div className="ch-empty-t">{t("projmanage.fav_error_t")}</div>
       <button type="button" className="ch-btn-primary" onClick={onRetry} style={{ marginTop: 8 }}>
         <span className="ch-spin" aria-hidden style={{ marginRight: 6 }}>
           ↻
         </span>
-        Try again
+        {t("projmanage.try_again")}
       </button>
     </div>
   );
 }
 
 export default function FavoritesList() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [projects, setProjects] = useState([]);
   const [busyId, setBusyId] = useState(null);
@@ -161,11 +168,11 @@ export default function FavoritesList() {
     setProjects((list) => list.filter((p) => p.id !== id));
     try {
       await bfu(`/projects/${id}/favorite`, { method: "DELETE" });
-      flash("Removed from saved", "ok");
+      flash(t("projmanage.fav_removed"), "ok");
     } catch {
       // Roll back so the shelf reflects reality.
       if (aliveRef.current) setProjects(prev);
-      flash("Couldn't remove — try again", "err");
+      flash(t("projmanage.fav_remove_flash_error"), "err");
     } finally {
       if (aliveRef.current) setBusyId(null);
     }
@@ -181,7 +188,7 @@ export default function FavoritesList() {
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
           ◠
         </span>
-        Loading your saved projects…
+        {t("projmanage.fav_loading")}
       </div>
     );
   }

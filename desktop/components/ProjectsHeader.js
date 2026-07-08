@@ -1,6 +1,7 @@
 "use client";
 
 import { useCountUp } from "../lib/useCountUp";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Screen 4 (/projects) header. Mirrors CityHeader's grammar: a mono overline,
 // a Bricolage headline, an Instrument-Serif italic sub, and count-up stats
@@ -8,6 +9,7 @@ import { useCountUp } from "../lib/useCountUp";
 // inside the hook). When there are no projects, a warm quiet-state headline
 // invites the reader to post the first one.
 export default function ProjectsHeader({ stats = {} }) {
+  const t = useT();
   const total = Number(stats.total) || 0;
   const hiring = Number(stats.hiring) || 0;
 
@@ -38,7 +40,7 @@ export default function ProjectsHeader({ stats = {} }) {
             color: "var(--muted)",
           }}
         >
-          Uzbekistan · Projects
+          {t("projects.header_overline")}
         </div>
         <h1
           style={{
@@ -51,10 +53,11 @@ export default function ProjectsHeader({ stats = {} }) {
           }}
         >
           {empty ? (
-            "No projects lit yet"
+            t("projects.header_empty")
           ) : (
             <>
-              <span style={{ color: "var(--amber)" }}>{totalCount}</span> projects building tonight
+              <span style={{ color: "var(--amber)" }}>{totalCount}</span>{" "}
+              {t("projects.header_building")}
             </>
           )}
         </h1>
@@ -67,16 +70,14 @@ export default function ProjectsHeader({ stats = {} }) {
             color: "var(--muted)",
           }}
         >
-          {empty
-            ? "Be the first — every great thing started as someone's project."
-            : "Find your team. Pull a thread you can't unsee."}
+          {empty ? t("projects.header_empty_sub") : t("projects.header_sub")}
         </div>
       </div>
 
       {!empty && (
         <div style={{ display: "flex", gap: 26 }}>
-          <Count value={s1} label="Total projects" />
-          <Count value={s2} label="Hiring now" online />
+          <Count value={s1} label={t("projects.stat_total")} />
+          <Count value={s2} label={t("projects.stat_hiring")} online />
         </div>
       )}
     </div>

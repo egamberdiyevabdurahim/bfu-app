@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Atmosphere from "@/components/Atmosphere";
+import { getT } from "@/lib/i18n/server";
 
 // Warm, firelit "project not found" state — mirrors app/u/[id]/not-found.js in
 // spirit but leans into the Chorsu bento tokens (Bricolage headline, Instrument
 // Serif accent, ember glow) instead of the old inline-sans placeholder.
-export default function ProjectNotFound() {
+export default async function ProjectNotFound() {
+  const { t } = await getT();
   return (
     <main style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
       <Atmosphere />
@@ -26,7 +28,7 @@ export default function ProjectNotFound() {
           className="ch-cell-label"
           style={{ color: "var(--amber)" }}
         >
-          Project not found
+          {t("projects.nf_label")}
         </div>
         <h1
           style={{
@@ -40,7 +42,7 @@ export default function ProjectNotFound() {
             maxWidth: 620,
           }}
         >
-          This ember has gone out
+          {t("projects.nf_title")}
         </h1>
         <p
           style={{
@@ -53,11 +55,10 @@ export default function ProjectNotFound() {
             lineHeight: 1.4,
           }}
         >
-          The project you're looking for isn't here — it may be a draft, still
-          awaiting approval, or gone.
+          {t("projects.nf_body")}
         </p>
         <Link href="/city" className="ch-btn-primary" style={{ marginTop: 10 }}>
-          Wander the city instead <span style={{ fontSize: 14 }}>↗</span>
+          {t("projects.nf_cta")} <span style={{ fontSize: 14 }}>↗</span>
         </Link>
       </div>
     </main>

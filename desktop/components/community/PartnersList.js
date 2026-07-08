@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Partners directory (Batch 4). Loads GET /partners →
 //   Partner[] { id, name, about, website, logo_url, region_id, verified }
 // Each card links to the partner detail page /partners/{id}.
 
 function Logo({ id, name, url, size = 48 }) {
+  const t = useT();
   const [broken, setBroken] = useState(false);
   const showImg = url && !broken;
   return (
@@ -32,7 +34,7 @@ function Logo({ id, name, url, size = 48 }) {
       {showImg ? (
         <img
           src={url}
-          alt={`${name} logo`}
+          alt={t("community.partners.logoAlt", { name })}
           onError={() => setBroken(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }}
         />
@@ -44,6 +46,7 @@ function Logo({ id, name, url, size = 48 }) {
 }
 
 export default function PartnersList() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [partners, setPartners] = useState([]);
 
@@ -65,16 +68,16 @@ export default function PartnersList() {
     return (
       <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading partners…
+        {t("community.partners.loading")}
       </div>
     );
   }
   if (state === "error") {
     return (
       <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
-        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load partners.</span>
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>{t("community.partners.loadError")}</span>
         <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
-          Try again
+          {t("community.tryAgain")}
         </button>
       </div>
     );
@@ -83,11 +86,10 @@ export default function PartnersList() {
   if (partners.length === 0) {
     return (
       <div className="ch-grace" style={{ marginTop: 24 }}>
-        <span className="ch-grace-k">Building the network</span>
-        <div className="ch-grace-t">No partner organisations yet.</div>
+        <span className="ch-grace-k">{t("community.partners.emptyKicker")}</span>
+        <div className="ch-grace-t">{t("community.partners.emptyTitle")}</div>
         <div className="ch-grace-s">
-          Universities, incubators and companies that back young builders will
-          appear here — with the opportunities they post.
+          {t("community.partners.emptyBody")}
         </div>
       </div>
     );
@@ -105,7 +107,7 @@ export default function PartnersList() {
                   {p.name}
                 </span>
                 {p.verified ? (
-                  <span role="img" aria-label="Verified partner" style={{ color: "var(--green)", fontSize: 12 }}>✓</span>
+                  <span role="img" aria-label={t("community.partners.verified")} style={{ color: "var(--green)", fontSize: 12 }}>✓</span>
                 ) : null}
               </div>
               {p.website ? (
@@ -143,7 +145,7 @@ export default function PartnersList() {
               color: "var(--amber)",
             }}
           >
-            View partner →
+            {t("community.partners.viewPartner")}
           </div>
         </a>
       ))}

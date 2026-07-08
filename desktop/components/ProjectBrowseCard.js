@@ -1,4 +1,7 @@
+"use client";
+
 import { gradientFor, initials } from "../lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Screen 4 (/projects) project window — a SERVER component (no hooks; the
 // hover-bloom + rise-in are pure CSS in globals.css `.ch-pcard`). The whole
@@ -33,6 +36,7 @@ function regionLabel(region) {
 }
 
 export default function ProjectBrowseCard({ project = {}, index = 0 }) {
+  const t = useT();
   const {
     id,
     type,
@@ -47,7 +51,11 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
   } = project;
 
   const isStartup = type === "startup";
-  const typeLabel = isStartup ? "Startup" : type === "volunteering" ? "Volunteering" : "Project";
+  const typeLabel = isStartup
+    ? t("projects.type_startup")
+    : type === "volunteering"
+    ? t("projects.type_volunteering")
+    : t("projects.type_project");
   const badgeClass = isStartup
     ? "ch-pcard-badge ch-pcard-badge-startup"
     : "ch-pcard-badge ch-pcard-badge-volunteering";
@@ -78,8 +86,8 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
 
         <span className="ch-pcard-marks">
           {pinned && (
-            <span className="ch-pcard-pin" title="Featured project">
-              ✦ Pinned
+            <span className="ch-pcard-pin" title={t("projects.featured_project")}>
+              ✦ {t("projects.pinned")}
             </span>
           )}
           {isHiring && (
@@ -88,7 +96,7 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
                 <span className="ch-online-ping" style={{ background: "var(--green)" }} />
                 <i />
               </span>
-              Hiring
+              {t("projects.hiring")}
             </span>
           )}
         </span>
@@ -121,7 +129,7 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
             <span className="ch-pcard-fnm">
               {fLabel}
               {founder.checked && (
-                <span className="ch-pcard-vf" title="Verified">
+                <span className="ch-pcard-vf" title={t("projects.verified")}>
                   ✓
                 </span>
               )}
@@ -133,7 +141,7 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
 
         <span className="ch-pcard-meta">
           <span className="ch-pcard-team">
-            {buildingCount} building
+            {t("projects.building_count", { n: buildingCount })}
           </span>
           {region_ && <div className="ch-pcard-reg">{region_}</div>}
         </span>

@@ -1,15 +1,16 @@
-// Project hero / identity strip — the firelit "cover" of the /p/[id] page.
-// SERVER component (no interactivity): renders the project name (Bricolage,
-// large), a type badge (Startup / Volunteering), a status line (hiring pill or
-// "Completed" state), and — if present — the `goal` as an Instrument-Serif
-// italic accent line. Mirrors the profile IdentityStrip's visual grammar.
+"use client";
 
-const TYPE_LABELS = {
-  startup: "Startup",
-  volunteering: "Volunteering",
-};
+import { useT } from "@/components/i18n/LocaleProvider";
+
+// Project hero / identity strip — the firelit "cover" of the /p/[id] page.
+// A prop-driven display cell (no local state): renders the project name
+// (Bricolage, large), a type badge (Startup / Volunteering), a status line
+// (hiring pill or "Completed" state), and — if present — the `goal` as an
+// Instrument-Serif italic accent line. Mirrors the profile IdentityStrip's
+// visual grammar.
 
 export default function ProjectHero({ project }) {
+  const t = useT();
   const {
     name,
     type,
@@ -19,7 +20,14 @@ export default function ProjectHero({ project }) {
     view_count: viewCount,
   } = project;
 
-  const typeLabel = TYPE_LABELS[type] || (type ? String(type) : "Project");
+  const typeLabel =
+    type === "startup"
+      ? t("projects.type_startup")
+      : type === "volunteering"
+      ? t("projects.type_volunteering")
+      : type
+      ? String(type)
+      : t("projects.type_project");
   const isStartup = type === "startup";
   // Startup → amber/ember firelit type accent; volunteering → teal/green.
   const typeAccent = isStartup ? "var(--amber)" : "var(--green)";
@@ -97,7 +105,7 @@ export default function ProjectHero({ project }) {
                 }}
               />
             </span>
-            Looking for teammates
+            {t("projects.hero_looking")}
           </span>
         )}
 
@@ -128,7 +136,7 @@ export default function ProjectHero({ project }) {
                 boxShadow: "0 0 10px var(--amber)",
               }}
             />
-            In progress
+            {t("projects.hero_inprogress")}
           </span>
         )}
 
@@ -157,7 +165,7 @@ export default function ProjectHero({ project }) {
                 background: "var(--muted-strong)",
               }}
             />
-            Completed
+            {t("projects.hero_completed")}
           </span>
         )}
       </div>
@@ -208,7 +216,8 @@ export default function ProjectHero({ project }) {
             color: "var(--muted-strong)",
           }}
         >
-          {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}
+          {viewCount.toLocaleString()}{" "}
+          {viewCount === 1 ? t("projects.view_one") : t("projects.view_many")}
         </div>
       )}
     </div>

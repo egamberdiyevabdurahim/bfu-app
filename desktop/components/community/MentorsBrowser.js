@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Mentors browser (Batch 4). Loads GET /mentors → each is
 //   { id, display_name, photo_url, bio, topics:[], open_slots:int }.
@@ -88,6 +89,7 @@ function Toast({ toast }) {
 //    you pick one + add an optional note, then POST /bookings. Optimistic
 //    "requested" per slot.
 function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [slots, setSlots] = useState([]);
   const [note, setNote] = useState("");
@@ -118,11 +120,11 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
     onRequested(slot.id, true);
     try {
       await bfu("/bookings", { method: "POST", body: { slot_id: slot.id, note: note.trim() || undefined } });
-      flash("Session requested — the mentor will confirm.");
+      flash(t("community.mentors.sessionRequested"));
       onBooked?.();
     } catch (e) {
       onRequested(slot.id, false);
-      flash(e?.message || "Couldn't request that slot.", "err");
+      flash(e?.message || t("community.mentors.requestSlotError"), "err");
     } finally {
       setBusy(null);
     }
@@ -143,18 +145,18 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
       {state === "loading" ? (
         <div style={{ color: "var(--muted-strong)", fontSize: 13 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-          Loading open slots…
+          {t("community.mentors.loadingSlots")}
         </div>
       ) : state === "error" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ color: "var(--terra)", fontSize: 13 }}>Couldn't load slots.</span>
+          <span style={{ color: "var(--terra)", fontSize: 13 }}>{t("community.mentors.slotsLoadError")}</span>
           <button type="button" onClick={load} className="ch-btn-ghost" style={{ fontSize: 12, padding: "6px 12px" }}>
-            Try again
+            {t("community.tryAgain")}
           </button>
         </div>
       ) : open.length === 0 ? (
         <div style={{ color: "var(--muted-strong)", fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 15 }}>
-          No open slots right now. Follow them and check back soon.
+          {t("community.mentors.noSlots")}
         </div>
       ) : (
         <>
@@ -170,13 +172,13 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
               marginBottom: 8,
             }}
           >
-            A note for the mentor (optional)
+            {t("community.mentors.noteLabel")}
           </label>
           <textarea
             id={noteId}
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, 200))}
-            placeholder="What would you like to talk about?"
+            placeholder={t("community.mentors.notePlaceholder")}
             rows={2}
             style={{
               width: "100%",
@@ -201,7 +203,7 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
                   type="button"
                   onClick={() => book(slot)}
                   disabled={busy === slot.id || done}
-                  aria-label={done ? `Requested ${fmtWhen(slot.start_at)}` : `Request slot ${fmtWhen(slot.start_at)}`}
+                  aria-label={done ? t("community.mentors.ariaRequested", { when: fmtWhen(slot.start_at) }) : t("community.mentors.ariaRequestSlot", { when: fmtWhen(slot.start_at) })}
                   style={{
                     padding: "9px 14px",
                     fontSize: 13,
@@ -217,7 +219,7 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
                     transition: "all 0.15s ease",
                   }}
                 >
-                  {done ? "Requested ✓" : fmtWhen(slot.start_at)}
+                  {done ? t("community.mentors.requestedChip") : fmtWhen(slot.start_at)}
                 </button>
               );
             })}
@@ -231,6 +233,7 @@ function BookPanel({ mentor, onBooked, flash, requested, onRequested }) {
 // ── Your mentoring: offer future slots + delete open ones. Only rendered when
 //    the current user is a mentor.
 function MyMentoring({ flash }) {
+  const t = useT();
   const [state, setState] = useState("loading");
   const [slots, setSlots] = useState([]);
   const [when, setWhen] = useState("");
@@ -264,11 +267,11 @@ function MyMentoring({ flash }) {
     if (!when) return;
     const d = new Date(when);
     if (Number.isNaN(d.getTime())) {
-      flash("Pick a valid date and time.", "err");
+      flash(t("community.mentors.pickValidDate"), "err");
       return;
     }
     if (d.getTime() <= Date.now()) {
-      flash("Slot must be in the future.", "err");
+      flash(t("community.mentors.slotFuture"), "err");
       return;
     }
     setBusy(true);
@@ -277,9 +280,9 @@ function MyMentoring({ flash }) {
       const newSlot = { id: res.id, start_at: d.toISOString(), status: "open", duration_min: 15 };
       setSlots((cur) => [...cur, newSlot].sort((a, b) => new Date(a.start_at) - new Date(b.start_at)));
       setWhen("");
-      flash("Slot published — mentees can book it now.");
+      flash(t("community.mentors.slotPublished"));
     } catch (err) {
-      flash(err?.message || "Couldn't publish that slot.", "err");
+      flash(err?.message || t("community.mentors.publishSlotError"), "err");
     } finally {
       setBusy(false);
     }
@@ -287,25 +290,25 @@ function MyMentoring({ flash }) {
 
   async function remove(slot) {
     if (slot.status === "booked") {
-      flash("That slot is booked — decline the booking to free it.", "err");
+      flash(t("community.mentors.slotBookedDecline"), "err");
       return;
     }
     const prev = slots;
     setSlots((cur) => cur.filter((s) => s.id !== slot.id));
     try {
       await bfu(`/mentors/me/slots/${slot.id}`, { method: "DELETE" });
-      flash("Slot removed.");
+      flash(t("community.mentors.slotRemoved"));
     } catch (err) {
       setSlots(prev);
-      flash(err?.message || "Couldn't remove that slot.", "err");
+      flash(err?.message || t("community.mentors.removeSlotError"), "err");
     }
   }
 
   return (
     <section style={{ marginTop: 8 }}>
       <div className="ch-slab">
-        <span className="ch-slab-k">You mentor here</span>
-        <h2>Offer your time</h2>
+        <span className="ch-slab-k">{t("community.mentors.youMentorKicker")}</span>
+        <h2>{t("community.mentors.offerTitle")}</h2>
         <span className="ch-slab-line" />
       </div>
 
@@ -324,7 +327,7 @@ function MyMentoring({ flash }) {
                 marginBottom: 8,
               }}
             >
-              New 15-minute slot
+              {t("community.mentors.newSlotLabel")}
             </label>
             <input
               id="new-slot-when"
@@ -349,7 +352,7 @@ function MyMentoring({ flash }) {
             disabled={busy || !when || state !== "ready"}
             style={{ opacity: busy || !when || state !== "ready" ? 0.6 : 1 }}
           >
-            {busy ? "Publishing…" : "Publish slot"}
+            {busy ? t("community.mentors.publishing") : t("community.mentors.publishSlot")}
           </button>
         </form>
 
@@ -357,13 +360,13 @@ function MyMentoring({ flash }) {
           {state === "loading" ? (
             <div style={{ color: "var(--muted-strong)", fontSize: 13 }}>
               <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-              Loading your slots…
+              {t("community.mentors.loadingYourSlots")}
             </div>
           ) : state === "error" ? (
-            <div style={{ color: "var(--terra)", fontSize: 13 }}>Couldn't load your slots. Refresh to try again.</div>
+            <div style={{ color: "var(--terra)", fontSize: 13 }}>{t("community.mentors.yourSlotsError")}</div>
           ) : slots.length === 0 ? (
             <div style={{ color: "var(--muted-strong)", fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 16 }}>
-              No slots yet. Publish one above and mentees can request it.
+              {t("community.mentors.noSlotsYet")}
             </div>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -384,14 +387,14 @@ function MyMentoring({ flash }) {
                   >
                     <span style={{ fontSize: 13, color: booked ? "var(--amber)" : "var(--text)" }}>
                       {fmtWhen(s.start_at)}
-                      {booked ? " · booked" : ""}
+                      {booked ? t("community.mentors.bookedSuffix") : ""}
                     </span>
                     {!booked ? (
                       <button
                         type="button"
                         onClick={() => remove(s)}
-                        title="Remove slot"
-                        aria-label="Remove slot"
+                        title={t("community.mentors.removeSlot")}
+                        aria-label={t("community.mentors.removeSlot")}
                         style={{
                           width: 24,
                           height: 24,
@@ -419,6 +422,7 @@ function MyMentoring({ flash }) {
 }
 
 export default function MentorsBrowser() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [mentors, setMentors] = useState([]);
   const [isMentor, setIsMentor] = useState(false);
@@ -450,16 +454,16 @@ export default function MentorsBrowser() {
     return (
       <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-        Loading mentors…
+        {t("community.mentors.loading")}
       </div>
     );
   }
   if (state === "error") {
     return (
       <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} role="status" aria-live="polite">
-        <span style={{ color: "var(--terra)", fontSize: 14 }}>Couldn't load mentors.</span>
+        <span style={{ color: "var(--terra)", fontSize: 14 }}>{t("community.mentors.loadError")}</span>
         <button type="button" onClick={() => window.location.reload()} className="ch-btn-ghost">
-          Try again
+          {t("community.tryAgain")}
         </button>
       </div>
     );
@@ -470,24 +474,23 @@ export default function MentorsBrowser() {
       {isMentor ? <MyMentoring flash={flash} /> : null}
 
       <div className="ch-slab" style={{ marginTop: isMentor ? 44 : 8 }}>
-        <span className="ch-slab-k">Book a session</span>
-        <h2>Mentors in the city</h2>
+        <span className="ch-slab-k">{t("community.mentors.slabBookKicker")}</span>
+        <h2>{t("community.mentors.slabBookTitle")}</h2>
         <span className="ch-slab-line" />
       </div>
 
       {mentors.length === 0 ? (
         <div className="ch-grace" style={{ marginTop: 18 }}>
-          <span className="ch-grace-k">Quiet for now</span>
-          <div className="ch-grace-t">No mentors are open yet.</div>
+          <span className="ch-grace-k">{t("community.mentors.emptyKicker")}</span>
+          <div className="ch-grace-t">{t("community.mentors.emptyTitle")}</div>
           <div className="ch-grace-s">
-            As experienced builders join and open their calendars, they'll appear
-            here for you to book a 15-minute session.
+            {t("community.mentors.emptyBody")}
           </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 18 }}>
           {mentors.map((m) => {
-            const name = m.display_name || "A builder";
+            const name = m.display_name || t("community.builderFallback");
             const isOpen = openId === m.id;
             const isSelf = meId != null && m.id === meId;
             return (
@@ -522,12 +525,12 @@ export default function MentorsBrowser() {
                         color: m.open_slots > 0 ? "var(--green)" : "var(--muted-strong)",
                       }}
                     >
-                      {m.open_slots > 0 ? `${m.open_slots} open slot${m.open_slots === 1 ? "" : "s"}` : "No open slots"}
+                      {m.open_slots > 0 ? t(m.open_slots === 1 ? "community.mentors.openSlot" : "community.mentors.openSlots", { n: m.open_slots }) : t("community.mentors.noOpenSlots")}
                     </div>
                   </div>
                   {isSelf ? (
                     <span
-                      aria-label="This is your mentor profile"
+                      aria-label={t("community.mentors.thisIsYouAria")}
                       style={{
                         whiteSpace: "nowrap",
                         padding: "9px 16px",
@@ -541,7 +544,7 @@ export default function MentorsBrowser() {
                         textTransform: "uppercase",
                       }}
                     >
-                      This is you
+                      {t("community.mentors.thisIsYou")}
                     </span>
                   ) : (
                     <button
@@ -551,7 +554,7 @@ export default function MentorsBrowser() {
                       aria-expanded={isOpen}
                       style={{ whiteSpace: "nowrap" }}
                     >
-                      {isOpen ? "Close" : "Book a session"}
+                      {isOpen ? t("community.mentors.close") : t("community.mentors.bookSession")}
                     </button>
                   )}
                 </div>

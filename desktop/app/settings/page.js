@@ -3,6 +3,7 @@ import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
+import NotificationPrefs from "@/components/settings/NotificationPrefs";
 import SiteFooter from "@/components/ui/SiteFooter";
 
 const API_BASE = process.env.BFU_API_URL;
@@ -46,10 +47,11 @@ export default async function SettingsPage() {
 
   // Fetch region options (public) + achievements/invite (authed) in parallel so
   // the editor paints fully-hydrated on first load.
-  const [regions, achievements, invite] = await Promise.all([
+  const [regions, achievements, invite, notifPrefs] = await Promise.all([
     getRegions(),
     authedGet("/users/me/achievements", token),
     authedGet("/users/me/invite", token),
+    authedGet("/users/me/notification-prefs", token),
   ]);
 
   const initial = {
@@ -113,6 +115,10 @@ export default async function SettingsPage() {
         </div>
 
         <ProfileEditor initial={initial} regions={regions} />
+
+        <div style={{ marginTop: 26 }}>
+          <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
+        </div>
 
         <SiteFooter tagline="Your bench, exactly how the city finds you." />
     </AppTopBar>

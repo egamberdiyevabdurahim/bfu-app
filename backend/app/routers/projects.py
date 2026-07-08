@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.core.deps import get_current_user
 from app.services.notify import esc, send_telegram
+from app.services.notifications import should_push_telegram
 from app.database import get_db
 from app.models.project import (
     Project,
@@ -797,7 +798,7 @@ async def apply_to_project(
     # Notify founder via Telegram bot
     founder_res = await db.execute(select(User).where(User.id == project.creator_id))
     founder = founder_res.scalar_one_or_none()
-    if founder and founder.telegram_id:
+    if founder and founder.telegram_id and should_push_telegram(founder, "application"):
         await _notify_founder(
             founder_telegram_id=founder.telegram_id,
             applicant_name=current_user.display_name,
@@ -990,7 +991,9 @@ async def review_application(
     # Notify the applicant of the decision
     applicant_res = await db.execute(select(User).where(User.id == app.applicant_id))
     applicant = applicant_res.scalar_one_or_none()
-    if applicant and applicant.telegram_id:
+    if applicant and applicant.telegram_id and should_push_telegram(
+        applicant, "accepted" if app.status == "accepted" else "declined"
+    ):
         lang = (applicant.language or "en") if (applicant.language or "en") in _DECISION else "en"
         msg = _DECISION[lang]["accepted" if app.status == "accepted" else "declined"]
         await send_telegram(

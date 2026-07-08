@@ -25,6 +25,7 @@ from app.database import AsyncSessionLocal, engine
 from app.models.project import Project
 from app.models.region import Region
 from app.models.user import Interest, User
+from app.services.notifications import pref_enabled
 from app.services.notify import esc, send_telegram
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -60,6 +61,8 @@ _INTEREST_RECAP = {
 async def _send_for(session, user: User, since: datetime) -> None:
     if not user.telegram_id:
         return
+    if not pref_enabled(user, "weekly_digest"):
+        return  # opted out of the weekly digest
     proj_count = await session.scalar(
         select(func.count(Project.id)).where(
             Project.is_deleted == False,

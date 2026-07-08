@@ -160,6 +160,19 @@ class UserUpdate(BaseModel):
     mentor_bio: str | None = None
     mentor_topics: list[str] | None = None
 
+class NotificationPrefsUpdate(BaseModel):
+    """PATCH /users/me/notification-prefs body. Every category is optional; only
+    the keys the client actually sends (non-None) are merged into the user's
+    opt-out blob. Unknown keys are ignored by the endpoint."""
+    messages: bool | None = None
+    interest: bool | None = None
+    applications: bool | None = None
+    project_updates: bool | None = None
+    bookings: bool | None = None
+    weekly_digest: bool | None = None
+    telegram_push: bool | None = None
+
+
 class UserPublic(BaseModel):
     """Full public profile — shown when clicking on a user."""
     id: int

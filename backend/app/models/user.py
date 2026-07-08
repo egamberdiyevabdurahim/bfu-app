@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -54,6 +54,11 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # First-login onboarding gate. False until the new builder finishes (or
     # skips) the welcome flow via POST /users/me/onboarding-complete.
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Per-user notification preferences (OPT-OUT model). An absent key means the
+    # category is ENABLED, so the empty {} every existing user carries keeps all
+    # notifications on; users only ever store `false` for what they turn off.
+    # See app.services.notifications (NOTIF_PREF_KEYS / pref_enabled).
+    notification_prefs: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

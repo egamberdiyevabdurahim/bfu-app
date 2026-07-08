@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import Text, cast, func, or_, select, union, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.config import settings
 from app.core.deps import get_current_user
@@ -20,8 +21,8 @@ from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.models.connection import Follow
 from app.models.profile_view import ProfileView
-from app.services.notifications import add_notification
-from app.schemas.user import GroupStatus, NotificationsPage, ProfileViewersOut, UserPublic, UserResponse, UserUpdate
+from app.services.notifications import NOTIF_PREF_KEYS, add_notification, effective_prefs, should_push_telegram
+from app.schemas.user import GroupStatus, NotificationPrefsUpdate, NotificationsPage, ProfileViewersOut, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -892,6 +893,37 @@ async def complete_onboarding(
     return {"ok": True, "onboarding_completed": True}
 
 
+@router.get("/me/notification-prefs", response_model=dict)
+async def get_notification_prefs(
+    current_user: User = Depends(get_current_user),
+):
+    """The caller's notification preferences — every category resolved to a
+    concrete bool (opt-out: an unset key reads as enabled)."""
+    return {"prefs": effective_prefs(current_user)}
+
+
+@router.patch("/me/notification-prefs", response_model=dict)
+async def update_notification_prefs(
+    body: NotificationPrefsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Merge the provided category flags into the caller's opt-out blob. Only
+    keys in NOTIF_PREF_KEYS are accepted (unknown keys are ignored); absent keys
+    are left untouched and keep reading as their default. JSON columns need a
+    reassignment (+ flag_modified) for SQLAlchemy to detect the change."""
+    updates = body.model_dump(exclude_none=True)
+    prefs = dict(current_user.notification_prefs or {})
+    for key, value in updates.items():
+        if key in NOTIF_PREF_KEYS:
+            prefs[key] = bool(value)
+    current_user.notification_prefs = prefs
+    flag_modified(current_user, "notification_prefs")
+    await db.commit()
+    await db.refresh(current_user)
+    return {"prefs": effective_prefs(current_user)}
+
+
 @router.post("/me/fetch-tg-username", response_model=dict)
 async def fetch_tg_username(
     current_user: User = Depends(get_current_user),
@@ -1385,7 +1417,7 @@ async def request_intro(
     mk = {"inline_keyboard": [buttons]}
     add_notification(db, user_id, "intro", actor_id=current_user.id)
     await db.commit()
-    if target.telegram_id:
+    if target.telegram_id and should_push_telegram(target, "intro"):
         await send_telegram(target.telegram_id, txt, reply_markup=mk)
     return {"ok": True, "has_username": bool(current_user.tg_username)}
 
@@ -1442,21 +1474,21 @@ async def soft_interest(
 
     if mutual:
         # Celebrate to BOTH sides — this is the conversation-starting moment.
-        if target.telegram_id:
+        if target.telegram_id and should_push_telegram(target, "mutual"):
             tl = (target.language or "en") if (target.language or "en") in _MUTUAL_MSG else "en"
             await send_telegram(
                 target.telegram_id,
                 _MUTUAL_MSG[tl].format(name=esc(current_user.display_name)),
                 reply_markup=_connect_buttons(current_user),
             )
-        if current_user.telegram_id:
+        if current_user.telegram_id and should_push_telegram(current_user, "mutual"):
             cl = (current_user.language or "en") if (current_user.language or "en") in _MUTUAL_MSG else "en"
             await send_telegram(
                 current_user.telegram_id,
                 _MUTUAL_MSG[cl].format(name=esc(target.display_name)),
                 reply_markup=_connect_buttons(target),
             )
-    elif target.telegram_id:
+    elif target.telegram_id and should_push_telegram(target, "interest"):
         lang = (target.language or "en") if (target.language or "en") in _INTEREST_MSG else "en"
         await send_telegram(
             target.telegram_id,

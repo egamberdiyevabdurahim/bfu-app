@@ -96,7 +96,13 @@ export async function GET(request) {
       );
     }
 
-    const response = NextResponse.json({ status: "ok" }, { status: 200 });
+    // is_registered tells the client where to land: registered → /home,
+    // brand-new → /register. Default to true so an older backend (no field)
+    // routes to /home, never traps a real member on the sign-up form.
+    const response = NextResponse.json(
+      { status: "ok", is_registered: data?.is_registered !== false },
+      { status: 200 }
+    );
     setAuthCookies(response.cookies, token, data?.refresh_token);
     return response;
   }

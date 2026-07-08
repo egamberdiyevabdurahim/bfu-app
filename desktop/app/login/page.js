@@ -133,7 +133,8 @@ function LoginInner() {
       if (!mountedRef.current) return;
 
       if (data?.status === "ok") {
-        window.location.href = "/home";
+        // Brand-new members finish sign-up on the web; returning members go home.
+        window.location.href = data.is_registered === false ? "/register" : "/home";
         return;
       }
       if (data?.status === "expired") {

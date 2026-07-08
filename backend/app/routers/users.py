@@ -22,7 +22,7 @@ from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.models.connection import Follow
 from app.models.profile_view import ProfileView
 from app.services.notifications import NOTIF_PREF_KEYS, add_notification, effective_prefs, should_push_telegram
-from app.schemas.user import GroupStatus, NotificationPrefsUpdate, NotificationsPage, ProfileViewersOut, UserPublic, UserResponse, UserUpdate
+from app.schemas.user import GroupStatus, NotificationPrefsUpdate, NotificationsPage, ProfileViewersOut, RegisterRequest, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -891,6 +891,33 @@ async def complete_onboarding(
         current_user.onboarding_completed = True
         await db.commit()
     return {"ok": True, "onboarding_completed": True}
+
+
+@router.post("/me/register", response_model=dict)
+async def register_member(
+    body: RegisterRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Complete web sign-up for a member who authenticated via Telegram but is
+    not yet registered (is_registered=False). Sets the core profile fields the
+    bot would have collected and flips is_registered=True. Also usable by an
+    already-registered member to update these same fields."""
+    region = await db.get(Region, body.region_id)
+    if region is None:
+        raise HTTPException(status_code=422, detail="Unknown region")
+
+    current_user.name = body.name.strip()
+    current_user.surname = (body.surname or "").strip() or None
+    current_user.gender = body.gender
+    current_user.birth_year = body.birth_year
+    current_user.phone_number = body.phone_number.strip()
+    current_user.region_id = body.region_id
+    if body.language:
+        current_user.language = body.language
+    current_user.is_registered = True
+    await db.commit()
+    return {"ok": True, "is_registered": True}
 
 
 @router.get("/me/notification-prefs", response_model=dict)

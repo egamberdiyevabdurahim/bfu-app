@@ -87,18 +87,26 @@ async def web_login_poll(nonce: str, db: AsyncSession = Depends(get_db)):
         return {"status": "pending"}
 
     user = await db.get(User, row.user_id)
+    # Snapshot the flags BEFORE delete+commit expires the instance, so we don't
+    # re-query. Unregistered users ARE allowed through now — the web routes them
+    # to the sign-up form; only missing/deleted/banned are refused.
+    unavailable = user is None or user.is_deleted
+    banned = bool(user.banned) if user else False
+    is_reg = bool(user.is_registered) if user else False
+    uid = user.id if user else None
     await db.delete(row)          # single-use — burn it whatever the outcome
     await db.commit()
-    if user is None or user.is_deleted or not user.is_registered:
+    if unavailable:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not available")
-    if user.banned:
+    if banned:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
     return {
         "status": "ok",
-        "access_token": create_access_token(user.id),
-        "refresh_token": create_refresh_token(user.id),
+        "access_token": create_access_token(uid),
+        "refresh_token": create_refresh_token(uid),
         "token_type": "bearer",
+        "is_registered": is_reg,
     }
 
 

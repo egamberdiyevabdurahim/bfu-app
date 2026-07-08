@@ -108,6 +108,21 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     };
   }, [initialMe]);
 
+  // Registration wall: a member who authenticated via Telegram but hasn't
+  // finished web sign-up (is_registered === false) is bounced to /register.
+  // The primary route is login → /register; this catches anyone who reaches an
+  // app page directly before completing it.
+  useEffect(() => {
+    if (
+      me &&
+      me.is_registered === false &&
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/register")
+    ) {
+      window.location.href = "/register";
+    }
+  }, [me]);
+
   // Restore the collapsed rail preference for this session.
   useEffect(() => {
     try {

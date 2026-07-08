@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class AnalysisOut(BaseModel):
@@ -171,6 +171,37 @@ class NotificationPrefsUpdate(BaseModel):
     bookings: bool | None = None
     weekly_digest: bool | None = None
     telegram_push: bool | None = None
+
+
+class RegisterRequest(BaseModel):
+    """POST /users/me/register body — web sign-up for a new (unregistered)
+    member. Mirrors the fields the Telegram bot collects. On success the
+    endpoint flips is_registered=True."""
+    name: str = Field(min_length=1, max_length=100)
+    surname: str | None = Field(default=None, max_length=100)
+    gender: str | None = None  # "male" | "female" | "other"
+    birth_year: int | None = Field(default=None, ge=1930, le=2018)
+    phone_number: str = Field(min_length=5, max_length=25)
+    region_id: int
+    language: str | None = None
+
+    @field_validator("gender")
+    @classmethod
+    def _gender_ok(cls, v):
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if v not in {"male", "female", "other"}:
+            raise ValueError("gender must be male, female or other")
+        return v
+
+    @field_validator("language")
+    @classmethod
+    def _lang_ok(cls, v):
+        if v is None:
+            return v
+        v = v.strip().lower()[:2]
+        return v if v in {"uz", "ru", "en"} else None
 
 
 class UserPublic(BaseModel):

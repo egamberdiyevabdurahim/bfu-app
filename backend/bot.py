@@ -56,11 +56,14 @@ def _lang_of(message: types.Message) -> str:
 
 async def _handle_web_login(message: types.Message, nonce: str) -> None:
     """Confirm a desktop 'log in via the bot' handshake. The tapper's Telegram
-    id identifies them; if they're a registered member we mark the nonce
-    confirmed and the polling web app logs them in."""
+    id identifies them. Registered members are logged straight in; a brand-new /
+    unregistered visitor is ALSO confirmed (find-or-create an unregistered shell)
+    so they can finish registration on the web — the web app routes them to the
+    sign-up form when it sees is_registered=false."""
     from app.models.web_login import WebLoginToken
 
     tg_id = message.from_user.id
+    is_reg = False
     async with AsyncSessionLocal() as db:
         row = (await db.execute(
             select(WebLoginToken).where(WebLoginToken.nonce == nonce)
@@ -69,21 +72,33 @@ async def _handle_web_login(message: types.Message, nonce: str) -> None:
             await message.answer("⚠️ This login link has expired. Please try again from the website.")
             return
         user = (await db.execute(
-            select(User).where(
-                User.telegram_id == tg_id,
-                User.is_deleted == False, User.is_registered == True,
-            )
+            select(User).where(User.telegram_id == tg_id)
         )).scalar_one_or_none()
-        if user is None:
-            await message.answer("You're not registered yet — open the app and join first, then log in on the web.")
-            return
-        if getattr(user, "banned", False):
+        if user is not None and getattr(user, "banned", False):
             await message.answer("Your account is suspended.")
             return
+        if user is None:
+            # First-ever visit — create an unregistered shell so the web can
+            # onboard them. Mirrors /auth/telegram's new-user creation.
+            user = User(
+                telegram_id=tg_id,
+                name=message.from_user.first_name,
+                surname=message.from_user.last_name,
+                language=_lang_of(message),
+                tg_username=message.from_user.username or None,
+            )
+            db.add(user)
+            await db.flush()
+        elif user.is_deleted:
+            user.is_deleted = False
+        is_reg = bool(user.is_registered)
         row.user_id = user.id
         row.confirmed = True
         await db.commit()
-    await message.answer("✅ You're logged in on the web. Head back to your browser.")
+    if is_reg:
+        await message.answer("✅ You're logged in on the web. Head back to your browser.")
+    else:
+        await message.answer("✅ Almost there — head back to your browser to finish signing up.")
 
 
 @dp.message(CommandStart())

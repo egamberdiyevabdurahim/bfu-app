@@ -27,6 +27,7 @@ import { settings } from "./dicts/settings";
 import { inbox } from "./dicts/inbox";
 import { login } from "./dicts/login";
 import { onboarding } from "./dicts/onboarding";
+import { register } from "./dicts/register";
 import { misc } from "./dicts/misc";
 
 // Every registered namespace module. Namespaces are disjoint by key prefix, so
@@ -44,6 +45,7 @@ const NAMESPACES = [
   inbox,
   login,
   onboarding,
+  register,
   misc,
 ];
 

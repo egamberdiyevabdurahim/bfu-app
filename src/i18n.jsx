@@ -75,6 +75,15 @@ const STRINGS = {
   // ── User profile modal ────────────────────────────────────────────────────
   "um.message": { en: "Message", uz: "Xabar", ru: "Сообщение" },
 
+  // ── Projects "+" manage sheet ─────────────────────────────────────────────
+  "manage.title": { en: "Manage", uz: "Boshqarish", ru: "Управление" },
+  "manage.tab.post": { en: "Post", uz: "Joylash", ru: "Опубликовать" },
+  "manage.tab.mine": { en: "My projects", uz: "Loyihalarim", ru: "Мои проекты" },
+  "manage.tab.requests": { en: "Requests", uz: "Arizalar", ru: "Заявки" },
+  "manage.type.label": { en: "Project type", uz: "Loyiha turi", ru: "Тип проекта" },
+  "manage.empty.mineK": { en: "Your projects", uz: "Loyihalaringiz", ru: "Ваши проекты" },
+  "manage.empty.mineS": { en: "Post a startup or volunteering project to gather your team.", uz: "Jamoa yig‘ish uchun startap yoki volontyorlik loyihasini joylang.", ru: "Опубликуйте стартап или волонтёрский проект, чтобы собрать команду." },
+
   // ── Auth: welcome ─────────────────────────────────────────────────────────
   "auth.tagline": { en: "BRIGHT FUTURES UZBEKISTAN", uz: "BRIGHT FUTURES UZBEKISTAN", ru: "BRIGHT FUTURES UZBEKISTAN" },
   "auth.welcomeText": {

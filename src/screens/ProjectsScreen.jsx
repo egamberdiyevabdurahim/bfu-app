@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Page, SkeletonList } from "../components/Shared";
+import { Icon } from "../components/Icons";
 import { projects, users } from "../api";
 import { ProjectDetail } from "../components/ProjectDetail";
+import { ProjectManageSheet } from "../components/ProjectManageSheet";
 import { useT } from "../i18n";
 import { tgAlert } from "../tg";
 
@@ -162,6 +164,7 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [me, setMe] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   useEffect(() => {
     users.me().then(setMe).catch(() => {});
@@ -222,12 +225,28 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
   return (
     <Page>
       <div style={{ padding: "calc(var(--safe-t) + 18px) 20px 0" }}>
-        {/* Header — mono eyebrow + Bricolage headline + Instrument-Serif italic sub */}
-        <p className="ch-eyebrow" style={{ color: "var(--amber)" }}>{t("startup.kicker")}</p>
-        <h1 className="ch-h1" style={{ fontSize: 34 }}>{t("search.projects")}</h1>
-        <p className="ch-sub" style={{ color: "var(--text-3)", fontSize: 17, marginTop: 8 }}>
-          {t("land.f1.body")}
-        </p>
+        {/* Header — mono eyebrow + Bricolage headline + Instrument-Serif italic sub,
+            with the founder-tools "+" pinned top-right, aligned with the title. */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="ch-eyebrow" style={{ color: "var(--amber)" }}>{t("startup.kicker")}</p>
+            <h1 className="ch-h1" style={{ fontSize: 34 }}>{t("search.projects")}</h1>
+            <p className="ch-sub" style={{ color: "var(--text-3)", fontSize: 17, marginTop: 8 }}>
+              {t("land.f1.body")}
+            </p>
+          </div>
+          <button
+            onClick={() => setManageOpen(true)}
+            aria-label={t("manage.title")}
+            style={{
+              flexShrink: 0, marginTop: 2, width: 40, height: 40, borderRadius: "50%",
+              background: "var(--surface-2)", border: "1px solid var(--hair)",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            }}
+          >
+            <Icon name="plus" size={20} color="var(--amber)" />
+          </button>
+        </div>
 
         {/* Type filter row — single-select firelit pills (desktop ProjectFilterBar) */}
         <div role="tablist" style={{ display: "flex", gap: 8, marginTop: 20, marginBottom: 20, flexWrap: "wrap" }}>
@@ -297,6 +316,14 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
           me={me}
           onClose={() => setSelectedProject(null)}
           onUpdate={handleProjectUpdate}
+        />
+      )}
+
+      {manageOpen && (
+        <ProjectManageSheet
+          me={me}
+          onClose={() => setManageOpen(false)}
+          onChanged={() => loadProjects(0, true)}
         />
       )}
     </Page>

@@ -524,6 +524,10 @@ def _notif_link(ntype: str, actor_id: int | None, project_id: int | None) -> str
     to /p/{id}, booking types to /bookings, everything actor-driven to the
     actor's profile /u/{id}. Falls back to /notifications when the needed ref
     is missing so the row is always clickable."""
+    if ntype == "message":
+        # For message notifs, project_id carries the CONVERSATION id (see
+        # messages.send_message) so the click opens that thread in /messages.
+        return f"/messages?c={project_id}" if project_id else "/messages"
     if ntype in _PROJECT_NOTIF_TYPES:
         return f"/p/{project_id}" if project_id else "/notifications"
     if ntype in _BOOKING_NOTIF_TYPES:
@@ -549,7 +553,9 @@ async def my_notifications(
     )).scalars().all()
 
     actor_ids = {n.actor_id for n in rows if n.actor_id}
-    proj_ids = {n.project_id for n in rows if n.project_id}
+    # For message notifs, project_id holds a CONVERSATION id (not a project) —
+    # exclude them so we never mis-hydrate a real project into a message row.
+    proj_ids = {n.project_id for n in rows if n.project_id and n.type != "message"}
     actors = {}
     if actor_ids:
         for u in (await db.execute(select(User).where(User.id.in_(actor_ids)))).scalars().all():
@@ -573,10 +579,12 @@ async def my_notifications(
         # display_name can be "" when the actor has no name on file — coerce to
         # None so the frontend shows neutral text instead of an empty label.
         actor_name = (actor.get("display_name") if actor else None) or None
+        # Message notifs carry a conversation id in project_id, not a project.
+        proj = None if n.type == "message" else projects_map.get(n.project_id)
         items.append({
             "id": n.id, "type": n.type, "is_read": n.is_read,
             "created_at": n.created_at.isoformat() if n.created_at else None,
-            "actor": actor, "project": projects_map.get(n.project_id),
+            "actor": actor, "project": proj,
             "actor_id": n.actor_id, "actor_name": actor_name,
             "link": _notif_link(n.type, n.actor_id, n.project_id),
         })

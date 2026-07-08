@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
-from app.routers import admin, auth, events, mentors, partners, projects, public, regions, roles, search, users
+from app.routers import admin, auth, events, mentors, messages, partners, projects, public, regions, roles, search, users
 from app.services.notify import esc, send_telegram
 
 # Import all models so Base.metadata knows about every table
@@ -135,6 +135,22 @@ async def lifespan(app: FastAPI):
         # --- Batch E: analytics (read-only; index the skill-gap GROUP BY column) ---
         "CREATE INDEX IF NOT EXISTS ix_project_req_skills_skill_name "
         "ON project_req_skills (skill_name);",
+        # --- Messaging v1: DMs + project chats + blocks (tables via create_all) ---
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_dm_key "
+        "ON conversations (dm_key);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_project "
+        "ON conversations (project_id);",
+        "CREATE INDEX IF NOT EXISTS ix_conv_members_conv ON conversation_members (conversation_id);",
+        "CREATE INDEX IF NOT EXISTS ix_conv_members_user ON conversation_members (user_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_member_conv_user "
+        "ON conversation_members (conversation_id, user_id);",
+        "CREATE INDEX IF NOT EXISTS ix_messages_conversation_id ON messages (conversation_id);",
+        "CREATE INDEX IF NOT EXISTS ix_messages_sender_id ON messages (sender_id);",
+        "CREATE INDEX IF NOT EXISTS ix_messages_created_at ON messages (created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_messages_conv_created ON messages (conversation_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_blocks_blocker ON blocks (blocker_id);",
+        "CREATE INDEX IF NOT EXISTS ix_blocks_blocked ON blocks (blocked_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_block_pair ON blocks (blocker_id, blocked_id);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)
@@ -205,6 +221,7 @@ app.include_router(search.router)
 app.include_router(admin.router)
 app.include_router(mentors.router)
 app.include_router(mentors.booking_router)
+app.include_router(messages.router)
 
 @app.exception_handler(Exception)
 async def _report_unhandled(request: Request, exc: Exception):

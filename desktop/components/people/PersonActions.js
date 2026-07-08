@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
 
@@ -75,12 +76,14 @@ function Toast({ toast }) {
 }
 
 export default function PersonActions({ userId, personName, aboutText, lang = "en" }) {
+  const router = useRouter();
   const [state, setState] = useState("loading"); // loading | anon | self | ready | error
   const [me, setMe] = useState(null);
   const [profile, setProfile] = useState(null);
   const [reloadKey, setReloadKey] = useState(0); // bump to retry after an error
 
   const [busy, setBusy] = useState(false); // follow/interest/intro shared lock
+  const [msgBusy, setMsgBusy] = useState(false); // open-DM lock
   const { toast, flash } = useToast(3200); // shared single-timer toast (no leak/race)
 
   // Report
@@ -180,6 +183,29 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       flash(e?.status === 429 ? "Already pinged in the last 24h." : (e?.message || "Couldn't send interest."), "error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // ── Message (open/create the in-app DM) ───────────────────────────────────
+  async function openMessage() {
+    if (msgBusy) return;
+    setMsgBusy(true);
+    try {
+      const r = await bfu(`/conversations/dm/${userId}`, { method: "POST" });
+      if (r?.id) {
+        router.push(`/messages?c=${r.id}`);
+      } else {
+        router.push("/messages");
+      }
+    } catch (e) {
+      // 400 = blocked either way / self; anything else = transient.
+      flash(
+        e?.status === 400
+          ? "Messaging isn't available with this person."
+          : e?.message || "Couldn't open the conversation.",
+        "error"
+      );
+      setMsgBusy(false);
     }
   }
 
@@ -434,6 +460,19 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           }
         >
           <span aria-hidden>{profile.is_following ? "✓" : "+"}</span> {profile.is_following ? "Following" : "Follow"}
+        </button>
+
+        {/* Native in-app DM — the key affordance for the many members with no
+            Telegram @username. Opens (find-or-creates) the 1:1 conversation. */}
+        <button
+          type="button"
+          className="ch-btn-primary"
+          onClick={openMessage}
+          disabled={msgBusy}
+          aria-label={`Message ${personName || "this builder"}`}
+          style={{ width: "100%", justifyContent: "center", opacity: msgBusy ? 0.6 : 1 }}
+        >
+          <span aria-hidden>✉</span> {msgBusy ? "Opening…" : "Message"}
         </button>
 
         <div style={{ display: "flex", gap: 10 }}>

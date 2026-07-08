@@ -26,6 +26,7 @@ export const YOU = [
   { key: "home", href: "/home", label: "Home", icon: "⌂" },
   { key: "projects-mine", href: "/projects/mine", label: "Your projects", icon: "◆" },
   { key: "requests", href: "/requests", label: "Applications", icon: "✒", badge: "applications" },
+  { key: "messages", href: "/messages", label: "Messages", icon: "✉", badge: "messages" },
   { key: "favorites", href: "/favorites", label: "Saved", icon: "❥" },
   { key: "connections", href: "/connections", label: "Connections", icon: "❋" },
   { key: "bookings", href: "/bookings", label: "Sessions", icon: "◷" },

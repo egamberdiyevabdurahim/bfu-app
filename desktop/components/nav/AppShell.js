@@ -88,6 +88,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [msgUnread, setMsgUnread] = useState(0);
   const [pendingApps, setPendingApps] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -125,13 +126,20 @@ export default function AppShell({ active, me: initialMe = null, children }) {
   }, []);
 
   // Poll the notifications unread count (mount + every 30s; paused while hidden).
-  // Drives the mobile top-bar bell dot.
+  // Drives the mobile top-bar bell dot. Also polls the messages unread count in
+  // the same tick (same cadence/visibility handling) to drive the Messages badge.
   const loadCount = useCallback(async () => {
     try {
       const r = await bfu("/users/me/notifications/unread-count");
       setUnread(Number(r?.unread) || 0);
     } catch {
       // Silent — a transient failure shouldn't disrupt the shell.
+    }
+    try {
+      const m = await bfu("/conversations/unread-count");
+      setMsgUnread(Number(m?.unread) || 0);
+    } catch {
+      // Silent.
     }
   }, []);
   useEffect(() => {
@@ -436,7 +444,9 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                       ? pendingApps
                       : item.badge === "notifications"
                         ? unread
-                        : 0
+                        : item.badge === "messages"
+                          ? msgUnread
+                          : 0
                   }
                   onNavigate={closeDrawer}
                 />

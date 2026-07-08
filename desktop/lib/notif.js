@@ -32,6 +32,7 @@ export const NOTIF_EMOJI = {
   booking_request: "📅",
   booking_confirmed: "✅",
   booking_declined: "🚫",
+  message: "✉️",
 };
 
 /** Emoji for a notification type, falling back to a generic bell. */
@@ -79,6 +80,8 @@ export function notifText(n) {
       return name ? `${name} confirmed your session.` : `Your session was confirmed.`;
     case "booking_declined":
       return name ? `${name} declined your session request.` : `Your session request was declined.`;
+    case "message":
+      return name ? `${name} sent you a message.` : `You have a new message.`;
     default:
       return name || "You have a new notification.";
   }
@@ -111,6 +114,10 @@ export function notifHref(n) {
     case "intro":
     case "new_follower":
       return n.actor?.id ? `/u/${n.actor.id}` : null;
+    case "message":
+      // The exact thread comes from the server `link` (/messages?c={id}); this
+      // fallback just opens the messenger.
+      return "/messages";
     default:
       return n.actor?.id ? `/u/${n.actor.id}` : null;
   }

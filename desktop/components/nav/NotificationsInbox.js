@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { notifEmoji, notifText, notifHref, relTime } from "@/lib/notif";
 import { useToast } from "@/components/ui/Toast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // The full /notifications inbox list. Loads GET /users/me/notifications on
 // mount (newest-first from the backend), renders each with icon / text / time /
@@ -60,7 +61,7 @@ function ActorIcon({ n }) {
   );
 }
 
-function Row({ n }) {
+function Row({ n, t }) {
   const href = notifHref(n);
   const linkable = Boolean(href);
   const [hover, setHover] = useState(false);
@@ -95,7 +96,7 @@ function Row({ n }) {
           <span style={{ marginRight: 6 }} aria-hidden>
             {notifEmoji(n.type)}
           </span>
-          {notifText(n)}
+          {notifText(n, t)}
         </div>
         <div
           style={{
@@ -145,6 +146,7 @@ function Row({ n }) {
 }
 
 export default function NotificationsInbox() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -171,20 +173,20 @@ export default function NotificationsInbox() {
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
     try {
       await bfu("/users/me/notifications/read", { method: "POST" });
-      showToast("Marked all read");
+      showToast(t("inbox.marked_all_read"));
     } catch {
-      showToast("Couldn't reach the server", "err");
+      showToast(t("inbox.server_unreachable"), "err");
       load();
     }
-  }, [unread, showToast, load]);
+  }, [unread, showToast, load, t]);
 
   return (
     <div style={{ marginTop: 34 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
         <div className="ch-cell-label">
           {state === "ready" && items.length > 0
-            ? `${items.length} recent · ${unread} unread`
-            : "Your activity"}
+            ? t("inbox.count_summary", { count: items.length, unread })
+            : t("inbox.your_activity")}
         </div>
         <button
           type="button"
@@ -196,7 +198,7 @@ export default function NotificationsInbox() {
           <span style={{ color: "var(--amber)" }} aria-hidden>
             ✓
           </span>
-          Mark all read
+          {t("inbox.mark_all_read")}
         </button>
       </div>
 
@@ -205,14 +207,14 @@ export default function NotificationsInbox() {
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
             ◠
           </span>
-          Loading your notifications…
+          {t("inbox.loading")}
         </div>
       ) : state === "error" ? (
         <div
           className="ch-cell"
           style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}
         >
-          Couldn&apos;t load your notifications.{" "}
+          {t("inbox.load_error")}{" "}
           <button
             type="button"
             onClick={() => {
@@ -221,7 +223,7 @@ export default function NotificationsInbox() {
             }}
             style={{ background: "none", border: "none", color: "var(--amber)", cursor: "pointer", padding: 0, fontSize: "inherit" }}
           >
-            Try again
+            {t("inbox.try_again")}
           </button>
         </div>
       ) : items.length === 0 ? (
@@ -233,16 +235,16 @@ export default function NotificationsInbox() {
             🌙
           </div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22, color: "var(--text)" }}>
-            You&apos;re all caught up
+            {t("inbox.caught_up_title")}
           </div>
           <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 16, color: "var(--muted)", maxWidth: 380 }}>
-            New follows, matches, applications and session updates will land here.
+            {t("inbox.empty_desc")}
           </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {items.map((n) => (
-            <Row key={n.id} n={n} />
+            <Row key={n.id} n={n} t={t} />
           ))}
         </div>
       )}

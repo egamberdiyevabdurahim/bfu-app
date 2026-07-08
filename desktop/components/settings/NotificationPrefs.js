@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // The categories rendered under the master switch, in order. Each maps to a
-// backend preference key (see app.services.notifications.NOTIF_PREF_KEYS).
+// backend preference key (see app.services.notifications.NOTIF_PREF_KEYS). Labels
+// and descriptions are resolved at render via t("settings.notif_<key>_label/_desc").
 const CATEGORIES = [
-  { key: "messages", label: "Messages", desc: "When someone sends you a direct message." },
-  { key: "interest", label: "Interest & matches", desc: "When someone is interested in you, or you have a new match." },
-  { key: "applications", label: "Project applications", desc: "Applications to your projects, and decisions on the ones you send." },
-  { key: "project_updates", label: "Project updates", desc: "When a project you're on posts an update." },
-  { key: "bookings", label: "Mentor sessions", desc: "Session requests, confirmations and declines." },
-  { key: "weekly_digest", label: "Weekly digest", desc: "Your weekly Telegram summary of what's new in the city." },
+  { key: "messages" },
+  { key: "interest" },
+  { key: "applications" },
+  { key: "project_updates" },
+  { key: "bookings" },
+  { key: "weekly_digest" },
 ];
 
 // Opt-out model: every key defaults to enabled. Used to fill any key the server
@@ -90,6 +92,7 @@ function Row({ label, desc, on, onToggle, disabled, dim }) {
 }
 
 export default function NotificationPrefs({ initialPrefs }) {
+  const t = useT();
   // Seed from SSR when available; otherwise show defaults and fetch on mount.
   const [prefs, setPrefs] = useState(() => ({ ...DEFAULT_PREFS, ...(initialPrefs || {}) }));
   const [loaded, setLoaded] = useState(!!initialPrefs);
@@ -126,7 +129,7 @@ export default function NotificationPrefs({ initialPrefs }) {
       if (res?.prefs) setPrefs({ ...DEFAULT_PREFS, ...res.prefs });
     } catch (err) {
       setPrefs(prev); // revert on failure
-      flash(err?.message || "Couldn't save that — try again.", "err");
+      flash(err?.message || t("settings.notif_save_failed"), "err");
     }
   }
 
@@ -145,10 +148,10 @@ export default function NotificationPrefs({ initialPrefs }) {
             color: "var(--text)",
           }}
         >
-          Notifications
+          {t("settings.notif_title")}
         </div>
         <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-          Choose what reaches your Telegram. Your in-app inbox always keeps everything.
+          {t("settings.notif_subtitle")}
         </div>
       </div>
 
@@ -165,16 +168,16 @@ export default function NotificationPrefs({ initialPrefs }) {
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>Telegram push</div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{t("settings.notif_master_label")}</div>
             <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-              Send notifications to your Telegram. Turn off to only see them in the app.
+              {t("settings.notif_master_desc")}
             </div>
           </div>
           <Switch
             on={masterOn}
             onToggle={() => toggle("telegram_push")}
             disabled={!loaded}
-            label="Telegram push"
+            label={t("settings.notif_master_label")}
           />
         </div>
         {!masterOn ? (
@@ -188,7 +191,7 @@ export default function NotificationPrefs({ initialPrefs }) {
               color: "var(--amber)",
             }}
           >
-            In-app inbox stays on
+            {t("settings.notif_inbox_on")}
           </div>
         ) : null}
       </div>
@@ -201,8 +204,8 @@ export default function NotificationPrefs({ initialPrefs }) {
             style={{ borderTop: i === 0 ? "none" : "1px solid var(--hair)" }}
           >
             <Row
-              label={c.label}
-              desc={c.desc}
+              label={t(`settings.notif_${c.key}_label`)}
+              desc={t(`settings.notif_${c.key}_desc`)}
               on={prefs[c.key]}
               onToggle={() => toggle(c.key)}
               disabled={!loaded}

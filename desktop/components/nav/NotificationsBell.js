@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { notifEmoji, notifText, notifHref, relTime } from "@/lib/notif";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // The unread badge + dropdown that lives in the shared AppTopBar. Polls
 // GET /users/me/notifications/unread-count every 30s (and on mount); opening
@@ -70,6 +71,7 @@ function NotifIcon({ n }) {
 }
 
 export default function NotificationsBell() {
+  const t = useT();
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null); // null = not yet loaded
@@ -164,7 +166,7 @@ export default function NotificationsBell() {
       <button
         type="button"
         onClick={toggle}
-        aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-label={unread ? t("inbox.bell_aria_unread", { unread }) : t("inbox.bell_aria")}
         aria-haspopup="true"
         aria-expanded={open}
         className="ch-btn-ghost"
@@ -244,7 +246,7 @@ export default function NotificationsBell() {
                 color: "var(--text)",
               }}
             >
-              Notifications
+              {t("inbox.dropdown_title")}
             </span>
             <button
               type="button"
@@ -262,7 +264,7 @@ export default function NotificationsBell() {
                 padding: 0,
               }}
             >
-              Mark all read
+              {t("inbox.mark_all_read")}
             </button>
           </div>
 
@@ -272,7 +274,7 @@ export default function NotificationsBell() {
                 <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
                   ◠
                 </span>
-                Loading…
+                {t("inbox.dropdown_loading")}
               </div>
             ) : items.length === 0 ? (
               <div
@@ -285,7 +287,7 @@ export default function NotificationsBell() {
                   fontSize: 15,
                 }}
               >
-                You&apos;re all caught up.
+                {t("inbox.dropdown_empty")}
               </div>
             ) : (
               items.map((n) => {
@@ -314,7 +316,7 @@ export default function NotificationsBell() {
                         <span style={{ marginRight: 5 }} aria-hidden>
                           {notifEmoji(n.type)}
                         </span>
-                        {notifText(n)}
+                        {notifText(n, t)}
                       </div>
                       <div
                         style={{
@@ -373,7 +375,7 @@ export default function NotificationsBell() {
               textDecoration: "none",
             }}
           >
-            See all →
+            {t("inbox.see_all")} →
           </a>
         </div>
       )}

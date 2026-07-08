@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gradientFor, initials } from "../lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Cycles a "<name> just came online" toast every ~9s (drifts up per mockup
 // `.toast`), drawing ONLY from the real online set the parent passes in
 // (builders with online === true). No fabricated presence: if the set is
 // empty, or the viewer prefers reduced motion, this renders nothing.
 export default function PresenceToast({ builders = [] }) {
+  const t = useT();
   const [current, setCurrent] = useState(null);
   const [show, setShow] = useState(false);
   const indexRef = useRef(0);
@@ -39,7 +41,7 @@ export default function PresenceToast({ builders = [] }) {
   // No real online builders (or reduced motion) → render nothing.
   if (!builders.length || !current) return null;
 
-  const name = current.display_name || current.name || "Someone";
+  const name = current.display_name || current.name || t("city.toast.someone");
   const seed = current.id != null ? current.id : name;
 
   return (
@@ -48,7 +50,7 @@ export default function PresenceToast({ builders = [] }) {
         {initials(name)}
       </span>
       <span className="ch-toast-tx">
-        <b>{name}</b> just came online
+        <b>{name}</b> {t("city.toast.just_online")}
       </span>
     </div>
   );

@@ -48,45 +48,46 @@ function actorName(n) {
 }
 
 /**
- * Human, English one-liner for a notification. Kept parallel to the Mini App's
- * localized strings (the desktop app is English-only today). Uses the REAL
- * actor name when we have one; when the actor is unknown it uses a neutral
- * phrasing rather than the bare word "Someone".
+ * Human one-liner for a notification. This is a plain module (no React), so it
+ * can't call a hook — the caller passes its `t` (from useT()) in. Strings live
+ * in the "inbox" dict; {name}/{proj} are interpolated. Uses the REAL actor name
+ * when we have one; when the actor is unknown it uses a neutral phrasing rather
+ * than the bare word "Someone".
  */
-export function notifText(n) {
+export function notifText(n, t) {
   const name = actorName(n); // real name, or null
-  const proj = n.project?.name || "a project";
+  const proj = n.project?.name || t("inbox.a_project");
   switch (n.type) {
     case "mutual":
-      return name ? `You and ${name} are a match — say hello.` : `You have a new match — say hello.`;
+      return name ? t("inbox.notif_mutual_named", { name }) : t("inbox.notif_mutual");
     case "interest":
-      return name ? `${name} is interested in connecting.` : `A builder is interested in connecting.`;
+      return name ? t("inbox.notif_interest_named", { name }) : t("inbox.notif_interest");
     case "intro":
-      return name ? `${name} sent you an intro.` : `You received a new intro.`;
+      return name ? t("inbox.notif_intro_named", { name }) : t("inbox.notif_intro");
     case "new_follower":
-      return name ? `${name} started following you.` : `You have a new follower.`;
+      return name ? t("inbox.notif_follower_named", { name }) : t("inbox.notif_follower");
     case "application":
-      return name ? `${name} applied to ${proj}.` : `New application to ${proj}.`;
+      return name ? t("inbox.notif_application_named", { name, proj }) : t("inbox.notif_application", { proj });
     case "accepted":
-      return `You were accepted to ${proj}.`;
+      return t("inbox.notif_accepted", { proj });
     case "declined":
-      return `Your application to ${proj} wasn't accepted this time.`;
+      return t("inbox.notif_declined", { proj });
     case "rate_prompt":
-      return `${proj} wrapped up — rate the people you built with.`;
+      return t("inbox.notif_rate_prompt", { proj });
     case "project_update":
-      return `${proj} posted an update.`;
+      return t("inbox.notif_project_update", { proj });
     case "removed_from_project":
-      return `You're no longer on the team for ${proj}.`;
+      return t("inbox.notif_removed", { proj });
     case "booking_request":
-      return name ? `${name} requested a session with you.` : `You have a new session request.`;
+      return name ? t("inbox.notif_booking_request_named", { name }) : t("inbox.notif_booking_request");
     case "booking_confirmed":
-      return name ? `${name} confirmed your session.` : `Your session was confirmed.`;
+      return name ? t("inbox.notif_booking_confirmed_named", { name }) : t("inbox.notif_booking_confirmed");
     case "booking_declined":
-      return name ? `${name} declined your session request.` : `Your session request was declined.`;
+      return name ? t("inbox.notif_booking_declined_named", { name }) : t("inbox.notif_booking_declined");
     case "message":
-      return name ? `${name} sent you a message.` : `You have a new message.`;
+      return name ? t("inbox.notif_message_named", { name }) : t("inbox.notif_message");
     default:
-      return name || "You have a new notification.";
+      return name || t("inbox.notif_default");
   }
 }
 

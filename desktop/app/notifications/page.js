@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import NotificationsInbox from "@/components/nav/NotificationsInbox";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -17,6 +18,7 @@ export const metadata = {
 export default async function NotificationsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
+  const { t } = await getT();
 
   return (
     <AppTopBar active="notifications" me={me}>
@@ -30,7 +32,7 @@ export default async function NotificationsPage() {
               color: "var(--amber)",
             }}
           >
-            Everything that happened while you were building
+            {t("inbox.page_eyebrow")}
           </div>
           <h1
             style={{
@@ -44,7 +46,7 @@ export default async function NotificationsPage() {
               overflowWrap: "break-word",
             }}
           >
-            Your{" "}
+            {t("inbox.page_title_prefix")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -53,7 +55,7 @@ export default async function NotificationsPage() {
                 color: "var(--amber)",
               }}
             >
-              notifications
+              {t("inbox.page_title_accent")}
             </span>
           </h1>
         </div>
@@ -64,7 +66,7 @@ export default async function NotificationsPage() {
           <NotificationsInbox />
         </div>
 
-        <SiteFooter tagline="The city keeps a light on for you." />
+        <SiteFooter tagline={t("inbox.page_footer_tagline")} />
     </AppTopBar>
   );
 }

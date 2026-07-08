@@ -4,36 +4,35 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import Atmosphere from "@/components/Atmosphere";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 const BOT_USERNAME =
   process.env.NEXT_PUBLIC_BOT_USERNAME || "BrightFuturesUzbekistan_bot";
 
 // Maps the ?error= reason (left over from the old widget flow / server bounce)
-// to a firelit, human line.
+// to a translation key for a firelit, human line.
 const ERROR_COPY = {
-  unregistered:
-    "You're not registered yet — join in the Telegram bot first, then come back to sign in.",
-  banned: "This account is suspended. Reach out in the bot if you think that's a mistake.",
-  network: "We couldn't reach the gate just now. Give it another try in a moment.",
-  invalid: "That sign-in didn't go through. Please try again.",
+  unregistered: "login.error.unregistered",
+  banned: "login.error.banned",
+  network: "login.error.network",
+  invalid: "login.error.invalid",
 };
 
-// Friendly copy for live poll/start errors surfaced by the API routes.
+// Translation keys for live poll/start errors surfaced by the API routes.
 const POLL_ERROR_COPY = {
-  banned:
-    "This account is suspended. Reach out in the bot if you think that's a mistake.",
-  network: "We lost the connection for a moment — retrying…",
-  default:
-    "That didn't work — make sure you're a registered BFU member, or try again.",
+  banned: "login.poll.banned",
+  network: "login.poll.network",
+  default: "login.poll.default",
 };
 
 const POLL_INTERVAL_MS = 2000;
 
 function LoginInner() {
+  const t = useT();
   const params = useSearchParams();
   const errorReason = params.get("error");
   const serverErrorMessage = errorReason
-    ? ERROR_COPY[errorReason] || ERROR_COPY.invalid
+    ? t(ERROR_COPY[errorReason] || ERROR_COPY.invalid)
     : null;
 
   // Handshake state.
@@ -70,7 +69,7 @@ function LoginInner() {
       if (!mountedRef.current) return;
 
       if (data?.status === "error" || !data?.nonce || !data?.deep_link) {
-        setLiveError(POLL_ERROR_COPY.default);
+        setLiveError(t(POLL_ERROR_COPY.default));
         setTerminal(true);
         setStarting(false);
         return;
@@ -99,11 +98,11 @@ function LoginInner() {
       if (!mountedRef.current) return;
       // A failed start (vs a mid-poll blip) leaves no nonce to recover, so it's
       // terminal — offer an explicit retry rather than spinning forever.
-      setLiveError(POLL_ERROR_COPY.network);
+      setLiveError(t(POLL_ERROR_COPY.network));
       setTerminal(true);
       setStarting(false);
     }
-  }, []);
+  }, [t]);
 
   // Start the handshake on mount.
   useEffect(() => {
@@ -145,7 +144,7 @@ function LoginInner() {
       }
       if (data?.status === "error") {
         // A "banned" (or other explicit) error is terminal; surface a retry.
-        setLiveError(POLL_ERROR_COPY[data.reason] || POLL_ERROR_COPY.default);
+        setLiveError(t(POLL_ERROR_COPY[data.reason] || POLL_ERROR_COPY.default));
         setTerminal(true);
         return;
       }
@@ -211,7 +210,7 @@ function LoginInner() {
               color: "var(--amber)",
             }}
           >
-            Sign in
+            {t("login.eyebrow")}
           </div>
 
           <h1
@@ -225,7 +224,7 @@ function LoginInner() {
               color: "var(--text)",
             }}
           >
-            Welcome back to
+            {t("login.title.line1")}
             <br />
             <span
               style={{
@@ -235,7 +234,7 @@ function LoginInner() {
                 color: "var(--amber)",
               }}
             >
-              the bazaar
+              {t("login.title.line2")}
             </span>
           </h1>
 
@@ -248,8 +247,7 @@ function LoginInner() {
               color: "var(--muted-strong)",
             }}
           >
-            The lamps are lit and the workshops are humming. Sign in with Telegram
-            to pick up where you left off.
+            {t("login.subtitle")}
           </p>
 
           {serverErrorMessage && (
@@ -290,7 +288,7 @@ function LoginInner() {
                   padding: "14px 20px",
                 }}
               >
-                Continue with Telegram
+                {t("login.cta.telegram")}
                 <span style={{ marginLeft: 8, fontSize: 12 }} aria-hidden>
                   ↗
                 </span>
@@ -303,7 +301,7 @@ function LoginInner() {
                     clip: "rect(0 0 0 0)",
                   }}
                 >
-                  (opens in a new tab)
+                  {t("login.cta.newTab")}
                 </span>
               </a>
             ) : terminal ? (
@@ -320,7 +318,7 @@ function LoginInner() {
                   cursor: "pointer",
                 }}
               >
-                Try again
+                {t("login.cta.retry")}
               </button>
             ) : (
               <div
@@ -339,7 +337,7 @@ function LoginInner() {
                   pointerEvents: "none",
                 }}
               >
-                {starting ? "Lighting the lamp…" : "Preparing sign-in…"}
+                {starting ? t("login.prep.lighting") : t("login.prep.preparing")}
               </div>
             )}
           </div>
@@ -361,11 +359,11 @@ function LoginInner() {
                       marginBottom: 12,
                     }}
                   >
-                    or scan with your phone
+                    {t("login.qr.label")}
                   </div>
                   <img
                     src={qrDataUrl}
-                    alt="Scan to open the BFU bot"
+                    alt={t("login.qr.alt")}
                     width={168}
                     height={168}
                     style={{
@@ -407,8 +405,8 @@ function LoginInner() {
             {liveError
               ? liveError
               : deepLink
-              ? "Waiting for you to tap Start in Telegram…"
-              : "Getting things ready…"}
+              ? t("login.status.waiting")
+              : t("login.status.ready")}
           </div>
 
           <div
@@ -421,16 +419,16 @@ function LoginInner() {
               color: "var(--muted-strong)",
             }}
           >
-            New here?{" "}
+            {t("login.footer.new")}{" "}
             <a
               href={`https://t.me/${BOT_USERNAME}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "var(--amber)", textDecoration: "none", fontWeight: 500 }}
             >
-              Open the Telegram bot
+              {t("login.footer.openBot")}
             </a>{" "}
-            to join first.
+            {t("login.footer.joinFirst")}
           </div>
         </div>
 
@@ -443,7 +441,7 @@ function LoginInner() {
             color: "var(--muted)",
           }}
         >
-          Someone is always building right now.
+          {t("login.tagline")}
         </div>
       </div>
     </main>

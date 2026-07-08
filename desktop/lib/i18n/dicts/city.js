@@ -1,4 +1,192 @@
-// "city" surface translations (flat dotted keys). Populated by the i18n pass.
-// Shape: { en: { "city.key": "…" }, uz: {…}, ru: {…} }. Missing uz/ru keys fall
-// back to English (see ../translate.js).
-export const city = { en: {}, uz: {}, ru: {} };
+// "city" surface translations.
+export const city = {
+  en: {
+    // — Ambient ticker (page.js buildTickerLines) —
+    "city.ticker.online_hl_one": "{n} builder online",
+    "city.ticker.online_hl_other": "{n} builders online",
+    "city.ticker.online_tail": " right now · someone is always building",
+    "city.ticker.cities_hl_one": "{n} city lit",
+    "city.ticker.cities_hl_other": "{n} cities lit",
+    "city.ticker.cities_tail": " across Uzbekistan tonight",
+    "city.ticker.fresh_hl_one": "{n} new builder",
+    "city.ticker.fresh_hl_other": "{n} new builders",
+    "city.ticker.fresh_tail": " joined the city this week",
+    "city.ticker.quiet_lead": "The bazaar is quiet tonight · ",
+    "city.ticker.quiet_hl": "come build",
+    "city.footer_tagline": "The city never really sleeps.",
+
+    // — Ambient ticker (AmbientTicker.js: Live label + evergreen defaults) —
+    "city.ticker.live": "Live",
+    "city.ticker.default1_lead": "Someone is always building right now",
+    "city.ticker.default1_hl": "the bazaar is warm tonight",
+    "city.ticker.default2_lead": "Builders across Uzbekistan are ",
+    "city.ticker.default2_hl": "looking for teammates",
+    "city.ticker.default3_lead": "Every great team started with ",
+    "city.ticker.default3_hl": "one lit window",
+    "city.ticker.default4_lead": "New projects light up the city ",
+    "city.ticker.default4_hl": "every week",
+
+    // — Hero header (CityHeader.js) —
+    "city.header.overline": "Toshkent · {weekday} night",
+    "city.header.overline_plain": "Toshkent",
+    "city.header.resting": "The bazaar is resting",
+    "city.header.lit_one": "builder lit tonight",
+    "city.header.lit_other": "builders lit tonight",
+    "city.header.sub_quiet": "Quiet hours — come build.",
+    "city.header.sub_active": "Someone is always building right now.",
+    "city.header.stat_online": "Online now",
+    "city.header.stat_cities": "Cities lit",
+    "city.header.stat_new": "New this week",
+
+    // — Region cluster (RegionCluster.js) —
+    "city.cluster.region_kicker": "Region",
+    "city.cluster.tonight": "{name} tonight",
+    "city.cluster.lit": "{n} lit",
+    "city.cluster.grace_kicker": "Early tonight",
+    "city.cluster.grace_title": "The bazaar is small tonight.",
+    "city.cluster.grace_sub":
+      "Be one of the first to light up {name} — the city grows around whoever shows up.",
+    "city.cluster.this_city": "This city",
+
+    // — Builder card (BuilderCard.js) —
+    "city.card.mentor": "Mentor",
+    "city.card.cofounder": "Co-founder",
+    "city.card.volunteer": "Volunteer",
+    "city.card.verified": "Verified",
+    "city.card.is_building": "is building",
+    "city.card.new": "new",
+
+    // — Filter chips (FilterBar.js) —
+    "city.filter.all": "All",
+    "city.filter.online": "Online now",
+    "city.filter.cofounder": "Looking for co-founder",
+    "city.filter.mentors": "Mentors",
+    "city.filter.aria": "Filter builders",
+
+    // — Presence toast (PresenceToast.js) —
+    "city.toast.someone": "Someone",
+    "city.toast.just_online": "just came online",
+  },
+
+  uz: {
+    "city.ticker.online_hl_one": "{n} ta bunyodkor onlayn",
+    "city.ticker.online_hl_other": "{n} ta bunyodkor onlayn",
+    "city.ticker.online_tail": " ayni damda · kimdir doim bunyod qilmoqda",
+    "city.ticker.cities_hl_one": "{n} ta shahar yonib turibdi",
+    "city.ticker.cities_hl_other": "{n} ta shahar yonib turibdi",
+    "city.ticker.cities_tail": " bugun tunda O‘zbekiston bo‘ylab",
+    "city.ticker.fresh_hl_one": "{n} ta yangi bunyodkor",
+    "city.ticker.fresh_hl_other": "{n} ta yangi bunyodkor",
+    "city.ticker.fresh_tail": " shu hafta shaharga qo‘shildi",
+    "city.ticker.quiet_lead": "Bugun tunda bozor sokin · ",
+    "city.ticker.quiet_hl": "keling, bunyod qiling",
+    "city.footer_tagline": "Shahar hech qachon to‘liq uxlamaydi.",
+
+    "city.ticker.live": "Jonli",
+    "city.ticker.default1_lead": "Kimdir ayni damda doim bunyod qilmoqda",
+    "city.ticker.default1_hl": "bugun tunda bozor iliq",
+    "city.ticker.default2_lead": "O‘zbekiston bo‘ylab bunyodkorlar ",
+    "city.ticker.default2_hl": "jamoadosh izlamoqda",
+    "city.ticker.default3_lead": "Har bir buyuk jamoa shundan boshlangan — ",
+    "city.ticker.default3_hl": "bitta yonayotgan deraza",
+    "city.ticker.default4_lead": "Yangi loyihalar shaharni yoritadi ",
+    "city.ticker.default4_hl": "har hafta",
+
+    "city.header.overline": "Toshkent · {weekday} kechasi",
+    "city.header.overline_plain": "Toshkent",
+    "city.header.resting": "Bozor dam olmoqda",
+    "city.header.lit_one": "ta bunyodkor bugun tunda yondi",
+    "city.header.lit_other": "ta bunyodkor bugun tunda yondi",
+    "city.header.sub_quiet": "Sokin damlar — keling, bunyod qiling.",
+    "city.header.sub_active": "Kimdir ayni damda doim bunyod qilmoqda.",
+    "city.header.stat_online": "Hozir onlayn",
+    "city.header.stat_cities": "Yonayotgan shaharlar",
+    "city.header.stat_new": "Shu hafta yangilar",
+
+    "city.cluster.region_kicker": "Hudud",
+    "city.cluster.tonight": "{name} bugun tunda",
+    "city.cluster.lit": "{n} ta yonmoqda",
+    "city.cluster.grace_kicker": "Hali erta",
+    "city.cluster.grace_title": "Bugun tunda bozor kichik.",
+    "city.cluster.grace_sub":
+      "{name}ni yoritgan birinchilardan bo‘ling — shahar kim kelsa, o‘sha odam atrofida o‘sadi.",
+    "city.cluster.this_city": "Bu shahar",
+
+    "city.card.mentor": "Mentor",
+    "city.card.cofounder": "Hammuassis",
+    "city.card.volunteer": "Ko‘ngilli",
+    "city.card.verified": "Tasdiqlangan",
+    "city.card.is_building": "quryapti:",
+    "city.card.new": "yangi",
+
+    "city.filter.all": "Barchasi",
+    "city.filter.online": "Hozir onlayn",
+    "city.filter.cofounder": "Hammuassis izlayapti",
+    "city.filter.mentors": "Mentorlar",
+    "city.filter.aria": "Bunyodkorlarni filtrlash",
+
+    "city.toast.someone": "Kimdir",
+    "city.toast.just_online": "hozirgina onlaynga chiqdi",
+  },
+
+  ru: {
+    "city.ticker.online_hl_one": "{n} строитель в сети",
+    "city.ticker.online_hl_other": "{n} строителей в сети",
+    "city.ticker.online_tail": " прямо сейчас · кто-то всегда строит",
+    "city.ticker.cities_hl_one": "{n} город светится",
+    "city.ticker.cities_hl_other": "{n} городов светятся",
+    "city.ticker.cities_tail": " по всему Узбекистану сегодня ночью",
+    "city.ticker.fresh_hl_one": "{n} новый строитель",
+    "city.ticker.fresh_hl_other": "{n} новых строителей",
+    "city.ticker.fresh_tail": " присоединились к городу на этой неделе",
+    "city.ticker.quiet_lead": "Сегодня базар тих · ",
+    "city.ticker.quiet_hl": "приходите строить",
+    "city.footer_tagline": "Город никогда не спит по-настоящему.",
+
+    "city.ticker.live": "В эфире",
+    "city.ticker.default1_lead": "Кто-то всегда строит прямо сейчас",
+    "city.ticker.default1_hl": "базар тёплый сегодня ночью",
+    "city.ticker.default2_lead": "Строители по всему Узбекистану ",
+    "city.ticker.default2_hl": "ищут напарников",
+    "city.ticker.default3_lead": "Каждая великая команда начиналась с ",
+    "city.ticker.default3_hl": "одного зажжённого окна",
+    "city.ticker.default4_lead": "Новые проекты озаряют город ",
+    "city.ticker.default4_hl": "каждую неделю",
+
+    "city.header.overline": "Ташкент · {weekday} ночь",
+    "city.header.overline_plain": "Ташкент",
+    "city.header.resting": "Базар отдыхает",
+    "city.header.lit_one": "строитель зажёгся сегодня",
+    "city.header.lit_other": "строителей зажглись сегодня",
+    "city.header.sub_quiet": "Тихие часы — приходите строить.",
+    "city.header.sub_active": "Кто-то всегда строит прямо сейчас.",
+    "city.header.stat_online": "Сейчас в сети",
+    "city.header.stat_cities": "Светящиеся города",
+    "city.header.stat_new": "Новые за неделю",
+
+    "city.cluster.region_kicker": "Регион",
+    "city.cluster.tonight": "{name} сегодня ночью",
+    "city.cluster.lit": "{n} светятся",
+    "city.cluster.grace_kicker": "Ещё рано",
+    "city.cluster.grace_title": "Сегодня базар небольшой.",
+    "city.cluster.grace_sub":
+      "Станьте одним из первых, кто зажжёт {name} — город растёт вокруг тех, кто приходит.",
+    "city.cluster.this_city": "Этот город",
+
+    "city.card.mentor": "Ментор",
+    "city.card.cofounder": "Сооснователь",
+    "city.card.volunteer": "Волонтёр",
+    "city.card.verified": "Подтверждён",
+    "city.card.is_building": "строит:",
+    "city.card.new": "новый",
+
+    "city.filter.all": "Все",
+    "city.filter.online": "Сейчас в сети",
+    "city.filter.cofounder": "Ищет сооснователя",
+    "city.filter.mentors": "Менторы",
+    "city.filter.aria": "Фильтровать строителей",
+
+    "city.toast.someone": "Кто-то",
+    "city.toast.just_online": "только что появился в сети",
+  },
+};

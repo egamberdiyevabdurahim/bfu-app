@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's `.filters` chip row
 // (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html lines 70-76, 177-189).
@@ -45,10 +46,10 @@ function slug(s) {
 }
 
 // Build the ordered chip list from the loaded regions/builders.
-function deriveChips(regions, nameKey) {
+function deriveChips(regions, nameKey, t) {
   const chips = [
-    { key: ALL, label: "All" },
-    { key: ONLINE, label: "Online now", marker: "ember" },
+    { key: ALL, label: t("city.filter.all") },
+    { key: ONLINE, label: t("city.filter.online"), marker: "ember" },
   ];
 
   // One chip per region present in the payload (in payload order).
@@ -58,8 +59,8 @@ function deriveChips(regions, nameKey) {
     chips.push({ key: `region:${r.id}`, label: name, region: r.id });
   }
 
-  chips.push({ key: OPEN_TO_WORK, label: "Looking for co-founder", marker: "green" });
-  chips.push({ key: MENTOR, label: "Mentors" });
+  chips.push({ key: OPEN_TO_WORK, label: t("city.filter.cofounder"), marker: "green" });
+  chips.push({ key: MENTOR, label: t("city.filter.mentors") });
 
   // Up to 4 most common skills across the loaded builders.
   const counts = new Map();
@@ -104,11 +105,12 @@ function cardMatches(el, chip) {
 }
 
 export default function FilterBar({ regions = [], nameKey = "name_en", children }) {
+  const t = useT();
   const [active, setActive] = useState(ALL);
   const rootRef = useRef(null);
   const searchParams = useSearchParams();
 
-  const chips = useMemo(() => deriveChips(regions, nameKey), [regions, nameKey]);
+  const chips = useMemo(() => deriveChips(regions, nameKey, t), [regions, nameKey, t]);
 
   // Deep-link support: a `?f=<key>` param (e.g. from a Serendipity thread on the
   // city) opens the page already-filtered. Guard so an absent/`all`/unknown key
@@ -155,7 +157,7 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
     <div ref={rootRef}>
       <div
         role="tablist"
-        aria-label="Filter builders"
+        aria-label={t("city.filter.aria")}
         style={{
           marginTop: 34,
           display: "flex",

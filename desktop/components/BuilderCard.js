@@ -1,4 +1,7 @@
+"use client";
+
 import { gradientFor, initials } from "../lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's `.card` (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html
 // lines 86-111, 236-250) into a SERVER component. No hooks — the online pulse is
@@ -27,15 +30,16 @@ function slug(s) {
 // `looking_for` ('work'|'volunteering'|'both'|null) and a `mentor` boolean. A
 // mentor reads as the strongest signal, then co-founder (work/both), then
 // volunteer — matching the profile's LookingForCell framing.
-function lookingLabel(builder) {
-  if (builder.mentor) return "Mentor";
+function lookingLabel(builder, t) {
+  if (builder.mentor) return t("city.card.mentor");
   const lf = builder.looking_for;
-  if (lf === "work" || lf === "both") return "Co-founder";
-  if (lf === "volunteering") return "Volunteer";
+  if (lf === "work" || lf === "both") return t("city.card.cofounder");
+  if (lf === "volunteering") return t("city.card.volunteer");
   return null;
 }
 
 export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" }) {
+  const t = useT();
   const {
     id,
     name,
@@ -56,7 +60,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
   const grad = gradientFor(id);
   const isNew = weight === "new" || rating == null;
   const topSkills = (skills || []).slice(0, 3);
-  const look = lookingLabel(builder);
+  const look = lookingLabel(builder, t);
   const big = weight === "high";
 
   // The comma-joined slug list FilterBar's skill chips test against.
@@ -103,7 +107,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
         <div className="ch-card-nm">
           {label}
           {checked && (
-            <span className="ch-card-vf" title="Verified">
+            <span className="ch-card-vf" title={t("city.card.verified")}>
               ✓
             </span>
           )}
@@ -111,7 +115,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
 
         {currently_building && (
           <div className="ch-card-bld">
-            is building <b>{currently_building}</b>
+            {t("city.card.is_building")} <b>{currently_building}</b>
           </div>
         )}
 
@@ -128,7 +132,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
         <div className="ch-card-foot">
           <span className="ch-card-reg">{regionLabel}</span>
           <span className={`ch-card-rep${isNew ? " ch-card-rep-new" : ""}`}>
-            {isNew ? "✶ new" : `★ ${rating}`}
+            {isNew ? `✶ ${t("city.card.new")}` : `★ ${rating}`}
           </span>
         </div>
       </div>

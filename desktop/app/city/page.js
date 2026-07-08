@@ -7,6 +7,7 @@ import RegionCluster from "@/components/RegionCluster";
 import ThreadsRail from "@/components/ThreadsRail";
 import PresenceToast from "@/components/PresenceToast";
 import SiteFooter from "@/components/ui/SiteFooter";
+import { getT } from "@/lib/i18n/server";
 
 // The nav (SiteTopBar) reads the viewer's session cookie via getMe(), so this
 // route must render per-request (it can no longer be statically cached). The
@@ -72,33 +73,48 @@ const EMPTY_CITY = { stats: {}, weekday: "", regions: [], threads: [] };
 // subtitle. When nothing real can be said we return a single calm line; the
 // ticker stops cycling at length <= 1, so it holds that one line instead of
 // falling back to the fabricated DEFAULT_LINES.
-function buildTickerLines(stats, threads) {
+function buildTickerLines(stats, threads, t) {
   const lines = [];
 
   const online = Number(stats?.online_now) || 0;
   if (online > 0) {
-    const label = online === 1 ? "builder" : "builders";
     lines.push([
-      { t: `${online} ${label} online`, hl: true },
-      { t: " right now · someone is always building" },
+      {
+        t: t(
+          online === 1 ? "city.ticker.online_hl_one" : "city.ticker.online_hl_other",
+          { n: online }
+        ),
+        hl: true,
+      },
+      { t: t("city.ticker.online_tail") },
     ]);
   }
 
   const cities = Number(stats?.cities_lit) || 0;
   if (cities > 0) {
-    const label = cities === 1 ? "city" : "cities";
     lines.push([
-      { t: `${cities} ${label} lit`, hl: true },
-      { t: " across Uzbekistan tonight" },
+      {
+        t: t(
+          cities === 1 ? "city.ticker.cities_hl_one" : "city.ticker.cities_hl_other",
+          { n: cities }
+        ),
+        hl: true,
+      },
+      { t: t("city.ticker.cities_tail") },
     ]);
   }
 
   const fresh = Number(stats?.new_this_week) || 0;
   if (fresh > 0) {
-    const label = fresh === 1 ? "builder" : "builders";
     lines.push([
-      { t: `${fresh} new ${label}`, hl: true },
-      { t: " joined the city this week" },
+      {
+        t: t(
+          fresh === 1 ? "city.ticker.fresh_hl_one" : "city.ticker.fresh_hl_other",
+          { n: fresh }
+        ),
+        hl: true,
+      },
+      { t: t("city.ticker.fresh_tail") },
     ]);
   }
 
@@ -112,7 +128,7 @@ function buildTickerLines(stats, threads) {
   if (lines.length === 0) {
     // Quiet night: one calm, true line. Length 1 → the ticker holds it and
     // never cycles (and never shows the fabricated defaults).
-    return [[{ t: "The bazaar is quiet tonight · " }, { t: "come build", hl: true }]];
+    return [[{ t: t("city.ticker.quiet_lead") }, { t: t("city.ticker.quiet_hl"), hl: true }]];
   }
 
   return lines;
@@ -127,6 +143,7 @@ async function loadCity() {
 }
 
 export default async function CityPage() {
+  const { t } = await getT();
   const data = await loadCity();
   const stats = data?.stats || {};
   const weekday = data?.weekday || "";
@@ -149,7 +166,7 @@ export default async function CityPage() {
   }
 
   // Real ticker lines derived from live stats + threads (no fabricated presence).
-  const tickerLines = buildTickerLines(stats, threads);
+  const tickerLines = buildTickerLines(stats, threads, t);
 
   return (
     <SiteTopBar active="city" maxWidth={1280}>
@@ -167,7 +184,7 @@ export default async function CityPage() {
 
         <ThreadsRail threads={threads} />
 
-        <SiteFooter tagline="The city never really sleeps." />
+        <SiteFooter tagline={t("city.footer_tagline")} />
 
       <PresenceToast builders={onlineBuilders} />
     </SiteTopBar>

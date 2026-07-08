@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { downloadResume } from "@/lib/resume";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 import AchievementsCell from "@/components/AchievementsCell";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ function Toggle({ on, onChange, label, sub }) {
 // ── main editor ───────────────────────────────────────────────────────────────
 
 export default function ProfileEditor({ initial, regions }) {
+  const t = useT();
   const me = initial || {};
   const regionOptions = Array.isArray(regions) ? regions : [];
 
@@ -216,7 +218,7 @@ export default function ProfileEditor({ initial, regions }) {
     setCoachSuggestion("");
     const text = about.trim();
     if (!text) {
-      setCoachError("Write a first draft of your bio, then let the coach polish it.");
+      setCoachError(t("settings.coach_need_draft"));
       return;
     }
     setCoachBusy(true);
@@ -226,9 +228,9 @@ export default function ProfileEditor({ initial, regions }) {
         body: { kind: "bio", text },
       });
       setCoachSuggestion(res?.improved || "");
-      if (!res?.improved) setCoachError("The coach had nothing to add — your bio reads well.");
+      if (!res?.improved) setCoachError(t("settings.coach_nothing"));
     } catch (err) {
-      setCoachError(err.message || "The coach is resting. Try again in a moment.");
+      setCoachError(err.message || t("settings.coach_error"));
     } finally {
       setCoachBusy(false);
     }
@@ -238,7 +240,7 @@ export default function ProfileEditor({ initial, regions }) {
     if (!coachSuggestion) return;
     setAbout(coachSuggestion);
     setCoachSuggestion("");
-    showToast("Suggestion applied to your bio", "ok");
+    showToast(t("settings.coach_applied"), "ok");
   }
 
   async function runAnalyze() {
@@ -263,11 +265,11 @@ export default function ProfileEditor({ initial, regions }) {
       }
       setSkills(next);
       const found = next.length
-        ? `Found ${next.length} skill${next.length === 1 ? "" : "s"}`
-        : "No skills detected yet";
-      showToast(savedBio ? `Bio saved · ${found}` : found, "ok");
+        ? t(next.length === 1 ? "settings.skills_found_one" : "settings.skills_found_other", { n: next.length })
+        : t("settings.skills_none_found");
+      showToast(savedBio ? t("settings.bio_saved_with", { found }) : found, "ok");
     } catch (err) {
-      showToast(err.message || "Analysis is on cooldown — try again shortly", "err");
+      showToast(err.message || t("settings.analyze_cooldown"), "err");
     } finally {
       setAnalyzeBusy(false);
     }
@@ -276,7 +278,7 @@ export default function ProfileEditor({ initial, regions }) {
   async function save() {
     const body = changedFields();
     if (!Object.keys(body).length) {
-      showToast("Nothing to save yet", "ok");
+      showToast(t("settings.nothing_to_save"), "ok");
       return;
     }
     // A row with only a label OR only a URL is dropped by cleanLinks — warn the
@@ -304,12 +306,12 @@ export default function ProfileEditor({ initial, regions }) {
       if (updated?.analysis?.skills) setSkills(updated.analysis.skills.filter(Boolean));
       setSaveState("saved");
       if (droppedLinks) {
-        showToast("Saved — but some links were incomplete and skipped", "err");
+        showToast(t("settings.saved_links_skipped"), "err");
       }
       savedTimer.current = setTimeout(() => setSaveState("idle"), 2600);
     } catch (err) {
       setSaveState("error");
-      setSaveError(err.message || "Could not save. Please try again.");
+      setSaveError(err.message || t("settings.save_failed"));
     }
   }
 
@@ -317,11 +319,11 @@ export default function ProfileEditor({ initial, regions }) {
     try {
       const res = await bfu("/users/me/invite");
       const link = res?.link || "";
-      if (!link) throw new Error("No invite link yet");
+      if (!link) throw new Error(t("settings.invite_none"));
       await navigator.clipboard.writeText(link);
-      showToast("Invite link copied", "ok");
+      showToast(t("settings.invite_copied"), "ok");
     } catch (err) {
-      showToast(err.message || "Could not copy the link", "err");
+      showToast(err.message || t("settings.invite_copy_failed"), "err");
     }
   }
 
@@ -330,9 +332,9 @@ export default function ProfileEditor({ initial, regions }) {
     setCvBusy(true);
     try {
       await downloadResume();
-      showToast("Your CV is downloading", "ok");
+      showToast(t("settings.cv_downloading"), "ok");
     } catch (err) {
-      showToast(err.message || "Could not build your CV", "err");
+      showToast(err.message || t("settings.cv_failed"), "err");
     } finally {
       setCvBusy(false);
     }
@@ -350,17 +352,17 @@ export default function ProfileEditor({ initial, regions }) {
         {/* ── LEFT: the editor ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Identity */}
-          <Section label="Identity" hint="Your bio is what the city reads first — and what the AI reads to place you.">
+          <Section label={t("settings.identity_label")} hint={t("settings.identity_hint")}>
             <label style={{ display: "block" }}>
               <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
-                About you
+                {t("settings.about_label")}
               </span>
               <textarea
                 value={about}
                 onChange={(e) => setAbout(e.target.value.slice(0, 600))}
                 rows={6}
                 maxLength={600}
-                placeholder="What are you building, what you care about, what you're good at…"
+                placeholder={t("settings.about_ph")}
                 style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
               />
               <span
@@ -387,10 +389,10 @@ export default function ProfileEditor({ initial, regions }) {
                 style={{ opacity: coachBusy ? 0.6 : 1 }}
               >
                 <span style={{ color: "var(--amber)" }} aria-hidden>✦</span>
-                {coachBusy ? "Polishing…" : "AI bio coach"}
+                {coachBusy ? t("settings.coach_polishing") : t("settings.coach_button")}
               </button>
               <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
-                Let the coach tighten your draft — you decide whether to keep it.
+                {t("settings.coach_helper")}
               </span>
             </div>
             {coachError ? (
@@ -409,21 +411,21 @@ export default function ProfileEditor({ initial, regions }) {
                 }}
               >
                 <div className="ch-cell-label" style={{ color: "var(--amber)" }}>
-                  Coach suggestion
+                  {t("settings.coach_suggestion_label")}
                 </div>
                 <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--text)" }}>
                   {coachSuggestion}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" className="ch-btn-primary" onClick={applyCoach}>
-                    Apply to bio
+                    {t("settings.coach_apply")}
                   </button>
                   <button
                     type="button"
                     className="ch-btn-ghost"
                     onClick={() => setCoachSuggestion("")}
                   >
-                    Dismiss
+                    {t("settings.coach_dismiss")}
                   </button>
                 </div>
               </div>
@@ -432,7 +434,7 @@ export default function ProfileEditor({ initial, regions }) {
             {/* Currently building */}
             <label style={{ display: "block", marginTop: 4 }}>
               <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
-                What you're building right now
+                {t("settings.building_label")}
               </span>
               <input
                 type="text"
@@ -441,39 +443,39 @@ export default function ProfileEditor({ initial, regions }) {
                 maxLength={140}
                 placeholder={
                   me.currently_building_source === "auto" && me.currently_building
-                    ? `${me.currently_building} (from your active project)`
-                    : "e.g. a delivery app for Tashkent bazaars"
+                    ? t("settings.building_ph_auto", { value: me.currently_building })
+                    : t("settings.building_ph_manual")
                 }
                 style={inputBase}
               />
               {me.currently_building_source === "auto" && me.currently_building && !currentlyBuilding ? (
                 <span style={{ display: "block", marginTop: 6, fontSize: 12, color: "var(--muted-strong)" }}>
-                  Auto-filled from your active project. Type here to override it.
+                  {t("settings.building_auto_note")}
                 </span>
               ) : null}
             </label>
           </Section>
 
           {/* Looking for */}
-          <Section label="Looking for" hint="Let founders and organizers know how you want to show up.">
+          <Section label={t("settings.looking_label")} hint={t("settings.looking_hint")}>
             <Toggle
               on={openToWork}
               onChange={setOpenToWork}
-              label="Open to work"
-              sub="Startups can invite you to join paid teams."
+              label={t("settings.open_work_label")}
+              sub={t("settings.open_work_sub")}
             />
             <Toggle
               on={openToVol}
               onChange={setOpenToVol}
-              label="Open to volunteering"
-              sub="Community projects can reach out to you."
+              label={t("settings.open_vol_label")}
+              sub={t("settings.open_vol_sub")}
             />
           </Section>
 
           {/* Skills */}
           <Section
-            label="Skills"
-            hint="These are derived by the AI from your bio. Re-running reads your latest bio — if you've edited it, that draft is saved first."
+            label={t("settings.skills_label")}
+            hint={t("settings.skills_hint")}
           >
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {skills.length ? (
@@ -496,7 +498,7 @@ export default function ProfileEditor({ initial, regions }) {
                 ))
               ) : (
                 <span style={{ fontSize: 14, color: "var(--muted-strong)", fontStyle: "italic", fontFamily: "var(--font-accent)" }}>
-                  No skills yet — write a bio and run the analysis.
+                  {t("settings.skills_empty")}
                 </span>
               )}
             </div>
@@ -509,13 +511,13 @@ export default function ProfileEditor({ initial, regions }) {
                 style={{ opacity: analyzeBusy ? 0.6 : 1 }}
               >
                 <span style={{ color: "var(--amber)" }} aria-hidden>↻</span>
-                {analyzeBusy ? "Reading your bio…" : "Re-run AI analysis"}
+                {analyzeBusy ? t("settings.analyze_reading") : t("settings.analyze_button")}
               </button>
             </div>
           </Section>
 
           {/* Portfolio links */}
-          <Section label="Portfolio links" hint="Up to 5 links — GitHub, a demo, a deck, your writing. Label + URL.">
+          <Section label={t("settings.portfolio_label")} hint={t("settings.portfolio_hint")}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {links.map((row, i) => {
                 const incomplete = (row.label.trim() || row.url.trim()) && !(row.label.trim() && row.url.trim());
@@ -524,20 +526,20 @@ export default function ProfileEditor({ initial, regions }) {
                   <input
                     type="text"
                     value={row.label}
-                    aria-label={`Portfolio link ${i + 1} label`}
+                    aria-label={t("settings.link_label_aria", { n: i + 1 })}
                     onChange={(e) => {
                       const next = links.slice();
                       next[i] = { ...next[i], label: e.target.value };
                       setLinks(next);
                     }}
-                    placeholder="Label"
+                    placeholder={t("settings.link_label_ph")}
                     maxLength={40}
                     style={{ ...inputBase, flex: "1 1 140px", minWidth: 0 }}
                   />
                   <input
                     type="url"
                     value={row.url}
-                    aria-label={`Portfolio link ${i + 1} URL`}
+                    aria-label={t("settings.link_url_aria", { n: i + 1 })}
                     aria-invalid={incomplete && !row.url.trim() ? true : undefined}
                     onChange={(e) => {
                       const next = links.slice();
@@ -554,8 +556,8 @@ export default function ProfileEditor({ initial, regions }) {
                   />
                   <button
                     type="button"
-                    aria-label={`Remove portfolio link ${i + 1}`}
-                    title="Remove link"
+                    aria-label={t("settings.link_remove_aria", { n: i + 1 })}
+                    title={t("settings.link_remove_title")}
                     onClick={() => {
                       const next = links.filter((_, j) => j !== i);
                       setLinks(next.length ? next : [{ label: "", url: "" }]);
@@ -576,7 +578,7 @@ export default function ProfileEditor({ initial, regions }) {
                   </button>
                   {incomplete ? (
                     <span style={{ flexBasis: "100%", fontSize: 12, color: "var(--terra)" }}>
-                      {row.url.trim() ? "Add a label" : "Add a URL"} — this link won't be saved until it has both.
+                      {row.url.trim() ? t("settings.link_need_label") : t("settings.link_need_url")}
                     </span>
                   ) : null}
                 </div>
@@ -590,18 +592,18 @@ export default function ProfileEditor({ initial, regions }) {
                   className="ch-btn-ghost"
                   onClick={() => setLinks([...links, { label: "", url: "" }])}
                 >
-                  <span style={{ color: "var(--amber)" }} aria-hidden>+</span> Add link
+                  <span style={{ color: "var(--amber)" }} aria-hidden>+</span> {t("settings.add_link")}
                 </button>
               </div>
             ) : null}
           </Section>
 
           {/* Region */}
-          <Section label="Region" hint="Where in Uzbekistan you're based — helps the city place you on the map.">
+          <Section label={t("settings.region_label")} hint={t("settings.region_hint")}>
             <select
               value={regionId}
               onChange={(e) => setRegionId(e.target.value)}
-              aria-label="Your region"
+              aria-label={t("settings.region_aria")}
               style={{
                 ...inputBase,
                 cursor: "pointer",
@@ -616,7 +618,7 @@ export default function ProfileEditor({ initial, regions }) {
                 backgroundPosition: "right 14px center",
               }}
             >
-              <option value="">— Select your region —</option>
+              <option value="">{t("settings.region_select")}</option>
               {regionOptions.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`}
@@ -636,7 +638,7 @@ export default function ProfileEditor({ initial, regions }) {
           )}
 
           {/* Invite */}
-          <Section label="Invite a builder" hint="Share your link — invited builders count toward your achievements.">
+          <Section label={t("settings.invite_section_label")} hint={t("settings.invite_section_hint")}>
             <div
               style={{
                 fontFamily: "var(--font-mono)",
@@ -650,7 +652,7 @@ export default function ProfileEditor({ initial, regions }) {
                 padding: "11px 13px",
               }}
             >
-              {me.invite?.link || "Preparing your link…"}
+              {me.invite?.link || t("settings.invite_preparing")}
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <button
@@ -660,18 +662,18 @@ export default function ProfileEditor({ initial, regions }) {
                 disabled={!me.invite?.link}
                 style={{ opacity: me.invite?.link ? 1 : 0.55, cursor: me.invite?.link ? "pointer" : "default" }}
               >
-                Copy invite link
+                {t("settings.invite_copy_button")}
               </button>
               {me.invite?.invited_count != null ? (
                 <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
-                  {me.invite.invited_count} invited so far
+                  {t("settings.invited_count", { n: me.invite.invited_count })}
                 </span>
               ) : null}
             </div>
           </Section>
 
           {/* Download CV */}
-          <Section label="Your CV" hint="A one-page PDF built from your BFU profile — always up to date.">
+          <Section label={t("settings.cv_label")} hint={t("settings.cv_hint")}>
             <div>
               <button
                 type="button"
@@ -681,7 +683,7 @@ export default function ProfileEditor({ initial, regions }) {
                 style={{ opacity: cvBusy ? 0.6 : 1 }}
               >
                 <span style={{ color: "var(--amber)" }} aria-hidden>↓</span>
-                {cvBusy ? "Building your CV…" : "Download CV (PDF)"}
+                {cvBusy ? t("settings.cv_building") : t("settings.cv_download")}
               </button>
             </div>
           </Section>
@@ -700,9 +702,9 @@ export default function ProfileEditor({ initial, regions }) {
                 "linear-gradient(155deg, rgba(255,106,61,0.08), var(--surface) 62%)",
             }}
           >
-            <div className="ch-cell-label">See yourself as others do</div>
+            <div className="ch-cell-label">{t("settings.public_kicker")}</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20 }}>
-              View public profile
+              {t("settings.public_title")}
             </div>
             <div
               style={{
@@ -713,7 +715,7 @@ export default function ProfileEditor({ initial, regions }) {
                 color: "var(--amber)",
               }}
             >
-              Open →
+              {t("settings.public_open")}
             </div>
           </a>
         </div>
@@ -743,15 +745,15 @@ export default function ProfileEditor({ initial, regions }) {
             <span style={{ fontSize: 13.5, color: "var(--terra)" }}>{saveError}</span>
           ) : saveState === "saved" ? (
             <span style={{ fontSize: 13.5, color: "var(--green)", fontWeight: 600 }}>
-              Saved ✓
+              {t("settings.saved_check")}
             </span>
           ) : dirty ? (
             <span style={{ fontSize: 13.5, color: "var(--muted-strong)" }}>
-              You have unsaved changes.
+              {t("settings.unsaved")}
             </span>
           ) : (
             <span style={{ fontSize: 13.5, color: "var(--muted-strong)" }}>
-              Your profile is up to date.
+              {t("settings.up_to_date")}
             </span>
           )}
         </div>
@@ -767,10 +769,10 @@ export default function ProfileEditor({ initial, regions }) {
         >
           {saveState === "saving" ? (
             <>
-              <span className="ch-spin" aria-hidden>◠</span> Saving…
+              <span className="ch-spin" aria-hidden>◠</span> {t("settings.saving")}
             </>
           ) : (
-            "Save changes"
+            t("settings.save_button")
           )}
         </button>
       </div>
@@ -803,6 +805,7 @@ export default function ProfileEditor({ initial, regions }) {
 // (GET /users/me does not carry achievements — they come from a separate
 // endpoint). Small, self-contained loader so the rail still lights up.
 function AchievementsLoader() {
+  const t = useT();
   const [achievements, setAchievements] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -815,14 +818,14 @@ function AchievementsLoader() {
   }, []);
   if (!achievements) {
     return (
-      <Section label="Achievements">
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+      <Section label={t("settings.achievements_label")}>
+        <div style={{ fontSize: 13, color: "var(--muted)" }}>{t("settings.achievements_loading")}</div>
       </Section>
     );
   }
   if (!achievements.length) {
     return (
-      <Section label="Achievements" hint="Start a project, invite a builder, get endorsed — badges light up here." />
+      <Section label={t("settings.achievements_label")} hint={t("settings.achievements_hint")} />
     );
   }
   return <AchievementsCell achievements={achievements} />;

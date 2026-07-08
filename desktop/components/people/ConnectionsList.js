@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Client-side "your network" list for /connections. Loads two authed endpoints
 // on mount (per-user, uncacheable):
@@ -13,7 +14,8 @@ import { gradientFor, initials } from "@/lib/avatar";
 // linking to /u/{id}, with per-section empty + error states.
 
 function PersonCard({ person, variant }) {
-  const name = person.display_name || person.name || "Builder";
+  const t = useT();
+  const name = person.display_name || person.name || t("people.builder");
   const seed = person.id != null ? person.id : name;
   const building = person.currently_building;
   // The /me/following projection carries only id/name/photo, so a Following
@@ -60,22 +62,22 @@ function PersonCard({ person, variant }) {
           <div className="ch-card-nm" style={{ fontSize: 17 }}>
             {name}
             {person.checked && (
-              <span className="ch-card-vf" role="img" aria-label="Verified">
+              <span className="ch-card-vf" role="img" aria-label={t("people.verified")}>
                 ✓
               </span>
             )}
           </div>
           {following ? (
             <div className="ch-card-reg" style={{ marginTop: 5, color: "var(--muted-strong)" }}>
-              You follow them
+              {t("people.youFollowThem")}
             </div>
           ) : building ? (
             <div className="ch-card-bld" style={{ fontSize: 14, marginTop: 3 }}>
-              building <b>{building}</b>
+              {t("people.buildingLabel")} <b>{building}</b>
             </div>
           ) : (
             <div className="ch-card-reg" style={{ marginTop: 5, color: "var(--muted-strong)" }}>
-              View profile →
+              {t("people.viewProfile")} →
             </div>
           )}
         </div>
@@ -98,9 +100,10 @@ function Section({ label, kicker, children }) {
 }
 
 function EmptySection({ title, body }) {
+  const t = useT();
   return (
     <div className="ch-grace" style={{ minHeight: 150 }}>
-      <span className="ch-grace-k">Nothing here yet</span>
+      <span className="ch-grace-k">{t("people.nothingHere")}</span>
       <div className="ch-grace-t">{title}</div>
       <div className="ch-grace-s">{body}</div>
     </div>
@@ -108,10 +111,11 @@ function EmptySection({ title, body }) {
 }
 
 function ErrorSection({ body, onRetry }) {
+  const t = useT();
   return (
     <div className="ch-grace" style={{ minHeight: 150 }}>
       <span className="ch-grace-k" style={{ color: "var(--terra)" }}>
-        Couldn't load
+        {t("people.couldntLoad")}
       </span>
       <div className="ch-grace-t">{body}</div>
       <button
@@ -123,13 +127,14 @@ function ErrorSection({ body, onRetry }) {
         <span className="ch-spin" aria-hidden style={{ marginRight: 6 }}>
           ↻
         </span>
-        Try again
+        {t("people.tryAgain")}
       </button>
     </div>
   );
 }
 
 export default function ConnectionsList() {
+  const t = useT();
   // Per-section status so a real failure on one endpoint shows a section-level
   // error (with retry) instead of masquerading as an empty "nobody here" state.
   const [state, setState] = useState("loading"); // loading | ready
@@ -176,20 +181,20 @@ export default function ConnectionsList() {
         <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
           ◠
         </span>
-        Loading your network…
+        {t("people.loadingNetwork")}
       </div>
     );
   }
 
   return (
     <div style={{ marginTop: 24 }}>
-      <Section label="Your connections" kicker="Mutual interest">
+      <Section label={t("people.yourConnections")} kicker={t("people.mutualInterest")}>
         {connections.status === "error" ? (
-          <ErrorSection body="We couldn't reach your connections." onRetry={loadConnections} />
+          <ErrorSection body={t("people.connectionsError")} onRetry={loadConnections} />
         ) : connections.items.length === 0 ? (
           <EmptySection
-            title="No mutual connections yet."
-            body="When you and another builder both express interest, they'll show up here. Wander the city and say hello."
+            title={t("people.noMutualTitle")}
+            body={t("people.noMutualBody")}
           />
         ) : (
           <div className="ch-grid" style={{ marginTop: 18 }}>
@@ -200,13 +205,13 @@ export default function ConnectionsList() {
         )}
       </Section>
 
-      <Section label="Following" kicker="People you follow">
+      <Section label={t("people.followingSection")} kicker={t("people.peopleYouFollow")}>
         {following.status === "error" ? (
-          <ErrorSection body="We couldn't reach the people you follow." onRetry={loadFollowing} />
+          <ErrorSection body={t("people.followingError")} onRetry={loadFollowing} />
         ) : following.items.length === 0 ? (
           <EmptySection
-            title="You're not following anyone yet."
-            body="Follow builders you admire and their work will surface for you. Open any profile and tap Follow."
+            title={t("people.notFollowingTitle")}
+            body={t("people.notFollowingBody")}
           />
         ) : (
           <div className="ch-grid" style={{ marginTop: 18 }}>

@@ -1,4 +1,7 @@
+"use client";
+
 import BuilderCard from "./BuilderCard";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's region section: the `.slab` header (REGION kicker /
 // "{name} tonight" / hairline / "{lit} lit") followed by the `.grid` of
@@ -17,18 +20,19 @@ import BuilderCard from "./BuilderCard";
 const LOW_COUNT_THRESHOLD = 6;
 
 export default function RegionCluster({ region = {}, nameKey = "name_en" }) {
+  const t = useT();
   const people = region.people || [];
-  const name = region[nameKey] || region.name_en || region.name || "This city";
+  const name = region[nameKey] || region.name_en || region.name || t("city.cluster.this_city");
   const lit = region.lit != null ? region.lit : people.length;
   const small = people.length < LOW_COUNT_THRESHOLD;
 
   return (
     <>
       <div className="ch-slab">
-        <span className="ch-slab-k">Region</span>
-        <h2>{name} tonight</h2>
+        <span className="ch-slab-k">{t("city.cluster.region_kicker")}</span>
+        <h2>{t("city.cluster.tonight", { name })}</h2>
         <div className="ch-slab-line" />
-        <span className="ch-slab-k">{lit} lit</span>
+        <span className="ch-slab-k">{t("city.cluster.lit", { n: lit })}</span>
       </div>
 
       <div className="ch-grid" data-cluster={String(region.id ?? "")}>
@@ -43,11 +47,10 @@ export default function RegionCluster({ region = {}, nameKey = "name_en" }) {
 
         {small && (
           <div className="ch-grace">
-            <span className="ch-grace-k">Early tonight</span>
-            <div className="ch-grace-t">The bazaar is small tonight.</div>
+            <span className="ch-grace-k">{t("city.cluster.grace_kicker")}</span>
+            <div className="ch-grace-t">{t("city.cluster.grace_title")}</div>
             <div className="ch-grace-s">
-              Be one of the first to light up {name} — the city grows around whoever
-              shows up.
+              {t("city.cluster.grace_sub", { name })}
             </div>
           </div>
         )}

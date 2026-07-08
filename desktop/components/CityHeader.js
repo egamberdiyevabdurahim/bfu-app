@@ -1,12 +1,14 @@
 "use client";
 
 import { useCountUp } from "../lib/useCountUp";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's `.hero` block (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html).
 // Overline `TOSHKENT · <weekday> night`, Bricolage headline with amber count-up,
 // Instrument-Serif italic sub, and three count-up stats. All numbers via useCountUp
 // (prefers-reduced-motion handled inside the hook). Quiet-hours copy when online_now === 0.
 export default function CityHeader({ stats = {}, weekday = "" }) {
+  const t = useT();
   const onlineNow = stats.online_now || 0;
   const citiesLit = stats.cities_lit || 0;
   const newThisWeek = stats.new_this_week || 0;
@@ -39,7 +41,7 @@ export default function CityHeader({ stats = {}, weekday = "" }) {
             color: "var(--muted)",
           }}
         >
-          Toshkent{weekday ? ` · ${weekday} night` : ""}
+          {weekday ? t("city.header.overline", { weekday }) : t("city.header.overline_plain")}
         </div>
         <h1
           style={{
@@ -52,10 +54,11 @@ export default function CityHeader({ stats = {}, weekday = "" }) {
           }}
         >
           {quiet ? (
-            "The bazaar is resting"
+            t("city.header.resting")
           ) : (
             <>
-              <span style={{ color: "var(--amber)" }}>{online}</span> builder{onlineNow === 1 ? "" : "s"} lit tonight
+              <span style={{ color: "var(--amber)" }}>{online}</span>{" "}
+              {onlineNow === 1 ? t("city.header.lit_one") : t("city.header.lit_other")}
             </>
           )}
         </h1>
@@ -68,14 +71,14 @@ export default function CityHeader({ stats = {}, weekday = "" }) {
             color: "var(--muted)",
           }}
         >
-          {quiet ? "Quiet hours — come build." : "Someone is always building right now."}
+          {quiet ? t("city.header.sub_quiet") : t("city.header.sub_active")}
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 26 }}>
-        <Count value={c1} label="Online now" online />
-        <Count value={c2} label="Cities lit" />
-        <Count value={c3} label="New this week" />
+        <Count value={c1} label={t("city.header.stat_online")} online />
+        <Count value={c2} label={t("city.header.stat_cities")} />
+        <Count value={c3} label={t("city.header.stat_new")} />
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Additive client island mounted on the public /u/[id] profile page. The SSR
 // content (identity strip, bento cells) stays intact and public; this island
@@ -76,6 +77,7 @@ function Toast({ toast }) {
 }
 
 export default function PersonActions({ userId, personName, aboutText, lang = "en" }) {
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState("loading"); // loading | anon | self | ready | error
   const [me, setMe] = useState(null);
@@ -166,7 +168,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         is_following: wasFollowing,
         follower_count: Math.max(0, (p.follower_count || 0) + (wasFollowing ? 1 : -1)),
       }));
-      flash(e?.message || "Couldn't update follow.", "error");
+      flash(e?.message || t("people.followUpdateError"), "error");
     } finally {
       setBusy(false);
     }
@@ -178,9 +180,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     setBusy(true);
     try {
       const r = await bfu(`/users/${userId}/interest`, { method: "POST" });
-      flash(r?.mutual ? "It's a match! 🎉 Say hi 👋" : "Interest sent 💜");
+      flash(r?.mutual ? t("people.match") : t("people.interestSent"));
     } catch (e) {
-      flash(e?.status === 429 ? "Already pinged in the last 24h." : (e?.message || "Couldn't send interest."), "error");
+      flash(e?.status === 429 ? t("people.interestCooldown") : (e?.message || t("people.interestError")), "error");
     } finally {
       setBusy(false);
     }
@@ -201,8 +203,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       // 400 = blocked either way / self; anything else = transient.
       flash(
         e?.status === 400
-          ? "Messaging isn't available with this person."
-          : e?.message || "Couldn't open the conversation.",
+          ? t("people.messagingUnavailable")
+          : e?.message || t("people.conversationError"),
         "error"
       );
       setMsgBusy(false);
@@ -215,9 +217,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     setBusy(true);
     try {
       await bfu(`/users/${userId}/intro`, { method: "POST" });
-      flash("Intro request sent 👋");
+      flash(t("people.introSent"));
     } catch (e) {
-      flash(e?.status === 429 ? "Please wait before sending another intro." : (e?.message || "Couldn't request an intro."), "error");
+      flash(e?.status === 429 ? t("people.introCooldown") : (e?.message || t("people.introError")), "error");
     } finally {
       setBusy(false);
     }
@@ -272,7 +274,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         }
         return { ...p, endorsements: list };
       });
-      flash(e?.message || "Couldn't endorse.", "error");
+      flash(e?.message || t("people.endorseError"), "error");
     }
   }
 
@@ -288,9 +290,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       });
       setMyVouch({ id: r?.id, text });
       setVouchText("");
-      flash("Vouch posted 🤝");
+      flash(t("people.vouchPosted"));
     } catch (e) {
-      flash(e?.message || "Couldn't post your vouch.", "error");
+      flash(e?.message || t("people.vouchPostError"), "error");
     } finally {
       setVouchBusy(false);
     }
@@ -302,9 +304,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     try {
       await bfu(`/users/${userId}/vouch`, { method: "DELETE" });
       setMyVouch(null);
-      flash("Vouch removed.");
+      flash(t("people.vouchRemoved"));
     } catch (e) {
-      flash(e?.message || "Couldn't remove your vouch.", "error");
+      flash(e?.message || t("people.vouchRemoveError"), "error");
     } finally {
       setVouchBusy(false);
     }
@@ -326,9 +328,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       setReported(true);
       setShowReport(false);
       setReportReason("");
-      flash("Report sent. Thank you.");
+      flash(t("people.reportSent"));
     } catch (e) {
-      flash(e?.message || "Couldn't send the report.", "error");
+      flash(e?.message || t("people.reportError"), "error");
     } finally {
       setReportBusy(false);
     }
@@ -345,7 +347,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       const data = await bfu(path, { params: { lang } });
       setAi((s) => ({ ...s, [kind]: { loading: false, error: null, data } }));
     } catch (e) {
-      const msg = e?.status === 429 ? "Please wait a moment, then try again." : (e?.message || "Couldn't reach the AI.");
+      const msg = e?.status === 429 ? t("people.aiCooldown") : (e?.message || t("people.aiError"));
       setAi((s) => ({ ...s, [kind]: { loading: false, error: msg, data: null } }));
     }
   }
@@ -370,7 +372,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         justifyContent: "center", alignItems: "center", gap: 10, color: "var(--muted-strong)",
         fontSize: 14 }} aria-busy="true">
         <span className="ch-spin" aria-hidden>◠</span>
-        Loading connection options…
+        {t("people.loadingOptions")}
       </div>
     );
   }
@@ -378,12 +380,12 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
   if (state === "self") {
     return (
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">This is you</div>
+        <div className="ch-cell-label">{t("people.thisIsYou")}</div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
-          This is how the city sees your page. Keep it warm and current.
+          {t("people.thisIsYouBody")}
         </p>
         <a href="/settings" className="ch-btn-primary" style={{ justifyContent: "center" }}>
-          Edit profile <span style={{ fontSize: 14 }}>→</span>
+          {t("people.editProfile")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>
     );
@@ -392,13 +394,12 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
   if (state === "anon") {
     return (
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">Want to connect?</div>
+        <div className="ch-cell-label">{t("people.wantToConnect")}</div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
-          Log in with Telegram to follow {personName || "this builder"}, endorse
-          their skills, and say hello.
+          {t("people.anonBody", { name: personName || t("people.thisBuilder") })}
         </p>
         <a href="/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
-          Log in to connect <span style={{ fontSize: 14 }}>→</span>
+          {t("people.loginToConnect")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>
     );
@@ -409,14 +410,14 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12, alignItems: "center",
         textAlign: "center" }}>
         <p style={{ margin: 0, color: "var(--terra)", fontSize: 14 }}>
-          Couldn't load connection options.
+          {t("people.loadError")}
         </p>
         <button
           type="button"
           onClick={() => setReloadKey((k) => k + 1)}
           style={{ ...ghostBtn, padding: "9px 18px", fontSize: 13 }}
         >
-          Try again
+          {t("people.tryAgain")}
         </button>
       </div>
     );
@@ -431,9 +432,11 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       {/* Primary connect controls */}
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div className="ch-cell-label">Connect</div>
+          <div className="ch-cell-label">{t("people.connect")}</div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
-            {profile.follower_count || 0} follower{(profile.follower_count || 0) === 1 ? "" : "s"}
+            {(profile.follower_count || 0) === 1
+              ? t("people.followerOne", { n: profile.follower_count || 0 })
+              : t("people.followerMany", { n: profile.follower_count || 0 })}
           </div>
         </div>
 
@@ -442,7 +445,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           onClick={toggleFollow}
           disabled={busy}
           aria-pressed={!!profile.is_following}
-          aria-label={profile.is_following ? `Following ${personName || "this builder"}` : `Follow ${personName || "this builder"}`}
+          aria-label={profile.is_following ? t("people.followingAria", { name: personName || t("people.thisBuilder") }) : t("people.followAria", { name: personName || t("people.thisBuilder") })}
           className={profile.is_following ? undefined : "ch-btn-primary"}
           style={
             profile.is_following
@@ -459,7 +462,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
               : { width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }
           }
         >
-          <span aria-hidden>{profile.is_following ? "✓" : "+"}</span> {profile.is_following ? "Following" : "Follow"}
+          <span aria-hidden>{profile.is_following ? "✓" : "+"}</span> {profile.is_following ? t("people.following") : t("people.follow")}
         </button>
 
         {/* Native in-app DM — the key affordance for the many members with no
@@ -469,10 +472,10 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           className="ch-btn-primary"
           onClick={openMessage}
           disabled={msgBusy}
-          aria-label={`Message ${personName || "this builder"}`}
+          aria-label={t("people.messageAria", { name: personName || t("people.thisBuilder") })}
           style={{ width: "100%", justifyContent: "center", opacity: msgBusy ? 0.6 : 1 }}
         >
-          <span aria-hidden>✉</span> {msgBusy ? "Opening…" : "Message"}
+          <span aria-hidden>✉</span> {msgBusy ? t("people.opening") : t("people.message")}
         </button>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -482,7 +485,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             disabled={busy}
             style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
           >
-            <span aria-hidden>💜</span> I'm interested
+            <span aria-hidden>💜</span> {t("people.imInterested")}
           </button>
           <button
             type="button"
@@ -490,14 +493,14 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             disabled={busy}
             style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
           >
-            <span aria-hidden>👋</span> Request intro
+            <span aria-hidden>👋</span> {t("people.requestIntro")}
           </button>
         </div>
 
         {/* Report affordance */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           {reported ? (
-            <span style={{ fontSize: 12, color: "var(--muted-strong)" }}>Reported ✓</span>
+            <span style={{ fontSize: 12, color: "var(--muted-strong)" }}>{t("people.reported")} ✓</span>
           ) : (
             <button
               type="button"
@@ -511,7 +514,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                 padding: "4px 2px",
               }}
             >
-              <span aria-hidden>⋯</span> Report
+              <span aria-hidden>⋯</span> {t("people.report")}
             </button>
           )}
         </div>
@@ -520,7 +523,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             <textarea
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
-              placeholder="What's wrong? (optional)"
+              placeholder={t("people.reportPlaceholder")}
               rows={2}
               style={{
                 width: "100%",
@@ -536,7 +539,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" onClick={() => setShowReport(false)} disabled={reportBusy} style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, opacity: reportBusy ? 0.6 : 1 }}>
-                Cancel
+                {t("people.cancel")}
               </button>
               <button
                 type="button"
@@ -544,7 +547,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                 disabled={reportBusy}
                 style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.35)", opacity: reportBusy ? 0.6 : 1, cursor: reportBusy ? "default" : "pointer" }}
               >
-                {reportBusy ? "Sending…" : "Send report"}
+                {reportBusy ? t("people.sending") : t("people.sendReport")}
               </button>
             </div>
           </div>
@@ -553,28 +556,28 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
       {/* AI trio */}
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">A little help</div>
+        <div className="ch-cell-label">{t("people.aLittleHelp")}</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <button type="button" onClick={() => runAi("whymatch")} disabled={ai.whymatch?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.whymatch?.loading ? 0.6 : 1 }}>
-            <span aria-hidden>✦</span> Why you match
+            <span aria-hidden>✦</span> {t("people.whyYouMatch")}
           </button>
           <button type="button" onClick={() => runAi("icebreak")} disabled={ai.icebreak?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.icebreak?.loading ? 0.6 : 1 }}>
-            <span aria-hidden>💬</span> Break the ice
+            <span aria-hidden>💬</span> {t("people.breakTheIce")}
           </button>
           {aboutText ? (
             <button type="button" onClick={() => runAi("translate")} disabled={ai.translate?.loading} style={{ ...ghostBtn, flex: "1 1 auto", fontSize: 13, textAlign: "center", opacity: ai.translate?.loading ? 0.6 : 1 }}>
-              <span aria-hidden>🌐</span> Translate bio
+              <span aria-hidden>🌐</span> {t("people.translateBio")}
             </button>
           ) : null}
         </div>
 
         {/* Why-you-match panel */}
         {ai.whymatch && (
-          <AiPanel loading={ai.whymatch.loading} error={ai.whymatch.error} label="Why you match">
+          <AiPanel loading={ai.whymatch.loading} error={ai.whymatch.error} label={t("people.whyYouMatch")}>
             {ai.whymatch.data && (
               <div>
                 <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: "var(--text)", fontFamily: "var(--font-accent)", fontStyle: "italic" }}>
-                  {ai.whymatch.data.reason || "No shared signals found yet."}
+                  {ai.whymatch.data.reason || t("people.noSharedSignals")}
                 </p>
                 {Array.isArray(ai.whymatch.data.shared) && ai.whymatch.data.shared.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
@@ -592,11 +595,11 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
         {/* Icebreakers panel */}
         {ai.icebreak && (
-          <AiPanel loading={ai.icebreak.loading} error={ai.icebreak.error} label="Openers">
+          <AiPanel loading={ai.icebreak.loading} error={ai.icebreak.error} label={t("people.openers")}>
             {ai.icebreak.data && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(ai.icebreak.data.icebreakers || []).length === 0 && (
-                  <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>No openers came back — try again in a moment.</span>
+                  <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>{t("people.noOpeners")}</span>
                 )}
                 {(ai.icebreak.data.icebreakers || []).map((line, i) => (
                   <div
@@ -617,7 +620,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                       onClick={() => copyLine(line, i)}
                       style={{ background: "none", border: "none", color: copied === i ? "var(--green)" : "var(--amber)", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
                     >
-                      {copied === i ? "Copied ✓" : "Copy"}
+                      {copied === i ? `${t("people.copied")} ✓` : t("people.copy")}
                     </button>
                   </div>
                 ))}
@@ -628,10 +631,10 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
         {/* Translate panel */}
         {ai.translate && (
-          <AiPanel loading={ai.translate.loading} error={ai.translate.error} label={`Bio in ${lang.toUpperCase()}`}>
+          <AiPanel loading={ai.translate.loading} error={ai.translate.error} label={t("people.bioIn", { lang: lang.toUpperCase() })}>
             {ai.translate.data && (
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "var(--text)" }}>
-                {ai.translate.data.translated || "No bio to translate."}
+                {ai.translate.data.translated || t("people.noBioTranslate")}
               </p>
             )}
           </AiPanel>
@@ -641,7 +644,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       {/* Endorse skills */}
       {skills.length > 0 && (
         <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="ch-cell-label">Endorse a skill</div>
+          <div className="ch-cell-label">{t("people.endorseASkill")}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {skills.map((skill) => {
               const e = endorseMap[skill] || { count: 0, endorsed_by_me: false };
@@ -651,7 +654,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                   key={skill}
                   type="button"
                   onClick={() => toggleEndorse(skill)}
-                  title={on ? "Remove your endorsement" : "Endorse this skill"}
+                  title={on ? t("people.removeEndorsement") : t("people.endorseThisSkill")}
                   aria-pressed={on}
                   style={{
                     display: "inline-flex",
@@ -683,7 +686,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
       {/* Vouch composer */}
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">
-          {myVouch ? "Your vouch" : `Vouch for ${personName || "this builder"}`}
+          {myVouch ? t("people.yourVouch") : t("people.vouchFor", { name: personName || t("people.thisBuilder") })}
         </div>
         {myVouch ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -710,7 +713,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                 disabled={vouchBusy}
                 style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.3)", opacity: vouchBusy ? 0.6 : 1 }}
               >
-                Remove
+                {t("people.remove")}
               </button>
             </div>
           </div>
@@ -719,7 +722,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
             <textarea
               value={vouchText}
               onChange={(e) => setVouchText(e.target.value.slice(0, 280))}
-              placeholder={`Say what it's like to work with ${personName || "them"}…`}
+              placeholder={t("people.vouchPlaceholder", { name: personName || t("people.them") })}
               rows={3}
               style={{
                 width: "100%",
@@ -745,7 +748,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
                 disabled={vouchBusy || !vouchText.trim()}
                 style={{ padding: "9px 18px", fontSize: 13, opacity: vouchBusy || !vouchText.trim() ? 0.55 : 1 }}
               >
-                {vouchBusy ? "Posting…" : "Post vouch"}
+                {vouchBusy ? t("people.posting") : t("people.postVouch")}
               </button>
             </div>
           </div>
@@ -759,6 +762,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
 
 // Small reusable AI result panel: loading spinner / error / children.
 function AiPanel({ loading, error, label, children }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -775,7 +779,7 @@ function AiPanel({ loading, error, label, children }) {
       {loading ? (
         <div style={{ color: "var(--muted-strong)", fontSize: 13 }}>
           <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
-          Thinking…
+          {t("people.thinking")}
         </div>
       ) : error ? (
         <div style={{ color: "var(--terra)", fontSize: 13 }}>{error}</div>

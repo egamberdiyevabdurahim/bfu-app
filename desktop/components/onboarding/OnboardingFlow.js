@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // First-login welcome flow for a brand-new builder. Mounted by OnboardingGate on
 // /home only while me.onboarding_completed === false. Four skippable steps:
@@ -55,6 +56,7 @@ const labelHint = {
 
 export default function OnboardingFlow({ me = {}, firstName = "builder", onClose }) {
   const router = useRouter();
+  const t = useT();
 
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState(0);
@@ -155,7 +157,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
       regionBaseline.current = regionId;
       return true;
     } catch (e) {
-      setStepError(e?.message || "Couldn't save your region — try again, or skip.");
+      setStepError(e?.message || t("onboarding.error.region"));
       return false;
     }
   }
@@ -167,7 +169,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
       aboutBaseline.current = about;
       return true;
     } catch (e) {
-      setStepError(e?.message || "Couldn't save your bio — try again, or skip.");
+      setStepError(e?.message || t("onboarding.error.bio"));
       return false;
     }
   }
@@ -200,16 +202,16 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
     setCoachSuggestion("");
     const text = about.trim();
     if (!text) {
-      setCoachError("Write a first line, then let the coach polish it.");
+      setCoachError(t("onboarding.coach.needFirstLine"));
       return;
     }
     setCoachBusy(true);
     try {
       const res = await bfu("/users/me/coach", { method: "POST", body: { kind: "bio", text } });
       setCoachSuggestion(res?.improved || "");
-      if (!res?.improved) setCoachError("The coach had nothing to add — it reads well.");
+      if (!res?.improved) setCoachError(t("onboarding.coach.nothingToAdd"));
     } catch (e) {
-      setCoachError(e?.message || "The coach is resting. Try again in a moment.");
+      setCoachError(e?.message || t("onboarding.coach.resting"));
     } finally {
       setCoachBusy(false);
     }
@@ -364,18 +366,18 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
               padding: "4px 2px",
             }}
           >
-            Skip for now
+            {t("onboarding.skip")}
           </button>
         </div>
 
         {/* Step body */}
         {step === 0 && (
           <Step
-            eyebrow="Welcome to the city"
+            eyebrow={t("onboarding.step1.eyebrow")}
             headingId={headingId}
             title={
               <>
-                Welcome to the city,{" "}
+                {t("onboarding.step1.titlePrefix")}{" "}
                 <span
                   style={{
                     fontFamily: "var(--font-accent)",
@@ -388,19 +390,19 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                 </span>
               </>
             }
-            intent="Let's light your corner of the bazaar — four quick steps, and you can skip any of them."
+            intent={t("onboarding.step1.intent")}
           >
             <label style={{ display: "block" }}>
-              <span style={labelHint}>Where in Uzbekistan are you building?</span>
+              <span style={labelHint}>{t("onboarding.step1.regionLabel")}</span>
               <select
                 value={regionId}
                 onChange={(e) => setRegionId(e.target.value)}
-                aria-label="Your region"
+                aria-label={t("onboarding.step1.regionAria")}
                 disabled={regions === null}
                 style={selectStyle}
               >
                 <option value="">
-                  {regions === null ? "Loading regions…" : "— Select your region —"}
+                  {regions === null ? t("onboarding.step1.loadingRegions") : t("onboarding.step1.selectRegion")}
                 </option>
                 {(regions || []).map((r) => (
                   <option key={r.id} value={r.id}>
@@ -414,19 +416,19 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
 
         {step === 1 && (
           <Step
-            eyebrow="Your story"
+            eyebrow={t("onboarding.step2.eyebrow")}
             headingId={headingId}
-            title="Say who you are"
-            intent="A line or two the city reads first — and what the AI reads to place you. You can change it anytime."
+            title={t("onboarding.step2.title")}
+            intent={t("onboarding.step2.intent")}
           >
             <label style={{ display: "block" }}>
-              <span style={labelHint}>About you</span>
+              <span style={labelHint}>{t("onboarding.step2.aboutLabel")}</span>
               <textarea
                 value={about}
                 onChange={(e) => setAbout(e.target.value.slice(0, 600))}
                 rows={5}
                 maxLength={600}
-                placeholder="What you're building, what you care about, what you're good at…"
+                placeholder={t("onboarding.step2.aboutPlaceholder")}
                 style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 120 }}
               />
               <span
@@ -454,10 +456,10 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                 <span style={{ color: "var(--amber)" }} aria-hidden>
                   ✦
                 </span>
-                {coachBusy ? "Polishing…" : "Polish with AI"}
+                {coachBusy ? t("onboarding.step2.polishing") : t("onboarding.step2.polish")}
               </button>
               <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
-                The coach tightens your draft — you decide whether to keep it.
+                {t("onboarding.step2.coachHint")}
               </span>
             </div>
 
@@ -477,21 +479,21 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                 }}
               >
                 <div className="ch-cell-label" style={{ color: "var(--amber)" }}>
-                  Coach suggestion
+                  {t("onboarding.step2.coachSuggestion")}
                 </div>
                 <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--text)" }}>
                   {coachSuggestion}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" className="ch-btn-primary" onClick={applyCoach}>
-                    Use this
+                    {t("onboarding.step2.useThis")}
                   </button>
                   <button
                     type="button"
                     className="ch-btn-ghost"
                     onClick={() => setCoachSuggestion("")}
                   >
-                    Dismiss
+                    {t("onboarding.step2.dismiss")}
                   </button>
                 </div>
               </div>
@@ -506,7 +508,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                   fontFamily: "var(--font-accent)",
                 }}
               >
-                Your Telegram photo will appear on your card automatically — nothing to upload.
+                {t("onboarding.step2.photoNote")}
               </div>
             ) : null}
           </Step>
@@ -514,22 +516,22 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
 
         {step === 2 && (
           <Step
-            eyebrow="Find your people"
+            eyebrow={t("onboarding.step3.eyebrow")}
             headingId={headingId}
-            title="Follow a few builders"
-            intent="Start your feed with people already at work across the city."
+            title={t("onboarding.step3.title")}
+            intent={t("onboarding.step3.intent")}
           >
             {builders === null ? (
               <div style={{ color: "var(--muted-strong)", fontSize: 14, padding: "8px 0" }}>
                 <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>
                   ◠
                 </span>
-                Gathering builders…
+                {t("onboarding.step3.gathering")}
               </div>
             ) : builders.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-                  The city's still waking up. Wander in and meet people as they arrive.
+                  {t("onboarding.step3.emptyBody")}
                 </p>
                 <a
                   href="/city"
@@ -537,18 +539,18 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                   onClick={() => finish()}
                   style={{ alignSelf: "flex-start" }}
                 >
-                  Wander the city →
+                  {t("onboarding.step3.wander")}
                 </a>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {builders.map((b) => {
                   const following = followed.has(b.id);
-                  const name = b.display_name || b.name || "Builder";
+                  const name = b.display_name || b.name || t("onboarding.step3.builderFallback");
                   const tagline =
                     b.currently_building ||
                     (b.analysis?.skills || []).slice(0, 2).join(" · ") ||
-                    "New in the city";
+                    t("onboarding.step3.newInCity");
                   return (
                     <div
                       key={b.id}
@@ -625,7 +627,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                         onClick={() => toggleFollow(b.id)}
                         disabled={followBusy.has(b.id)}
                         aria-pressed={following}
-                        aria-label={following ? `Following ${name}` : `Follow ${name}`}
+                        aria-label={following ? t("onboarding.step3.followingAria", { name }) : t("onboarding.step3.followAria", { name })}
                         style={{
                           flex: "0 0 auto",
                           padding: "8px 14px",
@@ -641,7 +643,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                           opacity: followBusy.has(b.id) ? 0.6 : 1,
                         }}
                       >
-                        {following ? "✓ Following" : "+ Follow"}
+                        {following ? t("onboarding.step3.following") : t("onboarding.step3.follow")}
                       </button>
                     </div>
                   );
@@ -653,10 +655,10 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
 
         {step === 3 && (
           <Step
-            eyebrow="Optional"
+            eyebrow={t("onboarding.step4.eyebrow")}
             headingId={headingId}
-            title="Rally a team around your idea"
-            intent="Building something? Post it, and let the city help you make it real. No rush — you can start whenever."
+            title={t("onboarding.step4.title")}
+            intent={t("onboarding.step4.intent")}
           >
             <button
               type="button"
@@ -664,7 +666,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
               onClick={startProject}
               style={{ width: "100%", justifyContent: "center", padding: "13px 20px" }}
             >
-              Start a project →
+              {t("onboarding.step4.startProject")}
             </button>
           </Step>
         )}
@@ -691,7 +693,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
               disabled={busy}
               style={{ opacity: busy ? 0.6 : 1 }}
             >
-              ← Back
+              {t("onboarding.nav.back")}
             </button>
           ) : (
             <span />
@@ -709,12 +711,12 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                 <span className="ch-spin" aria-hidden>
                   ◠
                 </span>{" "}
-                Saving…
+                {t("onboarding.nav.saving")}
               </>
             ) : isLast ? (
-              "Finish"
+              t("onboarding.nav.finish")
             ) : (
-              "Next →"
+              t("onboarding.nav.next")
             )}
           </button>
         </div>

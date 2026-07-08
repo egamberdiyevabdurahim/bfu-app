@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
 import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // HomeDashboard — the personal /home dashboard body. Renders four stacked
 // modules under the server-rendered hero:
@@ -116,6 +117,7 @@ function NeedsCard({ card }) {
 }
 
 function NeedsYouNow() {
+  const t = useT();
   const [loaded, setLoaded] = useState(false);
   const [pending, setPending] = useState(0);
   const [unread, setUnread] = useState(0);
@@ -150,8 +152,8 @@ function NeedsYouNow() {
   if (!loaded) {
     return (
       <section style={{ marginTop: 40 }} aria-busy="true">
-        <Eyebrow>Needs you now</Eyebrow>
-        <div className="hd-needs-grid" style={{ marginTop: 16 }} role="status" aria-label="Loading what needs you">
+        <Eyebrow>{t("home.needs.eyebrow")}</Eyebrow>
+        <div className="hd-needs-grid" style={{ marginTop: 16 }} role="status" aria-label={t("home.needs.loading_aria")}>
           <div className="hd-sk" style={{ minHeight: 132 }} />
           <div className="hd-sk" style={{ minHeight: 132 }} />
         </div>
@@ -163,22 +165,22 @@ function NeedsYouNow() {
     pending > 0 && {
       href: "/requests",
       count: pending,
-      text: pending === 1 ? "builder wants to join your projects" : "builders want to join your projects",
-      cta: "Review applications",
+      text: pending === 1 ? t("home.needs.pending_one") : t("home.needs.pending_other"),
+      cta: t("home.needs.pending_cta"),
       accent: "ember",
     },
     unread > 0 && {
       href: "/notifications",
       count: unread,
-      text: unread === 1 ? "new notification" : "new notifications",
-      cta: "Open notifications",
+      text: unread === 1 ? t("home.needs.unread_one") : t("home.needs.unread_other"),
+      cta: t("home.needs.unread_cta"),
       accent: "amber",
     },
     sessions > 0 && {
       href: "/bookings",
       count: sessions,
-      text: sessions === 1 ? "session request awaiting your reply" : "session requests awaiting your reply",
-      cta: "Respond",
+      text: sessions === 1 ? t("home.needs.sessions_one") : t("home.needs.sessions_other"),
+      cta: t("home.needs.sessions_cta"),
       accent: "amber",
     },
   ].filter(Boolean);
@@ -187,10 +189,10 @@ function NeedsYouNow() {
     return (
       <section style={{ marginTop: 40 }}>
         <div className="ch-grace" style={{ minHeight: 128 }}>
-          <span className="ch-grace-k">Needs you now</span>
-          <div className="ch-grace-t">You&rsquo;re all caught up.</div>
+          <span className="ch-grace-k">{t("home.needs.eyebrow")}</span>
+          <div className="ch-grace-t">{t("home.needs.grace_title")}</div>
           <div className="ch-grace-s">
-            The city&rsquo;s quiet for you right now — nothing&rsquo;s waiting on a decision.
+            {t("home.needs.grace_sub")}
           </div>
         </div>
       </section>
@@ -199,7 +201,7 @@ function NeedsYouNow() {
 
   return (
     <section style={{ marginTop: 40 }}>
-      <Eyebrow>Needs you now</Eyebrow>
+      <Eyebrow>{t("home.needs.eyebrow")}</Eyebrow>
       <div className="hd-needs-grid" style={{ marginTop: 16 }}>
         {cards.map((c) => (
           <NeedsCard key={c.href} card={c} />
@@ -228,12 +230,12 @@ function completeness(profile) {
     Boolean((p.region && (p.region.id || p.region.name_en || p.region.name)) || p.region_id);
 
   const checks = [
-    { ok: !!p.photo_url, w: 20, label: "Add a photo" },
-    { ok: about.length > 0, w: 25, label: "Write your bio" },
-    { ok: skills > 0, w: 20, label: "Add your skills" },
-    { ok: building.length > 0, w: 15, label: "Say what you're building" },
-    { ok: hasRegion, w: 10, label: "Set your region" },
-    { ok: links > 0, w: 10, label: "Add a portfolio link" },
+    { ok: !!p.photo_url, w: 20, id: "photo" },
+    { ok: about.length > 0, w: 25, id: "bio" },
+    { ok: skills > 0, w: 20, id: "skills" },
+    { ok: building.length > 0, w: 15, id: "building" },
+    { ok: hasRegion, w: 10, id: "region" },
+    { ok: links > 0, w: 10, id: "link" },
   ];
   const pct = checks.filter((c) => c.ok).reduce((a, c) => a + c.w, 0);
   const missing = checks.filter((c) => !c.ok).slice(0, 2);
@@ -241,6 +243,7 @@ function completeness(profile) {
 }
 
 function ProfileMeter({ profile }) {
+  const t = useT();
   const { pct, missing } = completeness(profile);
   const shownPct = useCountUp(pct);
   const [fill, setFill] = useState(0);
@@ -262,7 +265,7 @@ function ProfileMeter({ profile }) {
       >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
-            <div className="ch-cell-label">Your profile</div>
+            <div className="ch-cell-label">{t("home.profile.label")}</div>
             <div
               style={{
                 marginTop: 8,
@@ -273,7 +276,7 @@ function ProfileMeter({ profile }) {
                 color: "var(--text)",
               }}
             >
-              Your profile is <span style={{ color: "var(--amber)" }}>{shownPct}%</span> lit
+              {t("home.profile.lit_pre")} <span style={{ color: "var(--amber)" }}>{shownPct}%</span> {t("home.profile.lit_post")}
             </div>
           </div>
           <div
@@ -286,11 +289,11 @@ function ProfileMeter({ profile }) {
               textAlign: "right",
             }}
           >
-            A fuller profile is found more often.
+            {t("home.profile.tagline")}
           </div>
         </div>
 
-        <div className="hd-bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Profile completeness">
+        <div className="hd-bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t("home.profile.progress_aria")}>
           <div className="hd-bar-fill" style={{ width: `${fill}%` }} />
         </div>
 
@@ -305,11 +308,11 @@ function ProfileMeter({ profile }) {
                 color: "var(--muted-strong)",
               }}
             >
-              To finish
+              {t("home.profile.to_finish")}
             </span>
             {missing.map((m) => (
               <a
-                key={m.label}
+                key={m.id}
                 href="/settings"
                 style={{
                   display: "inline-flex",
@@ -327,7 +330,7 @@ function ProfileMeter({ profile }) {
                 }}
               >
                 <span aria-hidden>+</span>
-                {m.label}
+                {t(`home.profile.check_${m.id}`)}
               </a>
             ))}
           </div>
@@ -371,6 +374,7 @@ function PulseTile({ label, value, accent }) {
 }
 
 function Pulse({ followerCount }) {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [totals, setTotals] = useState(null);
 
@@ -394,8 +398,8 @@ function Pulse({ followerCount }) {
   if (state === "loading") {
     return (
       <section aria-busy="true">
-        <Slab kicker="Your pulse" title="How your work is landing" />
-        <div className="hd-pulse-grid" role="status" aria-label="Loading your pulse">
+        <Slab kicker={t("home.pulse.kicker")} title={t("home.pulse.title")} />
+        <div className="hd-pulse-grid" role="status" aria-label={t("home.pulse.loading_aria")}>
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="hd-sk" style={{ minHeight: 96 }} />
           ))}
@@ -409,16 +413,15 @@ function Pulse({ followerCount }) {
   if (!hasProjects) {
     return (
       <section>
-        <Slab kicker="Your pulse" title="How your work is landing" />
+        <Slab kicker={t("home.pulse.kicker")} title={t("home.pulse.title")} />
         <div className="ch-grace" style={{ minHeight: 160, alignItems: "flex-start", textAlign: "left" }}>
-          <span className="ch-grace-k">No projects yet</span>
-          <div className="ch-grace-t">Light your first window.</div>
+          <span className="ch-grace-k">{t("home.pulse.empty_k")}</span>
+          <div className="ch-grace-t">{t("home.pulse.empty_t")}</div>
           <div className="ch-grace-s">
-            Every team on BFU began with one person describing what they wanted to build. Start a
-            project and watch the pulse come alive — views, applicants, teammates.
+            {t("home.pulse.empty_s")}
           </div>
           <a href="/projects/new" className="ch-btn-primary" style={{ marginTop: 14 }}>
-            + Start a project
+            + {t("home.pulse.start")}
           </a>
         </div>
       </section>
@@ -426,21 +429,21 @@ function Pulse({ followerCount }) {
   }
 
   const tiles = [
-    { label: "Project views", value: totals.views },
-    { label: "Applications", value: totals.applications },
-    { label: "Accepted", value: totals.accepted },
-    { label: "Pending", value: totals.pending, accent: (totals.pending || 0) > 0 },
+    { label: t("home.pulse.tile_views"), value: totals.views },
+    { label: t("home.pulse.tile_applications"), value: totals.applications },
+    { label: t("home.pulse.tile_accepted"), value: totals.accepted },
+    { label: t("home.pulse.tile_pending"), value: totals.pending, accent: (totals.pending || 0) > 0 },
   ];
   if (typeof followerCount === "number") {
-    tiles.push({ label: "Followers", value: followerCount });
+    tiles.push({ label: t("home.pulse.tile_followers"), value: followerCount });
   }
 
   return (
     <section>
-      <Slab kicker="Your pulse" title="How your work is landing" />
+      <Slab kicker={t("home.pulse.kicker")} title={t("home.pulse.title")} />
       <div className="hd-pulse-grid">
-        {tiles.map((t) => (
-          <PulseTile key={t.label} label={t.label} value={t.value} accent={t.accent} />
+        {tiles.map((tile) => (
+          <PulseTile key={tile.label} label={tile.label} value={tile.value} accent={tile.accent} />
         ))}
       </div>
     </section>
@@ -518,6 +521,7 @@ function CityAvatar({ builder }) {
 }
 
 function CityTonight({ stats, builders }) {
+  const t = useT();
   const online = Number(stats?.online_now) || 0;
   const cities = Number(stats?.cities_lit) || 0;
   const fresh = Number(stats?.new_this_week) || 0;
@@ -526,7 +530,7 @@ function CityTonight({ stats, builders }) {
 
   return (
     <section>
-      <Slab kicker="The city tonight" title="What's happening out there" />
+      <Slab kicker={t("home.city.kicker")} title={t("home.city.title")} />
       <a
         href="/city"
         className="ch-cell"
@@ -551,18 +555,18 @@ function CityTonight({ stats, builders }) {
                 color: "var(--text)",
               }}
             >
-              The city&rsquo;s quiet right now.
+              {t("home.city.quiet_title")}
             </div>
             <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.5, color: "var(--muted-strong)" }}>
-              Be the first to light a window tonight.
+              {t("home.city.quiet_sub")}
             </div>
           </div>
         ) : (
           <>
             <div style={{ display: "flex", gap: 34, flexWrap: "wrap" }}>
-              <CityStat value={online} label="Online now" online />
-              <CityStat value={cities} label="Cities lit" />
-              <CityStat value={fresh} label="New this week" />
+              <CityStat value={online} label={t("home.city.stat_online")} online />
+              <CityStat value={cities} label={t("home.city.stat_cities")} />
+              <CityStat value={fresh} label={t("home.city.stat_new")} />
             </div>
             {hasBuilders && (
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -579,7 +583,7 @@ function CityTonight({ stats, builders }) {
                     color: "var(--muted-strong)",
                   }}
                 >
-                  building right now
+                  {t("home.city.building_now")}
                 </span>
               </div>
             )}
@@ -596,7 +600,7 @@ function CityTonight({ stats, builders }) {
             color: "var(--teal-bright)",
           }}
         >
-          Wander the city →
+          {t("home.city.wander")} →
         </div>
       </a>
     </section>
@@ -608,12 +612,13 @@ function CityTonight({ stats, builders }) {
 // One viewer's avatar in the overlapping glance-stack. Links to /u/{id}, shows
 // the real name on hover (title), and carries a green online dot when live.
 function ViewerAvatar({ v }) {
+  const t = useT();
   const grad = gradientFor(v.id);
   return (
     <a
       href={`/u/${v.id}`}
       title={v.display_name}
-      aria-label={`${v.display_name}${v.is_online ? " (online)" : ""}`}
+      aria-label={`${v.display_name}${v.is_online ? t("home.viewers.online_suffix") : ""}`}
       style={{ position: "relative", marginLeft: -10, flex: "0 0 auto", textDecoration: "none" }}
     >
       <span
@@ -673,6 +678,7 @@ function ViewerRow({ v }) {
 }
 
 function ProfileViewers() {
+  const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [data, setData] = useState({ count: 0, recent: [] });
 
@@ -699,8 +705,8 @@ function ProfileViewers() {
   if (state === "loading") {
     return (
       <section aria-busy="true">
-        <Slab kicker="Who viewed you" title="Who's checking you out" />
-        <div className="hd-sk" style={{ minHeight: 132 }} role="status" aria-label="Loading who viewed your profile" />
+        <Slab kicker={t("home.viewers.kicker")} title={t("home.viewers.title")} />
+        <div className="hd-sk" style={{ minHeight: 132 }} role="status" aria-label={t("home.viewers.loading_aria")} />
       </section>
     );
   }
@@ -713,11 +719,11 @@ function ProfileViewers() {
   const stack = recent.slice(0, 10);
   const rows = recent.slice(0, 3);
   const headline =
-    count === 1 ? "1 builder viewed your profile" : `${count} builders viewed your profile`;
+    count === 1 ? t("home.viewers.headline_one") : t("home.viewers.headline_other", { count });
 
   return (
     <section>
-      <Slab kicker="Who viewed you" title="Who's checking you out" />
+      <Slab kicker={t("home.viewers.kicker")} title={t("home.viewers.title")} />
       <div
         className="ch-cell-static"
         style={{

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ConnectionsList from "@/components/people/ConnectionsList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -19,6 +20,8 @@ export default async function ConnectionsPage() {
   const me = await getMe();
   if (!me) redirect("/login");
 
+  const { t } = await getT();
+
   return (
     <AppTopBar active="people" me={me}>
         {/* Hero */}
@@ -32,7 +35,7 @@ export default async function ConnectionsPage() {
               color: "var(--amber)",
             }}
           >
-            The people you know
+            {t("people.peopleYouKnow")}
           </div>
           <h1
             style={{
@@ -46,7 +49,7 @@ export default async function ConnectionsPage() {
               overflowWrap: "break-word",
             }}
           >
-            Your{" "}
+            {t("people.yourWord")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -55,7 +58,7 @@ export default async function ConnectionsPage() {
                 color: "var(--amber)",
               }}
             >
-              network
+              {t("people.networkWord")}
             </span>
           </h1>
           <p
@@ -69,13 +72,13 @@ export default async function ConnectionsPage() {
               maxWidth: 560,
             }}
           >
-            The builders you&rsquo;re connected to and the ones you follow.
+            {t("people.networkSubtitle")}
           </p>
         </div>
 
         <ConnectionsList />
 
-        <SiteFooter tagline="Every connection started with a hello." />
+        <SiteFooter tagline={t("people.footerTagline")} />
     </AppTopBar>
   );
 }

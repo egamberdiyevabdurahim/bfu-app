@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n/server";
 import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
@@ -40,6 +41,7 @@ function firstName(me) {
 }
 
 export default async function SettingsPage() {
+  const { t } = await getT();
   const me = await getMe();
   if (!me) redirect("/login");
 
@@ -73,7 +75,7 @@ export default async function SettingsPage() {
               color: "var(--amber)",
             }}
           >
-            Your workshop bench
+            {t("settings.eyebrow")}
           </div>
           <h1
             style={{
@@ -87,7 +89,7 @@ export default async function SettingsPage() {
               overflowWrap: "break-word",
             }}
           >
-            Edit your{" "}
+            {t("settings.hero_title_lead")}{" "}
             <span
               style={{
                 fontFamily: "var(--font-accent)",
@@ -96,7 +98,7 @@ export default async function SettingsPage() {
                 color: "var(--amber)",
               }}
             >
-              profile
+              {t("settings.hero_title_accent")}
             </span>
           </h1>
           <p
@@ -110,7 +112,7 @@ export default async function SettingsPage() {
               maxWidth: 560,
             }}
           >
-            This is what the city sees, {firstName(me)}. Shape it, and it saves for good.
+            {t("settings.hero_subtitle", { name: firstName(me) })}
           </p>
         </div>
 
@@ -120,7 +122,7 @@ export default async function SettingsPage() {
           <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
         </div>
 
-        <SiteFooter tagline="Your bench, exactly how the city finds you." />
+        <SiteFooter tagline={t("settings.footer_tagline")} />
     </AppTopBar>
   );
 }

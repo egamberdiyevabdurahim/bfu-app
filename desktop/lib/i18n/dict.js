@@ -15,8 +15,11 @@
 // NAMESPACES array. Splitting by surface lets many contributors add translations
 // in separate files without colliding on this one.
 
+import { home } from "./dicts/home";
 import { profile } from "./dicts/profile";
+import { people } from "./dicts/people";
 import { projects } from "./dicts/projects";
+import { projmanage } from "./dicts/projmanage";
 import { city } from "./dicts/city";
 import { community } from "./dicts/community";
 import { messages } from "./dicts/messages";
@@ -26,12 +29,14 @@ import { login } from "./dicts/login";
 import { onboarding } from "./dicts/onboarding";
 import { misc } from "./dicts/misc";
 
-// Every registered namespace module. CORE (below) always wins ties is NOT the
-// intent — namespaces are disjoint by key prefix, so order only matters if two
-// modules define the same key (they shouldn't).
+// Every registered namespace module. Namespaces are disjoint by key prefix, so
+// order only matters if two modules define the same key (they shouldn't).
 const NAMESPACES = [
+  home,
   profile,
+  people,
   projects,
+  projmanage,
   city,
   community,
   messages,

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
-// `/` is the City / Discovery surface — send the root there so the flagship
-// "building tonight" screen is the front door.
+// The app is behind login. Root → /home; middleware bounces unauthenticated
+// visitors from /home (and every other gated route) to /login, so the front
+// door is always the Telegram login for logged-out users, and the dashboard for
+// members.
 export default function Home() {
-  redirect("/city");
+  redirect("/home");
 }

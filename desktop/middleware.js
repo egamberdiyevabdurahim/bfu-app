@@ -155,15 +155,20 @@ function buildForwardedCookieHeader(cookieHeader, newAccess, newRefresh) {
   return pairs.join("; ");
 }
 
-// Only run on the authed surfaces. Public routes (/, /city, /u, /p, /projects,
-// /login) are intentionally excluded so they stay fast + never redirect.
-// /settings + /api/resume are authed like /home: they get the same proactive
-// token refresh so an about-to-expire (but refreshable) session isn't bounced
-// to /login mid-edit or when downloading the CV.
+// The WHOLE app is behind login now. Only these stay public (excluded from the
+// matcher): /login (the front door), and the shareable /u/{id} + /p/{id} pages
+// (so a profile/project link opens for anyone) + their OG image API. Everything
+// else — including the root /, /city, /projects browse, and /messages — is gated
+// here: no valid session → redirect to /login (pages) or 401 (/api/bfu).
+// Authed-but-not-yet-registered users pass this gate (they hold valid tokens);
+// the registration wall lives in the app (AppShell → /register).
 export const config = {
   matcher: [
+    "/",
     "/home",
     "/home/:path*",
+    "/register",
+    "/city",
     "/settings",
     "/settings/:path*",
     "/connections",
@@ -174,6 +179,9 @@ export const config = {
     "/favorites/:path*",
     "/requests",
     "/requests/:path*",
+    "/messages",
+    "/messages/:path*",
+    "/projects",
     "/projects/mine",
     "/projects/mine/:path*",
     "/projects/new",

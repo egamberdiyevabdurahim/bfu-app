@@ -10,6 +10,7 @@ import CommandPalette from "@/components/search/CommandPalette";
 import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
 import { useT } from "@/components/i18n/LocaleProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import NavIcon from "@/components/nav/NavIcon";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
 // (the "Hybrid" design). It owns the page chrome so pages only supply content:
@@ -71,7 +72,7 @@ function NavRow({ item, label, on, isCollapsed, badge, onNavigate }) {
     >
       <span className="ash-row-accent" aria-hidden />
       <span className="ash-row-icon" aria-hidden>
-        {item.icon}
+        <NavIcon name={item.key} />
       </span>
       <span className="ash-row-label">{label}</span>
       {badge > 0 && (
@@ -380,13 +381,11 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               title={t("common.start_project")}
               aria-label={t("common.start_project")}
             >
-              ＋
+              <NavIcon name="plus" size={19} />
             </a>
           ) : (
             <a href="/projects/new" className="ash-cta" onClick={closeDrawer}>
-              <span aria-hidden style={{ fontSize: 16, lineHeight: 1 }}>
-                ＋
-              </span>
+              <NavIcon name="plus" size={17} />
               {t("common.start_project")}
             </a>
           )}
@@ -400,12 +399,12 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               title={`${t("common.search")} (⌘K)`}
               aria-label={t("common.search")}
             >
-              ⌕
+              <NavIcon name="search" size={17} />
             </button>
           ) : (
             <form className="ash-search" role="search" onSubmit={onSearchSubmit}>
               <span className="ash-search-ic" aria-hidden>
-                ⌕
+                <NavIcon name="search" size={15} />
               </span>
               <input
                 type="text"
@@ -615,7 +614,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
             className="ash-topbar-bell"
             aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
           >
-            🔔
+            <NavIcon name="notifications" size={20} />
             {unread > 0 && <span className="ash-topbar-dot" aria-hidden />}
           </a>
         </div>
@@ -822,12 +821,15 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         }
         .ash-row-icon {
           width: 18px;
-          text-align: center;
-          font-size: 13px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           color: var(--muted);
           flex: 0 0 auto;
           transition: color 0.16s ease;
         }
+        .ash-row-icon svg, .ash-search-ic svg { display: block; }
         .ash-row:hover .ash-row-icon { color: var(--amber); }
         .ash-row-label {
           flex: 1;

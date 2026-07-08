@@ -20,7 +20,7 @@ from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.models.connection import Follow
 from app.services.notifications import add_notification
-from app.schemas.user import GroupStatus, UserPublic, UserResponse, UserUpdate
+from app.schemas.user import GroupStatus, NotificationsPage, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -497,14 +497,36 @@ async def get_me(
     return out
 
 
-@router.get("/me/notifications", response_model=dict)
+# Notification type → target route. Kept in lockstep with the desktop
+# frontend's lib/notif.js notifHref so a click always lands somewhere sensible.
+_PROJECT_NOTIF_TYPES = {"application", "accepted", "declined", "project_update", "rate_prompt"}
+_BOOKING_NOTIF_TYPES = {"booking_request", "booking_confirmed", "booking_declined"}
+
+
+def _notif_link(ntype: str, actor_id: int | None, project_id: int | None) -> str:
+    """Relative href a notification click should open. Project-scoped types go
+    to /p/{id}, booking types to /bookings, everything actor-driven to the
+    actor's profile /u/{id}. Falls back to /notifications when the needed ref
+    is missing so the row is always clickable."""
+    if ntype in _PROJECT_NOTIF_TYPES:
+        return f"/p/{project_id}" if project_id else "/notifications"
+    if ntype in _BOOKING_NOTIF_TYPES:
+        return "/bookings"
+    if actor_id:
+        return f"/u/{actor_id}"
+    return "/notifications"
+
+
+@router.get("/me/notifications", response_model=NotificationsPage)
 async def my_notifications(
     limit: int = 30,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Inbox: recent notifications with actor + project hydrated. Text is
-    rendered client-side (localized) from type/actor/project."""
+    """Inbox: recent notifications with actor + project hydrated. Each item
+    carries the real actor name + a ready-to-navigate link so the frontend can
+    render "<Name> <action>" and make the row clickable. Localized text is still
+    rendered client-side from type/actor/project."""
     rows = (await db.execute(
         select(Notification).where(Notification.user_id == current_user.id)
         .order_by(Notification.id.desc()).limit(min(limit, 100))
@@ -528,15 +550,21 @@ async def my_notifications(
             Notification.user_id == current_user.id, Notification.is_read == False
         )
     ) or 0
-    return {
-        "unread": unread,
-        "items": [
-            {"id": n.id, "type": n.type, "is_read": n.is_read,
-             "created_at": n.created_at.isoformat() if n.created_at else None,
-             "actor": actors.get(n.actor_id), "project": projects_map.get(n.project_id)}
-            for n in rows
-        ],
-    }
+
+    items = []
+    for n in rows:
+        actor = actors.get(n.actor_id)
+        # display_name can be "" when the actor has no name on file — coerce to
+        # None so the frontend shows neutral text instead of an empty label.
+        actor_name = (actor.get("display_name") if actor else None) or None
+        items.append({
+            "id": n.id, "type": n.type, "is_read": n.is_read,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "actor": actor, "project": projects_map.get(n.project_id),
+            "actor_id": n.actor_id, "actor_name": actor_name,
+            "link": _notif_link(n.type, n.actor_id, n.project_id),
+        })
+    return {"unread": unread, "items": items}
 
 
 @router.get("/me/notifications/unread-count", response_model=dict)

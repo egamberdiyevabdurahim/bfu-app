@@ -223,7 +223,8 @@ function completeness(profile) {
   const skills = Array.isArray(p.skills) ? p.skills.length : Number(p.skillsCount) || 0;
   const links = Array.isArray(p.portfolio_links) ? p.portfolio_links.length : Number(p.linksCount) || 0;
   const hasRegion =
-    p.hasRegion ?? Boolean(p.region && (p.region.id || p.region.name_en || p.region.name));
+    p.hasRegion ??
+    Boolean((p.region && (p.region.id || p.region.name_en || p.region.name)) || p.region_id);
 
   const checks = [
     { ok: !!p.photo_url, w: 20, label: "Add a photo" },

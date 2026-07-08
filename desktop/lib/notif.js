@@ -5,12 +5,17 @@
 //
 // Backend shape (GET /users/me/notifications → { unread, items: [...] }):
 //   { id, type, is_read, created_at,
-//     actor:   { id, display_name, photo_url } | null,
-//     project: { id, name, type }              | null }
-// The backend notification model documents the type set; the live types emitted
-// are: interest, mutual, intro, new_follower, application, accepted, declined,
-// rate_prompt, project_update, booking_request, booking_confirmed,
-// booking_declined.
+//     actor:      { id, display_name, photo_url } | null,
+//     project:    { id, name, type }              | null,
+//     actor_id:   number | null,   // flat, for /u/{id}
+//     actor_name: string | null,   // the REAL display name, or null (no actor)
+//     link:       string | null }  // server-computed relative href
+// actor_name/link are the preferred inputs (added so rows show a real name and
+// are clickable); we fall back to the nested actor/project when they're absent
+// (e.g. an older backend). The backend notification model documents the type
+// set; the live types emitted are: interest, mutual, intro, new_follower,
+// application, accepted, declined, rate_prompt, project_update, booking_request,
+// booking_confirmed, booking_declined.
 
 // Type → emoji glyph shown when there is no actor avatar (and as a small badge
 // alongside the actor). Matches the Mini App's TYPE_EMOJI table.
@@ -34,25 +39,32 @@ export function notifEmoji(type) {
   return NOTIF_EMOJI[type] || "🔔";
 }
 
+/** The actor's real display name, or null when there is no actor. Prefers the
+ * flat `actor_name` the backend now sends; falls back to the nested actor. */
+function actorName(n) {
+  return n.actor_name || n.actor?.display_name || null;
+}
+
 /**
  * Human, English one-liner for a notification. Kept parallel to the Mini App's
- * localized strings (the desktop app is English-only today). `actor`/`project`
- * are the hydrated refs from the payload.
+ * localized strings (the desktop app is English-only today). Uses the REAL
+ * actor name when we have one; when the actor is unknown it uses a neutral
+ * phrasing rather than the bare word "Someone".
  */
 export function notifText(n) {
-  const name = n.actor?.display_name || "Someone";
+  const name = actorName(n); // real name, or null
   const proj = n.project?.name || "a project";
   switch (n.type) {
     case "mutual":
-      return `You and ${name} are a match — say hello.`;
+      return name ? `You and ${name} are a match — say hello.` : `You have a new match — say hello.`;
     case "interest":
-      return `${name} is interested in connecting.`;
+      return name ? `${name} is interested in connecting.` : `Someone new is interested in connecting.`;
     case "intro":
-      return `${name} sent you an intro.`;
+      return name ? `${name} sent you an intro.` : `You received a new intro.`;
     case "new_follower":
-      return `${name} started following you.`;
+      return name ? `${name} started following you.` : `You have a new follower.`;
     case "application":
-      return `${name} applied to ${proj}.`;
+      return name ? `${name} applied to ${proj}.` : `New application to ${proj}.`;
     case "accepted":
       return `You were accepted to ${proj}.`;
     case "declined":
@@ -62,24 +74,27 @@ export function notifText(n) {
     case "project_update":
       return `${proj} posted an update.`;
     case "booking_request":
-      return `${name} requested a session with you.`;
+      return name ? `${name} requested a session with you.` : `You have a new session request.`;
     case "booking_confirmed":
-      return `${name} confirmed your session.`;
+      return name ? `${name} confirmed your session.` : `Your session was confirmed.`;
     case "booking_declined":
-      return `${name} declined your session request.`;
+      return name ? `${name} declined your session request.` : `Your session request was declined.`;
     default:
-      return name;
+      return name || "You have a new notification.";
   }
 }
 
 /**
- * Where a click on this notification should go, or null if it isn't linkable.
+ * Where a click on this notification should go. Prefers the server-computed
+ * `link` (always present on the current backend); falls back to deriving it
+ * client-side for older payloads:
  * - project-scoped items (application/accepted/declined/project_update/
  *   rate_prompt) → the project page /p/{id}
  * - booking items → /bookings
  * - person items (interest/mutual/intro/new_follower) → the actor /u/{id}
  */
 export function notifHref(n) {
+  if (n.link) return n.link;
   switch (n.type) {
     case "application":
     case "accepted":

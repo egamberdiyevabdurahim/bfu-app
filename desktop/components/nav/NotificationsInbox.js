@@ -62,6 +62,8 @@ function ActorIcon({ n }) {
 
 function Row({ n }) {
   const href = notifHref(n);
+  const linkable = Boolean(href);
+  const [hover, setHover] = useState(false);
   const inner = (
     <div
       style={{
@@ -71,8 +73,19 @@ function Row({ n }) {
         padding: "14px 16px",
         borderRadius: 14,
         border: "1px solid var(--hair)",
-        background: n.is_read ? "var(--surface)" : "rgba(255,106,61,0.07)",
-        borderColor: n.is_read ? "var(--hair)" : "rgba(255,106,61,0.28)",
+        background:
+          hover && linkable
+            ? "rgba(255,106,61,0.12)"
+            : n.is_read
+            ? "var(--surface)"
+            : "rgba(255,106,61,0.07)",
+        borderColor:
+          hover && linkable
+            ? "rgba(255,106,61,0.5)"
+            : n.is_read
+            ? "var(--hair)"
+            : "rgba(255,106,61,0.28)",
+        cursor: linkable ? "pointer" : "default",
         transition: "border-color 0.18s ease, background 0.18s ease",
       }}
     >
@@ -99,10 +112,31 @@ function Row({ n }) {
       {!n.is_read && (
         <span aria-hidden style={{ width: 9, height: 9, borderRadius: 99, background: "var(--ember)", flexShrink: 0 }} />
       )}
+      {linkable && (
+        <span
+          aria-hidden
+          style={{
+            color: "var(--muted)",
+            fontSize: 20,
+            lineHeight: 1,
+            flexShrink: 0,
+            opacity: hover ? 1 : 0.45,
+            transform: hover ? "translateX(2px)" : "none",
+            transition: "opacity 0.18s ease, transform 0.18s ease",
+          }}
+        >
+          ›
+        </span>
+      )}
     </div>
   );
   return href ? (
-    <a href={href} style={{ textDecoration: "none", display: "block" }}>
+    <a
+      href={href}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ textDecoration: "none", display: "block" }}
+    >
       {inner}
     </a>
   ) : (

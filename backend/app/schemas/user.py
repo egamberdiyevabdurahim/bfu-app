@@ -221,3 +221,46 @@ class GroupStatus(BaseModel):
     group_link: str
     name: str
     joined: bool
+
+
+class NotifActor(BaseModel):
+    """The person who triggered a notification (avatar + name)."""
+    id: int
+    display_name: str
+    photo_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class NotifProject(BaseModel):
+    """The project a notification is about."""
+    id: int
+    name: str
+    type: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationOut(BaseModel):
+    """One inbox item. Keeps the original nested `actor`/`project` refs (used
+    for the avatar) and adds flat, ready-to-render fields:
+      * actor_name — the real display name, or null when there is no actor
+        (e.g. "your project was approved"); the frontend renders neutral text.
+      * actor_id   — for linking to /u/{id}.
+      * link       — a relative href, computed server-side per type, that the
+        frontend navigates to when the row is clicked.
+    All new fields are optional with defaults so old/partial rows never 500."""
+    id: int
+    type: str
+    is_read: bool = False
+    created_at: datetime | None = None
+    actor: NotifActor | None = None
+    project: NotifProject | None = None
+    actor_id: int | None = None
+    actor_name: str | None = None
+    link: str | None = None
+
+
+class NotificationsPage(BaseModel):
+    unread: int = 0
+    items: list[NotificationOut] = []

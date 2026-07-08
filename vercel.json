@@ -1,6 +1,15 @@
 {
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/u/:id", "destination": "https://bfu-backend-production.up.railway.app/public/u/:id" },
-    { "source": "/((?!landing|u/).*)", "destination": "/index.html" }
+    {
+      "source": "/u/:id",
+      "destination": "https://bfu-backend-production.up.railway.app/public/u/:id"
+    },
+    {
+      "source": "/((?!landing|u/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

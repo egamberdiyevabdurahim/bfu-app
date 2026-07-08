@@ -53,6 +53,9 @@ const STRINGS = {
   "msg.reportFailed": { en: "Couldn't send report.", uz: "Shikoyatni yuborib bo‘lmadi.", ru: "Не удалось отправить жалобу." },
   "msg.nothingReport": { en: "Nothing to report yet.", uz: "Hozircha shikoyat qiladigan narsa yo‘q.", ru: "Пока не на что жаловаться." },
   "msg.unread": { en: "unread messages", uz: "o‘qilmagan xabarlar", ru: "непрочитанные сообщения" },
+  "msg.joinedTeam": { en: "{name} joined the team · {date}", uz: "{name} jamoaga qo‘shildi · {date}", ru: "{name} присоединился к команде · {date}" },
+  "msg.startedProject": { en: "{name} started the project · {date}", uz: "{name} loyihani boshladi · {date}", ru: "{name} создал проект · {date}" },
+  "msg.chatStarted": { en: "Chat started · {date}", uz: "Suhbat boshlandi · {date}", ru: "Чат начат · {date}" },
 
   // ── Home command center ───────────────────────────────────────────────────
   "home.needsYou": { en: "Needs you now", uz: "Diqqatingiz kerak", ru: "Требует внимания" },

@@ -341,6 +341,78 @@ async def project_conversation(
     return {"id": conv.id}
 
 
+# ── Conversation members (who joined + when) ─────────────────────────────────
+
+@router.get("/conversations/{conversation_id}/members", response_model=dict)
+async def conversation_members(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Roster for the thread's context header. For a PROJECT team chat: each
+    member with their joined_at (the creator's is the project's created_at) +
+    role + is_creator, chronological — so the app can show "X joined the team ·
+    <date>". For a DM: both members + the conversation's started_at. Member-only."""
+    me = current_user.id
+    if not await _my_member_row(db, conversation_id, me):
+        raise HTTPException(status_code=403, detail="Not a member of this conversation")
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conv.kind == "project" and conv.project_id:
+        project = await db.get(Project, conv.project_id)
+        mem_rows = (await db.execute(
+            select(ProjectMember).where(ProjectMember.project_id == conv.project_id)
+        )).scalars().all()
+        member_by_uid = {m.user_id: m for m in mem_rows}
+        creator_id = project.creator_id if project else None
+        uids = set(member_by_uid.keys())
+        if creator_id:
+            uids.add(creator_id)
+        users_map = {}
+        if uids:
+            for u in (await db.execute(select(User).where(User.id.in_(uids)))).scalars().all():
+                users_map[u.id] = u
+        out = []
+        for uid in uids:
+            u = users_map.get(uid)
+            if not u:
+                continue
+            is_creator = uid == creator_id
+            m = member_by_uid.get(uid)
+            joined = (project.created_at if (is_creator and project) else (m.joined_at if m else None))
+            out.append({
+                "id": u.id,
+                "display_name": u.display_name or f"User #{u.id}",
+                "photo_url": u.photo_url,
+                "joined_at": joined,
+                "role": (m.role if m else None),
+                "is_creator": is_creator,
+            })
+        out.sort(key=lambda x: (x["joined_at"] or datetime.min))
+        return {
+            "kind": "project",
+            "members": out,
+            "started_at": (project.created_at if project else conv.created_at),
+        }
+
+    # DM: both participants + when the conversation started.
+    rows = (await db.execute(
+        select(ConversationMember).where(ConversationMember.conversation_id == conversation_id)
+    )).scalars().all()
+    uids = [r.user_id for r in rows]
+    users_map = {}
+    if uids:
+        for u in (await db.execute(select(User).where(User.id.in_(uids)))).scalars().all():
+            users_map[u.id] = u
+    members = [
+        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url}
+        for u in users_map.values()
+    ]
+    return {"kind": "dm", "members": members, "started_at": conv.created_at}
+
+
 # ── Messages: read + send ────────────────────────────────────────────────────
 
 @router.get("/conversations/{conversation_id}/messages", response_model=MessagesPage)

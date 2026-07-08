@@ -204,6 +204,7 @@ export const messages = {
   unread:        ()             => req("/conversations/unread-count"),
   openDm:        (userId)       => req(`/conversations/dm/${userId}`, { method: "POST" }),
   projectChat:   (projectId)    => req(`/projects/${projectId}/conversation`),
+  members:       (id)           => req(`/conversations/${id}/members`),
   thread:        (id, params = {}) => req(`/conversations/${id}/messages${qs(params)}`),
   send:          (id, body)     => req(`/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
   markRead:      (id)           => req(`/conversations/${id}/read`, { method: "POST" }),

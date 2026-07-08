@@ -46,6 +46,14 @@ const relTime = (iso) => {
   catch { return `${d}d`; }
 };
 
+// Absolute short date ("Jul 5") for join/started lines — Z-normalized like relTime.
+const fmtDay = (iso) => {
+  if (!iso) return "";
+  let str = String(iso); if (!/[zZ]|[+-]\d\d:?\d\d$/.test(str)) str += "Z";
+  try { return new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+  catch { return ""; }
+};
+
 const convTitle = (c, t) =>
   c.kind === "project"
     ? (c.project?.name || t("msg.teamChat"))
@@ -78,6 +86,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   const [activeId, setActiveId] = useState(initialConversationId);
 
   const [messages, setMessages] = useState([]);
+  const [threadMembers, setThreadMembers] = useState(null); // {kind, members, started_at}
   const [threadState, setThreadState] = useState("idle");   // idle|loading|ready|error
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -185,6 +194,8 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
     if (!activeId) return;
     setBlockedLocal(false); setMenuOpen(false); setShowReport(false);
     lastMarkedId.current = null;
+    setThreadMembers(null);
+    msgApi.members(activeId).then(setThreadMembers).catch(() => setThreadMembers(null));
     loadThread(activeId);
     let timer = null;
     const start = () => { stop(); timer = window.setInterval(() => loadThread(activeId, { silent: true }), THREAD_POLL_MS); };
@@ -207,7 +218,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   }, [messages]);
 
   const openConversation = (id) => setActiveId(id);
-  const backToList = () => { setActiveId(null); setMessages([]); lastCount.current = 0; lastMarkedId.current = null; };
+  const backToList = () => { setActiveId(null); setMessages([]); setThreadMembers(null); lastCount.current = 0; lastMarkedId.current = null; };
 
   async function send() {
     const text = draft.trim();
@@ -373,6 +384,23 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
               <LinkBtn onClick={loadOlder} disabled={loadingMore}>
                 {loadingMore ? t("msg.loadingShort") : t("msg.loadEarlier")}
               </LinkBtn>
+            </div>
+          )}
+          {/* Membership context — who joined the team & when (project), or when
+              the chat started (DM). Shows at the very top, above the first message. */}
+          {threadState === "ready" && threadMembers && !hasMore && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, padding: "2px 0 10px" }}>
+              {threadMembers.kind === "project"
+                ? (threadMembers.members || []).map((m) => (
+                    <SystemLine key={m.id}>
+                      {m.is_creator
+                        ? t("msg.startedProject", { name: m.display_name, date: fmtDay(m.joined_at) })
+                        : t("msg.joinedTeam", { name: m.display_name, date: fmtDay(m.joined_at) })}
+                    </SystemLine>
+                  ))
+                : (threadMembers.started_at ? (
+                    <SystemLine>{t("msg.chatStarted", { date: fmtDay(threadMembers.started_at) })}</SystemLine>
+                  ) : null)}
             </div>
           )}
           {threadState === "ready" && messages.length === 0 && (
@@ -546,4 +574,13 @@ const Hint = ({ children, tone }) => (
   <div style={{ color: tone === "error" ? "var(--terra)" : "var(--muted-strong)", fontSize: 13.5, padding: 16, textAlign: "center" }}>
     {children}
   </div>
+);
+
+// Centered "system" line for join/started context (Telegram-style).
+const SystemLine = ({ children }) => (
+  <div style={{
+    alignSelf: "center", maxWidth: "90%", textAlign: "center", padding: "5px 13px", borderRadius: 99,
+    background: "var(--surface-2)", border: "1px solid var(--hair)", color: "var(--muted-strong)",
+    fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", lineHeight: 1.45,
+  }}>{children}</div>
 );

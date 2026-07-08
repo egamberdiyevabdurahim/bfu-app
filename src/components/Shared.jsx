@@ -42,11 +42,11 @@ export const AvatarEl = ({ name = "?", size = 40, photoUrl = null }) => {
 export const BottomNav = ({ active, onChange }) => {
   const { t } = useT();
   const tabs = [
-    { id: "discover", icon: "compass", label: t("nav.discover") },
-    { id: "startups", icon: "rocket", label: t("nav.startups") },
-    { id: "volunteer", icon: "heart", label: t("nav.volunteer") },
+    { id: "city", icon: "compass", label: t("nav.city") },
+    { id: "projects", icon: "rocket", label: t("nav.projects") },
+    { id: "mentors", icon: "star", label: t("nav.mentors") },
     { id: "events", emoji: "◷", label: t("nav.events") },
-    { id: "settings", icon: "settings", label: t("nav.profile") },
+    { id: "profile", icon: "settings", label: t("nav.profile") },
   ];
   return (
     <nav style={{
@@ -141,6 +141,9 @@ export const FontLoader = () => (
       --text: #F5F1E8;
       --text-2: #C6BEAF;   /* muted-strong */
       --text-3: #A8A093;   /* muted */
+      /* Desktop-kit aliases — the ported .ch-* classes reference these names. */
+      --muted: #A8A093;
+      --muted-strong: #C6BEAF;
 
       /* Back-compat aliases so existing inline var(--*) usages re-skin cleanly */
       --accent: #E8A15C;

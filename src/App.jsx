@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { FontLoader, BottomNav } from "./components/Shared";
 import { AuthScreen } from "./screens/AuthScreen";
-import { DiscoverScreen } from "./screens/DiscoverScreen";
-import { StartupScreen } from "./screens/StartupScreen";
-import { VolunteerScreen } from "./screens/VolunteerScreen";
-import { SettingsScreen } from "./screens/SettingsScreen";
+import { CityScreen } from "./screens/CityScreen";
+import { ProjectsScreen } from "./screens/ProjectsScreen";
+import { MentorsScreen } from "./screens/MentorsScreen";
+import { ProfileScreen } from "./screens/ProfileScreen";
 import { EventsScreen } from "./screens/EventsScreen";
 import { UserProfileModal } from "./components/UserProfileModal";
 import { storage, users, projects } from "./api";
@@ -37,14 +37,14 @@ function MiniApp() {
   // null = loading, false = not authed, true = authed+registered
   const [authed, setAuthed] = useState(null);
   const [me, setMe] = useState(null);
-  const [activeTab, setActiveTab] = useState("discover");
+  const [activeTab, setActiveTab] = useState("city");
   const [deepLink, setDeepLink] = useState(null);
   const [deepUserId, setDeepUserId] = useState(null);
   const [deepProject, setDeepProject] = useState(null);
 
   useEffect(() => {
     const handleSignout = () => {
-      setAuthed(false); setMe(null); setActiveTab("discover");
+      setAuthed(false); setMe(null); setActiveTab("city");
       setDeepLink(null); setDeepUserId(null);
     };
     window.addEventListener("bfu:signout", handleSignout);
@@ -111,10 +111,10 @@ function MiniApp() {
     const sp = String(startParam);
     let m;
     if ((m = sp.match(/^req_(startup|volunteering)_(\d+)$/))) {
-      const tab = m[1] === "startup" ? "startups" : "volunteer";
+      // Both startup + volunteering applications live in the unified Projects tab now.
       const appId = Number(m[2]);
-      setDeepLink({ tab, appId });
-      if (isAuthed) setActiveTab(tab);
+      setDeepLink({ tab: "projects", appId });
+      if (isAuthed) setActiveTab("projects");
     } else if ((m = sp.match(/^event_(\d+)$/))) {
       const eventId = Number(m[1]);
       setDeepLink({ tab: "events", eventId });
@@ -138,7 +138,7 @@ function MiniApp() {
     // buttons target) landed on Discover and the event/project/profile
     // link was silently dropped.
     _parseDeepLink(true);
-    if (!isNewRegistration && !_hasStartParam()) setActiveTab("discover");
+    if (!isNewRegistration && !_hasStartParam()) setActiveTab("city");
   };
 
   const deniedFields = (() => {
@@ -146,19 +146,20 @@ function MiniApp() {
     catch { return []; }
   })();
 
-  // When the profile is locked we force them into Settings/Edit so they can fix it.
+  // When the profile is locked we force them into the Profile tab (which folds in
+  // edit/settings) so they can fix it.
   const forceSettings = deniedFields.length > 0;
-  const effectiveTab = forceSettings ? "settings" : activeTab;
+  const effectiveTab = forceSettings ? "profile" : activeTab;
 
   const screens = {
-    discover:  <DiscoverScreen />,
-    startups:  <StartupScreen  deepLinkAppId={deepLink?.tab === "startups"  ? deepLink.appId : null} />,
-    volunteer: <VolunteerScreen deepLinkAppId={deepLink?.tab === "volunteer" ? deepLink.appId : null} />,
-    events:    <EventsScreen
+    city:     <CityScreen />,
+    projects: <ProjectsScreen deepLinkAppId={deepLink?.tab === "projects" ? deepLink.appId : null} />,
+    mentors:  <MentorsScreen />,
+    events:   <EventsScreen
                   deepLinkEventId={deepLink?.tab === "events" ? deepLink.eventId : null}
                   embedded
-                  onBack={() => setActiveTab("discover")} />,
-    settings:  <SettingsScreen />,
+                  onBack={() => setActiveTab("city")} />,
+    profile:  <ProfileScreen />,
   };
 
   // Loading state

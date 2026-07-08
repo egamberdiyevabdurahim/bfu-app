@@ -3,131 +3,103 @@ import { Icon } from "./Icons";
 import { projects, regions, users } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
 import { FollowButton } from "./FollowButton";
+import { AvatarEl } from "./Shared";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, openProjectChat } from "../tg";
+
+// ── Project detail — rebuilt in the Chorsu "Bazaar" firelit design, mirroring
+// the desktop /p/[id] page (ProjectHero + ProjectAboutCell + ProjectLookingForCell
+// + projects/OpenRolesCell + ProjectUpdates). A full-screen mobile overlay:
+// hero identity strip → viewer action rail (apply / manage) → about, looking-for,
+// team, open roles, updates, chat and founder-stats bento cells. Every action of
+// the old sheet is preserved (favorite, follow, apply/withdraw/leave, post/delete
+// update, add/toggle/remove role, link group chat, report, founder stats).
+
+// Muted tokens: the shared ch-* classes reference var(--muted)/var(--muted-strong)
+// which aren't declared in the Mini App root — so we set muted colors explicitly
+// from the declared tokens (--text-3 muted, --text-2 muted-strong).
+const MUTED = "var(--text-3)";
+const MUTED_STRONG = "var(--text-2)";
 
 const FitBadge = ({ isFit }) => {
   const { t } = useT();
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      background: isFit ? "rgba(78,205,196,0.15)" : "rgba(255,99,99,0.12)",
-      color: isFit ? "#4ECDC4" : "#FF6363",
-      border: `1px solid ${isFit ? "rgba(78,205,196,0.3)" : "rgba(255,99,99,0.25)"}`,
-      borderRadius: 99, padding: "4px 12px", fontSize: 12, fontWeight: 700,
+      background: isFit ? "rgba(127,176,105,0.15)" : "rgba(192,86,59,0.14)",
+      color: isFit ? "var(--green)" : "var(--terra)",
+      border: `1px solid ${isFit ? "rgba(127,176,105,0.35)" : "rgba(192,86,59,0.3)"}`,
+      borderRadius: "var(--radius-pill)", padding: "5px 12px",
+      fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.04em",
     }}>
       {isFit ? t("badge.fit") : t("badge.notFit")}
     </span>
   );
 };
 
-const MemberAvatar = ({ name = "?", size = 36 }) => {
-  const initials = (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const colors = ["#7B6FFF", "#FF6B6B", "#4ECDC4", "#FFB347", "#A78BFA"];
-  const bg = colors[(name.charCodeAt(0) || 0) % colors.length];
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: `${bg}22`, border: `2px solid ${bg}55`,
-      color: bg, display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.38, fontWeight: 700, fontFamily: "var(--font-display)", flexShrink: 0,
-    }}>
-      {initials}
-    </div>
-  );
-};
+const CellLabel = ({ children, color = MUTED }) => (
+  <div className="ch-cell-label" style={{ color }}>{children}</div>
+);
 
 const StatusButton = ({ project, onApply, onCancel, onLeave, loading }) => {
   const { t } = useT();
   const s = project.my_application_status;
   const isCreator = project._is_creator;
 
-  if (isCreator) return (
+  const statusBox = (label, color, bg, border) => (
     <div style={{
-      width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
-      borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
-      color: "var(--text-3)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
+      flex: 1, background: bg, border: `1px solid ${border}`,
+      borderRadius: "var(--radius-pill)", padding: "14px", textAlign: "center",
+      color, fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14,
     }}>
-      {t("pd.yourProject")}
+      {label}
+    </div>
+  );
+
+  if (isCreator) return (
+    <div style={{ display: "flex" }}>
+      {statusBox(t("pd.yourProject"), "var(--amber)", "var(--accent-dim)", "rgba(232,161,92,0.34)")}
     </div>
   );
 
   if (project.is_member) return (
     <div style={{ display: "flex", gap: 10 }}>
-      <div style={{
-        flex: 1, background: "var(--accent-dim)", border: "1px solid var(--accent)",
-        borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
-        color: "var(--accent)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
-      }}>
-        {t("pd.youreMember")}
-      </div>
-      <button onClick={onLeave} disabled={loading} style={{
-        background: "rgba(255,99,99,0.1)", border: "1px solid rgba(255,99,99,0.25)",
-        borderRadius: "var(--radius-sm)", padding: "14px 16px", cursor: "pointer",
-        color: "#FF6363", fontSize: 13,
+      {statusBox(t("pd.youreMember"), "var(--green)", "rgba(127,176,105,0.15)", "rgba(127,176,105,0.35)")}
+      <button onClick={onLeave} disabled={loading} className="btn-ghost" style={{
+        width: "auto", color: "var(--terra)", borderColor: "rgba(192,86,59,0.35)",
       }}>{t("pd.leave")}</button>
     </div>
   );
 
   if (s === "pending") return (
     <div style={{ display: "flex", gap: 10 }}>
-      <div style={{
-        flex: 1, background: "rgba(255,179,71,0.15)", border: "1px solid rgba(255,179,71,0.4)",
-        borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
-        color: "#FFB347", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
-      }}>
-        {t("pd.pendingReview")}
-      </div>
-      <button onClick={onCancel} disabled={loading} style={{
-        background: "var(--surface-2)", border: "1px solid var(--border)",
-        borderRadius: "var(--radius-sm)", padding: "14px 16px", cursor: "pointer",
-        color: "var(--text-3)", fontSize: 13,
-      }}>
-        {t("pd.withdraw")}
-      </button>
+      {statusBox(t("pd.pendingReview"), "var(--amber)", "rgba(232,161,92,0.15)", "rgba(232,161,92,0.4)")}
+      <button onClick={onCancel} disabled={loading} className="btn-ghost" style={{
+        width: "auto", color: MUTED,
+      }}>{t("pd.withdraw")}</button>
     </div>
   );
 
   if (s === "accepted") return (
-    <div style={{
-      width: "100%", background: "rgba(78,205,196,0.15)", border: "1px solid rgba(78,205,196,0.3)",
-      borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
-      color: "#4ECDC4", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
-    }}>
-      {t("pd.accepted")}
+    <div style={{ display: "flex" }}>
+      {statusBox(t("pd.accepted"), "var(--green)", "rgba(127,176,105,0.15)", "rgba(127,176,105,0.35)")}
     </div>
   );
 
   if (s === "declined") return (
-    <div style={{
-      width: "100%", background: "rgba(255,99,99,0.1)", border: "1px solid rgba(255,99,99,0.25)",
-      borderRadius: "var(--radius-sm)", padding: "14px", textAlign: "center",
-      color: "#FF6363", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
-    }}>
-      {t("pd.declined")}
+    <div style={{ display: "flex" }}>
+      {statusBox(t("pd.declined"), "var(--terra)", "rgba(192,86,59,0.14)", "rgba(192,86,59,0.3)")}
     </div>
   );
 
   if (!project.is_hiring) return (
-    <div style={{
-      width: "100%", background: "var(--surface-3)", borderRadius: "var(--radius-sm)", padding: "14px",
-      textAlign: "center", color: "var(--text-3)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14,
-    }}>
-      {t("pd.notHiring")}
+    <div style={{ display: "flex" }}>
+      {statusBox(t("pd.notHiring"), MUTED, "var(--surface-2)", "var(--hair)")}
     </div>
   );
 
   return (
-    <button onClick={onApply} disabled={loading || !project.is_fit} style={{
-      width: "100%",
-      background: project.is_fit ? "var(--accent)" : "var(--surface-3)",
-      border: "none", borderRadius: "var(--radius-sm)", padding: "14px",
-      cursor: project.is_fit ? "pointer" : "not-allowed",
-      color: project.is_fit ? "#fff" : "var(--text-3)",
-      fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15,
-      boxShadow: project.is_fit ? "0 4px 24px rgba(123,111,255,0.35)" : "none",
-      opacity: loading ? 0.7 : 1, transition: "all 0.2s",
-    }}>
+    <button onClick={onApply} disabled={loading || !project.is_fit} className="btn-primary">
       {loading ? t("pd.submitting") : (project.is_fit ? t("pd.apply") : t("pd.reqNotMet"))}
     </button>
   );
@@ -153,6 +125,11 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
 
   const isCreator = me && project.creator_id === me.id;
   const projectWithFlag = { ...project, _is_creator: isCreator };
+  const isStartup = project.type === "startup";
+  const typeAccent = isStartup ? "var(--amber)" : "var(--green)";
+  const typeBg = isStartup ? "rgba(232,161,92,0.14)" : "rgba(127,176,105,0.14)";
+  const typeBorder = isStartup ? "rgba(232,161,92,0.34)" : "rgba(127,176,105,0.34)";
+  const isActive = project.is_active !== false;
 
   // Founder stats (only for the project creator)
   useEffect(() => {
@@ -284,377 +261,427 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
     } catch (e) { tgAlert(e.message?.includes("t.me") ? t("chat.invalid") : e.message); }
   };
 
+  const toggleFavorite = async () => {
+    try {
+      if (project.is_favorited) {
+        await projects.unfavorite(project.id);
+        setProject({ ...project, is_favorited: false });
+      } else {
+        await projects.favorite(project.id);
+        setProject({ ...project, is_favorited: true });
+      }
+    } catch (e) { tgAlert(e.message); }
+  };
+
+  // ── requirement line (ages / gender) — mirrors desktop ProjectLookingForCell ──
+  const reqParts = [];
+  if (project.age_from && project.age_to) reqParts.push(t("pd.ages", { a: project.age_from, b: project.age_to }));
+  if (project.gender_req === "Male") reqParts.push(t("pd.maleOnly"));
+  else if (project.gender_req === "Female") reqParts.push(t("pd.femaleOnly"));
+
+  const hasSkills = project.req_skills?.length > 0;
+  const hasRegions = project.req_regions?.length > 0;
+  const hasLookingFor = hasSkills || hasRegions || reqParts.length > 0;
+
   return (
     <>
-      <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column" }}>
-        {/* Backdrop */}
-        <div onClick={onClose} style={{
-          position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
-        }} />
-
-        {/* Sheet */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 200, display: "flex", justifyContent: "center",
+        background: "var(--bg)", animation: "fadeIn 0.22s ease",
+      }}>
         <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          maxWidth: 430, margin: "0 auto",
-          background: "var(--surface)", borderRadius: "24px 24px 0 0",
-          maxHeight: "92dvh", display: "flex", flexDirection: "column",
-          animation: "slideUp 0.3s ease",
+          width: "100%", maxWidth: 430, height: "100%", position: "relative",
+          display: "flex", flexDirection: "column", background: "var(--bg)",
+          animation: "fadeUp 0.32s cubic-bezier(0.2,0.9,0.3,1)",
         }}>
-          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-            <div style={{ width: 40, height: 4, background: "var(--surface-3)", borderRadius: 99 }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 20px 0" }}>
-            <button
-              onClick={async () => {
-                try {
-                  if (project.is_favorited) {
-                    await projects.unfavorite(project.id);
-                    setProject({ ...project, is_favorited: false });
-                  } else {
-                    await projects.favorite(project.id);
-                    setProject({ ...project, is_favorited: true });
-                  }
-                } catch (e) { tgAlert(e.message); }
-              }}
-              style={{
-                background: project.is_favorited ? "rgba(255,107,107,0.12)" : "var(--surface-2)",
-                border: project.is_favorited ? "1px solid rgba(255,107,107,0.4)" : "1px solid var(--border)",
-                borderRadius: 99, padding: "6px 12px", fontSize: 13,
-                color: project.is_favorited ? "#FF6B6B" : "var(--text-2)",
-                cursor: "pointer", fontWeight: 600,
-              }}
-            >{project.is_favorited ? "❤️ " + t("fav.remove") : "🤍 " + t("fav.add")}</button>
-            <button onClick={onClose} style={{
-              background: "var(--surface-2)", border: "none", borderRadius: 99,
-              width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "var(--text-2)",
-            }}>
-              <Icon name="x" size={16} />
+          {/* ── Top bar ── */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "calc(10px + var(--safe-t)) 16px 10px",
+            borderBottom: "1px solid var(--hair)",
+            background: "rgba(11,10,8,0.86)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            position: "sticky", top: 0, zIndex: 5,
+          }}>
+            <button onClick={onClose} className="btn-ghost" style={{
+              width: 38, height: 38, padding: 0, display: "flex", alignItems: "center",
+              justifyContent: "center", borderRadius: "50%",
+            }} aria-label={t("common.back")}>
+              <Icon name="x" size={17} />
+            </button>
+            <span style={{
+              fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: MUTED,
+            }}>{isStartup ? "Startup" : "Volunteering"}</span>
+            <button onClick={toggleFavorite} className="btn-ghost" style={{
+              width: 38, height: 38, padding: 0, display: "flex", alignItems: "center",
+              justifyContent: "center", borderRadius: "50%",
+              color: project.is_favorited ? "var(--ember)" : MUTED_STRONG,
+              borderColor: project.is_favorited ? "rgba(255,106,61,0.4)" : "var(--hair)",
+              background: project.is_favorited ? "rgba(255,106,61,0.12)" : "rgba(35,32,25,0.6)",
+            }} aria-label={project.is_favorited ? t("fav.remove") : t("fav.add")}>
+              <Icon name="heart" size={17} />
             </button>
           </div>
 
-          {/* Content */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-            {/* Type + Fit badge */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ background: "rgba(123,111,255,0.15)", color: "#7B6FFF", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>
+          {/* ── Scroll body ── */}
+          <div style={{
+            flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
+            padding: "20px 18px calc(28px + var(--safe-b))",
+          }}>
+            {/* ── HERO (mirror ProjectHero) ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 7,
+                padding: "6px 12px", borderRadius: "var(--radius-pill)",
+                background: typeBg, border: `1px solid ${typeBorder}`,
+                fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: typeAccent,
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: typeAccent, boxShadow: `0 0 10px ${typeAccent}` }} />
                 {project.type}
               </span>
+
+              {isActive ? (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "6px 12px", borderRadius: "var(--radius-pill)",
+                  background: "rgba(127,176,105,0.12)", border: "1px solid rgba(127,176,105,0.32)",
+                  fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.12em",
+                  textTransform: "uppercase", color: "var(--green)",
+                }}>
+                  {project.is_hiring && (
+                    <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8 }}>
+                      <span className="ch-online-ping" style={{ background: "var(--green)" }} />
+                      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "var(--green)" }} />
+                    </span>
+                  )}
+                  {t("profile.active")}
+                </span>
+              ) : (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "6px 12px", borderRadius: "var(--radius-pill)",
+                  background: "var(--surface-2)", border: "1px solid var(--hair)",
+                  fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.12em",
+                  textTransform: "uppercase", color: MUTED_STRONG,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: MUTED_STRONG }} />
+                  {t("profile.closed")}
+                </span>
+              )}
+
               {!isCreator && <FitBadge isFit={project.is_fit} />}
-              {isCreator && <span style={{ background: "rgba(255,179,71,0.15)", color: "#FFB347", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>{t("pd.yourProject")}</span>}
             </div>
 
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
+            <h1 style={{
+              margin: "20px 0 0", fontFamily: "var(--font-display)", fontWeight: 800,
+              fontSize: 30, lineHeight: 1.06, letterSpacing: "-0.02em", color: "var(--text)",
+              overflowWrap: "break-word",
+            }}>
               {project.name}
-            </h2>
+            </h1>
+
             {project.goal && (
-              <p style={{ fontSize: 15, color: "var(--accent)", fontWeight: 500, marginBottom: 16, lineHeight: 1.5 }}>
+              <p style={{
+                margin: "14px 0 0", fontFamily: "var(--font-accent)", fontStyle: "italic",
+                fontSize: 20, lineHeight: 1.32, color: "var(--amber)", overflowWrap: "break-word",
+              }}>
                 {project.goal}
               </p>
             )}
 
-            {!isCreator && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{
+              marginTop: 16, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+            }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.06em", color: MUTED_STRONG }}>
+                {t("board.membersN", { n: project.member_count })}
+              </span>
+              {!isCreator && (
                 <FollowButton
                   targetType="project"
                   targetId={project.id}
                   initialFollowing={project.is_following}
                   initialCount={project.follower_count}
                 />
-                {project.follower_count > 0 && (
-                  <span style={{ fontSize: 12, color: "var(--text-3)" }}>
-                    {project.follower_count === 1 ? t("follow.followersOne") : t("follow.followers", { n: project.follower_count })}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Stats */}
-            <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-3)" }}>
-                <Icon name="users" size={14} />
-                {t("board.membersN", { n: project.member_count })}
-              </div>
-              {project.age_from && project.age_to && (
-                <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("pd.ages", { a: project.age_from, b: project.age_to })}</div>
-              )}
-              {project.gender_req && (
-                <div style={{ fontSize: 13, color: "var(--text-3)" }}>
-                  {project.gender_req === "Male" ? t("pd.maleOnly") : t("pd.femaleOnly")}
-                </div>
               )}
             </div>
 
-            {/* About */}
-            {project.about && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("pd.about")}</div>
-                <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7 }}>{project.about}</p>
-              </div>
-            )}
-
-            {/* Skills */}
-            {project.req_skills?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("pd.requiredSkills")}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {project.req_skills.map(s => (
-                    <span key={s.skill_name} className="chip">{s.skill_name}</span>
-                  ))}
+            {/* ── ACTION RAIL (mirror desktop ProjectActions cell) ── */}
+            <div className="ch-cell-static" style={{ marginTop: 22, padding: 16 }}>
+              {project.pending_applications_count > 0 && !isCreator && (
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", color: MUTED, textAlign: "center", marginBottom: 12 }}>
+                  {t("pd.othersApplied", { n: project.pending_applications_count })}
                 </div>
-              </div>
-            )}
-
-            {/* Regions — now with real names */}
-            {project.req_regions?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("pd.targetRegions")}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {project.req_regions.map(r => (
-                    <span key={r.region_id} className="chip">
-                      📍 {regionMap[r.region_id] || t("pd.regionN", { n: r.region_id })}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Members section */}
-            {project.members?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("pd.team", { n: project.member_count })}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {project.members.map(m => {
-                    const isFounder = m.user_id === project.creator_id;
-                    const displayName = m.display_name || `User #${m.user_id}`;
-                    return (
-                      <div key={m.user_id}
-                        onClick={() => setViewingUserId(m.user_id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 12,
-                          padding: "10px 14px", background: "var(--surface-2)",
-                          borderRadius: "var(--radius-sm)", cursor: "pointer",
-                          border: "1px solid var(--border)", transition: "background 0.15s",
-                        }}>
-                        <MemberAvatar name={displayName} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14 }}>
-                            {displayName}
-                          </div>
-                          <div style={{ fontSize: 11, color: isFounder ? "#FFB347" : "var(--text-3)", fontWeight: 600, marginTop: 2 }}>
-                            {isFounder ? t("pd.founder") : t("pd.cofounder")}
-                          </div>
-                        </div>
-                        <Icon name="chevron_right" size={14} color="var(--text-3)" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Updates */}
-            <div style={{ marginBottom: 20 }}>
-              <div className="section-label">{t("updates.title")}</div>
-              {isCreator && (
-                <div style={{ marginBottom: 12 }}>
-                  <textarea value={updateText} maxLength={500}
-                    onChange={e => setUpdateText(e.target.value)} placeholder={t("updates.placeholder")}
-                    rows={2} style={{ width: "100%", boxSizing: "border-box", background: "var(--surface-2)",
-                      border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)",
-                      padding: "10px 12px", fontSize: 13, resize: "vertical" }} />
-                  <button onClick={postUpdate} disabled={posting || !updateText.trim()} style={{
-                    marginTop: 6, background: "var(--accent)", border: "none", borderRadius: "var(--radius-sm)",
-                    color: "#fff", padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    {t("updates.post")}
+              )}
+              <StatusButton
+                project={projectWithFlag}
+                onApply={() => setRoleOpen(true)}
+                onCancel={handleCancel}
+                onLeave={handleLeave}
+                loading={loading}
+              />
+              {roleOpen && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: MUTED, marginBottom: 6 }}>{t("apply.roleLabel")}</div>
+                  <input value={roleText} maxLength={80} onChange={e => setRoleText(e.target.value)}
+                    placeholder={t("apply.rolePh")} className="input-field" style={{ marginBottom: 10 }} />
+                  <button onClick={handleApply} disabled={loading} className="btn-primary">
+                    {t("apply.submit")}
                   </button>
                 </div>
               )}
-              {updates === null ? (
-                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("common.loading")}</div>
-              ) : updates.length === 0 ? (
-                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("updates.none")}</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {updates.map(u => (
-                    <div key={u.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
-                      borderLeft: "3px solid var(--accent)", borderRadius: "var(--radius-sm)", padding: "10px 12px" }}>
-                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{u.text}</div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                        <span style={{ fontSize: 11, color: "var(--text-3)" }}>
-                          {u.author?.display_name || ""} · {(() => { try { return new Date(u.created_at).toLocaleDateString(); } catch { return ""; } })()}
-                        </span>
-                        {isCreator && (
-                          <button onClick={() => removeUpdate(u.id)} style={{ background: "none", border: "none",
-                            color: "var(--text-3)", fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
-                            {t("updates.delete")}
-                          </button>
-                        )}
+            </div>
+
+            {/* ── Cells column ── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
+              {/* About */}
+              {project.about && (
+                <div className="ch-cell-static">
+                  <CellLabel>{t("pd.about")}</CellLabel>
+                  <p style={{ margin: "14px 0 0", fontSize: 15, lineHeight: 1.65, color: "var(--text)", whiteSpace: "pre-line", overflowWrap: "break-word" }}>
+                    {project.about}
+                  </p>
+                </div>
+              )}
+
+              {/* Looking for (skills + regions + requirements) */}
+              {hasLookingFor && (
+                <div className="ch-cell-static" style={{
+                  borderColor: "rgba(127,176,105,0.3)",
+                  background: "linear-gradient(150deg, rgba(127,176,105,0.10), var(--surface) 60%)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 12px rgba(127,176,105,0.8)" }} />
+                    <CellLabel color="var(--green)">{t("roles.title")}</CellLabel>
+                  </div>
+
+                  {hasSkills && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>
+                        {t("pd.requiredSkills")}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                        {project.req_skills.map(s => (
+                          <span key={s.skill_name} className="chip">{s.skill_name}</span>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {hasRegions && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>
+                        {t("pd.targetRegions")}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                        {project.req_regions.map(r => (
+                          <span key={r.region_id} style={{
+                            fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.03em",
+                            padding: "6px 12px", borderRadius: "var(--radius-pill)",
+                            background: "rgba(18,86,79,0.18)", border: "1px solid rgba(94,197,182,0.3)",
+                            color: "var(--teal-bright)",
+                          }}>
+                            {regionMap[r.region_id] || t("pd.regionN", { n: r.region_id })}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {reqParts.length > 0 && (
+                    <div style={{ marginTop: 16, fontFamily: "var(--font-mono)", fontSize: 11.5, letterSpacing: "0.06em", color: MUTED_STRONG }}>
+                      {reqParts.join(" · ")}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Channel */}
-            {project.channel && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("pd.contact")}</div>
-                <a href={project.channel} target="_blank" rel="noreferrer" style={{
-                  display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14,
-                  color: "var(--accent)", textDecoration: "none",
-                }}>
-                  <Icon name="send" size={14} /> {project.channel}
-                </a>
-              </div>
-            )}
+              {/* Team */}
+              {project.members?.length > 0 && (
+                <div className="ch-cell-static">
+                  <CellLabel>{t("pd.team", { n: project.member_count })}</CellLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+                    {project.members.map(m => {
+                      const isFounder = m.user_id === project.creator_id;
+                      const displayName = m.display_name || `User #${m.user_id}`;
+                      return (
+                        <div key={m.user_id}
+                          onClick={() => setViewingUserId(m.user_id)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 12,
+                            padding: "10px 12px", background: "var(--surface-2)",
+                            borderRadius: "var(--radius-sm)", cursor: "pointer",
+                            border: "1px solid var(--hair)",
+                          }}>
+                          <AvatarEl name={displayName} size={40} photoUrl={m.photo_url} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {displayName}
+                            </div>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.06em", color: isFounder ? "var(--amber)" : MUTED, marginTop: 3 }}>
+                              {isFounder ? t("pd.founder") : t("pd.cofounder")}
+                            </div>
+                          </div>
+                          <Icon name="chevron_right" size={15} color={MUTED} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-            {/* Open roles */}
-            {(rolesList?.length > 0 || isCreator) && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-label">{t("roles.sectionTitle")}</div>
+              {/* Open roles */}
+              {(rolesList?.length > 0 || isCreator) && (
+                <div className="ch-cell-static">
+                  <CellLabel>{t("roles.sectionTitle")}</CellLabel>
+                  {isCreator && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                      <input value={newRole} onChange={e => setNewRole(e.target.value)}
+                        placeholder={t("roles.addPh")} className="input-field" style={{ fontSize: 14 }} />
+                      <button onClick={addRole} disabled={addingRole} className="btn-primary" style={{
+                        width: "auto", padding: "0 18px", fontSize: 14, whiteSpace: "nowrap",
+                      }}>{t("roles.add")}</button>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+                    {(rolesList || []).map(r => (
+                      <span key={r.id} style={{
+                        display: "inline-flex", alignItems: "center", gap: 7,
+                        fontFamily: "var(--font-mono)", fontSize: 11.5, padding: "7px 13px",
+                        borderRadius: "var(--radius-pill)",
+                        background: r.is_filled ? "var(--surface-2)" : "rgba(232,161,92,0.1)",
+                        color: r.is_filled ? MUTED : "var(--amber)",
+                        border: `1px solid ${r.is_filled ? "var(--hair)" : "rgba(232,161,92,0.32)"}`,
+                      }}>
+                        {r.name}{r.is_filled ? ` · ${t("roles.filled")}` : ""}
+                        {isCreator && (
+                          <>
+                            <button onClick={() => toggleRole(r)} title={r.is_filled ? t("roles.markOpen") : t("roles.markFilled")}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 13, padding: 0, minHeight: 0 }}>
+                              {r.is_filled ? "↺" : "✓"}
+                            </button>
+                            <button onClick={() => removeRole(r)} title={t("roles.remove")}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, padding: 0, minHeight: 0 }}>×</button>
+                          </>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Updates */}
+              <div className="ch-cell-static">
+                <CellLabel>{t("updates.title")}</CellLabel>
                 {isCreator && (
-                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                    <input value={newRole} onChange={e => setNewRole(e.target.value)}
-                      placeholder={t("roles.addPh")} style={{
-                        flex: 1, padding: "10px 12px", background: "var(--surface-2)",
-                        border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-                        color: "var(--text)", fontSize: 13 }} />
-                    <button onClick={addRole} disabled={addingRole} style={{
-                      padding: "10px 14px", background: "var(--accent)", border: "none",
-                      borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700,
-                      fontSize: 13, cursor: "pointer" }}>{t("roles.add")}</button>
+                  <div style={{ marginTop: 14, marginBottom: 4 }}>
+                    <textarea value={updateText} maxLength={500}
+                      onChange={e => setUpdateText(e.target.value)} placeholder={t("updates.placeholder")}
+                      rows={2} className="input-field" style={{ resize: "vertical", fontSize: 14, lineHeight: 1.5 }} />
+                    <button onClick={postUpdate} disabled={posting || !updateText.trim()} className="btn-primary" style={{
+                      width: "auto", marginTop: 10, padding: "0 20px", height: 40, fontSize: 14,
+                    }}>
+                      {t("updates.post")}
+                    </button>
                   </div>
                 )}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {(rolesList || []).map(r => (
-                    <span key={r.id} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px",
-                      borderRadius: 99, fontSize: 12, fontWeight: 600,
-                      background: r.is_filled ? "var(--surface-3)" : "rgba(78,205,196,0.15)",
-                      color: r.is_filled ? "var(--text-3)" : "#4ECDC4",
-                      border: "1px solid var(--border)" }}>
-                      {r.name}{r.is_filled ? ` · ${t("roles.filled")}` : ""}
-                      {isCreator && (
-                        <>
-                          <button onClick={() => toggleRole(r)} title={r.is_filled ? t("roles.markOpen") : t("roles.markFilled")}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 12 }}>
-                            {r.is_filled ? "↺" : "✓"}
-                          </button>
-                          <button onClick={() => removeRole(r)} title={t("roles.remove")}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 12 }}>×</button>
-                        </>
-                      )}
-                    </span>
-                  ))}
+                {updates === null ? (
+                  <div style={{ fontSize: 12, color: MUTED, marginTop: 14 }}>{t("common.loading")}</div>
+                ) : updates.length === 0 ? (
+                  <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 15, color: MUTED, marginTop: 14 }}>{t("updates.none")}</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+                    {updates.map(u => (
+                      <div key={u.id} style={{
+                        background: "var(--surface-2)", border: "1px solid var(--hair)",
+                        borderLeft: "3px solid var(--amber)", borderRadius: "var(--radius-sm)", padding: "11px 13px",
+                      }}>
+                        <div style={{ fontSize: 13.5, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-line", overflowWrap: "break-word" }}>{u.text}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: MUTED }}>
+                            {u.author?.display_name || ""} · {(() => { try { return new Date(u.created_at).toLocaleDateString(); } catch { return ""; } })()}
+                          </span>
+                          {isCreator && (
+                            <button onClick={() => removeUpdate(u.id)} style={{ background: "none", border: "none", color: MUTED, fontSize: 11, textDecoration: "underline", cursor: "pointer", padding: 0, minHeight: 0 }}>
+                              {t("updates.delete")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Contact channel */}
+              {project.channel && (
+                <div className="ch-cell-static">
+                  <CellLabel>{t("pd.contact")}</CellLabel>
+                  <a href={project.channel} target="_blank" rel="noreferrer" style={{
+                    display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12,
+                    fontSize: 14, color: "var(--amber)", textDecoration: "none", overflowWrap: "anywhere",
+                  }}>
+                    <Icon name="send" size={14} /> {project.channel}
+                  </a>
+                </div>
+              )}
+
+              {/* Project chat */}
+              <div className="ch-cell-static">
+                <CellLabel>{t("chat.title")}</CellLabel>
+                <div style={{ marginTop: 14 }}>
+                  {project.group_link ? (
+                    <button onClick={() => openProjectChat(project)} className="btn-primary">{t("chat.join")}</button>
+                  ) : isCreator ? (
+                    editingLink ? (
+                      <div>
+                        <input value={linkDraft} onChange={e => setLinkDraft(e.target.value)}
+                          placeholder={t("chat.linkPh")} className="input-field" style={{ marginBottom: 8, fontSize: 14 }} />
+                        <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 10, lineHeight: 1.5 }}>{t("chat.howto")}</div>
+                        <button onClick={saveLink} className="btn-primary" style={{ width: "auto", padding: "0 22px", height: 42 }}>{t("common.save")}</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setLinkDraft(""); setEditingLink(true); }} className="btn-ghost" style={{ width: "100%" }}>
+                        {t("chat.linkBtn")}</button>
+                    )
+                  ) : (
+                    <div style={{ fontSize: 13, color: MUTED }}>{t("chat.none")}</div>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Project chat */}
-            <div style={{ marginBottom: 20 }}>
-              <div className="section-label">{t("chat.title")}</div>
-              {project.group_link ? (
-                <button onClick={() => openProjectChat(project)} style={{
-                  width: "100%", padding: "11px", background: "var(--accent)", border: "none",
-                  borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700, fontSize: 13,
-                  cursor: "pointer" }}>{t("chat.join")}</button>
-              ) : isCreator ? (
-                editingLink ? (
-                  <div>
-                    <input value={linkDraft} onChange={e => setLinkDraft(e.target.value)}
-                      placeholder={t("chat.linkPh")} style={{
-                        width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "var(--surface-2)",
-                        border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-                        color: "var(--text)", fontSize: 13, marginBottom: 8 }} />
-                    <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8 }}>{t("chat.howto")}</div>
-                    <button onClick={saveLink} style={{
-                      padding: "9px 14px", background: "var(--accent)", border: "none",
-                      borderRadius: "var(--radius-sm)", color: "#fff", fontWeight: 700,
-                      fontSize: 13, cursor: "pointer" }}>{t("common.save")}</button>
+              {/* Founder stats */}
+              {isCreator && stats && (
+                <div className="ch-cell-static">
+                  <CellLabel>{t("pd.stats.title")}</CellLabel>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 14 }}>
+                    {[
+                      [t("pd.stats.pending"),  stats.pending,  "var(--amber)"],
+                      [t("pd.stats.accepted"), stats.accepted, "var(--green)"],
+                      [t("pd.stats.declined"), stats.declined, "var(--terra)"],
+                      [t("pd.stats.views"),    stats.views,    "var(--teal-bright)"],
+                      [t("pd.stats.avgDecision"), stats.avg_decision_hours != null ? t("pd.stats.hours", { n: stats.avg_decision_hours }) : t("pd.stats.noData"), "var(--ember)"],
+                    ].map(([label, val, col], i) => (
+                      <div key={i} style={{
+                        textAlign: "center", padding: "10px 4px", background: "var(--surface-2)",
+                        borderRadius: "var(--radius-sm)", border: `1px solid var(--hair)`,
+                      }}>
+                        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: col }}>{val}</div>
+                        <div className="ch-metric-label" style={{ color: MUTED }}>{label}</div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <button onClick={() => { setLinkDraft(""); setEditingLink(true); }} style={{
-                    width: "100%", padding: "11px", background: "var(--surface-2)",
-                    border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-                    color: "var(--text-2)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                    {t("chat.linkBtn")}</button>
-                )
-              ) : (
-                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t("chat.none")}</div>
+                </div>
               )}
             </div>
 
-            {isCreator && stats && (
-              <div style={{
-                background: "var(--surface-2)", border: "1px solid var(--border)",
-                borderRadius: "var(--radius)", padding: 14, marginBottom: 14,
-              }}>
-                <div className="section-label">{t("pd.stats.title")}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                  {[
-                    [t("pd.stats.pending"),  stats.pending,  "#FFB347"],
-                    [t("pd.stats.accepted"), stats.accepted, "#4ECDC4"],
-                    [t("pd.stats.declined"), stats.declined, "#FF6B6B"],
-                    [t("pd.stats.views"),    stats.views,    "#7B6FFF"],
-                    [t("pd.stats.avgDecision"), stats.avg_decision_hours != null ? t("pd.stats.hours", { n: stats.avg_decision_hours }) : t("pd.stats.noData"), "#A78BFA"],
-                  ].map(([label, val, col], i) => (
-                    <div key={i} style={{
-                      textAlign: "center", padding: "8px 4px", background: "var(--surface)",
-                      borderRadius: "var(--radius-sm)", border: `1px solid ${col}40`,
-                    }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: col }}>{val}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <button onClick={doReport} style={{
-              background: "none", border: "none", color: "var(--text-3)",
-              fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: "4px 0",
+              background: "none", border: "none", color: MUTED,
+              fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.06em",
+              textDecoration: "underline", cursor: "pointer", padding: "18px 0 4px",
             }}>{t("report.btn")}</button>
-
-            <div style={{ height: 100 }} />
-          </div>
-
-          {/* Apply CTA */}
-          <div style={{ padding: "16px 24px calc(24px + var(--safe-b))", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
-            {project.pending_applications_count > 0 && !isCreator && (
-              <div style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", marginBottom: 8 }}>
-                {t("pd.othersApplied", { n: project.pending_applications_count })}
-              </div>
-            )}
-            <StatusButton
-              project={projectWithFlag}
-              onApply={() => setRoleOpen(true)}
-              onCancel={handleCancel}
-              onLeave={handleLeave}
-              loading={loading}
-            />
-            {roleOpen && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>{t("apply.roleLabel")}</div>
-                <input value={roleText} maxLength={80} onChange={e => setRoleText(e.target.value)}
-                  placeholder={t("apply.rolePh")} style={{ width: "100%", boxSizing: "border-box",
-                    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-                    color: "var(--text)", padding: "10px 12px", fontSize: 13, marginBottom: 8 }} />
-                <button onClick={handleApply} disabled={loading} style={{ width: "100%", background: "var(--accent)",
-                  border: "none", borderRadius: "var(--radius-sm)", color: "#fff", padding: "12px", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer" }}>{t("apply.submit")}</button>
-              </div>
-            )}
           </div>
         </div>
-
-        <style>{`
-          @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-          }
-        `}</style>
       </div>
 
       {viewingUserId && (

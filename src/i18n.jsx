@@ -27,6 +27,53 @@ const STRINGS = {
   "nav.volunteer": { en: "Volunteer", uz: "Volontyorlik", ru: "Волонтёрство" },
   "nav.profile": { en: "Profile", uz: "Profil", ru: "Профиль" },
   "nav.events": { en: "Events", uz: "Tadbirlar", ru: "События" },
+  "nav.city": { en: "City", uz: "Shahar", ru: "Город" },
+  "nav.projects": { en: "Projects", uz: "Loyihalar", ru: "Проекты" },
+  "nav.mentors": { en: "Mentors", uz: "Mentorlar", ru: "Менторы" },
+
+  // ── City tab (Chorsu "building tonight") ──────────────────────────────────
+  "city.eyebrow": { en: "Uzbekistan · {weekday} night", uz: "O‘zbekiston · {weekday} kechasi", ru: "Узбекистан · {weekday}, вечер" },
+  "city.litSuffix": { en: "lit tonight", uz: "bugun tunda yonyapti", ru: "горят сегодня" },
+  "city.resting": { en: "The city is resting", uz: "Shahar dam olmoqda", ru: "Город отдыхает" },
+  "city.subActive": { en: "Builders lighting their windows across Uzbekistan tonight.", uz: "Bugun O‘zbekiston bo‘ylab quruvchilar derazalarini yoqmoqda.", ru: "Сегодня по всему Узбекистану зажигаются окна строителей." },
+  "city.subQuiet": { en: "Quiet hours. Be the first spark tonight.", uz: "Sokin damlar. Bu kecha birinchi uchqun bo‘ling.", ru: "Тихие часы. Станьте первой искрой сегодня." },
+  "city.stat.online": { en: "online now", uz: "hozir onlayn", ru: "сейчас онлайн" },
+  "city.stat.builders": { en: "builders", uz: "quruvchilar", ru: "строителей" },
+  "city.stat.verified": { en: "verified", uz: "tasdiqlangan", ru: "проверенных" },
+  "city.slab.kicker": { en: "Tonight", uz: "Bugun tunda", ru: "Сегодня" },
+  "city.slab.title": { en: "Building right now", uz: "Hozir qurilmoqda", ru: "Строят прямо сейчас" },
+  "city.slab.lit": { en: "{n} lit", uz: "{n} yoniq", ru: "{n} горят" },
+  "city.card.building": { en: "is building", uz: "quryapti:", ru: "создаёт:" },
+  "city.card.new": { en: "new", uz: "yangi", ru: "новый" },
+  "city.grace.kicker": { en: "Open window", uz: "Ochiq deraza", ru: "Открытое окно" },
+  "city.grace.title": { en: "The night is young", uz: "Kecha hali yosh", ru: "Ночь только началась" },
+  "city.grace.sub": { en: "Few builders are lit right now. Adjust your filters or check back soon.", uz: "Hozir kam quruvchi faol. Filtrlarni o‘zgartiring yoki keyinroq qayting.", ru: "Сейчас мало кто в сети. Измените фильтры или загляните позже." },
+
+  // ── Mentors tab ───────────────────────────────────────────────────────────
+  "mentor.kicker": { en: "Mentorship", uz: "Mentorlik", ru: "Менторство" },
+  "mentor.titleLead": { en: "Learn from a", uz: "Mentordan", ru: "Учитесь у" },
+  "mentor.titleAccent": { en: "mentor", uz: "o‘rganing", ru: "ментора" },
+  "mentor.subtitle": { en: "Fifteen focused minutes with a builder who's walked your path.", uz: "Sizning yo‘lingizdan o‘tgan quruvchi bilan o‘n besh daqiqa.", ru: "Пятнадцать сфокусированных минут со строителем, прошедшим ваш путь." },
+  "mentor.emptyTitle": { en: "No mentors yet", uz: "Hozircha mentorlar yo‘q", ru: "Пока нет менторов" },
+  "mentor.emptyBody": { en: "Check back soon — experienced builders are opening their calendars.", uz: "Tez orada qayting — tajribali quruvchilar kalendarlarini ochmoqda.", ru: "Загляните позже — опытные строители открывают свои календари." },
+  "mentor.builderFallback": { en: "A builder", uz: "Quruvchi", ru: "Строитель" },
+
+  // ── Events subtitle ───────────────────────────────────────────────────────
+  "events.sub": { en: "Hackathons, grants, scholarships and meetups for builders.", uz: "Quruvchilar uchun hakatonlar, grantlar, stipendiyalar va uchrashuvlar.", ru: "Хакатоны, гранты, стипендии и встречи для строителей будущего." },
+
+  // ── Profile tab (bento) ───────────────────────────────────────────────────
+  "profile.your_bench": { en: "Your bench", uz: "Sizning ustaxonangiz", ru: "Ваш уголок" },
+  "profile.trusted": { en: "Trusted builder", uz: "Ishonchli quruvchi", ru: "Проверенный строитель" },
+  "profile.new_to_bazaar": { en: "New to the bazaar", uz: "Bozorda yangi", ru: "Новичок на базаре" },
+  "profile.rating_one": { en: "rating", uz: "baho", ru: "оценка" },
+  "profile.rating_many": { en: "ratings", uz: "baho", ru: "оценок" },
+  "profile.looking_for": { en: "Looking for", uz: "Nimani izlayapti", ru: "В поиске" },
+  "profile.looking_work": { en: "Co-founders and work", uz: "Hammuassis va ish", ru: "Сооснователей и работу" },
+  "profile.looking_volunteering": { en: "Volunteering opportunities", uz: "Volontyorlik imkoniyatlari", ru: "Волонтёрские возможности" },
+  "profile.looking_both": { en: "Co-founders, work and volunteering", uz: "Hammuassis, ish va volontyorlik", ru: "Сооснователей, работу и волонтёрство" },
+
+  // ── User profile modal ────────────────────────────────────────────────────
+  "um.message": { en: "Message", uz: "Xabar", ru: "Сообщение" },
 
   // ── Auth: welcome ─────────────────────────────────────────────────────────
   "auth.tagline": { en: "BRIGHT FUTURES UZBEKISTAN", uz: "BRIGHT FUTURES UZBEKISTAN", ru: "BRIGHT FUTURES UZBEKISTAN" },

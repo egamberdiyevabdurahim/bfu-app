@@ -7,6 +7,104 @@ import { useT } from "../i18n";
 
 const TYPES = ["foryou", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
+// Type → Chorsu accent, mirrored from the desktop EventsBrowser TYPE_STYLE so the
+// hackathon/grant/scholarship/meetup pills read the same warm-firelit language.
+const TYPE_STYLE = {
+  hackathon:   { color: "var(--amber)",       bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
+  grant:       { color: "var(--green)",       bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
+  scholarship: { color: "var(--green)",       bg: "rgba(127,176,105,0.14)", bd: "rgba(127,176,105,0.34)" },
+  meetup:      { color: "var(--teal-bright)", bg: "rgba(94,197,182,0.14)",  bd: "rgba(94,197,182,0.34)" },
+};
+const DEFAULT_TYPE = { color: "var(--text-2)", bg: "var(--surface-2)", bd: "var(--hair)" };
+const KNOWN_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
+
+// Firelit event card — whole card is the outbound link when `ev.link` exists
+// (mirrors desktop), else a passive .ch-cell-static tile. Deep-linked card glows.
+const EventCard = ({ ev, i, highlighted, t, fmt }) => {
+  const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
+  const deadline = ev.deadline ? fmt(ev.deadline) : null;
+  const typeLabel = KNOWN_TYPES.includes(ev.type)
+    ? t(`events.type.${ev.type}`)
+    : (ev.type || t("events.type.other"));
+
+  const containerStyle = {
+    position: "relative", display: "block", padding: 18, overflow: "hidden",
+    color: "var(--text)", textDecoration: "none",
+    border: highlighted ? "1.5px solid var(--amber)" : "1px solid var(--hair)",
+    boxShadow: highlighted ? "0 0 24px rgba(232,161,92,0.28)" : "none",
+    cursor: ev.link ? "pointer" : "default",
+    animation: `fadeUp ${(0.08 + i * 0.05).toFixed(2)}s ease both`,
+  };
+
+  const inner = (
+    <>
+      {ev.cover_url && (
+        <img
+          src={ev.cover_url}
+          alt=""
+          style={{ display: "block", width: "calc(100% + 36px)", height: 150, objectFit: "cover", margin: "-18px -18px 14px" }}
+        />
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", padding: "5px 11px",
+          borderRadius: "var(--radius-pill)", background: style.bg, border: `1px solid ${style.bd}`,
+          color: style.color, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase",
+        }}>
+          {typeLabel}
+        </span>
+        {deadline && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)", letterSpacing: "0.03em" }}>
+            {t("events.deadline", { d: deadline })}
+          </span>
+        )}
+      </div>
+
+      <h3 style={{
+        margin: "14px 0 0", fontFamily: "var(--font-display)", fontWeight: 700,
+        fontSize: 18, lineHeight: 1.2, letterSpacing: "-0.01em", color: "var(--text)",
+      }}>
+        {ev.title}
+      </h3>
+
+      {ev.matched?.length > 0 && (
+        <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", color: "var(--green)" }}>
+          ✨ {t("events.matches", { tags: ev.matched.join(", ") })}
+        </div>
+      )}
+
+      {ev.description && (
+        <p style={{
+          margin: "8px 0 0", fontSize: 13.5, lineHeight: 1.55, color: "var(--text-2)",
+          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
+          {ev.description}
+        </p>
+      )}
+
+      {ev.link && (
+        <div style={{
+          marginTop: 14, fontFamily: "var(--font-mono)", fontSize: 11,
+          letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)",
+        }}>
+          {t("events.open")}
+        </div>
+      )}
+    </>
+  );
+
+  return ev.link ? (
+    <a href={ev.link} target="_blank" rel="noopener noreferrer" className="ch-cell-static" style={containerStyle}>
+      {inner}
+    </a>
+  ) : (
+    <div className="ch-cell-static" style={containerStyle}>
+      {inner}
+    </div>
+  );
+};
+
 export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null }) => {
   const { t } = useT();
   const [list, setList] = useState([]);
@@ -29,88 +127,90 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
 
   const fmt = (iso) => {
     if (!iso) return "—";
-    try { return new Date(iso).toLocaleDateString(); } catch { return iso; }
+    try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+    catch { return iso; }
   };
 
+  // Optional Instrument-Serif italic subtitle. `translate()` echoes the raw key
+  // when a string is missing, so only render once the key is actually wired.
+  const subText = t("events.sub");
+
   return (
-    <div style={{ height: "var(--app-h, 100dvh)", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
-      <div style={{ padding: embedded ? "calc(var(--safe-t) + 14px) 24px 12px" : "calc(var(--safe-t) + 18px) 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <Page>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "calc(var(--safe-t) + 16px) 20px 8px" }}>
+        {/* Action row — back (standalone only) + Partners */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: embedded ? "flex-end" : "space-between", gap: 12, marginBottom: 18 }}>
           {!embedded && (
-            <button onClick={onBack} style={{
-              background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
-              width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "var(--text-2)",
-            }}><Icon name="arrow_left" size={16} /></button>
+            <button onClick={onBack} aria-label={t("common.back")} style={{
+              background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-pill)",
+              width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "var(--text-2)", flexShrink: 0,
+            }}>
+              <Icon name="arrow_left" size={17} />
+            </button>
           )}
-          <div style={{ flex: 1 }}>
-            <p style={{ color: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.1em" }}>{t("events.kicker")}</p>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800 }}>{t("events.title")}</h1>
-          </div>
-          <button onClick={() => setPartnersOpen(true)} style={{
-            background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 99,
-            padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
-            cursor: "pointer", color: "var(--text)", fontSize: 13, fontWeight: 600, flexShrink: 0,
-          }}><Icon name="briefcase" size={15} /> {t("partners.title")}</button>
+          <button onClick={() => setPartnersOpen(true)} className="btn-ghost" style={{
+            display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", fontSize: 13, flexShrink: 0,
+          }}>
+            <Icon name="briefcase" size={15} /> {t("partners.title")}
+          </button>
+        </div>
+
+        {/* Header — mono eyebrow + Bricolage title + italic sub */}
+        <div style={{ marginBottom: 18 }}>
+          <div className="ch-eyebrow" style={{ color: "var(--amber)" }}>{t("events.kicker")}</div>
+          <h1 className="ch-h1" style={{ fontSize: "clamp(30px, 9vw, 40px)" }}>{t("events.title")}</h1>
+          {subText !== "events.sub" && <p className="ch-sub">{subText}</p>}
+        </div>
+
+        {/* Filter rail — Chorsu mono pills, horizontally scrollable */}
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", margin: "0 -20px", padding: "2px 20px 4px" }}>
+          {TYPES.map(ty => {
+            const on = type === ty;
+            return (
+              <button key={ty} onClick={() => setType(ty)} style={{
+                flexShrink: 0, padding: "8px 15px", borderRadius: "var(--radius-pill)",
+                fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase",
+                background: on ? "var(--amber)" : "var(--surface-2)",
+                color: on ? "#160E08" : "var(--text-2)",
+                border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+                fontWeight: on ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap",
+                boxShadow: on ? "0 6px 16px rgba(232,161,92,0.28)" : "none",
+                transition: "background 0.15s ease, color 0.15s ease",
+              }}>
+                {ty === "all" ? t("events.filterAll") : ty === "foryou" ? t("events.foryou") : t(`events.type.${ty}`)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Feed */}
+        <div style={{ marginTop: 18 }}>
+          {loading ? (
+            <div style={{ margin: "0 -20px" }}><SkeletonList count={4} /></div>
+          ) : list.length === 0 ? (
+            <div className="ch-grace">
+              <span className="ch-grace-k">{t("events.kicker")}</span>
+              <div className="ch-grace-t">{t("events.empty")}</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {list.map((ev, i) => (
+                <EventCard
+                  key={ev.id}
+                  ev={ev}
+                  i={i}
+                  highlighted={deepLinkEventId === ev.id}
+                  t={t}
+                  fmt={fmt}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ padding: "12px 20px", flexShrink: 0, display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", borderBottom: "1px solid var(--border)" }}>
-        {TYPES.map(ty => (
-          <button key={ty} onClick={() => setType(ty)} style={{
-            flexShrink: 0, padding: "6px 14px", borderRadius: 99, fontSize: 12, fontWeight: 600,
-            background: type === ty ? "var(--accent)" : "var(--surface-2)",
-            color: type === ty ? "#fff" : "var(--text-2)",
-            border: type === ty ? "none" : "1px solid var(--border)", cursor: "pointer",
-          }}>{ty === "all" ? t("events.filterAll") : ty === "foryou" ? t("events.foryou") : t(`events.type.${ty}`)}</button>
-        ))}
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: `16px 20px calc(${embedded ? 100 : 40}px + var(--safe-b))` }}>
-        {loading ? <SkeletonList count={4} /> :
-         list.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("events.empty")}</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {list.map((ev, i) => (
-              <div key={ev.id} className="card" style={{
-                animation: `fadeUp ${0.1 + i * 0.05}s ease`,
-                border: deepLinkEventId === ev.id ? "2px solid var(--accent)" : "1px solid var(--border)",
-                boxShadow: deepLinkEventId === ev.id ? "0 0 20px rgba(123,111,255,0.3)" : undefined,
-              }}>
-                {ev.cover_url && (
-                  <img src={ev.cover_url} alt="" style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: "var(--radius-sm)", marginBottom: 10 }} />
-                )}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>
-                    {t(`events.type.${ev.type}`) || ev.type}
-                  </span>
-                  {ev.deadline && (
-                    <span style={{ fontSize: 11, color: "#FFB347", fontWeight: 600 }}>
-                      {t("events.deadline", { d: fmt(ev.deadline) })}
-                    </span>
-                  )}
-                </div>
-                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{ev.title}</h3>
-                {ev.matched?.length > 0 && (
-                  <div style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 600, marginBottom: 6 }}>
-                    ✨ {t("events.matches", { tags: ev.matched.join(", ") })}
-                  </div>
-                )}
-                {ev.description && (
-                  <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, marginBottom: 8 }}>{ev.description}</p>
-                )}
-                {ev.link && (
-                  <a href={ev.link} target="_blank" rel="noopener noreferrer" style={{
-                    display: "inline-block", color: "var(--accent)", fontSize: 13, fontWeight: 600, textDecoration: "none",
-                  }}>{t("events.open")}</a>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       {partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
-    </div>
+    </Page>
   );
 };

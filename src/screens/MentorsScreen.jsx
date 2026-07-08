@@ -2,51 +2,140 @@ import { useState, useEffect } from "react";
 import { mentors } from "../api";
 import { useT } from "../i18n";
 import { tgAlert } from "../tg";
-import { AvatarEl } from "../components/Shared";
+import { Page, AvatarEl, SkeletonList } from "../components/Shared";
 import { UserProfileModal } from "../components/UserProfileModal";
+import { BookSlotSheet } from "../components/MentorSheets";
 
-export const MentorsScreen = ({ onClose }) => {
+// Mentors tab — mirrors the desktop Chorsu "Bazaar" Mentors page
+// (desktop/app/mentors/page.js + desktop/components/community/MentorsBrowser.js),
+// mobile single-column. Loads GET /mentors → each mentor is
+//   { id, display_name, photo_url, bio, topics:[], open_slots:int }.
+// Tapping a mentor's name/avatar opens their profile; "Book a session" opens the
+// existing MentorSheets booking sheet (slots + note → POST /bookings).
+//
+// Signature is prop-free by default (used as a top-level tab), but keeps the
+// optional `onClose` so the current SettingsScreen overlay usage
+// (<MentorsScreen onClose={…} />) still gets a working back button.
+export const MentorsScreen = ({ onClose } = {}) => {
   const { t } = useT();
   const [list, setList] = useState(null);
-  const [viewingId, setViewingId] = useState(null);
+  const [viewingId, setViewingId] = useState(null); // open UserProfileModal
+  const [booking, setBooking] = useState(null);      // mentor obj → BookSlotSheet
 
   useEffect(() => {
-    mentors.list().then(setList).catch(e => { tgAlert(e.message); setList([]); });
+    mentors.list()
+      .then((r) => setList(Array.isArray(r) ? r : []))
+      .catch((e) => { tgAlert(e.message); setList([]); });
   }, []);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 230, background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(var(--safe-t) + 12px) 20px 12px", borderBottom: "1px solid var(--border)" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800 }}>{t("mentor.browse")}</h2>
-        <button onClick={onClose} style={{ background: "var(--surface-2)", border: "none", borderRadius: 99, padding: "6px 14px", color: "var(--text-2)", fontSize: 13, cursor: "pointer" }}>{t("common.back")}</button>
-      </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 40px" }}>
-        {list === null ? (
-          <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("common.loading")}</div>
-        ) : list.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("mentor.noSlots")}</div>
-        ) : list.map(m => (
-          <div key={m.id} onClick={() => setViewingId(m.id)} style={{
-            display: "flex", gap: 12, alignItems: "center", padding: "14px", marginBottom: 10,
-            background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-            cursor: "pointer",
-          }}>
-            <AvatarEl name={m.display_name} size={48} photoUrl={m.photo_url} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{m.display_name}</div>
-              {m.topics?.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                  {m.topics.slice(0, 4).map(tp => (
-                    <span key={tp} style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA", borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 600 }}>{tp}</span>
-                  ))}
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{t("mentor.openSlots", { n: m.open_slots })}</div>
-            </div>
+    <Page>
+      <div style={{ padding: "calc(var(--safe-t) + 18px) 20px 0" }}>
+        {onClose && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+            <button
+              className="btn-ghost"
+              onClick={onClose}
+              style={{ padding: "8px 16px", fontSize: 13 }}
+            >
+              {t("common.back")}
+            </button>
           </div>
-        ))}
+        )}
+
+        {/* Firelit Chorsu header: mono eyebrow · Bricolage title w/ serif-italic
+            amber accent · Instrument-Serif subtitle */}
+        <div className="ch-eyebrow">{t("mentor.kicker")}</div>
+        <h1 className="ch-h1">
+          {t("mentor.titleLead")}{" "}
+          <span className="accent-serif">{t("mentor.titleAccent")}</span>
+        </h1>
+        <p className="ch-sub">{t("mentor.subtitle")}</p>
       </div>
+
+      <div style={{ padding: "22px 20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {list === null ? (
+          <SkeletonList count={4} />
+        ) : list.length === 0 ? (
+          <div className="ch-grace">
+            <span className="ch-grace-k">{t("mentor.kicker")}</span>
+            <div className="ch-grace-t">{t("mentor.emptyTitle")}</div>
+            <div className="ch-grace-s">{t("mentor.emptyBody")}</div>
+          </div>
+        ) : (
+          list.map((m, i) => {
+            const name = m.display_name || t("mentor.builderFallback");
+            const topics = Array.isArray(m.topics) ? m.topics.slice(0, 5) : [];
+            const hasSlots = (m.open_slots || 0) > 0;
+            return (
+              <div
+                key={m.id}
+                className="ch-cell-static"
+                style={{ padding: 18, animation: `fadeUp ${0.1 + i * 0.05}s ease` }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                  <button
+                    onClick={() => setViewingId(m.id)}
+                    aria-label={name}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
+                  >
+                    <AvatarEl name={name} size={52} photoUrl={m.photo_url} />
+                  </button>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <button
+                      onClick={() => setViewingId(m.id)}
+                      style={{
+                        background: "none", border: "none", padding: 0, cursor: "pointer",
+                        textAlign: "left", display: "block", maxWidth: "100%",
+                        fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17,
+                        letterSpacing: "-0.01em", color: "var(--text)",
+                      }}
+                    >
+                      {name}
+                    </button>
+
+                    {m.bio && (
+                      <p className="ch-card-bld" style={{ marginTop: 5 }}>{m.bio}</p>
+                    )}
+
+                    {topics.length > 0 && (
+                      <div className="ch-card-tags">
+                        {topics.map((tp, j) => (
+                          <span key={`${tp}-${j}`} className="ch-card-t">{tp}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        letterSpacing: "0.08em",
+                        color: hasSlots ? "var(--green)" : "var(--text-3)",
+                      }}
+                    >
+                      {hasSlots ? t("mentor.openSlots", { n: m.open_slots }) : t("mentor.noSlots")}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  className="btn-primary"
+                  onClick={() => setBooking(m)}
+                  style={{ marginTop: 16 }}
+                >
+                  {t("mentor.book")}
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {viewingId && <UserProfileModal userId={viewingId} onClose={() => setViewingId(null)} />}
-    </div>
+      {booking && <BookSlotSheet mentor={booking} onClose={() => setBooking(null)} />}
+    </Page>
   );
 };

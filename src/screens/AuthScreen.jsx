@@ -243,13 +243,13 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
               <div className="section-label">{t("auth.firstName")} *</div>
               <input className="input-field" placeholder={t("auth.firstNamePh")} value={form.name}
                 onChange={e => set("name", e.target.value)} />
-              {errors.name && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.name}</div>}
+              {errors.name && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.name}</div>}
             </div>
             <div style={{ flex: 1 }}>
               <div className="section-label">{t("auth.lastName")} *</div>
               <input className="input-field" placeholder={t("auth.lastNamePh")} value={form.surname}
                 onChange={e => set("surname", e.target.value)} />
-              {errors.surname && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.surname}</div>}
+              {errors.surname && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.surname}</div>}
             </div>
           </div>
           <div>
@@ -268,7 +268,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
                 </button>
               ))}
             </div>
-            {errors.gender && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.gender}</div>}
+            {errors.gender && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.gender}</div>}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -276,13 +276,13 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
               <input className="input-field" type="number" placeholder={t("auth.birthYearPh")}
                 value={form.birth_year} onChange={e => set("birth_year", e.target.value)}
                 style={{ textAlign: "center" }} />
-              {errors.birth_year && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.birth_year}</div>}
+              {errors.birth_year && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.birth_year}</div>}
             </div>
             <div style={{ flex: 2 }}>
               <div className="section-label">{t("auth.phone")} *</div>
               <input className="input-field" type="tel" placeholder="+998911853616" value={form.phone_number}
                 onChange={e => set("phone_number", e.target.value)} />
-              {errors.phone_number && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
+              {errors.phone_number && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
             </div>
           </div>
         </div>
@@ -377,17 +377,17 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
             <div className="section-label">{t("loc.label")}</div>
             <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 8 }}>{t("loc.why")}</div>
             <button type="button" onClick={shareLocation} disabled={locStatus === "sharing"} style={{
-              width: "100%", background: locStatus === "shared" ? "rgba(78,205,196,0.12)" : "var(--surface-2)",
-              border: `1px solid ${locStatus === "shared" ? "rgba(78,205,196,0.5)" : "var(--border)"}`,
+              width: "100%", background: locStatus === "shared" ? "rgba(18,86,79,0.25)" : "var(--surface-2)",
+              border: `1px solid ${locStatus === "shared" ? "rgba(94,197,182,0.5)" : "var(--border)"}`,
               borderRadius: "var(--radius-sm)", padding: "12px",
-              color: locStatus === "shared" ? "#4ECDC4" : "var(--text)",
+              color: locStatus === "shared" ? "var(--teal-bright)" : "var(--text)",
               fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13, cursor: "pointer",
             }}>
               {locStatus === "sharing" ? t("loc.sharing")
                 : locStatus === "shared" ? t("loc.shared")
                 : t("loc.share")}
             </button>
-            {locStatus === "failed" && <div style={{ fontSize: 11, color: "#FFB347", marginTop: 6 }}>{t("loc.failed")}</div>}
+            {locStatus === "failed" && <div style={{ fontSize: 11, color: "var(--amber)", marginTop: 6 }}>{t("loc.failed")}</div>}
           </div>
         </div>
       ),
@@ -438,20 +438,20 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
             </div>
           ) : groupStatuses.map(g => (
             <div key={g.group_id} style={{
-              background: "var(--surface-2)", border: `1px solid ${g.joined ? "rgba(78,205,196,0.4)" : "var(--border)"}`,
+              background: "var(--surface-2)", border: `1px solid ${g.joined ? "rgba(94,197,182,0.4)" : "var(--border)"}`,
               borderRadius: "var(--radius-sm)", padding: "14px 16px",
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
             }}>
               <div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 }}>{g.name}</div>
-                <div style={{ fontSize: 12, color: g.joined ? "#4ECDC4" : "var(--text-3)", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: g.joined ? "var(--teal-bright)" : "var(--text-3)", marginTop: 2 }}>
                   {g.joined ? t("auth.groups.joined") : t("auth.groups.notJoined")}
                 </div>
               </div>
               {!g.joined && g.group_link && (
                 <a href={g.group_link} target="_blank" rel="noopener noreferrer" style={{
-                  background: "var(--accent)", color: "#fff", borderRadius: "var(--radius-sm)",
-                  padding: "8px 14px", fontSize: 12, fontWeight: 600, textDecoration: "none",
+                  background: "linear-gradient(135deg, var(--amber), var(--terra))", color: "#160E08", borderRadius: "var(--radius-sm)",
+                  padding: "8px 14px", fontSize: 12, fontWeight: 700, textDecoration: "none",
                   fontFamily: "var(--font-display)", flexShrink: 0,
                 }}>{t("auth.groups.join")}</a>
               )}
@@ -490,14 +490,15 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   // ── WELCOME ──────────────────────────────────────────────────────────────────
   if (screen === "welcome") return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 300, height: 300, background: "radial-gradient(circle, rgba(123,111,255,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
+      {/* Warm firelit ember/amber glow (was a cold purple radial) */}
+      <div style={{ position: "absolute", top: "16%", left: "50%", transform: "translateX(-50%)", width: 360, height: 360, background: "radial-gradient(circle, rgba(255,106,61,0.24) 0%, rgba(232,161,92,0.12) 42%, transparent 72%)", pointerEvents: "none" }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 28px", textAlign: "center", gap: 24 }}>
         <div style={{ animation: "cardFloat 3s ease-in-out infinite" }}>
-          <img src="/bfu-mark.png" alt="BFU" style={{ width: 80, height: 80, objectFit: "contain", filter: "drop-shadow(0 16px 48px rgba(123,111,255,0.4))" }} />
+          <img src="/bfu-mark.png" alt="BFU" style={{ width: 80, height: 80, objectFit: "contain", filter: "drop-shadow(0 16px 48px rgba(232,161,92,0.42))" }} />
         </div>
         <div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 42, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>BFU</h1>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 14, color: "var(--accent)", letterSpacing: "0.2em", fontWeight: 600, marginTop: 4 }}>{t("auth.tagline")}</p>
+          <div className="ch-eyebrow" style={{ color: "var(--amber)", letterSpacing: "0.22em" }}>{t("auth.tagline")}</div>
+          <h1 className="ch-h1" style={{ marginTop: 8, fontSize: 56, textAlign: "center" }}>BFU</h1>
         </div>
         <p style={{ color: "var(--text-2)", fontSize: 16, lineHeight: 1.6, maxWidth: 280 }}>
           {t("auth.welcomeText")}
@@ -537,13 +538,13 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         )}
         {regStep === 0 && <div style={{ marginBottom: 20 }} />}
         <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 99, marginBottom: 6, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, var(--accent), #A78BFA)", borderRadius: 99, transition: "width 0.4s ease" }} />
+          <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, var(--amber), var(--ember))", borderRadius: 99, transition: "width 0.4s ease" }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-display)", fontWeight: 600, letterSpacing: "0.08em" }}>
+          <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>
             {t("auth.stepOf", { a: regStep + 1, b: steps.length })}
           </span>
-          <span style={{ fontSize: 11, color: "var(--text-3)" }}>{Math.round(progress)}%</span>
+          <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>{Math.round(progress)}%</span>
         </div>
         <div style={{ fontSize: 28, marginBottom: 6 }}>{current.emoji}</div>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{current.title}</h2>

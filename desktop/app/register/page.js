@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
-import { getRegions } from "@/lib/bfu-api";
 import RegisterFlow from "@/components/register/RegisterFlow";
 
 // Per-user (reads the session cookie) → never cached.
@@ -18,12 +17,7 @@ export default async function RegisterPage() {
   // Already a member → nothing to do here.
   if (me.is_registered) redirect("/home");
 
-  let regions = [];
-  try {
-    regions = (await getRegions()) || [];
-  } catch {
-    regions = [];
-  }
-
-  return <RegisterFlow me={me} regions={regions} />;
+  // The wizard fetches regions/schools/centers/groups client-side (it needs
+  // region-scoped calls), so the page only has to gate + render.
+  return <RegisterFlow me={me} />;
 }

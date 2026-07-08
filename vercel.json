@@ -3,13 +3,21 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    {
-      "source": "/u/:id",
-      "destination": "https://bfu-backend-production.up.railway.app/public/u/:id"
-    },
-    {
-      "source": "/((?!landing|u/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/auth/:path*", "destination": "https://bfu-backend-production.up.railway.app/auth/:path*" },
+    { "source": "/users/:path*", "destination": "https://bfu-backend-production.up.railway.app/users/:path*" },
+    { "source": "/projects/:path*", "destination": "https://bfu-backend-production.up.railway.app/projects/:path*" },
+    { "source": "/regions/:path*", "destination": "https://bfu-backend-production.up.railway.app/regions/:path*" },
+    { "source": "/public/:path*", "destination": "https://bfu-backend-production.up.railway.app/public/:path*" },
+    { "source": "/search/:path*", "destination": "https://bfu-backend-production.up.railway.app/search/:path*" },
+    { "source": "/admin/:path*", "destination": "https://bfu-backend-production.up.railway.app/admin/:path*" },
+    { "source": "/events/:path*", "destination": "https://bfu-backend-production.up.railway.app/events/:path*" },
+    { "source": "/partners/:path*", "destination": "https://bfu-backend-production.up.railway.app/partners/:path*" },
+    { "source": "/mentors/:path*", "destination": "https://bfu-backend-production.up.railway.app/mentors/:path*" },
+    { "source": "/bookings/:path*", "destination": "https://bfu-backend-production.up.railway.app/bookings/:path*" },
+    { "source": "/roles/:path*", "destination": "https://bfu-backend-production.up.railway.app/roles/:path*" },
+    { "source": "/follow/:path*", "destination": "https://bfu-backend-production.up.railway.app/follow/:path*" },
+    { "source": "/health", "destination": "https://bfu-backend-production.up.railway.app/health" },
+    { "source": "/u/:id", "destination": "https://bfu-backend-production.up.railway.app/public/u/:id" },
+    { "source": "/((?!landing|u/).*)", "destination": "/index.html" }
   ]
 }

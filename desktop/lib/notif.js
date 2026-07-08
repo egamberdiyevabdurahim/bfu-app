@@ -58,7 +58,7 @@ export function notifText(n) {
     case "mutual":
       return name ? `You and ${name} are a match — say hello.` : `You have a new match — say hello.`;
     case "interest":
-      return name ? `${name} is interested in connecting.` : `Someone new is interested in connecting.`;
+      return name ? `${name} is interested in connecting.` : `A builder is interested in connecting.`;
     case "intro":
       return name ? `${name} sent you an intro.` : `You received a new intro.`;
     case "new_follower":

@@ -17,6 +17,7 @@ from app.models.project import Project
 from app.models.region import Region
 from app.models.trust import ProjectRating, Vouch
 from app.models.user import User
+from app.services.presence import ONLINE_WINDOW, is_online
 from app.routers.users import (
     _achievements_extras, _collaborators, _connection_extras,
     _profile_extras, _trust_extras,
@@ -52,8 +53,9 @@ def _set_cache_headers(response: Response):
 
 
 # ── Chorsu City / Discovery ("building tonight") ───────────────────────────────
-# Online = seen within the last 15 minutes.
-CITY_ONLINE_WINDOW = timedelta(minutes=15)
+# Online = pinged within the last 5 minutes — the single, real presence window
+# shared with per-profile presence (app.services.presence.ONLINE_WINDOW).
+CITY_ONLINE_WINDOW = ONLINE_WINDOW
 
 
 async def _city_stats(db: AsyncSession) -> dict:
@@ -159,7 +161,7 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
             "id": u.id, "name": (u.display_name or u.name or "").strip() or u.display_name,
             "display_name": u.display_name, "checked": bool(u.checked),
             "photo_url": u.photo_url,
-            "online": bool(u.last_seen_at and u.last_seen_at >= online_cut),
+            "online": is_online(u.last_seen_at, now=now),
             "currently_building": cb, "skills": skills[:3],
             "looking_for": _looking_for(u), "mentor": bool(getattr(u, "is_mentor", False)),
             "rating": (round(avg, 1) if avg is not None else None),
@@ -793,6 +795,9 @@ async def public_profile_data(user_id: int, db: AsyncSession = Depends(get_db)):
         "checked": bool(user.checked),
         "badges": user.badges,
         "photo_url": user.photo_url,
+        # Real presence — drives IdentityStrip's live dot (never hardcoded).
+        "is_online": is_online(user.last_seen_at),
+        "last_seen": user.last_seen_at,
         "age": age,
         "gender": user.gender,
         "region": region,

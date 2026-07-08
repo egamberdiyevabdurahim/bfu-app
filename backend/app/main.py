@@ -80,6 +80,8 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_users_region_id ON users (region_id);",
         "CREATE INDEX IF NOT EXISTS ix_users_referred_by ON users (referred_by);",
         "CREATE INDEX IF NOT EXISTS ix_users_created_at ON users (created_at);",
+        # presence: online_now COUNT + City pool ordering both filter/sort by this
+        "CREATE INDEX IF NOT EXISTS ix_users_last_seen_at ON users (last_seen_at);",
         "CREATE INDEX IF NOT EXISTS ix_projects_creator_id ON projects (creator_id);",
         "CREATE INDEX IF NOT EXISTS ix_projects_feed ON projects (is_approved, is_draft, is_deleted);",
         "CREATE INDEX IF NOT EXISTS ix_applications_project_id ON project_applications (project_id);",

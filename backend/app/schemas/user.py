@@ -103,6 +103,9 @@ class UserResponse(BaseModel):
     open_to_volunteering: bool
     display_name: str
     photo_url: str | None = None
+    # Real presence (see app.services.presence). Optional/defaulted so nothing 500s.
+    is_online: bool = False
+    last_seen_at: datetime | None = None
     analysis: AnalysisOut | None = None
     created_at: datetime
     role: str
@@ -163,6 +166,9 @@ class UserPublic(BaseModel):
     checked: bool = False
     display_name: str
     photo_url: str | None = None
+    # Real presence (see app.services.presence). Optional/defaulted so nothing 500s.
+    is_online: bool = False
+    last_seen_at: datetime | None = None
     badges: list[str] = []
     name: str | None
     surname: str | None

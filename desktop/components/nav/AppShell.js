@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import Atmosphere from "@/components/Atmosphere";
+import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
@@ -267,6 +268,11 @@ export default function AppShell({ active, me: initialMe = null, children }) {
 
   const isAdmin = !!me && ADMIN_ROLES.has(me.role);
   const name = me?.display_name || me?.name || "You";
+  // The current user's own presence dot. Driven by real `me.is_online`; while
+  // the heartbeat pinger is running the backend keeps this true, so we only
+  // hide the dot if the API EXPLICITLY reports offline (never fake it green
+  // for other people — this is scoped to the viewer's own avatar).
+  const selfOnline = me?.is_online !== false;
   const groups = [
     { label: "Explore", items: EXPLORE },
     { label: "You", items: YOU },
@@ -441,7 +447,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
             >
               <span className="ash-avatar-wrap">
                 <Avatar size={34} />
-                <span className="ash-online" aria-hidden />
+                {selfOnline && <span className="ash-online" aria-hidden />}
               </span>
               <span className="ash-profile-meta">
                 <span className="ash-profile-name">{name}</span>
@@ -508,6 +514,9 @@ export default function AppShell({ active, me: initialMe = null, children }) {
 
   return (
     <div className="ash-root" style={{ "--ash-w": `${collapsed ? RAIL_W : SIDEBAR_W}px` }}>
+      {/* Real-presence pinger (renders nothing) — keeps this user "online". */}
+      <PresenceHeartbeat />
+
       {/* Fixed desktop sidebar (≥1024px) */}
       <aside
         className={`ash-sidebar${collapsed ? " ash-collapsed" : ""}`}

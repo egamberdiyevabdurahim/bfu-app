@@ -21,7 +21,7 @@ async def test_city_stats_counts(make_user, db):
     db.add(r); await db.commit(); await db.refresh(r)
 
     online = await make_user(name="On", region_id=r.id)
-    online.last_seen_at = NOW - dt.timedelta(minutes=5)          # online
+    online.last_seen_at = NOW - dt.timedelta(minutes=2)          # online (<5min)
     offline = await make_user(name="Off", region_id=r.id)
     offline.last_seen_at = NOW - dt.timedelta(hours=3)           # offline
     fresh = await make_user(name="New")

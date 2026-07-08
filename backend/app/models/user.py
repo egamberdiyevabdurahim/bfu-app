@@ -31,6 +31,8 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     open_to_work: Mapped[bool] = mapped_column(Boolean, default=False)
     open_to_volunteering: Mapped[bool] = mapped_column(Boolean, default=False)
     referred_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    # Presence column (naive UTC). Bumped by POST /users/me/heartbeat (~every
+    # 60s while a tab is visible). `is_online` derives real "online now" from it.
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_nudged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Admin removal. Unlike is_deleted (which /auth/telegram auto-restores
@@ -67,6 +69,14 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
         via from_attributes; the frontend falls back to initials on error."""
         from app.services.signing import avatar_url
         return avatar_url(self.id, self.photo_file_id)
+
+    @property
+    def is_online(self) -> bool:
+        """Real presence: True if this user pinged within the last 5 minutes.
+        Read by the User schemas via from_attributes so every profile/discover
+        row carries a truthful `is_online` with zero extra queries."""
+        from app.services.presence import is_online
+        return is_online(self.last_seen_at)
 
     @property
     def badges(self) -> list[str]:

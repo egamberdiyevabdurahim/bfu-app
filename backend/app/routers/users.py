@@ -497,6 +497,22 @@ async def get_me(
     return out
 
 
+@router.post("/me/heartbeat")
+async def heartbeat(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cheap presence ping. The frontend POSTs this ~every 60s while its tab is
+    visible; the user then counts as 'online' for 5 min (app.services.presence).
+    Single idempotent UPDATE — no reads, no extras, safe to spam."""
+    await db.execute(
+        update(User).where(User.id == current_user.id)
+        .values(last_seen_at=datetime.utcnow())
+    )
+    await db.commit()
+    return {"ok": True}
+
+
 # Notification type → target route. Kept in lockstep with the desktop
 # frontend's lib/notif.js notifHref so a click always lands somewhere sensible.
 _PROJECT_NOTIF_TYPES = {"application", "accepted", "declined", "project_update", "rate_prompt"}

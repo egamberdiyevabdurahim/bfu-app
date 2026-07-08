@@ -516,7 +516,8 @@ async def heartbeat(
 
 # Notification type → target route. Kept in lockstep with the desktop
 # frontend's lib/notif.js notifHref so a click always lands somewhere sensible.
-_PROJECT_NOTIF_TYPES = {"application", "accepted", "declined", "project_update", "rate_prompt"}
+_PROJECT_NOTIF_TYPES = {"application", "accepted", "declined", "project_update",
+                        "rate_prompt", "removed_from_project"}
 _BOOKING_NOTIF_TYPES = {"booking_request", "booking_confirmed", "booking_declined"}
 
 

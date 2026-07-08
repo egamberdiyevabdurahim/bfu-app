@@ -47,6 +47,10 @@ class _ReviewBody(_BM):
 class _ApplyBody(_BM):
     role: str | None = None
 
+
+class _MemberRoleBody(_BM):
+    role: str | None = None
+
 # ── Eager-load options ─────────────────────────────────────────────────────────
 
 # Full graph for GET /projects/{id} and after-mutation reloads.
@@ -1052,6 +1056,124 @@ async def leave_project(
         raise HTTPException(status_code=400, detail="Creator cannot leave; delete the project instead")
 
     await db.delete(member)
+    await db.commit()
+
+
+# ── Team management (member roster + member roles) ─────────────────────────────
+# The MEMBER role here is a founder-set title on an actual teammate (e.g.
+# "Backend", "Designer"). It is DISTINCT from the OPEN roles a project hires for
+# (see /roles → ProjectRole, and ProjectApplication.role on a pending applicant).
+
+def _member_entry(user: User, role: str | None, is_founder: bool, joined_at) -> dict:
+    return {
+        "user": {
+            "id": user.id,
+            "display_name": user.display_name,
+            "photo_url": user.photo_url,
+            "is_online": bool(user.is_online),
+        },
+        "role": role,
+        "is_founder": is_founder,
+        "joined_at": joined_at.isoformat() if joined_at else None,
+    }
+
+
+@router.get("/{project_id}/team")
+async def get_project_team(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Full team roster of a project: the founder first, then members ordered by
+    join time. Each entry carries that teammate's member-role. Readable by any
+    authenticated viewer of a non-deleted project (the roster is already public
+    via the /p/{id} page); mutating it is founder-only (see PATCH/DELETE)."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    members = (await db.execute(
+        select(ProjectMember)
+        .options(selectinload(ProjectMember.user))
+        .where(ProjectMember.project_id == project_id)
+    )).scalars().all()
+
+    founder_entry = None
+    others: list[tuple] = []
+    for m in members:
+        if not m.user or m.user.is_deleted:
+            continue
+        if m.user_id == project.creator_id:
+            founder_entry = _member_entry(m.user, m.role, True, m.joined_at)
+        else:
+            others.append((m.joined_at, _member_entry(m.user, m.role, False, m.joined_at)))
+
+    # Legacy safety: if the founder has no member row, synthesize a leading entry
+    # so the roster always starts with the founder.
+    if founder_entry is None:
+        founder = (await db.execute(
+            select(User).where(User.id == project.creator_id)
+        )).scalar_one_or_none()
+        if founder and not founder.is_deleted:
+            founder_entry = _member_entry(founder, None, True, project.created_at)
+
+    others.sort(key=lambda t: (t[0] or project.created_at))
+    roster = ([founder_entry] if founder_entry else []) + [e for _, e in others]
+    return roster
+
+
+@router.patch("/{project_id}/team/{user_id}")
+async def set_member_role(
+    project_id: int,
+    user_id: int,
+    body: _MemberRoleBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder sets/updates a teammate's member-role. The founder may set their
+    own role too. 400 if the target isn't a member; 403 for non-founders."""
+    await _load_owned_project(db, project_id, current_user.id)  # 404 / 403
+    member = (await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=400, detail="User is not a member of this project")
+    member.role = ((body.role or "").strip()[:80]) or None
+    await db.commit()
+    return {"ok": True, "user_id": user_id, "role": member.role}
+
+
+@router.delete("/{project_id}/team/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_member(
+    project_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Founder removes a teammate from the project. The founder can't remove
+    themselves (400) — deleting the project is the way out. 403 for non-founders;
+    404 if the target isn't a member."""
+    project = await _load_owned_project(db, project_id, current_user.id)  # 404 / 403
+    if user_id == project.creator_id:
+        raise HTTPException(status_code=400, detail="The founder can't be removed from the team")
+    member = (await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="Not a member")
+    await db.delete(member)
+    # Best-effort inbox note for the removed teammate (never blocks the removal).
+    from app.services.notifications import add_notification
+    add_notification(db, user_id, "removed_from_project",
+                     actor_id=current_user.id, project_id=project_id)
     await db.commit()
 
 

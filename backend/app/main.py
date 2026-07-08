@@ -113,6 +113,9 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_bio TEXT;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_topics TEXT;",
         "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS role VARCHAR(80);",
+        # Member role — a founder-set title on an actual teammate (distinct from
+        # the OPEN roles above / project_roles). Nullable short string.
+        "ALTER TABLE project_members ADD COLUMN IF NOT EXISTS role VARCHAR(80);",
         "CREATE INDEX IF NOT EXISTS ix_follows_follower ON follows (follower_id);",
         "CREATE INDEX IF NOT EXISTS ix_follows_target ON follows (target_type, target_id);",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_follower_target "

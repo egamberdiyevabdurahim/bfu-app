@@ -109,7 +109,12 @@ export default async function ProjectPage({ params }) {
 
           <ProjectAboutCell about={project.about} />
           <FounderCell founder={project.founder} />
-          <TeamCell team={project.team} teamCount={project.team_count} />
+          <TeamCell
+            team={project.team}
+            teamCount={project.team_count}
+            founder={project.founder}
+            founderRole={project.founder_role}
+          />
           {hasLookingFor && (
             <ProjectLookingForCell lookingFor={lookingFor} requirements={requirements} />
           )}

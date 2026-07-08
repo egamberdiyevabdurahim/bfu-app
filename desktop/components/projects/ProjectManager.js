@@ -807,6 +807,231 @@ function RatingsPanel({ projectId, flash }) {
   );
 }
 
+// ── Team management (founder-only) ───────────────────────────────────────────
+// GET    /projects/{id}/team            → [{user:{id,display_name,photo_url,is_online}, role, is_founder, joined_at}]
+// PATCH  /projects/{id}/team/{user_id}  {role} → {ok,user_id,role}
+// DELETE /projects/{id}/team/{user_id}  → 204   (the founder can't be removed)
+// The member-role here is a title on an actual teammate — distinct from the OPEN
+// hiring roles managed in the Roles tab.
+
+function TeamRow({ projectId, member, onRemoved, flash }) {
+  const u = member.user || {};
+  const name = u.display_name || "A teammate";
+  const [role, setRole] = useState(member.role || "");
+  const [savedRole, setSavedRole] = useState(member.role || "");
+  const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const dirty = role.trim() !== (savedRole || "").trim();
+
+  async function saveRole() {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try {
+      const res = await bfu(`/projects/${projectId}/team/${u.id}`, {
+        method: "PATCH",
+        body: { role: role.trim() || null },
+      });
+      const next = res?.role || "";
+      setSavedRole(next);
+      setRole(next);
+      flash(next ? `Saved ${name}'s role.` : `Cleared ${name}'s role.`);
+    } catch (err) {
+      flash(err?.message || "Couldn't save the role.", "err");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    setRemoving(true);
+    try {
+      await bfu(`/projects/${projectId}/team/${u.id}`, { method: "DELETE" });
+      flash(`Removed ${name} from the team.`);
+      onRemoved(u.id);
+    } catch (err) {
+      flash(err?.message || "Couldn't remove the member.", "err");
+      setRemoving(false);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div
+      className="ch-cell-static"
+      style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, flexWrap: "wrap" }}
+    >
+      <Avatar id={u.id} name={name} photo={u.photo_url} size={40} />
+      <div style={{ flex: 1, minWidth: 150 }}>
+        <a
+          href={`/u/${u.id}`}
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 16,
+            color: "var(--text)",
+            textDecoration: "none",
+          }}
+        >
+          {name}
+        </a>
+        <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
+          {member.is_founder && (
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--amber)",
+              }}
+            >
+              Founder · you
+            </span>
+          )}
+          {u.is_online && (
+            <span style={{ fontSize: 12, color: "var(--green)" }}>● online</span>
+          )}
+        </div>
+      </div>
+
+      {/* Editable member-role */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input
+          type="text"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              saveRole();
+            }
+          }}
+          placeholder="Role (e.g. Designer)"
+          maxLength={80}
+          aria-label={`${name}'s role`}
+          style={{
+            width: 170,
+            padding: "9px 12px",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface-2)",
+            border: "1px solid var(--hair)",
+            color: "var(--text)",
+            fontFamily: "var(--font-body)",
+            fontSize: 13.5,
+          }}
+        />
+        <button
+          type="button"
+          onClick={saveRole}
+          disabled={!dirty || saving}
+          className="ch-btn-ghost"
+          style={{ padding: "8px 14px", fontSize: 12.5, opacity: !dirty || saving ? 0.5 : 1 }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+
+      {/* Remove — founder can't be removed (that's you). */}
+      {member.is_founder ? null : !confirming ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label={`Remove ${name}`}
+          style={{
+            padding: "8px 12px",
+            borderRadius: "var(--radius-pill)",
+            background: "rgba(192,86,59,0.1)",
+            border: "1px solid rgba(192,86,59,0.28)",
+            color: "var(--terra)",
+            cursor: "pointer",
+            fontSize: 12.5,
+          }}
+        >
+          Remove
+        </button>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12.5, color: "var(--text)" }}>Remove?</span>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={removing}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "var(--radius-pill)",
+              background: "var(--terra)",
+              border: "none",
+              color: "#fff",
+              cursor: removing ? "default" : "pointer",
+              fontWeight: 700,
+              fontSize: 12.5,
+              opacity: removing ? 0.6 : 1,
+            }}
+          >
+            {removing ? "Removing…" : "Yes"}
+          </button>
+          <button type="button" className="ch-btn-ghost" onClick={() => setConfirming(false)} style={{ padding: "8px 12px", fontSize: 12.5 }}>
+            No
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeamPanel({ projectId, flash }) {
+  const [state, setState] = useState("loading"); // loading | ready | error
+  const [roster, setRoster] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    bfu(`/projects/${projectId}/team`)
+      .then((res) => {
+        if (!alive) return;
+        // Endpoint returns a bare array; tolerate a wrapped shape defensively.
+        const list = Array.isArray(res) ? res : res?.team || res?.members || [];
+        setRoster(list);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
+  function onRemoved(uid) {
+    setRoster((cur) => cur.filter((m) => m.user?.id !== uid));
+  }
+
+  if (state === "loading") {
+    return (
+      <div style={{ color: "var(--muted-strong)", fontSize: 14 }}>
+        <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+        Loading your team…
+      </div>
+    );
+  }
+  if (state === "error") {
+    return <div style={{ color: "var(--terra)", fontSize: 14 }} role="status">Couldn't load your team. Refresh to try again.</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55, maxWidth: 560 }}>
+        Everyone on the team, with their role. Give each teammate a title, or
+        remove someone who&rsquo;s moved on. You can set your own founder role,
+        but you can&rsquo;t remove yourself.
+      </p>
+      {roster.map((m) => (
+        <TeamRow key={m.user?.id} projectId={projectId} member={m} onRemoved={onRemoved} flash={flash} />
+      ))}
+    </div>
+  );
+}
+
 export default function ProjectManager({ projectId, meId }) {
   const router = useRouter();
   const [state, setState] = useState("loading"); // loading | ready | error | forbidden
@@ -1024,6 +1249,7 @@ export default function ProjectManager({ projectId, meId }) {
           so it never reads as a peer of the everyday tabs. */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }} role="tablist">
         {tabBtn("applicants", "Applicants", pending)}
+        {tabBtn("team", "Team", project.member_count || 0)}
         {tabBtn("roles", "Roles")}
         {tabBtn("updates", "Updates")}
         {tabBtn("ratings", "Ratings")}
@@ -1063,6 +1289,9 @@ export default function ProjectManager({ projectId, meId }) {
           )}
         </div>
       )}
+
+      {/* Team tab — founder-only roster: set member roles + remove members. */}
+      {tab === "team" && <TeamPanel projectId={projectId} flash={flash} />}
 
       {/* Roles tab — owner-only roles editor. */}
       {tab === "roles" && <RolesEditor projectId={projectId} flash={flash} />}

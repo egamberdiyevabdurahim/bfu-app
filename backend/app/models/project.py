@@ -47,6 +47,11 @@ class ProjectMember(Base):
     project_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("projects.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # A short title on this teammate (e.g. "Backend", "Designer"), set by the
+    # founder. This is the MEMBER role — a label on an actual person on the team —
+    # and is distinct from ProjectApplication.role / ProjectRole (the OPEN roles
+    # the project is hiring for). Nullable: a teammate need not have a title.
+    role: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     project = relationship("Project", back_populates="members")
     user = relationship("User")

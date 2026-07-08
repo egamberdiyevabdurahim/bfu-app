@@ -32,6 +32,7 @@ export const NOTIF_EMOJI = {
   booking_request: "📅",
   booking_confirmed: "✅",
   booking_declined: "🚫",
+  removed_from_project: "🚪",
   message: "✉️",
 };
 
@@ -74,6 +75,8 @@ export function notifText(n) {
       return `${proj} wrapped up — rate the people you built with.`;
     case "project_update":
       return `${proj} posted an update.`;
+    case "removed_from_project":
+      return `You're no longer on the team for ${proj}.`;
     case "booking_request":
       return name ? `${name} requested a session with you.` : `You have a new session request.`;
     case "booking_confirmed":
@@ -104,6 +107,7 @@ export function notifHref(n) {
     case "declined":
     case "project_update":
     case "rate_prompt":
+    case "removed_from_project":
       return n.project?.id ? `/p/${n.project.id}` : null;
     case "booking_request":
     case "booking_confirmed":

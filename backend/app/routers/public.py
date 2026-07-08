@@ -308,6 +308,7 @@ def _public_user_brief(u) -> dict | None:
         "display_name": u.display_name,
         "checked": bool(u.checked),
         "photo_url": u.photo_url,
+        "is_online": bool(u.is_online),
     }
 
 
@@ -332,12 +333,21 @@ async def public_project_data(project_id: int, db: AsyncSession = Depends(get_db
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # The public roster excludes the founder (shown separately via `founder` /
+    # FounderCell). Each entry now carries the teammate's member-role + presence
+    # so the Team cell can render the full roster with roles.
     team = [
         {"id": m.user.id, "display_name": m.user.display_name,
-         "checked": bool(m.user.checked), "photo_url": m.user.photo_url}
+         "checked": bool(m.user.checked), "photo_url": m.user.photo_url,
+         "is_online": bool(m.user.is_online), "role": m.role}
         for m in proj.members
         if m.user and not m.user.is_deleted and m.user.id != proj.creator_id
     ]
+    # The founder's own member-role (the founder is auto-added as a member on
+    # create), surfaced so the Team cell can label the founder's row too.
+    founder_role = next(
+        (m.role for m in proj.members if m.user_id == proj.creator_id), None
+    )
     regions = [
         {"id": rr.region.id, "name_en": rr.region.name_en,
          "name_uz": rr.region.name_uz, "name_ru": rr.region.name_ru}
@@ -350,6 +360,7 @@ async def public_project_data(project_id: int, db: AsyncSession = Depends(get_db
         "is_hiring": bool(proj.is_hiring), "created_at": proj.created_at,
         "view_count": int(proj.view_count or 0),
         "founder": _public_user_brief(proj.creator),
+        "founder_role": founder_role,
         "team": team, "team_count": len(team),
         "looking_for": {
             "skills": [s.skill_name for s in proj.req_skills],

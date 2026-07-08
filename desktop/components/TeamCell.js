@@ -1,19 +1,163 @@
 import Link from "next/link";
 import { gradientFor, initials } from "@/lib/avatar";
 
-// Team cell — overlapping/stacked seeded avatars of the project's team, each
-// linking to that member's /u/[id] profile, with a "{team_count} building
-// together" line. SERVER component. Falls back to a warm "Just the founder so
-// far" grace state when team_count === 0.
-export default function TeamCell({ team, teamCount }) {
+// Team cell — the FULL project roster on `/p/[id]`: the founder first (marked
+// "Founder"), then each teammate as a row (avatar + online dot + name linking to
+// their /u/[id] profile + their member-role as a subtle pill). SERVER component;
+// renders from the page payload (`team` now carries `role` + `is_online`, and
+// the founder rides in via `founder` + `founderRole`). Stays graceful when it's
+// just the founder. Keeps the firelit `.ch-cell-static` styling.
+//
+// The member-role shown here is a title on an actual teammate — distinct from
+// the OPEN roles the project is hiring for (see OpenRolesCell).
+
+function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
+  const label = name || "A builder";
+  return (
+    <Link
+      href={`/u/${id}`}
+      title={label}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "8px 4px",
+        borderRadius: "var(--radius-sm)",
+        textDecoration: "none",
+      }}
+    >
+      {/* Avatar + presence dot */}
+      <div
+        style={{
+          position: "relative",
+          width: 40,
+          height: 40,
+          flex: "0 0 auto",
+          borderRadius: "50%",
+          background: gradientFor(id),
+          border: "2px solid var(--surface)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 14,
+          color: "#160E08",
+          overflow: "hidden",
+        }}
+      >
+        {photo ? (
+          <img
+            src={photo}
+            alt={label}
+            style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+          />
+        ) : (
+          initials(label)
+        )}
+        {online && (
+          <span
+            aria-label="Online now"
+            style={{
+              position: "absolute",
+              bottom: -1,
+              right: -1,
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              background: "var(--green)",
+              border: "2px solid var(--surface)",
+            }}
+          />
+        )}
+      </div>
+
+      {/* Name (+ verified check) */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 15.5,
+            color: "var(--text)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {label}
+          {checked && (
+            <span
+              role="img"
+              aria-label="Verified"
+              style={{
+                flex: "0 0 auto",
+                width: 15,
+                height: 15,
+                borderRadius: "50%",
+                background: "var(--green)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 9,
+                color: "#160E08",
+                fontWeight: 900,
+              }}
+            >
+              ✓
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Role / Founder pill */}
+      {isFounder ? (
+        <span
+          style={{
+            flex: "0 0 auto",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--amber)",
+            background: "rgba(232,161,92,0.12)",
+            border: "1px solid rgba(232,161,92,0.3)",
+            borderRadius: "var(--radius-pill)",
+            padding: "4px 10px",
+          }}
+        >
+          Founder{role ? ` · ${role}` : ""}
+        </span>
+      ) : role ? (
+        <span
+          style={{
+            flex: "0 0 auto",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--muted-strong)",
+            background: "var(--surface-2)",
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-pill)",
+            padding: "4px 10px",
+          }}
+        >
+          {role}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+export default function TeamCell({ team, teamCount, founder, founderRole }) {
   const members = Array.isArray(team) ? team : [];
   const count = typeof teamCount === "number" ? teamCount : members.length;
-
-  const empty = count === 0;
-
-  // Show up to 6 stacked faces; any remainder collapses into a +N chip.
-  const preview = members.slice(0, 6);
-  const extra = Math.max(0, count - preview.length);
+  const soloFounder = count === 0;
+  const total = count + (founder ? 1 : 0);
 
   return (
     <div
@@ -22,116 +166,47 @@ export default function TeamCell({ team, teamCount }) {
     >
       <div className="ch-cell-label">Team</div>
 
-      {empty ? (
-        <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
-          <p
-            style={{
-              margin: 0,
-              fontFamily: "var(--font-accent)",
-              fontStyle: "italic",
-              fontSize: 22,
-              lineHeight: 1.3,
-              color: "var(--text)",
-            }}
-          >
-            Just the founder so far
-          </p>
-          <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-            The fire&rsquo;s just been lit — this could be where you come in.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div style={{ marginTop: 20, display: "flex", alignItems: "center" }}>
-            {preview.map((m, i) => (
-              <Link
-                key={m.id}
-                href={`/u/${m.id}`}
-                title={m.display_name}
-                style={{
-                  position: "relative",
-                  width: 48,
-                  height: 48,
-                  borderRadius: "50%",
-                  background: gradientFor(m.id),
-                  border: "2px solid var(--surface)",
-                  marginLeft: i === 0 ? 0 : -14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 16,
-                  color: "#160E08",
-                  textDecoration: "none",
-                  overflow: "hidden",
-                  zIndex: i + 1,
-                }}
-              >
-                {m.photo_url ? (
-                  <img
-                    src={m.photo_url}
-                    alt={m.display_name}
-                    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-                  />
-                ) : (
-                  initials(m.display_name)
-                )}
-                {m.checked && (
-                  <span
-                    role="img"
-                    aria-label="Verified"
-                    style={{
-                      position: "absolute",
-                      bottom: -1,
-                      right: -1,
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      background: "var(--green)",
-                      border: "2px solid var(--surface)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      color: "#160E08",
-                      fontWeight: 900,
-                    }}
-                  >
-                    ✓
-                  </span>
-                )}
-              </Link>
-            ))}
-            {extra > 0 && (
-              <div
-                title={`${extra} more ${extra === 1 ? "teammate" : "teammates"}`}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "50%",
-                  background: "var(--surface-2)",
-                  border: "2px solid var(--surface)",
-                  marginLeft: -14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  color: "var(--muted-strong)",
-                }}
-              >
-                +{extra}
-              </div>
-            )}
-          </div>
+      <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+        {founder ? (
+          <MemberRow
+            id={founder.id}
+            name={founder.display_name || founder.name}
+            photo={founder.photo_url}
+            online={founder.is_online}
+            checked={founder.checked}
+            role={founderRole}
+            isFounder
+          />
+        ) : null}
+        {members.map((m) => (
+          <MemberRow
+            key={m.id}
+            id={m.id}
+            name={m.display_name}
+            photo={m.photo_url}
+            online={m.is_online}
+            checked={m.checked}
+            role={m.role}
+          />
+        ))}
+      </div>
 
-          <div style={{ marginTop: 18, fontSize: 15, color: "var(--text)" }}>
-            <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{count}</span>{" "}
-            building together
-          </div>
-        </>
+      {soloFounder ? (
+        <p
+          style={{
+            margin: "12px 4px 0",
+            fontSize: 13.5,
+            color: "var(--muted-strong)",
+            lineHeight: 1.5,
+          }}
+        >
+          The fire&rsquo;s just been lit — this could be where you come in.
+        </p>
+      ) : (
+        <div style={{ marginTop: 14, padding: "0 4px", fontSize: 14, color: "var(--text)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{total}</span>{" "}
+          building together
+        </div>
       )}
     </div>
   );

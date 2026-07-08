@@ -95,6 +95,7 @@ export const CityScreen = () => {
   const [rolesOpen, setRolesOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [msgUnread, setMsgUnread] = useState(0);
+  const [stats, setStats] = useState(null);
   const loadSeq = useRef(0);
 
   // Dynamic discovery facets (mirrors the desktop FilterBar): every facet is a
@@ -120,6 +121,14 @@ export const CityScreen = () => {
       setRegionMap(m);
     }).catch(() => {});
   }, [lang]);
+
+  // True community scale for the header (refreshes on focus).
+  useEffect(() => {
+    const load = () => users.stats().then(setStats).catch(() => {});
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
 
   useEffect(() => {
     const id = setTimeout(() => loadUsers(), 300);
@@ -178,14 +187,17 @@ export const CityScreen = () => {
     if (loadSeq.current === seq) setLoading(false);
   };
 
-  const total = people.length;
-  const onlineCount = people.filter((p) => p.is_online).length;
-  const verifiedCount = people.filter((p) => p.checked).length;
+  // Header numbers = TRUE community scale (from /users/stats), falling back to
+  // the loaded page if stats haven't arrived. The feed below stays paged.
+  const listCount = people.length;
+  const total = stats?.total ?? listCount;
+  const onlineCount = stats?.online ?? people.filter((p) => p.is_online).length;
+  const verifiedCount = stats?.verified ?? people.filter((p) => p.checked).length;
   const nBuilders = useCountUp(total);
   const nOnline = useCountUp(onlineCount);
   const nVerified = useCountUp(verifiedCount);
 
-  const quiet = !loading && total === 0;
+  const quiet = !loading && listCount === 0;
   const currentYear = new Date().getFullYear();
 
   const actions = [
@@ -314,12 +326,12 @@ export const CityScreen = () => {
           </div>
 
           {/* Region / section slab divider */}
-          {!loading && !loadError && total > 0 && (
+          {!loading && !loadError && listCount > 0 && (
             <div className="ch-slab">
               <span className="ch-slab-k">{t("city.slab.kicker")}</span>
               <h2>{t("city.slab.title")}</h2>
               <div className="ch-slab-line" />
-              <span className="ch-slab-k">{t("city.slab.lit", { n: total })}</span>
+              <span className="ch-slab-k">{t("city.slab.lit", { n: listCount })}</span>
             </div>
           )}
         </div>
@@ -333,7 +345,7 @@ export const CityScreen = () => {
               <div style={{ marginBottom: 12 }}>{t("common.loadError")}</div>
               <button onClick={loadUsers} className="btn-ghost" style={{ width: "auto" }}>{t("common.retry")}</button>
             </div>
-          ) : total === 0 ? (
+          ) : listCount === 0 ? (
             <GraceTile t={t} />
           ) : (
             <div className="ch-grid">
@@ -348,7 +360,7 @@ export const CityScreen = () => {
                   onOpen={() => setViewingUserId(p.id)}
                 />
               ))}
-              {total < 4 && <GraceTile t={t} />}
+              {listCount < 4 && <GraceTile t={t} />}
             </div>
           )}
         </div>

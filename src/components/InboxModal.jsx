@@ -5,6 +5,7 @@ import { users } from "../api";
 import { useT } from "../i18n";
 import { UserProfileModal } from "./UserProfileModal";
 import { RateSheet } from "./RateSheet";
+import { relTime } from "../timefmt";
 
 // Localized one-liner per notification type, rendered from structured fields.
 function notifText(t, n) {
@@ -60,7 +61,7 @@ export const InboxModal = ({ onClose }) => {
     }
   }, [tab, connections, following]);
 
-  const fmt = (iso) => { try { return new Date(iso).toLocaleDateString(); } catch { return ""; } };
+  const fmt = (iso) => relTime(iso); // Tashkent-aware, UTC-safe relative time
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column" }}>

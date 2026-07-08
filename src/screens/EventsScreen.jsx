@@ -4,6 +4,7 @@ import { Icon } from "../components/Icons";
 import { events } from "../api";
 import { PartnersModal } from "../components/PartnersModal";
 import { useT } from "../i18n";
+import { fmtDate } from "../timefmt";
 
 const TYPES = ["foryou", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
@@ -125,11 +126,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
     setLoading(false);
   };
 
-  const fmt = (iso) => {
-    if (!iso) return "—";
-    try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
-    catch { return iso; }
-  };
+  const fmt = (iso) => fmtDate(iso) || "—"; // Tashkent-time, UTC-safe
 
   // Optional Instrument-Serif italic subtitle. `translate()` echoes the raw key
   // when a string is missing, so only render once the key is actually wired.

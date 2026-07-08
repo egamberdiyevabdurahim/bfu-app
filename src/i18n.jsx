@@ -12,6 +12,7 @@ const STRINGS = {
   "common.saving": { en: "Saving…", uz: "Saqlanmoqda…", ru: "Сохранение…" },
   "common.cancel": { en: "Cancel", uz: "Bekor qilish", ru: "Отмена" },
   "common.close": { en: "Close", uz: "Yopish", ru: "Закрыть" },
+  "update.reload": { en: "New version — tap to update", uz: "Yangi versiya — yangilash", ru: "Новая версия — обновить" },
   "common.back": { en: "Back", uz: "Orqaga", ru: "Назад" },
   "common.previous": { en: "Previous", uz: "Oldingi", ru: "Назад" },
   "common.loadError": { en: "Couldn't load. Check your connection.", uz: "Yuklab bo‘lmadi. Internetni tekshiring.", ru: "Не удалось загрузить. Проверьте соединение." },
@@ -249,6 +250,7 @@ const STRINGS = {
   "filter.volunteer": { en: "Volunteer", uz: "Ko‘ngilli", ru: "Волонтёр" },
   "filter.mentor": { en: "Mentors", uz: "Mentorlar", ru: "Менторы" },
   "filter.allRegions": { en: "All regions", uz: "Barcha hududlar", ru: "Все регионы" },
+  "map.allRegions": { en: "All regions", uz: "Barcha hududlar", ru: "Все регионы" },
 
   // ── Project board (startup + volunteer) ───────────────────────────────────
   "startup.kicker": { en: "EXPLORE", uz: "KO‘RIB CHIQING", ru: "ОБЗОР" },

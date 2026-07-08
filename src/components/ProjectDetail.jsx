@@ -6,6 +6,7 @@ import { FollowButton } from "./FollowButton";
 import { AvatarEl } from "./Shared";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, openProjectChat } from "../tg";
+import { fmtDate } from "../timefmt";
 
 // ── Project detail — rebuilt in the Chorsu "Bazaar" firelit design, mirroring
 // the desktop /p/[id] page (ProjectHero + ProjectAboutCell + ProjectLookingForCell
@@ -614,7 +615,7 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
                         <div style={{ fontSize: 13.5, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-line", overflowWrap: "break-word" }}>{u.text}</div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                           <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: MUTED }}>
-                            {u.author?.display_name || ""} · {(() => { try { return new Date(u.created_at).toLocaleDateString(); } catch { return ""; } })()}
+                            {u.author?.display_name || ""} · {fmtDate(u.created_at)}
                           </span>
                           {isCreator && (
                             <button onClick={() => removeUpdate(u.id)} style={{ background: "none", border: "none", color: MUTED, fontSize: 11, textDecoration: "underline", cursor: "pointer", padding: 0, minHeight: 0 }}>

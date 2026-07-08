@@ -143,6 +143,7 @@ export const users = {
   report:          (d)      => req("/users/reports", { method: "POST", body: JSON.stringify(d) }),
   getProfile:      (id)     => req(`/users/${id}`),
   discover:        (p = {}) => req(`/users/discover${qs(p)}`),
+  stats:           ()       => req("/users/stats"),
   search:          (q)      => req(`/search${qs({ q })}`),
   regionsPublic:   ()       => req("/public/regions"),
   endorse:         (id, skill) => req(`/users/${id}/endorse`, { method: "POST", body: JSON.stringify({ skill }) }),

@@ -13,6 +13,7 @@ import { Landing } from "./Landing";
 import { RegionLandingScreen } from "./RegionLandingScreen";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { MessagesScreen } from "./components/MessagesScreen";
+import { startUpdateCheck } from "./updateCheck";
 
 function publicRoute() {
   const path = window.location.pathname;
@@ -47,6 +48,14 @@ function MiniApp() {
   // conversation id to jump straight into a thread).
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgConv, setMsgConv] = useState(null);
+  const [updateReady, setUpdateReady] = useState(false);
+
+  useEffect(() => {
+    const stop = startUpdateCheck();
+    const onUpd = () => setUpdateReady(true);
+    window.addEventListener("bfu:update-available", onUpd);
+    return () => { stop?.(); window.removeEventListener("bfu:update-available", onUpd); };
+  }, []);
 
   useEffect(() => {
     const handleSignout = () => {
@@ -223,6 +232,16 @@ function MiniApp() {
       <FontLoader />
       <div style={{ maxWidth: 430, margin: "0 auto", height: "var(--app-h, 100dvh)", position: "relative",
         background: "var(--bg)", overflow: "hidden" }}>
+        {updateReady && (
+          <button onClick={() => window.location.reload()} style={{
+            position: "absolute", top: "calc(var(--safe-t) + 8px)", left: "50%", transform: "translateX(-50%)",
+            zIndex: 500, display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
+            borderRadius: 99, border: "1px solid var(--amber, #E8A15C)", cursor: "pointer",
+            background: "linear-gradient(135deg, var(--ember, #FF6A3D), var(--terra, #C0563B))",
+            color: "#160E08", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+          }}>↻ {t("update.reload")}</button>
+        )}
         {(authed === false || authed === "register") ? (
           <AuthScreen
             onComplete={handleAuthComplete}

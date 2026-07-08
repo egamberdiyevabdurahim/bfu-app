@@ -4,6 +4,7 @@ import { Icon } from "../components/Icons";
 import { AvatarEl } from "../components/Shared";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
+import { fmtDate } from "../timefmt";
 
 export const AdminScreen = ({ user, onBack }) => {
   const { t, lang } = useT();
@@ -392,7 +393,7 @@ export const AdminScreen = ({ user, onBack }) => {
                     {ev.partner_id && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--accent)", background: "var(--accent-dim)", borderRadius: 6, padding: "2px 6px" }}>{t("admin.ev.partner")}</span>}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
-                    {ev.type}{ev.deadline ? ` · ${new Date(ev.deadline).toLocaleDateString()}` : ""}
+                    {ev.type}{ev.deadline ? ` · ${fmtDate(ev.deadline)}` : ""}
                   </div>
                 </div>
                 {ev.is_approved === false && !ev.is_deleted && (

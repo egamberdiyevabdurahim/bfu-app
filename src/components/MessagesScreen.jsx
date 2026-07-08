@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { messages as msgApi } from "../api";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
+import { relTime, fmtDay } from "../timefmt";
 
 // ── Mobile in-app Messenger (1:1 DMs + project team chats) ────────────────────
 // Full-screen overlay port of the desktop Messenger (desktop/components/messages/
@@ -24,35 +25,7 @@ const gradientFor = (id) => CARD_GRADIENTS[Math.abs(Number(id) || 0) % CARD_GRAD
 const initialsOf = (name) =>
   ((name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?");
 
-// Compact relative time ("now", "5m", "3h", "2d", else short date).
-const relTime = (iso) => {
-  if (!iso) return "";
-  // The backend serializes naive UTC datetimes (no timezone suffix); without
-  // this, new Date() reads them as local time and a just-sent message shows
-  // hours old in +05 Tashkent. Append 'Z' when no tz info is present.
-  let str = String(iso);
-  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(str)) str += "Z";
-  const then = new Date(str).getTime();
-  if (!Number.isFinite(then)) return "";
-  const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (s < 45) return "now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d`;
-  try { return new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
-  catch { return `${d}d`; }
-};
-
-// Absolute short date ("Jul 5") for join/started lines — Z-normalized like relTime.
-const fmtDay = (iso) => {
-  if (!iso) return "";
-  let str = String(iso); if (!/[zZ]|[+-]\d\d:?\d\d$/.test(str)) str += "Z";
-  try { return new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
-  catch { return ""; }
-};
+// relTime + fmtDay now come from ../timefmt (Asia/Tashkent, UTC-safe).
 
 const convTitle = (c, t) =>
   c.kind === "project"
@@ -195,7 +168,10 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
     setBlockedLocal(false); setMenuOpen(false); setShowReport(false);
     lastMarkedId.current = null;
     setThreadMembers(null);
-    msgApi.members(activeId).then(setThreadMembers).catch(() => setThreadMembers(null));
+    msgApi.members(activeId).then((r) => {
+      setThreadMembers(r);
+      if (r?.kind === "dm") setBlockedLocal(!!r.blocked); // rehydrate block state
+    }).catch(() => setThreadMembers(null));
     loadThread(activeId);
     let timer = null;
     const start = () => { stop(); timer = window.setInterval(() => loadThread(activeId, { silent: true }), THREAD_POLL_MS); };

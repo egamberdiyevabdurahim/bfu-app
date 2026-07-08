@@ -1918,6 +1918,26 @@ async def discover(
     return [_validate_from_user(UserPublic, u) for u in result.scalars().all()]
 
 
+@router.get("/stats", response_model=dict)
+async def community_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """True community scale for the City header: total registered builders,
+    online-now (5-min presence window), and verified. Global (not filtered) so
+    the headline reflects the whole community while the feed below stays paged."""
+    base = select(func.count(User.id)).where(
+        User.is_deleted == False, User.is_registered == True,
+    )
+    total = await db.scalar(base) or 0
+    online = await db.scalar(
+        base.where(User.last_seen_at != None,  # noqa: E711
+                   User.last_seen_at >= datetime.utcnow() - timedelta(minutes=5))
+    ) or 0
+    verified = await db.scalar(base.where(User.checked == True)) or 0
+    return {"total": int(total), "online": int(online), "verified": int(verified)}
+
+
 # ── Who viewed your profile (named viewers, LinkedIn-style) ────────────────────
 
 async def _record_profile_view(db: AsyncSession, viewer_id: int, viewed_id: int) -> None:

@@ -410,7 +410,15 @@ async def conversation_members(
         {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url}
         for u in users_map.values()
     ]
-    return {"kind": "dm", "members": members, "started_at": conv.created_at}
+    # Whether *I* have blocked the other person — so the thread rehydrates the
+    # blocked composer on reopen instead of only discovering it on a failed send.
+    other_id = next((r.user_id for r in rows if r.user_id != me), None)
+    i_blocked = False
+    if other_id is not None:
+        i_blocked = bool(await db.scalar(
+            select(func.count(Block.id)).where(Block.blocker_id == me, Block.blocked_id == other_id)
+        ))
+    return {"kind": "dm", "members": members, "started_at": conv.created_at, "blocked": i_blocked}
 
 
 # ── Messages: read + send ────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { Icon } from "./Icons";
 import { partners } from "../api";
 import { useT } from "../i18n";
 import { tgAlert } from "../tg";
+import { fmtDate } from "../timefmt";
 
 const OPP_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
 
@@ -144,7 +145,7 @@ const PartnerProfile = ({ id, onBack, t }) => {
               <div key={e.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>{t(`events.type.${e.type}`) || e.type}</span>
-                  {e.deadline && <span style={{ fontSize: 11, color: "#FFB347", fontWeight: 600 }}>{new Date(e.deadline).toLocaleDateString()}</span>}
+                  {e.deadline && <span style={{ fontSize: 11, color: "#FFB347", fontWeight: 600 }}>{fmtDate(e.deadline)}</span>}
                 </div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{e.title}</div>
                 {e.description && <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5, marginTop: 4 }}>{e.description}</p>}

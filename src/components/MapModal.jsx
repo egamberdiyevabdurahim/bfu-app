@@ -68,7 +68,9 @@ export const MapModal = ({ onClose }) => {
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
         <div style={{ borderRadius: 20, overflow: "hidden", background: "linear-gradient(135deg,#13131A,#0c0c14)", border: "1px solid var(--border)", padding: 6 }}>
           <svg viewBox={UZ_VIEWBOX} style={{ width: "100%", height: "auto" }}>
-            {rows.map(r => {
+            {/* Tashkent city is a tiny enclave inside Tashkent region; paint it
+                LAST so it sits on top and actually receives taps. */}
+            {[...rows].sort((a, b) => (a.en === "Tashkent city" ? 1 : 0) - (b.en === "Tashkent city" ? 1 : 0)).map(r => {
               const active = sel?.en === r.en;
               return (
                 <path key={r.en} d={r.path} onClick={() => setSel(r)}
@@ -80,6 +82,33 @@ export const MapModal = ({ onClose }) => {
             })}
           </svg>
         </div>
+
+        {/* Complete region list from LIVE data — every region always tappable
+            (the map's tiny enclaves like Tashkent city can be hard to hit), with
+            real member/project counts straight from /public/regions. */}
+        {Array.isArray(live) && live.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.12em",
+              textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8 }}>{t("map.allRegions")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {[...live].sort((a, b) => (b.member_count || 0) - (a.member_count || 0)).map(x => {
+                const label = (lang === "uz" ? x.name_uz : lang === "ru" ? x.name_ru : x.name_en) || x.name_en;
+                const on = sel?.id === x.id;
+                return (
+                  <button key={x.id} onClick={() => setSel({ id: x.id, label, members: x.member_count || 0, projects: x.project_count || 0 })}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 99,
+                      background: on ? "rgba(78,205,196,0.15)" : "var(--surface-2)",
+                      border: `1px solid ${on ? "#4ECDC4" : "var(--border)"}`, color: on ? "#4ECDC4" : "var(--text-2)",
+                      fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)",
+                    }}>
+                    {label} <span style={{ fontFamily: "var(--font-mono)", opacity: 0.7 }}>{x.member_count || 0}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {sel ? (
           <div style={{ marginTop: 14, background: "var(--surface)", border: "1px solid var(--accent)", borderRadius: 14, padding: 16 }}>

@@ -22,6 +22,7 @@ from app.models.user import Report, User
 from app.schemas.messaging import (
     ConversationOut,
     ConversationRef,
+    EditMessageIn,
     MessageOut,
     MessagesPage,
     ReportMessageIn,
@@ -62,6 +63,31 @@ def _sender_dict(u: User | None) -> dict | None:
         "id": u.id,
         "display_name": u.display_name or f"User #{u.id}",
         "photo_url": u.photo_url,
+    }
+
+
+def _reply_preview(rm: "Message | None", senders: dict) -> dict | None:
+    """Compact quote of the replied-to message (empty body if it was deleted)."""
+    if rm is None:
+        return None
+    su = senders.get(rm.sender_id)
+    body = "" if rm.deleted_at else (rm.body or "")
+    return {"id": rm.id, "body": body[:120], "sender_name": (su.display_name if su else None)}
+
+
+def _message_out(m: "Message", senders: dict, reply_map: dict) -> dict:
+    """Serialize a Message → MessageOut (soft-deleted → empty body + deleted flag)."""
+    deleted = m.deleted_at is not None
+    return {
+        "id": m.id,
+        "conversation_id": m.conversation_id,
+        "sender_id": m.sender_id,
+        "body": "" if deleted else m.body,
+        "created_at": m.created_at,
+        "sender": _sender_dict(senders.get(m.sender_id)),
+        "reply_to": _reply_preview(reply_map.get(m.reply_to_id) if m.reply_to_id else None, senders),
+        "edited": m.edited_at is not None,
+        "deleted": deleted,
     }
 
 
@@ -461,23 +487,20 @@ async def list_messages(
     rows = rows[:limit]
     rows = list(reversed(rows))
 
-    sender_ids = {m.sender_id for m in rows}
+    # Hydrate reply targets referenced by these messages (one query).
+    reply_ids = {m.reply_to_id for m in rows if m.reply_to_id}
+    reply_map = {}
+    if reply_ids:
+        for rm in (await db.execute(select(Message).where(Message.id.in_(reply_ids)))).scalars().all():
+            reply_map[rm.id] = rm
+
+    sender_ids = {m.sender_id for m in rows} | {rm.sender_id for rm in reply_map.values()}
     senders = {}
     if sender_ids:
         for u in (await db.execute(select(User).where(User.id.in_(sender_ids)))).scalars().all():
             senders[u.id] = u
     return {
-        "messages": [
-            {
-                "id": m.id,
-                "conversation_id": m.conversation_id,
-                "sender_id": m.sender_id,
-                "body": m.body,
-                "created_at": m.created_at,
-                "sender": _sender_dict(senders.get(m.sender_id)),
-            }
-            for m in rows
-        ],
+        "messages": [_message_out(m, senders, reply_map) for m in rows],
         "has_more": has_more,
     }
 
@@ -525,7 +548,14 @@ async def send_message(
     if recent >= RL_MAX:
         raise HTTPException(status_code=429, detail="You're sending messages too fast — slow down.")
 
-    msg = Message(conversation_id=conversation_id, sender_id=me, body=text)
+    # Optional reply target — must be a message in THIS conversation.
+    reply_to_id = None
+    if body.reply_to_id:
+        rt = await db.get(Message, body.reply_to_id)
+        if rt and rt.conversation_id == conversation_id:
+            reply_to_id = rt.id
+
+    msg = Message(conversation_id=conversation_id, sender_id=me, body=text, reply_to_id=reply_to_id)
     db.add(msg)
     await db.flush()
 
@@ -543,14 +573,75 @@ async def send_message(
 
     await db.commit()
     await db.refresh(msg)
-    return {
-        "id": msg.id,
-        "conversation_id": msg.conversation_id,
-        "sender_id": msg.sender_id,
-        "body": msg.body,
-        "created_at": msg.created_at,
-        "sender": _sender_dict(current_user),
-    }
+    reply_map = {}
+    senders = {current_user.id: current_user}
+    if reply_to_id:
+        rt = await db.get(Message, reply_to_id)
+        if rt:
+            reply_map[rt.id] = rt
+            if rt.sender_id not in senders:
+                su = await db.get(User, rt.sender_id)
+                if su:
+                    senders[rt.sender_id] = su
+    return _message_out(msg, senders, reply_map)
+
+
+@router.patch("/conversations/{conversation_id}/messages/{message_id}", response_model=MessageOut)
+async def edit_message(
+    conversation_id: int,
+    message_id: int,
+    body: EditMessageIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit your own message (sender-only, not deleted). Sets body + edited_at."""
+    me = current_user.id
+    msg = await db.get(Message, message_id)
+    if not msg or msg.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.sender_id != me:
+        raise HTTPException(status_code=403, detail="You can only edit your own messages")
+    if msg.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Message was deleted")
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Message is empty")
+    if len(text) > MAX_BODY:
+        raise HTTPException(status_code=400, detail=f"Message too long (max {MAX_BODY})")
+    msg.body = text
+    msg.edited_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(msg)
+    reply_map = {}
+    senders = {current_user.id: current_user}
+    if msg.reply_to_id:
+        rt = await db.get(Message, msg.reply_to_id)
+        if rt:
+            reply_map[rt.id] = rt
+            su = await db.get(User, rt.sender_id)
+            if su:
+                senders[rt.sender_id] = su
+    return _message_out(msg, senders, reply_map)
+
+
+@router.delete("/conversations/{conversation_id}/messages/{message_id}", response_model=dict)
+async def delete_message(
+    conversation_id: int,
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete your own message (sender-only). Keeps the row; the body is
+    hidden and the message renders as 'deleted' so replies/threads stay intact."""
+    msg = await db.get(Message, message_id)
+    if not msg or msg.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+    if msg.deleted_at is None:
+        msg.deleted_at = datetime.utcnow()
+        await db.commit()
+    return {"ok": True, "id": message_id}
 
 
 @router.post("/conversations/{conversation_id}/read", response_model=dict)

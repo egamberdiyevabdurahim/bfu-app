@@ -82,6 +82,11 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, index=True
     )
+    # Reply/quote target (a message id in the same conversation), edit stamp, and
+    # soft-delete stamp. All nullable; columns added via idempotent ALTER in main.py.
+    reply_to_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Block(Base):

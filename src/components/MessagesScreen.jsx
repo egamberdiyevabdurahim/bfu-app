@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { messages as msgApi } from "../api";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
@@ -71,6 +71,9 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   const [reportReason, setReportReason] = useState("");
   const [blockedLocal, setBlockedLocal] = useState(false);
   const [toast, setToast] = useState(null);                 // {text,tone}
+  const [actionMsg, setActionMsg] = useState(null);         // message tapped → action sheet
+  const [replyingTo, setReplyingTo] = useState(null);       // message being replied to
+  const [editing, setEditing] = useState(null);             // message being edited
 
   const bodyRef = useRef(null);
   const composerRef = useRef(null);
@@ -194,18 +197,29 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   }, [messages]);
 
   const openConversation = (id) => setActiveId(id);
-  const backToList = () => { setActiveId(null); setMessages([]); setThreadMembers(null); lastCount.current = 0; lastMarkedId.current = null; };
+  const backToList = () => {
+    setActiveId(null); setMessages([]); setThreadMembers(null);
+    setReplyingTo(null); setEditing(null); setDraft("");
+    lastCount.current = 0; lastMarkedId.current = null;
+  };
 
   async function send() {
     const text = draft.trim();
     if (!text || sending || !activeId) return;
     setSending(true);
     try {
-      const created = await msgApi.send(activeId, text);
-      setDraft("");
-      if (created && created.id) setMessages((m) => [...m, created]);
-      else loadThread(activeId, { silent: true });
-      loadList();
+      if (editing) {
+        // Save an edit in place.
+        const updated = await msgApi.editMessage(activeId, editing.id, text);
+        setMessages((m) => m.map((x) => (x.id === editing.id ? { ...x, ...updated } : x)));
+        setEditing(null); setDraft("");
+      } else {
+        const created = await msgApi.send(activeId, text, replyingTo?.id);
+        setDraft(""); setReplyingTo(null);
+        if (created && created.id) setMessages((m) => [...m, created]);
+        else loadThread(activeId, { silent: true });
+        loadList();
+      }
       requestAnimationFrame(() => composerRef.current?.focus());
     } catch (e) {
       if (e?.status === 429) flash(t("msg.tooFast"), "error");
@@ -215,6 +229,23 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
       setSending(false);
     }
   }
+
+  // Message actions (from the tap sheet).
+  const copyMsg = async (m) => {
+    try { await navigator.clipboard?.writeText(m.body || ""); flash(t("msg.copied")); }
+    catch { flash(m.body || ""); }
+    setActionMsg(null);
+  };
+  const startReply = (m) => { setReplyingTo(m); setEditing(null); setActionMsg(null); requestAnimationFrame(() => composerRef.current?.focus()); };
+  const startEdit = (m) => { setEditing(m); setReplyingTo(null); setDraft(m.body || ""); setActionMsg(null); requestAnimationFrame(() => composerRef.current?.focus()); };
+  const doDelete = async (m) => {
+    setActionMsg(null);
+    try {
+      await msgApi.deleteMessage(activeId, m.id);
+      setMessages((arr) => arr.map((x) => (x.id === m.id ? { ...x, deleted: true, body: "" } : x)));
+      loadList();
+    } catch (e) { flash(e?.message || t("msg.sendFailed"), "error"); }
+  };
 
   const onComposerKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
@@ -277,6 +308,9 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
     const ts = msOf(iso);
     return otherMembers.filter((mm) => mm.last_read_at && msOf(mm.last_read_at) >= ts).length;
   };
+  // Index of the first unread message (from the list's unread count at open),
+  // so we can drop a "new messages" divider before it.
+  const unreadStart = active?.unread > 0 ? Math.max(0, messages.length - active.unread) : -1;
 
   return (
     <div style={{
@@ -402,35 +436,59 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
             const mine = m.sender_id === meId;
             const prev = messages[i - 1];
             const showSender = active?.kind === "project" && !mine && (!prev || prev.sender_id !== m.sender_id);
+            const seen = mine && !m.deleted ? seenCount(m.created_at) : 0;
             return (
-              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
-                <div style={{ display: "flex", flexDirection: "column", maxWidth: "78%", gap: 2, alignItems: mine ? "flex-end" : "flex-start" }}>
-                  {showSender && (
-                    <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--amber)", padding: "0 4px" }}>
-                      {m.sender?.display_name || t("msg.someone")}
-                    </span>
-                  )}
-                  <div style={{
-                    padding: "10px 14px", borderRadius: 16, fontSize: 14.5, lineHeight: 1.45,
-                    whiteSpace: "pre-wrap", wordBreak: "break-word",
-                    ...(mine
-                      ? { borderTopRightRadius: 6, background: "linear-gradient(135deg, rgba(232,161,92,0.92), rgba(255,106,61,0.85))", border: "1px solid rgba(232,161,92,0.5)", color: "#1A1206", fontWeight: 500 }
-                      : { borderTopLeftRadius: 6, background: "var(--surface-2)", border: "1px solid var(--hair)", color: "var(--text)" }),
-                  }}>{m.body}</div>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", padding: "0 4px", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {relTime(m.created_at)}
-                    {mine && (() => {
-                      const n = seenCount(m.created_at);
-                      const seen = n > 0;
-                      return (
+              <Fragment key={m.id}>
+                {unreadStart > 0 && i === unreadStart && (
+                  <div style={{ alignSelf: "center", margin: "6px 0", padding: "3px 12px", borderRadius: 99,
+                    background: "rgba(255,106,61,0.14)", border: "1px solid rgba(255,106,61,0.3)", color: "var(--ember)",
+                    fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    {t("msg.newMessages")}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                  <div
+                    onClick={() => { if (!m.deleted) setActionMsg(m); }}
+                    style={{ display: "flex", flexDirection: "column", maxWidth: "78%", gap: 2,
+                      alignItems: mine ? "flex-end" : "flex-start", cursor: m.deleted ? "default" : "pointer" }}>
+                    {showSender && (
+                      <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--amber)", padding: "0 4px" }}>
+                        {m.sender?.display_name || t("msg.someone")}
+                      </span>
+                    )}
+                    {m.reply_to && (
+                      <div style={{ maxWidth: "100%", padding: "5px 10px", marginBottom: 1, borderRadius: 10,
+                        borderLeft: "2px solid var(--amber)", background: "var(--surface-2)", opacity: 0.9 }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--amber)" }}>
+                          {m.reply_to.sender_name || t("msg.someone")}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--muted-strong)", whiteSpace: "nowrap",
+                          overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+                          {m.reply_to.body || t("msg.deletedShort")}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{
+                      padding: "10px 14px", borderRadius: 16, fontSize: 14.5, lineHeight: 1.45,
+                      whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      ...(m.deleted
+                        ? { background: "var(--surface-2)", border: "1px dashed var(--hair)", color: "var(--muted)", fontStyle: "italic" }
+                        : mine
+                          ? { borderTopRightRadius: 6, background: "linear-gradient(135deg, rgba(232,161,92,0.92), rgba(255,106,61,0.85))", border: "1px solid rgba(232,161,92,0.5)", color: "#1A1206", fontWeight: 500 }
+                          : { borderTopLeftRadius: 6, background: "var(--surface-2)", border: "1px solid var(--hair)", color: "var(--text)" }),
+                    }}>{m.deleted ? t("msg.deleted") : m.body}</div>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", padding: "0 4px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {relTime(m.created_at)}
+                      {m.edited && !m.deleted && <span style={{ opacity: 0.8 }}>· {t("msg.edited")}</span>}
+                      {mine && !m.deleted && (
                         <span title={seen ? t("msg.seen") : t("msg.sent")} style={{ color: seen ? "var(--teal-bright)" : "var(--muted)", fontWeight: 700 }}>
-                          {seen ? (active?.kind === "project" ? `✓✓ ${n}` : "✓✓") : "✓"}
+                          {seen ? (active?.kind === "project" ? `✓✓ ${seen}` : "✓✓") : "✓"}
                         </span>
-                      );
-                    })()}
-                  </span>
+                      )}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </Fragment>
             );
           })}
         </div>
@@ -497,9 +555,27 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
       {/* Composer (thread only) */}
       {showThread && (
         <div style={{
-          flex: "0 0 auto", display: "flex", gap: 10, padding: "12px 14px calc(var(--safe-b, 0px) + 12px)",
-          borderTop: "1px solid var(--hair)", alignItems: "flex-end", background: "var(--surface)",
+          flex: "0 0 auto", padding: "10px 14px calc(var(--safe-b, 0px) + 12px)",
+          borderTop: "1px solid var(--hair)", background: "var(--surface)",
         }}>
+          {(replyingTo || editing) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px",
+              borderRadius: 10, borderLeft: "2px solid var(--amber)", background: "var(--surface-2)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--amber)" }}>
+                  {editing ? t("msg.editing") : t("msg.replyingTo", { name: replyingTo?.sender?.display_name || t("msg.someone") })}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted-strong)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {(editing || replyingTo)?.body}
+                </div>
+              </div>
+              <button type="button" aria-label={t("common.close")}
+                onClick={() => { setReplyingTo(null); if (editing) setDraft(""); setEditing(null); }}
+                style={{ flex: "0 0 auto", width: 26, height: 26, borderRadius: 8, border: "1px solid var(--hair)",
+                  background: "var(--surface)", color: "var(--muted-strong)", cursor: "pointer", fontSize: 13 }}>✕</button>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           {blockedLocal ? (
             <div style={{ flex: 1, textAlign: "center", color: "var(--muted-strong)", fontSize: 13.5, padding: 6 }}>
               {t("msg.blockedNote")}{" "}<LinkBtn onClick={toggleBlock}>{t("msg.unblock")}</LinkBtn>
@@ -520,10 +596,35 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
                 className="btn-primary" style={{
                   flex: "0 0 auto", width: "auto", padding: "12px 20px", opacity: sending || !draft.trim() ? 0.6 : 1,
                 }}>
-                {sending ? "…" : t("msg.send")}
+                {sending ? "…" : (editing ? t("msg.save") : t("msg.send"))}
               </button>
             </>
           )}
+          </div>
+        </div>
+      )}
+
+      {/* Message action sheet (tap a message) */}
+      {actionMsg && (
+        <div onClick={() => setActionMsg(null)} style={{
+          position: "fixed", inset: 0, zIndex: 420, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "flex-end",
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: "100%", maxWidth: 430, margin: "0 auto", background: "var(--surface)",
+            borderTopLeftRadius: 20, borderTopRightRadius: 20, border: "1px solid var(--hair)",
+            padding: "8px 10px calc(var(--safe-b, 0px) + 14px)",
+          }}>
+            <div style={{ width: 40, height: 4, background: "var(--hair)", borderRadius: 99, margin: "4px auto 8px" }} />
+            <SheetItem onClick={() => copyMsg(actionMsg)}>📋 {t("msg.copy")}</SheetItem>
+            <SheetItem onClick={() => startReply(actionMsg)}>↩ {t("msg.reply")}</SheetItem>
+            {actionMsg.sender_id === meId && !actionMsg.deleted && (
+              <SheetItem onClick={() => startEdit(actionMsg)}>✎ {t("msg.edit")}</SheetItem>
+            )}
+            {actionMsg.sender_id === meId && !actionMsg.deleted && (
+              <SheetItem danger onClick={() => doDelete(actionMsg)}>🗑 {t("msg.delete")}</SheetItem>
+            )}
+          </div>
         </div>
       )}
 
@@ -575,6 +676,15 @@ const Hint = ({ children, tone }) => (
   <div style={{ color: tone === "error" ? "var(--terra)" : "var(--muted-strong)", fontSize: 13.5, padding: 16, textAlign: "center" }}>
     {children}
   </div>
+);
+
+// One row in the tap-a-message action sheet.
+const SheetItem = ({ children, onClick, danger }) => (
+  <button type="button" onClick={onClick} style={{
+    display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+    padding: "13px 14px", border: "none", background: "transparent", borderRadius: 12, cursor: "pointer",
+    color: danger ? "var(--terra)" : "var(--text)", fontSize: 15, fontWeight: 600, fontFamily: "var(--font-body)",
+  }}>{children}</button>
 );
 
 // Centered "system" line for join/started context (Telegram-style).

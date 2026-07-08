@@ -59,6 +59,18 @@ const STRINGS = {
   "msg.chatStarted": { en: "Chat started · {date}", uz: "Suhbat boshlandi · {date}", ru: "Чат начат · {date}" },
   "msg.sent": { en: "Sent", uz: "Yuborildi", ru: "Отправлено" },
   "msg.seen": { en: "Seen", uz: "Ko‘rildi", ru: "Просмотрено" },
+  "msg.copy": { en: "Copy", uz: "Nusxa olish", ru: "Копировать" },
+  "msg.copied": { en: "Copied", uz: "Nusxa olindi", ru: "Скопировано" },
+  "msg.reply": { en: "Reply", uz: "Javob berish", ru: "Ответить" },
+  "msg.edit": { en: "Edit", uz: "Tahrirlash", ru: "Изменить" },
+  "msg.delete": { en: "Delete", uz: "O‘chirish", ru: "Удалить" },
+  "msg.save": { en: "Save", uz: "Saqlash", ru: "Сохранить" },
+  "msg.edited": { en: "edited", uz: "tahrirlandi", ru: "изменено" },
+  "msg.deleted": { en: "Message deleted", uz: "Xabar o‘chirildi", ru: "Сообщение удалено" },
+  "msg.deletedShort": { en: "deleted", uz: "o‘chirildi", ru: "удалено" },
+  "msg.editing": { en: "Editing message", uz: "Xabar tahrirlanmoqda", ru: "Редактирование" },
+  "msg.replyingTo": { en: "Replying to {name}", uz: "{name}ga javob", ru: "Ответ {name}" },
+  "msg.newMessages": { en: "New messages", uz: "Yangi xabarlar", ru: "Новые сообщения" },
 
   // ── Home command center ───────────────────────────────────────────────────
   "home.needsYou": { en: "Needs you now", uz: "Diqqatingiz kerak", ru: "Требует внимания" },

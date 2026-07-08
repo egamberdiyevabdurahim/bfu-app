@@ -38,6 +38,13 @@ class MessageSender(BaseModel):
     photo_url: str | None = None
 
 
+class ReplyPreview(BaseModel):
+    """The message a message is replying to (compact quote)."""
+    id: int
+    body: str
+    sender_name: str | None = None
+
+
 class MessageOut(BaseModel):
     id: int
     conversation_id: int
@@ -45,6 +52,9 @@ class MessageOut(BaseModel):
     body: str
     created_at: datetime | None = None
     sender: MessageSender | None = None
+    reply_to: ReplyPreview | None = None
+    edited: bool = False
+    deleted: bool = False
 
 
 class MessagesPage(BaseModel):
@@ -53,6 +63,11 @@ class MessagesPage(BaseModel):
 
 
 class SendMessageIn(BaseModel):
+    body: str
+    reply_to_id: int | None = None
+
+
+class EditMessageIn(BaseModel):
     body: str
 
 

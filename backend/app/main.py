@@ -164,6 +164,10 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_profile_views_viewed ON profile_views (viewed_id);",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_profile_view_pair ON profile_views (viewer_id, viewed_id);",
         "CREATE INDEX IF NOT EXISTS ix_profile_views_viewed_updated ON profile_views (viewed_id, updated_at);",
+        # --- messaging v2: reply/edit/delete columns (soft-delete keeps history) ---
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id BIGINT;",
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;",
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

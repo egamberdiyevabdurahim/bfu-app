@@ -4,6 +4,7 @@ import { getCity } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
 import SiteFooter from "@/components/ui/SiteFooter";
 import HomeDashboard from "@/components/home/HomeDashboard";
+import OnboardingGate from "@/components/onboarding/OnboardingGate";
 
 // /home reads the httpOnly session cookie, so it can never be statically cached
 // or ISR-revalidated — it is per-user and must render fresh each request.
@@ -59,6 +60,10 @@ export default async function HomePage() {
 
   return (
     <AppTopBar active="home" me={me}>
+        {/* First-login welcome flow — self-hides unless me.onboarding_completed
+            is exactly false. Portals to <body>, so placement here is harmless. */}
+        <OnboardingGate me={me} firstName={firstName(me)} />
+
         {/* Welcome hero. The launchpad tiles that used to live here were removed
             (they duplicated the left sidebar) — /home is now a real dashboard. */}
         <div style={{ marginTop: 8, marginBottom: 4 }}>

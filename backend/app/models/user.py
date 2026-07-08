@@ -51,6 +51,9 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     is_mentor: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     mentor_bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     mentor_topics: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # First-login onboarding gate. False until the new builder finishes (or
+    # skips) the welcome flow via POST /users/me/onboarding-complete.
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

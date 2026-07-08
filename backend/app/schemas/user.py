@@ -101,6 +101,9 @@ class UserResponse(BaseModel):
     checked: bool
     open_to_work: bool
     open_to_volunteering: bool
+    # First-login onboarding gate — additive, defaults false so old rows/tests
+    # never 500. The desktop /home mounts the onboarding flow while this is false.
+    onboarding_completed: bool = False
     display_name: str
     photo_url: str | None = None
     # Real presence (see app.services.presence). Optional/defaulted so nothing 500s.

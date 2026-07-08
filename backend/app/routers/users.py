@@ -878,6 +878,20 @@ async def analyze_bio(
     return tags
 
 
+@router.post("/me/onboarding-complete", response_model=dict)
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark the first-login onboarding flow as finished (idempotent). The
+    desktop /home shows the welcome flow only while onboarding_completed is
+    false; both 'Finish' and 'Skip for now' hit this."""
+    if not current_user.onboarding_completed:
+        current_user.onboarding_completed = True
+        await db.commit()
+    return {"ok": True, "onboarding_completed": True}
+
+
 @router.post("/me/fetch-tg-username", response_model=dict)
 async def fetch_tg_username(
     current_user: User = Depends(get_current_user),

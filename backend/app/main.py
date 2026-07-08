@@ -112,6 +112,8 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_mentor BOOLEAN DEFAULT false;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_bio TEXT;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_topics TEXT;",
+        # First-login onboarding gate (see users.onboarding_completed).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false;",
         "ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS role VARCHAR(80);",
         # Member role — a founder-set title on an actual teammate (distinct from
         # the OPEN roles above / project_roles). Nullable short string.

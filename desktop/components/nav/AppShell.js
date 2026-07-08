@@ -428,9 +428,15 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         </div>
 
         {/* ── Nav (scrollable) ── */}
+        {/* data-lenis-prevent: the app wraps everything in Lenis smooth-scroll
+            (ReactLenis root), which hijacks wheel events and would scroll the
+            window instead of THIS fixed sidebar's inner list. This attribute
+            tells Lenis to leave the element alone so native overflow scroll
+            works. */}
         <nav
           className="ash-nav"
           aria-label="Primary"
+          data-lenis-prevent
           {...(!isDrawer ? { ref: navRefCb, onScroll: onNavScroll } : {})}
         >
           {groups.map((g) => (

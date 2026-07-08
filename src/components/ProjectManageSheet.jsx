@@ -69,10 +69,10 @@ const TypeBadge = ({ type }) => {
   );
 };
 
-export const ProjectManageSheet = ({ me, onClose, onChanged }) => {
+export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post" }) => {
   const { t } = useT();
 
-  const [tab, setTab] = useState("post");          // post | mine | requests
+  const [tab, setTab] = useState(initialTab);      // post | mine | requests
   const [postType, setPostType] = useState("startup"); // startup | volunteering
 
   const [mine, setMine] = useState(null);          // null = loading

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
-import { users } from "../api";
+import { users, messages as msgApi } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
 import { Page, AvatarEl } from "./Shared";
@@ -246,12 +246,24 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const nothing = !user?.about && !hasAnyTags && !hasProjects && !(user?.vouches?.length) &&
     !(user?.badges?.length) && !user?.currently_building && !hasStats && (!rating || rating.average == null);
 
-  // Message opens the person's Telegram chat (the mobile "message" affordance).
-  // Only surfaced when we can actually build a chat link. um.message is the one
-  // new key this screen needs — fall back to "Message" until it lands in i18n.
-  const canMessage = !!tgChatUrl(user);
+  // Message now opens a REAL in-app DM (find-or-create), so it works for every
+  // builder — including the many with no Telegram username. The Telegram
+  // deep-link stays only as a secondary "open in Telegram" affordance.
   const rawMsg = t("um.message");
   const msgLabel = rawMsg === "um.message" ? "Message" : rawMsg;
+  const canDeepLink = !!tgChatUrl(user);
+  const openDm = async () => {
+    if (!user?.id) return;
+    try {
+      const conv = await msgApi.openDm(user.id);
+      if (conv?.id) {
+        window.dispatchEvent(new CustomEvent("bfu:open-messages", { detail: { conversationId: conv.id } }));
+        onClose?.();
+      }
+    } catch (e) {
+      tgAlert(e?.status === 400 ? t("msg.cantMessage") : (e?.message || t("msg.sendFailed")));
+    }
+  };
 
   const projectEmoji = (type) => (type === "startup" ? "🚀" : type === "volunteering" ? "🤝" : "•");
 
@@ -343,9 +355,13 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                   {following ? `✓ ${t("follow.following")}` : t("follow.btn")}
                 </button>
 
-                {canMessage && (
-                  <button className="btn-primary" onClick={() => openChat(user)} style={{ width: "100%" }}>
-                    ✉ {msgLabel}
+                <button className="btn-primary" onClick={openDm} style={{ width: "100%" }}>
+                  ✉ {msgLabel}
+                </button>
+                {canDeepLink && (
+                  <button className="btn-ghost" onClick={() => openChat(user)}
+                    style={{ width: "100%", textAlign: "center", fontSize: 13 }}>
+                    {t("um.openTelegram")}
                   </button>
                 )}
 

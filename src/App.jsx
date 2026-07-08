@@ -12,6 +12,7 @@ import { useT } from "./i18n";
 import { Landing } from "./Landing";
 import { RegionLandingScreen } from "./RegionLandingScreen";
 import { ProjectDetail } from "./components/ProjectDetail";
+import { MessagesScreen } from "./components/MessagesScreen";
 
 function publicRoute() {
   const path = window.location.pathname;
@@ -41,14 +42,37 @@ function MiniApp() {
   const [deepLink, setDeepLink] = useState(null);
   const [deepUserId, setDeepUserId] = useState(null);
   const [deepProject, setDeepProject] = useState(null);
+  // Messaging overlay (opened from anywhere via a `bfu:open-messages` event —
+  // City toolbar glyph = list; profile "Message" / project "Team chat" pass a
+  // conversation id to jump straight into a thread).
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgConv, setMsgConv] = useState(null);
 
   useEffect(() => {
     const handleSignout = () => {
       setAuthed(false); setMe(null); setActiveTab("city");
-      setDeepLink(null); setDeepUserId(null);
+      setDeepLink(null); setDeepUserId(null); setMsgOpen(false);
     };
     window.addEventListener("bfu:signout", handleSignout);
     return () => window.removeEventListener("bfu:signout", handleSignout);
+  }, []);
+
+  useEffect(() => {
+    const onOpenMessages = (e) => {
+      setMsgConv(e?.detail?.conversationId ?? null);
+      setMsgOpen(true);
+    };
+    window.addEventListener("bfu:open-messages", onOpenMessages);
+    return () => window.removeEventListener("bfu:open-messages", onOpenMessages);
+  }, []);
+
+  useEffect(() => {
+    const onOpenProject = (e) => {
+      const id = e?.detail?.projectId;
+      if (id) projects.get(id).then(setDeepProject).catch(() => {});
+    };
+    window.addEventListener("bfu:open-project", onOpenProject);
+    return () => window.removeEventListener("bfu:open-project", onOpenProject);
   }, []);
 
   // On mount: verify existing token and registration status
@@ -153,7 +177,9 @@ function MiniApp() {
 
   const screens = {
     city:     <CityScreen />,
-    projects: <ProjectsScreen deepLinkAppId={deepLink?.tab === "projects" ? deepLink.appId : null} />,
+    projects: <ProjectsScreen
+                  deepLinkAppId={deepLink?.tab === "projects" ? deepLink.appId : null}
+                  onDeepLinkConsumed={() => setDeepLink(null)} />,
     mentors:  <MentorsScreen />,
     events:   <EventsScreen
                   deepLinkEventId={deepLink?.tab === "events" ? deepLink.eventId : null}
@@ -223,6 +249,13 @@ function MiniApp() {
             me={me}
             onClose={() => setDeepProject(null)}
             onUpdate={(p) => setDeepProject(p)}
+          />
+        )}
+        {msgOpen && me && (
+          <MessagesScreen
+            meId={me.id}
+            initialConversationId={msgConv}
+            onClose={() => setMsgOpen(false)}
           />
         )}
       </div>

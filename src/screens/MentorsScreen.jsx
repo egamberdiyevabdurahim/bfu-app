@@ -123,10 +123,11 @@ export const MentorsScreen = ({ onClose } = {}) => {
 
                 <button
                   className="btn-primary"
-                  onClick={() => setBooking(m)}
-                  style={{ marginTop: 16 }}
+                  onClick={() => hasSlots && setBooking(m)}
+                  disabled={!hasSlots}
+                  style={{ marginTop: 16, opacity: hasSlots ? 1 : 0.5, cursor: hasSlots ? "pointer" : "default" }}
                 >
-                  {t("mentor.book")}
+                  {hasSlots ? t("mentor.book") : t("mentor.noSlots")}
                 </button>
               </div>
             );

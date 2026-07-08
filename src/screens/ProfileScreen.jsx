@@ -1,13 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { Page, AvatarEl } from "../components/Shared";
 import { Icon } from "../components/Icons";
-import { users, storage, regions } from "../api";
+import { users, storage, regions, bookings } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, shareUrl } from "../tg";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { AdminScreen } from "./AdminScreen";
 import { MentorsScreen } from "./MentorsScreen";
 import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
+import { HomeStrip } from "../components/HomeStrip";
+import { NotificationPrefsSheet } from "../components/NotificationPrefsSheet";
+import { SavedSheet } from "../components/SavedSheet";
+import { InboxModal } from "../components/InboxModal";
+import { ProjectManageSheet } from "../components/ProjectManageSheet";
+import { UserProfileModal } from "../components/UserProfileModal";
 
 // ── Chorsu bento helpers ──────────────────────────────────────────────────────
 // Achievement id → mono glyph + firelit tint. Labels resolve at render via the
@@ -129,6 +135,19 @@ export const ProfileScreen = () => {
   const [slotsOpen, setSlotsOpen] = useState(false);
   const [bookingsOpen, setBookingsOpen] = useState(false);
   const [savingLang, setSavingLang] = useState(false);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState(null);
+  const [sessionReqs, setSessionReqs] = useState(0);
+  const [homeRefresh, setHomeRefresh] = useState(0);
+
+  useEffect(() => {
+    bookings.mine()
+      .then(r => setSessionReqs((r?.as_mentor || []).filter(b => b.status === "requested").length))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -281,6 +300,15 @@ export const ProfileScreen = () => {
             )}
           </div>
         </div>
+
+        {/* ── Home command center (needs-you-now + who-viewed-you) ── */}
+        <HomeStrip
+          refreshKey={homeRefresh}
+          onOpenRequests={() => setManageOpen(true)}
+          onOpenInbox={() => setInboxOpen(true)}
+          onOpenBookings={() => setBookingsOpen(true)}
+          onOpenUser={(id) => setViewingUserId(id)}
+        />
 
         {/* ── Bento stack (single column on mobile) ── */}
         <div className="ch-grid" style={{ marginTop: 24 }}>
@@ -519,11 +547,19 @@ export const ProfileScreen = () => {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           <ActionRow glyph="🔗" label={t("trust.sharePublic")} onClick={copyPublic} />
           <ActionRow glyph="📄" label={t("resume.download")} onClick={downloadCV} />
+          <ActionRow glyph="❥" label={t("saved.title")} onClick={() => setSavedOpen(true)} />
           {inviteLink && (
             <ActionRow glyph="🎁" label={t("invite.title")} onClick={() => shareUrl(inviteLink, t("invite.shareText"))} />
           )}
           <ActionRow glyph="🎓" label={t("mentor.browse")} onClick={() => setMentorsOpen(true)} />
-          <ActionRow glyph="📅" label={t("booking.title")} onClick={() => setBookingsOpen(true)} />
+          <ActionRow glyph="📅" label={t("booking.title")} onClick={() => setBookingsOpen(true)}
+            right={sessionReqs > 0 ? (
+              <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99,
+                background: "linear-gradient(135deg, var(--ember), var(--terra))", color: "#160E08",
+                fontFamily: "var(--font-mono)", fontSize: 10.5, fontWeight: 700,
+                display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
+            ) : null} />
+          <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
           {isMentor && (
             <ActionRow glyph="🗓️" label={t("mentor.mySlots")} onClick={() => setSlotsOpen(true)} />
           )}
@@ -572,7 +608,12 @@ export const ProfileScreen = () => {
       </div>
 
       {slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
-      {bookingsOpen && <BookingsSheet onClose={() => setBookingsOpen(false)} />}
+      {bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
+      {notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
+      {savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
+      {inboxOpen && <InboxModal onClose={() => { setInboxOpen(false); setHomeRefresh(k => k + 1); }} />}
+      {manageOpen && <ProjectManageSheet me={user} initialTab="requests" onClose={() => { setManageOpen(false); setHomeRefresh(k => k + 1); }} onChanged={loadUser} />}
+      {viewingUserId && <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />}
     </Page>
   );
 };

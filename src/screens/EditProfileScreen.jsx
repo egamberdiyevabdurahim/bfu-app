@@ -8,12 +8,13 @@ const CURRENT_YEAR = new Date().getFullYear();
 const phoneRegex = /^\+?[0-9]{7,15}$/;
 
 export const EditProfileScreen = ({ me, onBack, onSaved }) => {
-  const { t, setLang } = useT();
+  const { t, lang, setLang } = useT();
   const [form, setForm] = useState({
     name: me?.name || "",
     surname: me?.surname || "",
     birth_year: me?.birth_year?.toString() || "",
     gender: me?.gender || "",
+    region_id: me?.region_id != null ? String(me.region_id) : "",
     tg_username: me?.tg_username || "",
     language: me?.language || "en",
     about: me?.about || "",
@@ -87,6 +88,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         surname: form.surname.trim(),
         birth_year: parseInt(form.birth_year) || null,
         gender: form.gender || null,
+        region_id: form.region_id ? parseInt(form.region_id) : null,
         language: form.language,
         about: form.about,
         phone_number: form.phone_number || null,
@@ -231,6 +233,24 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Region */}
+          <div>
+            <div className="section-label">{t("ep.region")}</div>
+            <select value={form.region_id} onChange={e => set("region_id", e.target.value)} style={{
+              width: "100%", background: "var(--surface-2)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)", padding: "12px 12px", fontSize: 14,
+              color: form.region_id ? "var(--text)" : "var(--text-3)", appearance: "none",
+              cursor: "pointer", fontFamily: "var(--font-body)",
+            }}>
+              <option value="">{t("ep.regionPlaceholder")}</option>
+              {[...dbRegions]
+                .sort((a, b) => String(a[`name_${lang}`] || a.name_en).localeCompare(String(b[`name_${lang}`] || b.name_en)))
+                .map(r => (
+                  <option key={r.id} value={r.id}>{r[`name_${lang}`] || r.name_en}</option>
+                ))}
+            </select>
           </div>
 
           {/* Intentions */}

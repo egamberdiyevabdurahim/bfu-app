@@ -73,7 +73,10 @@ export const SearchModal = ({ onClose }) => {
             {res.projects.length > 0 && (
               <Section title={t("search.projects")}>
                 {res.projects.map(p => (
-                  <Row key={`p${p.id}`}>
+                  <Row key={`p${p.id}`} onClick={() => {
+                    window.dispatchEvent(new CustomEvent("bfu:open-project", { detail: { projectId: p.id } }));
+                    onClose();
+                  }}>
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon name={p.type === "startup" ? "rocket" : "heart"} size={18} />
                     </div>
@@ -81,21 +84,29 @@ export const SearchModal = ({ onClose }) => {
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</div>
                       {p.goal && <div style={{ fontSize: 12, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.goal}</div>}
                     </div>
+                    <Icon name="chevron_right" size={16} />
                   </Row>
                 ))}
               </Section>
             )}
             {res.events.length > 0 && (
               <Section title={t("search.events")}>
-                {res.events.map(e => (
-                  <Row key={`e${e.id}`}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📅</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{e.title}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t(`events.type.${e.type}`) || e.type}</div>
-                    </div>
-                  </Row>
-                ))}
+                {res.events.map(e => {
+                  const url = e.link || e.url || e.registration_url || null;
+                  return (
+                    <Row key={`e${e.id}`} onClick={url ? () => {
+                      try { (window.Telegram?.WebApp?.openLink || window.open)(url, "_blank"); }
+                      catch { window.open(url, "_blank"); }
+                    } : undefined}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📅</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{e.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-3)" }}>{t(`events.type.${e.type}`) || e.type}</div>
+                      </div>
+                      {url && <Icon name="chevron_right" size={16} />}
+                    </Row>
+                  );
+                })}
               </Section>
             )}
           </>

@@ -49,7 +49,14 @@ async function req(path, opts = {}, _retry = true) {
   if (res.status === 204) return null;
 
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.detail ?? `HTTP ${res.status}`);
+  if (!res.ok) {
+    // Attach the HTTP status so callers (e.g. the messenger) can distinguish
+    // 429 rate-limit / 403 blocked from a generic failure. Existing callers
+    // only read err.message, so this extra property is backwards-compatible.
+    const err = new Error(body.detail ?? `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return body;
 }
 
@@ -146,6 +153,9 @@ export const users = {
   unfollow:      (target_type, target_id) => req("/follow", { method: "DELETE", body: JSON.stringify({ target_type, target_id }) }),
   following:     ()       => req("/users/me/following"),
   achievements:  ()       => req("/users/me/achievements"),
+  notificationPrefs:       ()      => req("/users/me/notification-prefs"),
+  updateNotificationPrefs: (patch) => req("/users/me/notification-prefs", { method: "PATCH", body: JSON.stringify(patch) }),
+  profileViewers:          ()      => req("/users/me/profile-viewers"),
 };
 
 // ── Project endpoints ─────────────────────────────────────────────────────────
@@ -182,6 +192,24 @@ export const projects = {
 // ── Open roles (discovery) ──────────────────────────────────────────────────
 export const roles = {
   list: (q) => req(`/roles${qs({ q })}`),
+};
+
+// ── Messaging: 1:1 DMs + project team chats ────────────────────────────────────
+// Backend app/routers/messages.py is mounted at the ROOT (no prefix), so the
+// paths are /conversations*, /projects/{id}/conversation, /users/{id}/block,
+// /messages/{id}/report. vercel.json proxies /conversations & /messages to
+// Railway (/projects & /users already proxied).
+export const messages = {
+  conversations: ()             => req("/conversations"),
+  unread:        ()             => req("/conversations/unread-count"),
+  openDm:        (userId)       => req(`/conversations/dm/${userId}`, { method: "POST" }),
+  projectChat:   (projectId)    => req(`/projects/${projectId}/conversation`),
+  thread:        (id, params = {}) => req(`/conversations/${id}/messages${qs(params)}`),
+  send:          (id, body)     => req(`/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+  markRead:      (id)           => req(`/conversations/${id}/read`, { method: "POST" }),
+  block:         (userId)       => req(`/users/${userId}/block`, { method: "POST" }),
+  unblock:       (userId)       => req(`/users/${userId}/block`, { method: "DELETE" }),
+  reportMessage: (id, reason)   => req(`/messages/${id}/report`, { method: "POST", body: JSON.stringify({ reason: reason || null }) }),
 };
 
 // ── Mentors & bookings ──────────────────────────────────────────────────────
@@ -235,8 +263,8 @@ export const admin = {
   pinProject:        (id)     => req(`/admin/projects/${id}/pin`, { method: "PATCH" }),
   getErrors:         ()       => req("/admin/errors"),
   getAudit:          ()       => req("/admin/audit"),
-  exportUsersUrl:    ()       => `${import.meta.env.VITE_API_URL ?? ""}/admin/export/users.json`,
-  exportProjectsUrl: ()       => `${import.meta.env.VITE_API_URL ?? ""}/admin/export/projects.json`,
+  exportUsersUrl:    ()       => `${BASE}/admin/export/users.json`,
+  exportProjectsUrl: ()       => `${BASE}/admin/export/projects.json`,
   getProjects:       (p = {}) => req(`/admin/projects${qs(p)}`),
   approveProject:    (id)     => req(`/admin/projects/${id}/approve`, { method: "PATCH" }),
   deleteProject:     (id)     => req(`/admin/projects/${id}`, { method: "DELETE" }),

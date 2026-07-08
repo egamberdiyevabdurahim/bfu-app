@@ -39,6 +39,7 @@ export const InboxModal = ({ onClose }) => {
   const [tab, setTab] = useState("activity");
   const [items, setItems] = useState(null);
   const [connections, setConnections] = useState(null);
+  const [following, setFollowing] = useState(null);
   const [viewingUserId, setViewingUserId] = useState(null);
   const [rateProjectId, setRateProjectId] = useState(null);
 
@@ -52,7 +53,12 @@ export const InboxModal = ({ onClose }) => {
     if (tab === "connections" && connections === null) {
       users.connections().then(r => setConnections(Array.isArray(r) ? r : [])).catch(() => setConnections([]));
     }
-  }, [tab, connections]);
+    if (tab === "following" && following === null) {
+      users.following()
+        .then(r => setFollowing({ users: r?.users || [], projects: r?.projects || [] }))
+        .catch(() => setFollowing({ users: [], projects: [] }));
+    }
+  }, [tab, connections, following]);
 
   const fmt = (iso) => { try { return new Date(iso).toLocaleDateString(); } catch { return ""; } };
 
@@ -76,7 +82,7 @@ export const InboxModal = ({ onClose }) => {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, padding: "8px 20px 12px" }}>
-          {[["activity", "inbox.tab.activity"], ["connections", "inbox.tab.connections"]].map(([id, key]) => (
+          {[["activity", "inbox.tab.activity"], ["connections", "inbox.tab.connections"], ["following", "inbox.tab.following"]].map(([id, key]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 600,
               background: tab === id ? "var(--accent)" : "var(--surface-2)",
@@ -118,7 +124,7 @@ export const InboxModal = ({ onClose }) => {
                 </div>
               );
             })
-          ) : (
+          ) : tab === "connections" ? (
             connections === null ? (
               <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("common.loading")}</div>
             ) : connections.length === 0 ? (
@@ -138,6 +144,39 @@ export const InboxModal = ({ onClose }) => {
                 <Icon name="arrow_right" size={16} />
               </div>
             ))
+          ) : (
+            following === null ? (
+              <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("common.loading")}</div>
+            ) : (following.users.length === 0 && following.projects.length === 0) ? (
+              <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("inbox.noFollowing")}</div>
+            ) : (
+              <>
+                {following.users.map(u => (
+                  <div key={`fu${u.id}`} onClick={() => setViewingUserId(u.id)} style={{
+                    display: "flex", gap: 12, alignItems: "center", padding: "12px 8px",
+                    borderBottom: "1px solid var(--border)", cursor: "pointer",
+                  }}>
+                    <AvatarEl name={u.display_name} size={44} photoUrl={u.photo_url} />
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, fontFamily: "var(--font-display)" }}>
+                      {u.display_name}
+                    </div>
+                    <Icon name="arrow_right" size={16} />
+                  </div>
+                ))}
+                {following.projects.map(p => (
+                  <div key={`fp${p.id}`} onClick={() => { window.dispatchEvent(new CustomEvent("bfu:open-project", { detail: { projectId: p.id } })); onClose(); }} style={{
+                    display: "flex", gap: 12, alignItems: "center", padding: "12px 8px",
+                    borderBottom: "1px solid var(--border)", cursor: "pointer",
+                  }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--teal-bright)", fontSize: 18 }}>◆</div>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, fontFamily: "var(--font-display)" }}>
+                      {p.name}
+                    </div>
+                    <Icon name="arrow_right" size={16} />
+                  </div>
+                ))}
+              </>
+            )
           )}
         </div>
       </div>

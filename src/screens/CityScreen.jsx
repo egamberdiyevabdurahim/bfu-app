@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
-import { users } from "../api";
+import { users, messages as msgApi } from "../api";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { InboxModal } from "../components/InboxModal";
 import { SearchModal } from "../components/SearchModal";
@@ -45,6 +45,17 @@ const weekdayName = (lang) => {
   }
 };
 
+// Time-of-day bucket from the local clock, so the header reads the real hour
+// instead of always saying "night" / "tonight" (5–11 morning, 12–16 afternoon,
+// 17–20 evening, else night). Returns an i18n key suffix.
+const dayPart = () => {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "morning";
+  if (h >= 12 && h < 17) return "afternoon";
+  if (h >= 17 && h < 21) return "evening";
+  return "night";
+};
+
 // Tiny count-up used for the header numbers (respects reduced-motion).
 function useCountUp(target, duration = 850) {
   const [val, setVal] = useState(target);
@@ -68,7 +79,9 @@ function useCountUp(target, duration = 850) {
 
 export const CityScreen = () => {
   const { t, lang } = useT();
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [regionFilter, setRegionFilter] = useState("");
+  const [skillChips, setSkillChips] = useState([]);
   const [sort, setSort] = useState("recent");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [people, setPeople] = useState([]);
@@ -81,9 +94,20 @@ export const CityScreen = () => {
   const [mapOpen, setMapOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [msgUnread, setMsgUnread] = useState(0);
   const loadSeq = useRef(0);
 
-  const filters = ["ForYou", "All", "UI/UX", "Frontend", "Backend", "ML/AI", "Business"];
+  // Dynamic discovery facets (mirrors the desktop FilterBar): every facet is a
+  // real /users/discover server param (foryou/cofounder/volunteer/mentor/online/
+  // skill/region). Skill chips are derived from the loaded builders below.
+  const FACETS = [
+    { key: "all", label: t("filter.all") },
+    { key: "foryou", label: `✦ ${t("discover.forYou")}` },
+    { key: "online", label: t("filter.online") },
+    { key: "cofounder", label: t("filter.cofounder") },
+    { key: "volunteer", label: t("filter.volunteer") },
+    { key: "mentor", label: t("filter.mentor") },
+  ];
 
   // Region id → localized name, for the card foot. Best-effort; foot falls back
   // to age when a name can't be resolved.
@@ -101,26 +125,53 @@ export const CityScreen = () => {
     const id = setTimeout(() => loadUsers(), 300);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilter, sort, verifiedOnly]);
+  }, [activeFilter, sort, verifiedOnly, regionFilter]);
 
   useEffect(() => {
-    const tick = () => users.unreadCount().then((r) => setUnread(r?.unread || 0)).catch(() => {});
+    const tick = () => {
+      users.unreadCount().then((r) => setUnread(r?.unread || 0)).catch(() => {});
+      msgApi.unread().then((r) => setMsgUnread(r?.unread || 0)).catch(() => {});
+    };
     tick();
     const id = setInterval(tick, 60000 + Math.random() * 15000);
-    return () => clearInterval(id);
+    // Refresh the badges when the messages overlay closes / the app refocuses.
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("bfu:messages-read", onFocus);
+    return () => { clearInterval(id); window.removeEventListener("focus", onFocus); window.removeEventListener("bfu:messages-read", onFocus); };
   }, []);
 
   const loadUsers = async () => {
     const seq = ++loadSeq.current;
     setLoading(true); setLoadError(false);
     try {
-      const q = { sort };
+      const f = activeFilter;
+      // Wider page so the header count / stat cards / derived skill chips sample
+      // more than the newest 20 (they're still a sample, not a global total).
+      const q = { sort, limit: 60 };
       if (verifiedOnly) q.verified = true;
-      if (activeFilter === "ForYou") q.match = true;
-      else if (activeFilter !== "All") q.skill = activeFilter.toLowerCase();
+      if (regionFilter) q.region_id = regionFilter;
+      if (f === "foryou") q.match = true;
+      else if (f === "cofounder") q.open_to_work = true;
+      else if (f === "volunteer") q.open_to_volunteering = true;
+      else if (f === "mentor") q.is_mentor = true;   // real server param (mentor field isn't serialized for client filtering)
+      else if (f === "online") q.online = true;      // real server param (5-min presence window)
+      else if (f.startsWith("skill:")) q.skill = f.slice(6);
       const res = await users.discover(q);
       if (loadSeq.current !== seq) return;
-      setPeople(Array.isArray(res) ? res : []);
+      const list = Array.isArray(res) ? res : [];
+      setPeople(list);
+      // Refresh the skill chip set from the broadest view (no facet/region/verified),
+      // so the chips stay stable as the user narrows down.
+      if (f === "all" && !regionFilter && !verifiedOnly) {
+        const counts = new Map();
+        for (const p of list) for (const s of (p.analysis?.skills || [])) {
+          const k = String(s).trim(); if (!k) continue;
+          counts.set(k, (counts.get(k) || 0) + 1);
+        }
+        const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k);
+        if (top.length) setSkillChips(top);
+      }
     } catch (e) {
       if (loadSeq.current === seq) setLoadError(true);
     }
@@ -160,6 +211,22 @@ export const CityScreen = () => {
               </button>
             ))}
             <button
+              onClick={() => window.dispatchEvent(new CustomEvent("bfu:open-messages"))}
+              aria-label={t("msg.title")}
+              title={t("msg.title")}
+              style={{ ...ICON_BTN, position: "relative" }}
+            >
+              <Icon name="chat" size={18} />
+              {msgUnread > 0 && (
+                <span style={{
+                  position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px",
+                  background: "linear-gradient(135deg, var(--ember), var(--terra))", color: "#160E08",
+                  borderRadius: 99, fontSize: 11, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg)",
+                }}>{msgUnread > 9 ? "9+" : msgUnread}</span>
+              )}
+            </button>
+            <button
               onClick={() => { setInboxOpen(true); setUnread(0); }}
               aria-label={t("inbox.title")}
               style={{ ...ICON_BTN, position: "relative" }}
@@ -177,7 +244,7 @@ export const CityScreen = () => {
           </div>
 
           {/* City header — eyebrow / amber count-up headline / serif sub / stats */}
-          <p className="ch-eyebrow">{t("city.eyebrow", { weekday: weekdayName(lang) })}</p>
+          <p className="ch-eyebrow">{t("city.eyebrow", { weekday: weekdayName(lang), part: t(`city.part.${dayPart()}`) })}</p>
           <h1 className="ch-h1">
             {quiet
               ? t("city.resting")
@@ -211,19 +278,36 @@ export const CityScreen = () => {
             }}>{t("filter.verifiedOnly")}</button>
           </div>
 
-          {/* Skill filter chips — Chorsu chips (active = solid amber) */}
+          {/* Region filter — real /users/discover region_id, all regions present */}
+          {Object.keys(regionMap).length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} style={{
+                width: "100%", background: "var(--surface-2)", border: `1px solid ${regionFilter ? "var(--amber)" : "var(--hair)"}`,
+                borderRadius: "var(--radius-sm)", padding: "9px 12px", fontSize: 13,
+                color: regionFilter ? "var(--text)" : "var(--muted-strong)", appearance: "none",
+                cursor: "pointer", fontFamily: "var(--font-body)",
+              }}>
+                <option value="">{t("filter.allRegions")}</option>
+                {Object.entries(regionMap)
+                  .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+                  .map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Discovery facet chips — status facets + dynamic skills (active = amber) */}
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
-            {filters.map((f) => {
-              const on = activeFilter === f;
+            {[...FACETS, ...skillChips.map((s) => ({ key: `skill:${s}`, label: s }))].map((f) => {
+              const on = activeFilter === f.key;
               return (
-                <button key={f} onClick={() => setActiveFilter(f)} style={{
+                <button key={f.key} onClick={() => setActiveFilter(f.key)} style={{
                   flexShrink: 0, background: on ? "var(--amber)" : "var(--surface-2)",
                   color: on ? "#160E08" : "var(--muted-strong)",
                   border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
                   borderRadius: 99, padding: "8px 16px", fontSize: 13, fontWeight: on ? 700 : 500,
-                  cursor: "pointer", transition: "all 0.2s", fontFamily: "var(--font-body)",
+                  cursor: "pointer", transition: "all 0.2s", fontFamily: "var(--font-body)", whiteSpace: "nowrap",
                 }}>
-                  {f === "All" ? t("filter.all") : f === "ForYou" ? `✦ ${t("discover.forYou")}` : f}
+                  {f.label}
                 </button>
               );
             })}

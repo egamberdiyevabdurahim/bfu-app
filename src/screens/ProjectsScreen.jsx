@@ -151,7 +151,7 @@ const ProjectCard = ({ p, index, onOpen }) => {
 // list with a type filter (All / Startups / Volunteering), mirroring the desktop
 // /projects surface (ProjectsHeader + ProjectFilterBar + ProjectBrowseCard).
 // Tapping a card opens <ProjectDetail>, which owns the full apply flow.
-export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
+export const ProjectsScreen = ({ deepLinkAppId, onDeepLinkConsumed } = {}) => {
   const { t } = useT();
 
   // Type filter: "all" | "startup" | "volunteering"
@@ -165,10 +165,19 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
   const [me, setMe] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [manageTab, setManageTab] = useState("post");
 
   useEffect(() => {
     users.me().then(setMe).catch(() => {});
   }, []);
+
+  // Bot re-engagement deep link (req_startup_/req_volunteering_{id}) lands here;
+  // auto-open the management sheet on the Requests tab so the applicant review
+  // is one tap away. Consume it once (clear it in App) so it doesn't re-pop on
+  // every return to this tab; manageTab is local so clearing can't race the open.
+  useEffect(() => {
+    if (deepLinkAppId) { setManageTab("requests"); setManageOpen(true); onDeepLinkConsumed?.(); }
+  }, [deepLinkAppId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bumped on every filter change; a slow response is ignored if a newer load
   // has started, so it can't overwrite the now-active filter's list.
@@ -236,7 +245,7 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
             </p>
           </div>
           <button
-            onClick={() => setManageOpen(true)}
+            onClick={() => { setManageTab("post"); setManageOpen(true); }}
             aria-label={t("manage.title")}
             style={{
               flexShrink: 0, marginTop: 2, width: 40, height: 40, borderRadius: "50%",
@@ -322,6 +331,7 @@ export const ProjectsScreen = ({ deepLinkAppId } = {}) => {
       {manageOpen && (
         <ProjectManageSheet
           me={me}
+          initialTab={manageTab}
           onClose={() => setManageOpen(false)}
           onChanged={() => loadProjects(0, true)}
         />

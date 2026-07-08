@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Icon } from "./Icons";
-import { projects, regions, users } from "../api";
+import { projects, regions, users, messages as msgApi } from "../api";
 import { UserProfileModal } from "./UserProfileModal";
 import { FollowButton } from "./FollowButton";
 import { AvatarEl } from "./Shared";
@@ -130,6 +130,21 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
   const typeBg = isStartup ? "rgba(232,161,92,0.14)" : "rgba(127,176,105,0.14)";
   const typeBorder = isStartup ? "rgba(232,161,92,0.34)" : "rgba(127,176,105,0.34)";
   const isActive = project.is_active !== false;
+
+  // In-app team chat: creator or accepted member can open the project's team
+  // conversation (find-or-create; backend 403s anyone off the team).
+  const onTeam = isCreator || project.is_member;
+  const openTeamChat = async () => {
+    try {
+      const conv = await msgApi.projectChat(project.id);
+      if (conv?.id) {
+        window.dispatchEvent(new CustomEvent("bfu:open-messages", { detail: { conversationId: conv.id } }));
+        onClose?.();
+      }
+    } catch (e) {
+      tgAlert(e?.message || t("msg.threadError"));
+    }
+  };
 
   // Founder stats (only for the project creator)
   useEffect(() => {
@@ -630,6 +645,12 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
               <div className="ch-cell-static">
                 <CellLabel>{t("chat.title")}</CellLabel>
                 <div style={{ marginTop: 14 }}>
+                  {onTeam && (
+                    <button onClick={openTeamChat} className="btn-primary"
+                      style={{ width: "100%", marginBottom: (project.group_link || isCreator) ? 10 : 0 }}>
+                      💬 {t("msg.teamChatOpen")}
+                    </button>
+                  )}
                   {project.group_link ? (
                     <button onClick={() => openProjectChat(project)} className="btn-primary">{t("chat.join")}</button>
                   ) : isCreator ? (

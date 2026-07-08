@@ -1813,6 +1813,8 @@ async def discover(
     match: bool | None = None,
     gender: str | None = None,
     verified: bool | None = None,
+    is_mentor: bool | None = None,
+    online: bool | None = None,
     sort: str | None = None,  # "recent" (default) | "verified" | "name"
     limit: int = 20,
     offset: int = 0,
@@ -1834,6 +1836,15 @@ async def discover(
         q = q.where(User.gender == gender)
     if verified:
         q = q.where(User.checked == True)
+    if is_mentor:
+        # `mentor` is skipped by _validate_from_user's profile-extras, so the
+        # Mini App can't filter mentors client-side — it must be a real query.
+        q = q.where(User.is_mentor == True)
+    if online:
+        # Presence == last heartbeat within ONLINE_WINDOW (5 min); mirrors
+        # User.is_online so the "Online" facet matches the green dots.
+        q = q.where(User.last_seen_at != None,  # noqa: E711 (SQL IS NOT NULL)
+                    User.last_seen_at >= datetime.utcnow() - timedelta(minutes=5))
     if sort == "name":
         q = q.order_by(User.name.asc())
     elif sort == "verified":

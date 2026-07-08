@@ -6,11 +6,11 @@
 // audience is Uzbekistan — with Russian and English alongside.
 export const LANGS = ["uz", "ru", "en"];
 
-// The default when no cookie is set. English DURING the i18n rollout so an
-// un-switched visitor always sees a fully coherent app (no half-translated
-// surfaces). Flip to "uz" once member-facing coverage is reviewed — a one-line
-// change; the audience is Uzbekistan so that is the intended end state.
-export const DEFAULT_LANG = "en";
+// The default when no cookie is set. Uzbek — the audience is Uzbekistan, and the
+// member-facing app is fully translated. Untranslated keys (and the English-only
+// admin dashboard) degrade to English via the BASE_LANG fallback in translate.js,
+// so nothing breaks; visitors can still switch to Ru/En via the switcher.
+export const DEFAULT_LANG = "uz";
 
 // The base authoring language: every key is written in `en` first and the
 // translation fallback chain ends here (see translate.js). Missing uz/ru keys

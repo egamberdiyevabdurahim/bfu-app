@@ -324,5 +324,61 @@ export const FontLoader = () => (
       cursor: pointer;
       box-shadow: 0 0 10px rgba(232,161,92,0.4);
     }
+
+    /* ══ Chorsu "Bazaar" bento kit — ported from the desktop app
+       (desktop/app/globals.css), mobile-tuned. Used by the rebuilt screens to
+       mirror the desktop City/Projects/Profile design. ══ */
+    @keyframes ch-rise { to { opacity: 1; transform: none; } }
+    @keyframes ch-pulse { 0% { transform: scale(1); opacity: 1; } 70% { transform: scale(2.6); opacity: 0; } 100% { transform: scale(2.6); opacity: 0; } }
+
+    /* Section header: mono eyebrow + Bricolage title + Instrument-Serif italic sub */
+    .ch-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .ch-h1 { margin: 8px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 0.98; letter-spacing: -0.02em; color: var(--text); }
+    .ch-h1 .amber { color: var(--amber); }
+    .ch-sub { margin-top: 10px; font-family: var(--font-accent); font-style: italic; font-size: 19px; color: var(--muted); line-height: 1.3; }
+
+    /* Region / section slab divider */
+    .ch-slab { margin: 30px 0 14px; display: flex; align-items: center; gap: 12px; }
+    .ch-slab h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; color: var(--text); }
+    .ch-slab-k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+    .ch-slab-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hair), transparent); }
+
+    /* Bento cell (static) */
+    .ch-cell-static { border-radius: var(--radius); border: 1px solid var(--hair); background: var(--surface); padding: 20px; }
+    .ch-cell-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+    .ch-metric-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+
+    /* Builder-window grid (single column on mobile) + the card itself */
+    .ch-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .ch-card { position: relative; display: block; border-radius: var(--radius); border: 1px solid var(--hair); background: var(--surface); padding: 0 0 18px; overflow: hidden; color: var(--text); text-decoration: none; opacity: 0; transform: translateY(12px); animation: ch-rise 0.6s forwards; transition: transform 0.2s ease, border-color 0.3s; }
+    .ch-card:active { transform: scale(0.99); }
+    .ch-card-wash { height: 68px; position: relative; }
+    .ch-card-wash:after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent, var(--surface)); }
+    .ch-card-av { position: absolute; top: 40px; left: 18px; width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 20px; color: #160E08; border: 3px solid var(--surface); overflow: hidden; z-index: 2; }
+    .ch-card-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .ch-card-pres { position: absolute; top: 82px; left: 60px; width: 14px; height: 14px; z-index: 3; }
+    .ch-card-pres > i { position: absolute; inset: 0; border-radius: 50%; background: var(--ember); border: 3px solid var(--surface); }
+    .ch-online-ping { position: absolute; inset: 0; border-radius: 50%; background: var(--ember); animation: ch-pulse 2.4s ease-out infinite; }
+    .ch-card-body { padding: 16px 18px 0; }
+    .ch-card-nm { display: flex; align-items: center; gap: 7px; font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+    .ch-card-vf { color: var(--green); font-size: 12px; }
+    .ch-card-bld { margin-top: 4px; font-family: var(--font-accent); font-style: italic; font-size: 15px; color: var(--muted); line-height: 1.25; }
+    .ch-card-bld b { color: var(--amber); font-style: italic; font-weight: 400; }
+    .ch-card-tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .ch-card-t { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; padding: 5px 9px; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--hair); color: var(--muted); }
+    .ch-card-foot { margin-top: 14px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; }
+    .ch-card-reg { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .ch-card-rep { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
+    .ch-card-rep.ch-card-rep-new { color: var(--muted); }
+    .ch-card-look { position: absolute; top: 14px; right: 14px; display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--radius-pill); background: rgba(127,176,105,0.15); border: 1px solid rgba(127,176,105,0.35); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green); z-index: 2; }
+    .ch-card-look > i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; }
+
+    /* Grace tile (empty / low-count states) */
+    .ch-grace { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 150px; border-radius: var(--radius); border: 1px dashed rgba(232,161,92,0.34); background: linear-gradient(150deg, rgba(232,161,92,0.08), rgba(192,86,59,0.05) 60%, var(--surface)); padding: 22px; }
+    .ch-grace-k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+    .ch-grace-t { font-family: var(--font-accent); font-style: italic; font-size: 19px; line-height: 1.25; color: var(--text); }
+    .ch-grace-s { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    @media (prefers-reduced-motion: reduce) { .ch-online-ping { animation: none !important; } .ch-card { animation: none !important; opacity: 1; transform: none; } }
   `}</style>
 );

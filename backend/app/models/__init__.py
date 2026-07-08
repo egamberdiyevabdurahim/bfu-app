@@ -12,6 +12,7 @@ from app.models.connection import Follow, ProjectUpdate, MentorSlot, Booking
 from app.models.role import ProjectRole  # noqa: F401
 from app.models.web_login import WebLoginToken  # noqa: F401
 from app.models.messaging import Conversation, ConversationMember, Message, Block  # noqa: F401
+from app.models.profile_view import ProfileView  # noqa: F401
 
 __all__ = [
     "User", "UserLearningCenter", "UserSchool", "PendingLocation", "Report", "ErrorLog",
@@ -26,4 +27,5 @@ __all__ = [
     "ProjectRole",
     "WebLoginToken",
     "Conversation", "ConversationMember", "Message", "Block",
+    "ProfileView",
 ]

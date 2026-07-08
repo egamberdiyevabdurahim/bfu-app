@@ -151,6 +151,11 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_blocks_blocker ON blocks (blocker_id);",
         "CREATE INDEX IF NOT EXISTS ix_blocks_blocked ON blocks (blocked_id);",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_block_pair ON blocks (blocker_id, blocked_id);",
+        # --- Who-viewed-your-profile: named profile views (table via create_all) ---
+        "CREATE INDEX IF NOT EXISTS ix_profile_views_viewer ON profile_views (viewer_id);",
+        "CREATE INDEX IF NOT EXISTS ix_profile_views_viewed ON profile_views (viewed_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_profile_view_pair ON profile_views (viewer_id, viewed_id);",
+        "CREATE INDEX IF NOT EXISTS ix_profile_views_viewed_updated ON profile_views (viewed_id, updated_at);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

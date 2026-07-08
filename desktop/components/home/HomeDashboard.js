@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
 import { gradientFor, initials } from "@/lib/avatar";
+import { relTime } from "@/lib/notif";
 
 // HomeDashboard — the personal /home dashboard body. Renders four stacked
 // modules under the server-rendered hero:
@@ -602,6 +603,160 @@ function CityTonight({ stats, builders }) {
   );
 }
 
+// ── Module 5: Who viewed your profile ─────────────────────────────────────────
+
+// One viewer's avatar in the overlapping glance-stack. Links to /u/{id}, shows
+// the real name on hover (title), and carries a green online dot when live.
+function ViewerAvatar({ v }) {
+  const grad = gradientFor(v.id);
+  return (
+    <a
+      href={`/u/${v.id}`}
+      title={v.display_name}
+      aria-label={`${v.display_name}${v.is_online ? " (online)" : ""}`}
+      style={{ position: "relative", marginLeft: -10, flex: "0 0 auto", textDecoration: "none" }}
+    >
+      <span
+        style={{
+          display: "flex",
+          width: 42,
+          height: 42,
+          borderRadius: "50%",
+          background: grad,
+          border: "2px solid var(--surface)",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 14,
+          color: "#160E08",
+          overflow: "hidden",
+        }}
+      >
+        {v.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={v.photo_url}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+          />
+        ) : (
+          initials(v.display_name)
+        )}
+      </span>
+      {v.is_online && <span className="hd-dot" aria-hidden />}
+    </a>
+  );
+}
+
+// A single recent-viewer row: small avatar + name + relative time, whole row
+// links to the viewer's profile.
+function ViewerRow({ v }) {
+  const grad = gradientFor(v.id);
+  return (
+    <a href={`/u/${v.id}`} className="hd-vrow">
+      <span className="hd-vrow-av" style={{ background: grad }}>
+        {v.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={v.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+        ) : (
+          initials(v.display_name)
+        )}
+      </span>
+      <span className="hd-vrow-name">
+        {v.display_name}
+        {v.region ? <span className="hd-vrow-region"> · {v.region}</span> : null}
+      </span>
+      <span className="hd-vrow-time">{relTime(v.viewed_at)}</span>
+    </a>
+  );
+}
+
+function ProfileViewers() {
+  const [state, setState] = useState("loading"); // loading | ready | error
+  const [data, setData] = useState({ count: 0, recent: [] });
+
+  useEffect(() => {
+    let alive = true;
+    bfu("/users/me/profile-viewers")
+      .then((res) => {
+        if (!alive) return;
+        setData({
+          count: Number(res?.count) || 0,
+          recent: Array.isArray(res?.recent) ? res.recent : [],
+        });
+        setState("ready");
+      })
+      .catch(() => alive && setState("error"));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Silent-catch: a transient failure drops the module rather than crashing.
+  if (state === "error") return null;
+
+  if (state === "loading") {
+    return (
+      <section aria-busy="true">
+        <Slab kicker="Who viewed you" title="Who's checking you out" />
+        <div className="hd-sk" style={{ minHeight: 132 }} role="status" aria-label="Loading who viewed your profile" />
+      </section>
+    );
+  }
+
+  const { count, recent } = data;
+
+  // No one's peeked yet → hide the module entirely (keeps the dashboard calm).
+  if (count === 0 || recent.length === 0) return null;
+
+  const stack = recent.slice(0, 10);
+  const rows = recent.slice(0, 3);
+  const headline =
+    count === 1 ? "1 builder viewed your profile" : `${count} builders viewed your profile`;
+
+  return (
+    <section>
+      <Slab kicker="Who viewed you" title="Who's checking you out" />
+      <div
+        className="ch-cell-static"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          background: "linear-gradient(150deg, rgba(255,106,61,0.08), var(--surface) 62%)",
+          borderColor: "rgba(255,106,61,0.22)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", paddingLeft: 10 }}>
+            {stack.map((v) => (
+              <ViewerAvatar key={v.id} v={v} />
+            ))}
+          </div>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--text)",
+            }}
+          >
+            {headline}
+          </span>
+        </div>
+
+        <div className="hd-vlist">
+          {rows.map((v) => (
+            <ViewerRow key={v.id} v={v} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export default function HomeDashboard({ profile, city }) {
@@ -610,6 +765,7 @@ export default function HomeDashboard({ profile, city }) {
       <NeedsYouNow />
       <ProfileMeter profile={profile} />
       <Pulse followerCount={profile?.follower_count} />
+      <ProfileViewers />
       <CityTonight stats={city?.stats} builders={city?.builders} />
 
       <style>{`
@@ -651,6 +807,65 @@ export default function HomeDashboard({ profile, city }) {
           background: linear-gradient(90deg, var(--amber), var(--ember));
           box-shadow: 0 0 18px rgba(255,106,61,0.4);
           transition: width 1.1s cubic-bezier(0.2, 0.9, 0.3, 1);
+        }
+        .hd-dot {
+          position: absolute;
+          right: 0;
+          bottom: 0;
+          width: 11px;
+          height: 11px;
+          border-radius: 50%;
+          background: var(--green);
+          border: 2px solid var(--surface);
+          box-shadow: 0 0 8px rgba(127,176,105,0.6);
+        }
+        .hd-vlist {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          border-top: 1px solid var(--hair);
+          padding-top: 8px;
+        }
+        .hd-vrow {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 6px;
+          border-radius: var(--radius-sm, 8px);
+          text-decoration: none;
+          color: var(--text);
+          transition: background 0.15s ease;
+        }
+        .hd-vrow:hover { background: var(--surface-2); }
+        .hd-vrow-av {
+          flex: 0 0 auto;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 11px;
+          color: #160E08;
+        }
+        .hd-vrow-name {
+          flex: 1 1 auto;
+          min-width: 0;
+          font-size: 14px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .hd-vrow-region { color: var(--muted); }
+        .hd-vrow-time {
+          flex: 0 0 auto;
+          font-family: var(--font-mono);
+          font-size: 11px;
+          letter-spacing: 0.04em;
+          color: var(--muted);
         }
         @keyframes hd-shimmer { 100% { transform: translateX(100%); } }
         @media (max-width: 560px) {

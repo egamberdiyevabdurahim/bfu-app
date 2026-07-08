@@ -19,8 +19,9 @@ from app.models.user_analysis import UserAnalysis
 from app.models.project import Project, ProjectMember, ProjectApplication
 from app.models.trust import Endorsement, Vouch, ProjectRating
 from app.models.connection import Follow
+from app.models.profile_view import ProfileView
 from app.services.notifications import add_notification
-from app.schemas.user import GroupStatus, NotificationsPage, UserPublic, UserResponse, UserUpdate
+from app.schemas.user import GroupStatus, NotificationsPage, ProfileViewersOut, UserPublic, UserResponse, UserUpdate
 from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
@@ -1832,6 +1833,89 @@ async def discover(
     return [_validate_from_user(UserPublic, u) for u in result.scalars().all()]
 
 
+# ── Who viewed your profile (named viewers, LinkedIn-style) ────────────────────
+
+async def _record_profile_view(db: AsyncSession, viewer_id: int, viewed_id: int) -> None:
+    """Best-effort UPSERT of a ProfileView(viewer → viewed). One row per pair —
+    a repeat view bumps `updated_at` instead of inserting again.
+
+    Runs on the request session but with its OWN commit + rollback-on-failure so
+    it can NEVER change the profile response or fail the request: a raised
+    IntegrityError (e.g. a concurrent double-view racing the UNIQUE) is rolled
+    back, leaving the session clean for the response queries that follow."""
+    try:
+        now = datetime.utcnow()
+        existing = (await db.execute(
+            select(ProfileView).where(
+                ProfileView.viewer_id == viewer_id,
+                ProfileView.viewed_id == viewed_id,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            existing.updated_at = now
+        else:
+            db.add(ProfileView(
+                viewer_id=viewer_id, viewed_id=viewed_id,
+                created_at=now, updated_at=now,
+            ))
+        await db.commit()
+    except Exception:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+
+
+@router.get("/me/profile-viewers", response_model=ProfileViewersOut)
+async def my_profile_viewers(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Who viewed MY profile: total distinct viewers + a recent slice (newest
+    `updated_at` first). Banned/deleted viewers are excluded from both. Each row
+    is one distinct viewer (UNIQUE viewer_id, viewed_id), so `count` == number of
+    distinct viewers."""
+    limit = max(1, min(limit, 50))
+
+    base = (
+        select(ProfileView, User, Region.name_en)
+        .join(User, User.id == ProfileView.viewer_id)
+        .outerjoin(Region, Region.id == User.region_id)
+        .where(
+            ProfileView.viewed_id == current_user.id,
+            User.is_deleted == False,
+            User.banned == False,
+        )
+    )
+    rows = (await db.execute(
+        base.order_by(ProfileView.updated_at.desc()).limit(limit)
+    )).all()
+
+    count = await db.scalar(
+        select(func.count(ProfileView.id))
+        .join(User, User.id == ProfileView.viewer_id)
+        .where(
+            ProfileView.viewed_id == current_user.id,
+            User.is_deleted == False,
+            User.banned == False,
+        )
+    ) or 0
+
+    recent = [
+        {
+            "id": u.id,
+            "display_name": u.display_name,
+            "photo_url": u.photo_url,
+            "region": region_name,
+            "is_online": u.is_online,
+            "viewed_at": pv.updated_at,
+        }
+        for (pv, u, region_name) in rows
+    ]
+    return {"count": int(count), "recent": recent}
+
+
 # ── Public profile ─────────────────────────────────────────────────────────────
 
 @router.get("/{user_id}", response_model=UserPublic)
@@ -1848,6 +1932,11 @@ async def get_user_profile(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    # Record that the viewer looked at this profile ("who viewed you"). Skip
+    # self-views and banned/deleted targets. Best-effort + isolated commit — it
+    # must never change the response shape or fail the request.
+    if current_user.id != user.id and not user.banned and not user.is_deleted:
+        await _record_profile_view(db, current_user.id, user.id)
     # Inject the richer invite-based badge (one query, only on profile view).
     invited = await db.scalar(
         select(func.count(User.id)).where(

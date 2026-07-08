@@ -129,11 +129,12 @@ export function notifHref(n) {
  */
 export function relTime(iso) {
   if (!iso) return "";
-  let ms = Date.parse(iso);
-  if (Number.isNaN(ms)) {
-    // Backend emits naive UTC (no offset); append Z and retry.
-    ms = Date.parse(`${iso}Z`);
-  }
+  // Backend emits naive UTC (no offset). Date.parse() of a tz-less string uses
+  // LOCAL time (e.g. +5h in Uzbekistan), which makes a just-sent item read "5h".
+  // So force-UTC by appending Z when there's no timezone marker.
+  const hasTz = /[zZ]$|[+-]\d\d:?\d\d$/.test(iso);
+  let ms = Date.parse(hasTz ? iso : `${iso}Z`);
+  if (Number.isNaN(ms)) ms = Date.parse(iso);
   if (Number.isNaN(ms)) return "";
   const diff = Date.now() - ms;
   const sec = Math.max(0, Math.floor(diff / 1000));

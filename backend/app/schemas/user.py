@@ -270,3 +270,19 @@ class NotificationOut(BaseModel):
 class NotificationsPage(BaseModel):
     unread: int = 0
     items: list[NotificationOut] = []
+
+
+class ProfileViewer(BaseModel):
+    """One person who viewed my profile (named, LinkedIn-style)."""
+    id: int
+    display_name: str
+    photo_url: str | None = None
+    region: str | None = None
+    is_online: bool = False
+    viewed_at: datetime | None = None
+
+
+class ProfileViewersOut(BaseModel):
+    """GET /users/me/profile-viewers — total distinct viewers + a recent slice."""
+    count: int = 0
+    recent: list[ProfileViewer] = []

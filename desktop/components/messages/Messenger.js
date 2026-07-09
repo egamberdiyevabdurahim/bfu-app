@@ -107,10 +107,15 @@ export default function Messenger({ meId }) {
   const [editing, setEditing] = useState(null);   // msg being edited (live object)
   const [openMsgId, setOpenMsgId] = useState(null); // id of the message whose action menu is open
   const [dividerBeforeId, setDividerBeforeId] = useState(null); // "New messages" anchor (a message id)
+  const [threadStarted, setThreadStarted] = useState(null); // conversation started_at → context line
+  const [threadKind, setThreadKind] = useState(null); // "project" | "dm" from the members response (survives deep-link before the list loads)
 
   const threadBodyRef = useRef(null);
   const composerRef = useRef(null);
   const pendingUnreadRef = useRef(0); // unread count snapshotted at open, before mark-read zeroes it
+  const atBottomRef = useRef(true); // is the thread scrolled near the bottom? (gates autoscroll)
+  const messagesRef = useRef([]); // mirror of `messages` for the poll merge (loadThread doesn't close over it)
+  const lastCount = useRef(0); // last message count the autoscroll effect acted on
 
   const active = Array.isArray(conversations)
     ? conversations.find((c) => c.id === activeId) || null
@@ -120,6 +125,14 @@ export default function Messenger({ meId }) {
   // Backend timestamps are naive UTC — normalize both sides identically so the
   // comparison is offset-safe regardless of the viewer's timezone.
   const asMs = (s) => (s ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + "Z").getTime() : NaN);
+  const fmtDay = (s) => {
+    const ms = asMs(s);
+    // Pin to Tashkent so the join/started date matches the app's "all times
+    // Tashkent" rule regardless of the viewer's device timezone.
+    return Number.isNaN(ms)
+      ? ""
+      : new Date(ms).toLocaleDateString("en-GB", { timeZone: "Asia/Tashkent", day: "numeric", month: "short" });
+  };
   const otherMembers = threadMembers.filter((m) => m.id !== meId);
   const seenBy = (iso) => {
     const t0 = asMs(iso);
@@ -138,6 +151,34 @@ export default function Messenger({ meId }) {
     const el = threadBodyRef.current?.querySelector(`[data-mid="${id}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+
+  // Context lines shown at the top of a thread: a project chat lists who started
+  // it + who joined and when; a DM shows when the conversation began.
+  const withDay = (label, iso) => {
+    const d = fmtDay(iso);
+    return d ? `${label} · ${d}` : label; // no dangling "· " when the date is unknown
+  };
+  const contextLines = (() => {
+    const kind = threadKind || active?.kind; // members-response kind first (survives deep-link before the list loads)
+    if (kind === "project") {
+      if (!threadMembers.length) return [];
+      // Creator first, then members oldest-join first; unknown joined_at sinks below known ones.
+      return [...threadMembers]
+        .sort((a, b) => {
+          if (a.is_creator !== b.is_creator) return a.is_creator ? -1 : 1;
+          const av = asMs(a.joined_at);
+          const bv = asMs(b.joined_at);
+          return (Number.isNaN(av) ? Infinity : av) - (Number.isNaN(bv) ? Infinity : bv);
+        })
+        .map((m) => ({
+          key: m.id,
+          text: m.is_creator
+            ? withDay(t("messages.started_project", { name: m.display_name }), m.joined_at || threadStarted)
+            : withDay(t("messages.joined_team", { name: m.display_name }), m.joined_at),
+        }));
+    }
+    return threadStarted ? [{ key: "dm", text: withDay(t("messages.chat_started"), threadStarted) }] : [];
+  })();
 
   // ── Load conversation list (mount + poll) ─────────────────────────────────
   const loadList = useCallback(async () => {
@@ -193,8 +234,37 @@ export default function Messenger({ meId }) {
       try {
         const r = await bfu(`/conversations/${id}/messages`, { params: { limit: 30 } });
         const msgs = Array.isArray(r?.messages) ? r.messages : [];
-        setMessages(msgs);
-        setHasMore(!!r?.has_more);
+        if (silent) {
+          // Merge, don't clobber: full-replacing here would wipe any "Load
+          // earlier" history and snap scroll to the bottom. Update existing rows
+          // in place (so others' edits/deletes propagate), keep older
+          // paginated-in rows, and append genuinely-new messages.
+          const cur = messagesRef.current;
+          const curMax = cur.reduce((mx, m) => (m.id > mx ? m.id : mx), 0);
+          const oldestIncoming = msgs.length ? msgs[0].id : Infinity;
+          // If a burst pushed >30 messages between polls, this newest-30 page has
+          // no overlap with what we hold → a blind append would leave a permanent
+          // hole. Fall back to a clean full replace (also covers a first-empty thread).
+          if (!cur.length || (msgs.length && oldestIncoming > curMax)) {
+            setMessages(msgs);
+            setHasMore(!!r?.has_more);
+          } else {
+            const incoming = new Map(msgs.map((m) => [m.id, m]));
+            const seen = new Set(cur.map((m) => m.id));
+            const merged = cur.map((m) => {
+              const inc = incoming.get(m.id);
+              if (!inc) return m;
+              // Don't let a stale in-flight snapshot resurrect a row we just deleted.
+              if (m.deleted && !inc.deleted) return m;
+              return { ...m, ...inc };
+            });
+            for (const m of msgs) if (!seen.has(m.id)) merged.push(m);
+            setMessages(merged);
+          }
+        } else {
+          setMessages(msgs);
+          setHasMore(!!r?.has_more);
+        }
         setThreadState("ready");
         // On the FIRST load, anchor the "New messages" divider to a concrete
         // message id (the first unread), captured BEFORE mark-read zeroes the
@@ -222,6 +292,8 @@ export default function Messenger({ meId }) {
     try {
       const r = await bfu(`/conversations/${id}/members`);
       setThreadMembers(Array.isArray(r?.members) ? r.members : []);
+      setThreadStarted(r?.started_at ?? null);
+      setThreadKind(r?.kind ?? null);
     } catch {
       /* receipts are non-critical — leave the last known roster */
     }
@@ -233,11 +305,15 @@ export default function Messenger({ meId }) {
     setMenuOpen(false);
     setShowReport(false);
     setThreadMembers([]);
+    setThreadStarted(null);
+    setThreadKind(null);
     setReplyTo(null);
     setEditing(null);
     setOpenMsgId(null);
     setDraft("");
     setDividerBeforeId(null);
+    atBottomRef.current = true; // a freshly opened thread starts pinned to newest
+    lastCount.current = 0; // force the autoscroll effect to fire even if the new thread has the same count
     // Snapshot the unread count NOW (before loadThread's mark-read zeroes it) so
     // the "New messages" divider can anchor to the right message.
     const openConv = Array.isArray(conversations) ? conversations.find((c) => c.id === activeId) : null;
@@ -272,13 +348,16 @@ export default function Messenger({ meId }) {
     };
   }, [activeId, loadThread, loadMembers]);
 
-  // Autoscroll to the newest message when the message count grows.
-  const lastCount = useRef(0);
+  // Autoscroll to the newest message when the count grows — but only if the user
+  // is already near the bottom, so a polled-in message doesn't yank them away
+  // from history they've scrolled up to read. atBottomRef is kept fresh by the
+  // thread body's onScroll and reset to true on each conversation open.
   useEffect(() => {
+    messagesRef.current = messages; // keep the poll-merge mirror fresh
     const el = threadBodyRef.current;
     if (!el) return;
     if (messages.length !== lastCount.current) {
-      el.scrollTop = el.scrollHeight;
+      if (atBottomRef.current) el.scrollTop = el.scrollHeight;
       lastCount.current = messages.length;
     }
   }, [messages]);
@@ -368,6 +447,7 @@ export default function Messenger({ meId }) {
         });
         setDraft("");
         setReplyTo(null);
+        atBottomRef.current = true; // a self-send always pins to the newest, even if scrolled up
         if (created && created.id) {
           setMessages((m) => [...m, created]);
         } else {
@@ -659,7 +739,14 @@ export default function Messenger({ meId }) {
             </div>
           )}
 
-          <div className="msg-thread-body" ref={threadBodyRef}>
+          <div
+            className="msg-thread-body"
+            ref={threadBodyRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+            }}
+          >
             {threadState === "loading" && (
               <div className="msg-hint"><span className="ch-spin" aria-hidden>◠</span> {t("messages.loading_messages")}</div>
             )}
@@ -676,6 +763,9 @@ export default function Messenger({ meId }) {
                 </button>
               </div>
             )}
+            {threadState === "ready" && !hasMore && contextLines.map((c) => (
+              <div key={c.key} className="msg-systemline">{c.text}</div>
+            ))}
             {threadState === "ready" && messages.length === 0 && (
               <div className="msg-empty" style={{ paddingTop: 40 }}>
                 <p style={{ margin: 0, color: "var(--muted-strong)", fontSize: 14 }}>
@@ -989,6 +1079,11 @@ export default function Messenger({ meId }) {
         .msg-msgmenu { top: auto; bottom: calc(100% + 4px); }
         .msg-row-mine .msg-msgmenu { right: auto; left: 0; }
         .msg-row:not(.msg-row-mine) .msg-msgmenu { left: auto; right: 0; }
+        /* conversation-start / joined-team context lines */
+        .msg-systemline {
+          align-self: center; max-width: 90%; margin: 2px 0; padding: 2px 10px; text-align: center;
+          color: var(--muted); font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
+        }
         /* "New messages" unread divider */
         .msg-newdivider {
           align-self: center; margin: 6px 0; padding: 3px 12px; border-radius: 99px;

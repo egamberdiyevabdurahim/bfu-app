@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
@@ -103,9 +103,14 @@ export default function Messenger({ meId }) {
   const [reportReason, setReportReason] = useState("");
   const [blockedLocal, setBlockedLocal] = useState(false);
   const [threadMembers, setThreadMembers] = useState([]); // for read receipts (✓✓ seen)
+  const [replyTo, setReplyTo] = useState(null);   // tapped msg being replied to (live object)
+  const [editing, setEditing] = useState(null);   // msg being edited (live object)
+  const [openMsgId, setOpenMsgId] = useState(null); // id of the message whose action menu is open
+  const [dividerBeforeId, setDividerBeforeId] = useState(null); // "New messages" anchor (a message id)
 
   const threadBodyRef = useRef(null);
   const composerRef = useRef(null);
+  const pendingUnreadRef = useRef(0); // unread count snapshotted at open, before mark-read zeroes it
 
   const active = Array.isArray(conversations)
     ? conversations.find((c) => c.id === activeId) || null
@@ -125,6 +130,13 @@ export default function Messenger({ meId }) {
       if (!Number.isNaN(lr) && lr >= t0) n++;
     }
     return n;
+  };
+
+
+  // Scroll to a replied-to parent if it's still in the loaded window.
+  const scrollToMessage = (id) => {
+    const el = threadBodyRef.current?.querySelector(`[data-mid="${id}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   // ── Load conversation list (mount + poll) ─────────────────────────────────
@@ -184,6 +196,14 @@ export default function Messenger({ meId }) {
         setMessages(msgs);
         setHasMore(!!r?.has_more);
         setThreadState("ready");
+        // On the FIRST load, anchor the "New messages" divider to a concrete
+        // message id (the first unread), captured BEFORE mark-read zeroes the
+        // count. An id (not an index) survives pagination + polling.
+        if (!silent) {
+          const u = pendingUnreadRef.current || 0;
+          pendingUnreadRef.current = 0;
+          setDividerBeforeId(u > 0 && msgs.length > 0 ? msgs[Math.max(0, msgs.length - u)]?.id ?? null : null);
+        }
         // Mark read — best effort; then refresh the list badge.
         bfu(`/conversations/${id}/read`, { method: "POST" })
           .then(() => loadList())
@@ -213,6 +233,15 @@ export default function Messenger({ meId }) {
     setMenuOpen(false);
     setShowReport(false);
     setThreadMembers([]);
+    setReplyTo(null);
+    setEditing(null);
+    setOpenMsgId(null);
+    setDraft("");
+    setDividerBeforeId(null);
+    // Snapshot the unread count NOW (before loadThread's mark-read zeroes it) so
+    // the "New messages" divider can anchor to the right message.
+    const openConv = Array.isArray(conversations) ? conversations.find((c) => c.id === activeId) : null;
+    pendingUnreadRef.current = openConv?.unread || 0;
     loadThread(activeId);
     loadMembers(activeId);
     let timer = null;
@@ -265,22 +294,88 @@ export default function Messenger({ meId }) {
     router.replace("/messages", { scroll: false });
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // ── Per-message actions (copy / reply / edit / delete) ────────────────────
+  async function copyMsg(m) {
+    // Explicit guard: `?.` would let a missing clipboard API resolve silently and
+    // wrongly flash "Copied". Only claim success when we actually wrote.
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(m.body || "");
+        flash(t("messages.copied"));
+      } else {
+        flash(m.body || ""); // no clipboard API → surface the text so it can be copied by hand
+      }
+    } catch {
+      flash(m.body || "");
+    }
+    setOpenMsgId(null);
+  }
+
+  function startReply(m) {
+    setReplyTo(m);
+    if (editing) setDraft(""); // leaving an edit → drop its prefilled text so it isn't sent as the reply
+    setEditing(null); // reply and edit are mutually exclusive
+    setOpenMsgId(null);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
+
+  function startEdit(m) {
+    setEditing(m);
+    setReplyTo(null);
+    setDraft(m.body || ""); // prefill the composer with the existing text
+    setOpenMsgId(null);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
+
+  async function doDelete(m) {
+    setOpenMsgId(null);
+    try {
+      // Soft-delete: server keeps the row (returns {ok,id}, not 204) so replies
+      // stay intact. Flip locally; the next poll re-affirms deleted:true.
+      await bfu(`/conversations/${activeId}/messages/${m.id}`, { method: "DELETE" });
+      setMessages((arr) => arr.map((x) => (x.id === m.id ? { ...x, deleted: true, body: "" } : x)));
+      loadList();
+    } catch (e) {
+      flash(e?.message || t("messages.toast_send_failed"), "error");
+    }
+  }
+
+  function cancelComposerContext() {
+    setReplyTo(null);
+    if (editing) setDraft(""); // clearing an edit wipes the prefilled draft
+    setEditing(null);
+  }
+
+  // ── Send (routes to edit vs new; carries reply_to_id) ─────────────────────
   async function send() {
     const text = draft.trim();
     if (!text || sending || !activeId) return;
     setSending(true);
     try {
-      const created = await bfu(`/conversations/${activeId}/messages`, {
-        method: "POST",
-        body: { body: text },
-      });
-      setDraft("");
-      if (created && created.id) {
-        setMessages((m) => [...m, created]);
+      if (editing) {
+        // EDIT: PATCH body only; merge the returned MessageOut in place.
+        const updated = await bfu(`/conversations/${activeId}/messages/${editing.id}`, {
+          method: "PATCH",
+          body: { body: text },
+        });
+        setMessages((m) => m.map((x) => (x.id === editing.id ? { ...x, ...updated } : x)));
+        setEditing(null);
+        setDraft("");
       } else {
-        loadThread(activeId, { silent: true });
+        const created = await bfu(`/conversations/${activeId}/messages`, {
+          method: "POST",
+          body: { body: text, reply_to_id: replyTo?.id ?? null },
+        });
+        setDraft("");
+        setReplyTo(null);
+        if (created && created.id) {
+          setMessages((m) => [...m, created]);
+        } else {
+          loadThread(activeId, { silent: true });
+        }
       }
+      // Refresh the left-hand list preview for BOTH paths (editing the newest
+      // message changes its last_message text too).
       loadList();
       // Keep focus in the composer for a fast back-and-forth.
       requestAnimationFrame(() => composerRef.current?.focus());
@@ -389,6 +484,23 @@ export default function Messenger({ meId }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  // Close the per-message action menu on outside click / Escape (own state +
+  // own wrapper selector so it never conflicts with the header ⋯ menu above).
+  useEffect(() => {
+    if (!openMsgId) return;
+    const onDown = (e) => {
+      const el = e.target;
+      if (!(el instanceof Element) || !el.closest(".msg-msgmenu-wrap")) setOpenMsgId(null);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpenMsgId(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openMsgId]);
 
   // ── Render: conversation list ─────────────────────────────────────────────
   const ListPane = (
@@ -576,36 +688,96 @@ export default function Messenger({ meId }) {
               const prev = messages[i - 1];
               const showSender = active?.kind === "project" && !mine && (!prev || prev.sender_id !== m.sender_id);
               return (
-                <div key={m.id} className={`msg-row${mine ? " msg-row-mine" : ""}`}>
-                  <div className="msg-bubble-wrap">
-                    {showSender && (
-                      <span className="msg-sender">{m.sender?.display_name || t("messages.sender_fallback")}</span>
-                    )}
-                    <div className={`msg-bubble${mine ? " msg-bubble-mine" : ""}`}>{m.body}</div>
-                    <span className="msg-time">
-                      {relTime(m.created_at)}
-                      {mine && (() => {
-                        const n = seenBy(m.created_at);
-                        if (active?.kind === "project") {
+                <Fragment key={m.id}>
+                  {dividerBeforeId != null && m.id === dividerBeforeId && (
+                    <div className="msg-newdivider">{t("messages.new_messages")}</div>
+                  )}
+                  <div className={`msg-row${mine ? " msg-row-mine" : ""}`} data-mid={m.id}>
+                    <div className="msg-bubble-wrap">
+                      {showSender && (
+                        <span className="msg-sender">{m.sender?.display_name || t("messages.sender_fallback")}</span>
+                      )}
+
+                      {m.reply_to && (
+                        <button type="button" className="msg-quote" onClick={() => scrollToMessage(m.reply_to.id)}>
+                          <span className="msg-quote-name">{m.reply_to.sender_name || t("messages.someone")}</span>
+                          <span className="msg-quote-body">{m.reply_to.body || t("messages.deleted_short")}</span>
+                        </button>
+                      )}
+
+                      <div className={`msg-bubble${mine ? " msg-bubble-mine" : ""}${m.deleted ? " msg-bubble-deleted" : ""}`}>
+                        {m.deleted ? t("messages.msg_deleted") : m.body}
+                      </div>
+
+                      {!m.deleted && (
+                        <div className="msg-msgmenu-wrap">
+                          <button
+                            type="button"
+                            className="msg-msgmenu-trigger"
+                            aria-label={t("messages.actions")}
+                            aria-haspopup="menu"
+                            aria-expanded={openMsgId === m.id}
+                            onClick={() => setOpenMsgId(openMsgId === m.id ? null : m.id)}
+                          >⋯</button>
+                          {openMsgId === m.id && (
+                            <div role="menu" className={`msg-menu msg-msgmenu${mine ? " msg-msgmenu-mine" : ""}`}>
+                              <button type="button" role="menuitem" className="msg-menu-item" onClick={() => copyMsg(m)}>{t("messages.copy")}</button>
+                              <button type="button" role="menuitem" className="msg-menu-item" onClick={() => startReply(m)}>{t("messages.reply")}</button>
+                              {mine && (
+                                <button type="button" role="menuitem" className="msg-menu-item" onClick={() => startEdit(m)}>{t("messages.edit")}</button>
+                              )}
+                              {mine && (
+                                <button type="button" role="menuitem" className="msg-menu-item msg-menu-danger" onClick={() => doDelete(m)}>{t("messages.delete")}</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <span className="msg-time">
+                        {relTime(m.created_at)}
+                        {m.edited && !m.deleted && <span className="msg-edited">· {t("messages.edited")}</span>}
+                        {mine && !m.deleted && (() => {
+                          const n = seenBy(m.created_at);
+                          if (active?.kind === "project") {
+                            return n > 0 ? (
+                              <span className="msg-receipt seen" title={`${t("messages.seen_by")} ${n}`}>✓✓ {n}</span>
+                            ) : (
+                              <span className="msg-receipt" title={t("messages.sent")}>✓</span>
+                            );
+                          }
                           return n > 0 ? (
-                            <span className="msg-receipt seen" title={`${t("messages.seen_by")} ${n}`}>✓✓ {n}</span>
+                            <span className="msg-receipt seen" title={t("messages.seen")}>✓✓</span>
                           ) : (
                             <span className="msg-receipt" title={t("messages.sent")}>✓</span>
                           );
-                        }
-                        return n > 0 ? (
-                          <span className="msg-receipt seen" title={t("messages.seen")}>✓✓</span>
-                        ) : (
-                          <span className="msg-receipt" title={t("messages.sent")}>✓</span>
-                        );
-                      })()}
-                    </span>
+                        })()}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </Fragment>
               );
             })}
           </div>
 
+          {!blockedLocal && (replyTo || editing) && (
+            <div className="msg-context">
+              <div className="msg-context-text">
+                <span className="msg-context-label">
+                  {editing
+                    ? t("messages.editing")
+                    : t("messages.replying_to", { name: replyTo?.sender?.display_name || t("messages.someone") })}
+                </span>
+                <span className="msg-context-body">{(editing || replyTo)?.body}</span>
+              </div>
+              <button
+                type="button"
+                className="msg-context-close"
+                aria-label={t("messages.cancel")}
+                onClick={cancelComposerContext}
+              >✕</button>
+            </div>
+          )}
           <div className="msg-composer">
             {blockedLocal ? (
               <div className="msg-blocked-note">
@@ -629,9 +801,9 @@ export default function Messenger({ meId }) {
                   className="ch-btn-primary msg-send"
                   onClick={send}
                   disabled={sending || !draft.trim()}
-                  aria-label={t("messages.send_aria")}
+                  aria-label={editing ? t("messages.save") : t("messages.send_aria")}
                 >
-                  {sending ? "…" : t("messages.send")}
+                  {sending ? "…" : editing ? t("messages.save") : t("messages.send")}
                 </button>
               </>
             )}
@@ -772,7 +944,7 @@ export default function Messenger({ meId }) {
         .msg-thread-body::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 9px; }
         .msg-row { display: flex; }
         .msg-row-mine { justify-content: flex-end; }
-        .msg-bubble-wrap { display: flex; flex-direction: column; max-width: 74%; gap: 2px; }
+        .msg-bubble-wrap { position: relative; display: flex; flex-direction: column; max-width: 74%; gap: 2px; }
         .msg-row-mine .msg-bubble-wrap { align-items: flex-end; }
         .msg-sender { font-size: 11px; font-family: var(--font-mono); color: var(--amber); padding: 0 4px; }
         .msg-bubble {
@@ -788,6 +960,54 @@ export default function Messenger({ meId }) {
         .msg-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); padding: 0 4px; }
         .msg-receipt { margin-left: 5px; font-size: 10px; letter-spacing: -0.5px; color: var(--muted); }
         .msg-receipt.seen { color: var(--teal-bright); }
+        .msg-edited { font-family: var(--font-mono); font-size: 10px; color: var(--muted); opacity: 0.8; margin-left: 4px; }
+        .msg-bubble-deleted { background: var(--surface-2); border: 1px dashed var(--hair); color: var(--muted); font-style: italic; font-weight: 400; }
+        /* in-bubble quoted parent (reply) */
+        .msg-quote {
+          display: block; text-align: left; cursor: pointer; max-width: 240px;
+          border: none; border-left: 2px solid var(--amber); background: var(--surface-2);
+          border-radius: var(--radius-sm); padding: 5px 10px; margin-bottom: 1px;
+        }
+        .msg-quote-name { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--amber); }
+        .msg-quote-body { display: block; font-size: 12px; color: var(--muted-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* per-message action menu (⋯), floated into the gutter so it never shifts layout */
+        .msg-msgmenu-wrap { position: absolute; top: 0; z-index: 6; }
+        .msg-row-mine .msg-msgmenu-wrap { left: 0; transform: translateX(-100%); padding-right: 4px; }
+        .msg-row:not(.msg-row-mine) .msg-msgmenu-wrap { right: 0; transform: translateX(100%); padding-left: 4px; }
+        .msg-msgmenu-trigger {
+          opacity: 0; transition: opacity 0.12s; width: 24px; height: 24px; border-radius: 8px;
+          border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer;
+          font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
+        }
+        .msg-bubble-wrap:hover .msg-msgmenu-trigger { opacity: 1; }
+        .msg-msgmenu-trigger:hover { background: var(--surface-2); color: var(--amber); }
+        .msg-msgmenu-trigger:focus-visible { opacity: 1; outline: 2px solid var(--amber); }
+        /* Touch/coarse pointers have no hover — keep the trigger reachable. */
+        @media (hover: none), (pointer: coarse) { .msg-msgmenu-trigger { opacity: 0.55; } }
+        /* Open UPWARD: the actioned message is usually near the bottom of the
+           scroll area, where a downward menu would be clipped by overflow. */
+        .msg-msgmenu { top: auto; bottom: calc(100% + 4px); }
+        .msg-row-mine .msg-msgmenu { right: auto; left: 0; }
+        .msg-row:not(.msg-row-mine) .msg-msgmenu { left: auto; right: 0; }
+        /* "New messages" unread divider */
+        .msg-newdivider {
+          align-self: center; margin: 6px 0; padding: 3px 12px; border-radius: 99px;
+          background: rgba(255,106,61,0.14); border: 1px solid rgba(255,106,61,0.3); color: var(--ember);
+          font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+        }
+        /* composer reply/edit context banner */
+        .msg-context {
+          flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0 14px;
+          padding: 6px 10px; border-radius: var(--radius-sm); border-left: 2px solid var(--amber);
+          background: var(--surface-2);
+        }
+        .msg-context-text { flex: 1; min-width: 0; }
+        .msg-context-label { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--amber); }
+        .msg-context-body { display: block; font-size: 12px; color: var(--muted-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .msg-context-close {
+          flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--hair);
+          background: var(--surface); color: var(--muted-strong); cursor: pointer; font-size: 13px;
+        }
         .msg-composer { flex: 0 0 auto; display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--hair); align-items: flex-end; }
         .msg-input {
           flex: 1 1 auto; resize: none; max-height: 140px; min-height: 44px;

@@ -520,13 +520,15 @@ async def heartbeat(
 _PROJECT_NOTIF_TYPES = {"application", "accepted", "declined", "project_update",
                         "rate_prompt", "removed_from_project"}
 _BOOKING_NOTIF_TYPES = {"booking_request", "booking_confirmed", "booking_declined"}
+_EVENT_NOTIF_TYPES = {"event_rsvp", "event_reminder"}
 
 
-def _notif_link(ntype: str, actor_id: int | None, project_id: int | None) -> str:
+def _notif_link(ntype: str, actor_id: int | None, project_id: int | None,
+                event_id: int | None = None) -> str:
     """Relative href a notification click should open. Project-scoped types go
-    to /p/{id}, booking types to /bookings, everything actor-driven to the
-    actor's profile /u/{id}. Falls back to /notifications when the needed ref
-    is missing so the row is always clickable."""
+    to /p/{id}, booking types to /bookings, event types to /events, everything
+    actor-driven to the actor's profile /u/{id}. Falls back to /notifications
+    when the needed ref is missing so the row is always clickable."""
     if ntype == "message":
         # For message notifs, project_id carries the CONVERSATION id (see
         # messages.send_message) so the click opens that thread in /messages.
@@ -535,6 +537,8 @@ def _notif_link(ntype: str, actor_id: int | None, project_id: int | None) -> str
         return f"/p/{project_id}" if project_id else "/notifications"
     if ntype in _BOOKING_NOTIF_TYPES:
         return "/bookings"
+    if ntype in _EVENT_NOTIF_TYPES:
+        return f"/events?e={event_id}" if event_id else "/events"
     if actor_id:
         return f"/u/{actor_id}"
     return "/notifications"
@@ -588,8 +592,8 @@ async def my_notifications(
             "id": n.id, "type": n.type, "is_read": n.is_read,
             "created_at": n.created_at.isoformat() if n.created_at else None,
             "actor": actor, "project": proj,
-            "actor_id": n.actor_id, "actor_name": actor_name,
-            "link": _notif_link(n.type, n.actor_id, n.project_id),
+            "actor_id": n.actor_id, "actor_name": actor_name, "event_id": n.event_id,
+            "link": _notif_link(n.type, n.actor_id, n.project_id, n.event_id),
         })
     return {"unread": unread, "items": items}
 

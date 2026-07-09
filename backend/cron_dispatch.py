@@ -10,6 +10,7 @@ Railway Cron service:
 
 Job times (UTC):
   every hour        → nudges (abandoned + inactive)
+  every hour        → rsvp_reminders (per-attendee, deadline ≤24h, once each)
   01:00 daily       → db_backup
   04:00 daily       → pulse (founder daily DM)
   06:00 daily       → event_reminders (T-1 deadlines)
@@ -28,7 +29,7 @@ log = logging.getLogger("cron")
 
 
 def _due(now: datetime) -> list[str]:
-    jobs = ["nudges"]  # hourly
+    jobs = ["nudges", "rsvp_reminders"]  # hourly
     if now.hour == 1:
         jobs.append("db_backup")
     if now.hour == 4:

@@ -168,6 +168,12 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id BIGINT;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;",
+        # --- Events RSVP + deadline reminders (event_rsvps table via create_all) ---
+        "CREATE INDEX IF NOT EXISTS ix_event_rsvps_event ON event_rsvps (event_id);",
+        "CREATE INDEX IF NOT EXISTS ix_event_rsvps_user ON event_rsvps (user_id);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_event_rsvp_event_user ON event_rsvps (event_id, user_id);",
+        "CREATE INDEX IF NOT EXISTS ix_event_rsvps_reminder ON event_rsvps (reminded_at, status);",
+        "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS event_id BIGINT;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

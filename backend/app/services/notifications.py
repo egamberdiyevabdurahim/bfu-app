@@ -20,7 +20,7 @@ from app.models.user import Notification
 # pushes are suppressed (the in-app inbox is still written).
 NOTIF_PREF_KEYS = (
     "messages", "interest", "applications", "project_updates",
-    "bookings", "weekly_digest", "telegram_push",
+    "bookings", "events", "weekly_digest", "telegram_push",
 )
 
 # Notification ``type`` → the preference key that gates its outbound push.
@@ -40,6 +40,8 @@ TYPE_TO_PREF = {
     "booking_request": "bookings",
     "booking_confirmed": "bookings",
     "booking_declined": "bookings",
+    "event_rsvp": "events",
+    "event_reminder": "events",
 }
 
 
@@ -84,11 +86,13 @@ def add_notification(
     type: str,
     actor_id: int | None = None,
     project_id: int | None = None,
+    event_id: int | None = None,
 ) -> None:
     """Queue an inbox item for `user_id`. Best-effort; never raise."""
     try:
         db.add(Notification(
-            user_id=user_id, type=type, actor_id=actor_id, project_id=project_id,
+            user_id=user_id, type=type, actor_id=actor_id,
+            project_id=project_id, event_id=event_id,
         ))
     except Exception:
         pass

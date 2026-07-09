@@ -169,6 +169,7 @@ class NotificationPrefsUpdate(BaseModel):
     applications: bool | None = None
     project_updates: bool | None = None
     bookings: bool | None = None
+    events: bool | None = None
     weekly_digest: bool | None = None
     telegram_push: bool | None = None
 
@@ -311,6 +312,7 @@ class NotificationOut(BaseModel):
     project: NotifProject | None = None
     actor_id: int | None = None
     actor_name: str | None = None
+    event_id: int | None = None
     link: str | None = None
 
 

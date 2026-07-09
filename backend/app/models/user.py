@@ -150,6 +150,7 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(String(32))
     actor_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # who triggered
     project_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    event_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # for event_rsvp/event notifs
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 

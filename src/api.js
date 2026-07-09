@@ -213,6 +213,7 @@ export const messages = {
   markRead:      (id)           => req(`/conversations/${id}/read`, { method: "POST" }),
   block:         (userId)       => req(`/users/${userId}/block`, { method: "POST" }),
   unblock:       (userId)       => req(`/users/${userId}/block`, { method: "DELETE" }),
+  blocked:       ()             => req("/messages/blocked"),
   reportMessage: (id, reason)   => req(`/messages/${id}/report`, { method: "POST", body: JSON.stringify({ reason: reason || null }) }),
 };
 

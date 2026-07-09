@@ -12,6 +12,7 @@ import { HomeStrip } from "../components/HomeStrip";
 import { NotificationPrefsSheet } from "../components/NotificationPrefsSheet";
 import { SavedSheet } from "../components/SavedSheet";
 import { InviteSheet } from "../components/InviteSheet";
+import { BlockedSheet } from "../components/BlockedSheet";
 import { InboxModal } from "../components/InboxModal";
 import { ProjectManageSheet } from "../components/ProjectManageSheet";
 import { UserProfileModal } from "../components/UserProfileModal";
@@ -157,6 +158,7 @@ export const ProfileScreen = () => {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
@@ -597,6 +599,7 @@ export const ProfileScreen = () => {
                 display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
             ) : null} />
           <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
+          <ActionRow glyph="🚫" label={t("blocked.title")} onClick={() => setBlockedOpen(true)} />
           {isMentor && (
             <ActionRow glyph="🗓️" label={t("mentor.mySlots")} onClick={() => setSlotsOpen(true)} />
           )}
@@ -649,6 +652,7 @@ export const ProfileScreen = () => {
       {notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
       {savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
       {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}
+      {blockedOpen && <BlockedSheet onClose={() => setBlockedOpen(false)} />}
       {inboxOpen && <InboxModal onClose={() => { setInboxOpen(false); setHomeRefresh(k => k + 1); }} />}
       {manageOpen && <ProjectManageSheet me={user} initialTab="requests" onClose={() => { setManageOpen(false); setHomeRefresh(k => k + 1); }} onChanged={loadUser} />}
       {viewingUserId && <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />}

@@ -661,6 +661,25 @@ async def mark_read(
 
 # ── Block / unblock ──────────────────────────────────────────────────────────
 
+@router.get("/messages/blocked", response_model=list[dict])
+async def blocked_users(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """People I've blocked — for the Settings 'Blocked users' list (unblock reuses
+    DELETE /users/{id}/block)."""
+    ids = (await db.execute(
+        select(Block.blocked_id).where(Block.blocker_id == current_user.id)
+    )).scalars().all()
+    if not ids:
+        return []
+    people = (await db.execute(select(User).where(User.id.in_(ids)))).scalars().all()
+    return [
+        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url}
+        for u in people
+    ]
+
+
 @router.post("/users/{user_id}/block", response_model=dict)
 async def block_user(
     user_id: int,

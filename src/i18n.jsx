@@ -99,6 +99,8 @@ const STRINGS = {
   "saved.title": { en: "Saved projects", uz: "Saqlangan loyihalar", ru: "Сохранённые проекты" },
   "saved.empty": { en: "No saved projects yet. Tap the heart on any project to keep it here.", uz: "Hozircha saqlangan loyiha yo‘q. Istalgan loyihadagi yurakchani bosib, shu yerda saqlang.", ru: "Пока нет сохранённых проектов. Нажмите сердечко на проекте, чтобы сохранить." },
   "saved.remove": { en: "Remove from saved", uz: "Saqlanganlardan olib tashlash", ru: "Убрать из сохранённых" },
+  "blocked.title": { en: "Blocked users", uz: "Bloklangan foydalanuvchilar", ru: "Заблокированные" },
+  "blocked.empty": { en: "You haven't blocked anyone.", uz: "Siz hech kimni bloklamagansiz.", ru: "Вы никого не заблокировали." },
   "common.continue": { en: "Continue →", uz: "Davom etish →", ru: "Продолжить →" },
   "common.viewProfile": { en: "View Profile", uz: "Profilni ko‘rish", ru: "Профиль" },
   "common.yo": { en: "{n} y/o", uz: "{n} yosh", ru: "{n} лет" },

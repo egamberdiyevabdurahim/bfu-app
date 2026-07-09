@@ -102,6 +102,7 @@ export default function Messenger({ meId }) {
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [blockedLocal, setBlockedLocal] = useState(false);
+  const [threadMembers, setThreadMembers] = useState([]); // for read receipts (✓✓ seen)
 
   const threadBodyRef = useRef(null);
   const composerRef = useRef(null);
@@ -109,6 +110,22 @@ export default function Messenger({ meId }) {
   const active = Array.isArray(conversations)
     ? conversations.find((c) => c.id === activeId) || null
     : null;
+
+  // Read receipts: how many *other* members have read a message sent at `iso`.
+  // Backend timestamps are naive UTC — normalize both sides identically so the
+  // comparison is offset-safe regardless of the viewer's timezone.
+  const asMs = (s) => (s ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + "Z").getTime() : NaN);
+  const otherMembers = threadMembers.filter((m) => m.id !== meId);
+  const seenBy = (iso) => {
+    const t0 = asMs(iso);
+    if (Number.isNaN(t0)) return 0;
+    let n = 0;
+    for (const m of otherMembers) {
+      const lr = asMs(m.last_read_at);
+      if (!Number.isNaN(lr) && lr >= t0) n++;
+    }
+    return n;
+  };
 
   // ── Load conversation list (mount + poll) ─────────────────────────────────
   const loadList = useCallback(async () => {
@@ -178,16 +195,33 @@ export default function Messenger({ meId }) {
     [loadList]
   );
 
+  // Roster + per-member last_read_at → drives read receipts. Best-effort;
+  // refreshed on open and on each poll tick so "seen" appears as others read.
+  const loadMembers = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      const r = await bfu(`/conversations/${id}/members`);
+      setThreadMembers(Array.isArray(r?.members) ? r.members : []);
+    } catch {
+      /* receipts are non-critical — leave the last known roster */
+    }
+  }, []);
+
   useEffect(() => {
     if (!activeId) return;
     setBlockedLocal(false);
     setMenuOpen(false);
     setShowReport(false);
+    setThreadMembers([]);
     loadThread(activeId);
+    loadMembers(activeId);
     let timer = null;
     const start = () => {
       stop();
-      timer = window.setInterval(() => loadThread(activeId, { silent: true }), THREAD_POLL_MS);
+      timer = window.setInterval(() => {
+        loadThread(activeId, { silent: true });
+        loadMembers(activeId); // keep "seen" live as others read
+      }, THREAD_POLL_MS);
     };
     const stop = () => {
       if (timer) window.clearInterval(timer);
@@ -197,6 +231,7 @@ export default function Messenger({ meId }) {
       if (document.hidden) stop();
       else {
         loadThread(activeId, { silent: true });
+        loadMembers(activeId);
         start();
       }
     };
@@ -206,7 +241,7 @@ export default function Messenger({ meId }) {
       stop();
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [activeId, loadThread]);
+  }, [activeId, loadThread, loadMembers]);
 
   // Autoscroll to the newest message when the message count grows.
   const lastCount = useRef(0);
@@ -547,7 +582,24 @@ export default function Messenger({ meId }) {
                       <span className="msg-sender">{m.sender?.display_name || t("messages.sender_fallback")}</span>
                     )}
                     <div className={`msg-bubble${mine ? " msg-bubble-mine" : ""}`}>{m.body}</div>
-                    <span className="msg-time">{relTime(m.created_at)}</span>
+                    <span className="msg-time">
+                      {relTime(m.created_at)}
+                      {mine && (() => {
+                        const n = seenBy(m.created_at);
+                        if (active?.kind === "project") {
+                          return n > 0 ? (
+                            <span className="msg-receipt seen" title={`${t("messages.seen_by")} ${n}`}>✓✓ {n}</span>
+                          ) : (
+                            <span className="msg-receipt" title={t("messages.sent")}>✓</span>
+                          );
+                        }
+                        return n > 0 ? (
+                          <span className="msg-receipt seen" title={t("messages.seen")}>✓✓</span>
+                        ) : (
+                          <span className="msg-receipt" title={t("messages.sent")}>✓</span>
+                        );
+                      })()}
+                    </span>
                   </div>
                 </div>
               );
@@ -734,6 +786,8 @@ export default function Messenger({ meId }) {
           border: 1px solid rgba(232,161,92,0.5); color: #1A1206; font-weight: 500;
         }
         .msg-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); padding: 0 4px; }
+        .msg-receipt { margin-left: 5px; font-size: 10px; letter-spacing: -0.5px; color: var(--muted); }
+        .msg-receipt.seen { color: var(--teal-bright); }
         .msg-composer { flex: 0 0 auto; display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--hair); align-items: flex-end; }
         .msg-input {
           flex: 1 1 auto; resize: none; max-height: 140px; min-height: 44px;

@@ -11,6 +11,7 @@ import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
 import { HomeStrip } from "../components/HomeStrip";
 import { NotificationPrefsSheet } from "../components/NotificationPrefsSheet";
 import { SavedSheet } from "../components/SavedSheet";
+import { InviteSheet } from "../components/InviteSheet";
 import { InboxModal } from "../components/InboxModal";
 import { ProjectManageSheet } from "../components/ProjectManageSheet";
 import { UserProfileModal } from "../components/UserProfileModal";
@@ -137,6 +138,7 @@ export const ProfileScreen = () => {
   const [savingLang, setSavingLang] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
@@ -548,9 +550,7 @@ export const ProfileScreen = () => {
           <ActionRow glyph="🔗" label={t("trust.sharePublic")} onClick={copyPublic} />
           <ActionRow glyph="📄" label={t("resume.download")} onClick={downloadCV} />
           <ActionRow glyph="❥" label={t("saved.title")} onClick={() => setSavedOpen(true)} />
-          {inviteLink && (
-            <ActionRow glyph="🎁" label={t("invite.title")} onClick={() => shareUrl(inviteLink, t("invite.shareText"))} />
-          )}
+          <ActionRow glyph="🎁" label={t("invite.title")} onClick={() => setInviteOpen(true)} />
           <ActionRow glyph="🎓" label={t("mentor.browse")} onClick={() => setMentorsOpen(true)} />
           <ActionRow glyph="📅" label={t("booking.title")} onClick={() => setBookingsOpen(true)}
             right={sessionReqs > 0 ? (
@@ -611,6 +611,7 @@ export const ProfileScreen = () => {
       {bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
       {notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
       {savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
+      {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}
       {inboxOpen && <InboxModal onClose={() => { setInboxOpen(false); setHomeRefresh(k => k + 1); }} />}
       {manageOpen && <ProjectManageSheet me={user} initialTab="requests" onClose={() => { setManageOpen(false); setHomeRefresh(k => k + 1); }} onChanged={loadUser} />}
       {viewingUserId && <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>/u/{id} — LinkedIn-structure, spacious</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0A0A0F; --surface:#13131A; --surface-2:#1C1C28; --surface-3:#252535;
+    --accent:#7B6FFF; --accent-2:#A78BFA; --accent-dim:rgba(123,111,255,0.15); --accent-glow:rgba(123,111,255,0.35);
+    --coral:#FF6B6B; --mint:#4ECDC4; --amber:#FFB347;
+    --text:#F0F0FF; --text-2:#A6A6C0; --text-3:#83839B; --border:rgba(255,255,255,0.07);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); font-family:'DM Sans',sans-serif; color:var(--text); min-width:1400px; }
+  .disp { font-family:'Syne',sans-serif; }
+
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:24px 64px; }
+  .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:19px; }
+  .ghost-btn { border:1px solid var(--border); background:transparent; color:var(--text-2); padding:10px 20px; border-radius:8px; font-size:13px; font-family:'DM Sans',sans-serif; }
+
+  .page { max-width:1240px; margin:0 auto 120px; }
+
+  /* Banner + overlapping avatar — the LinkedIn move that gives immediate scale */
+  .banner { height:220px; border-radius:24px; position:relative; overflow:hidden;
+    background:radial-gradient(ellipse 900px 400px at 20% 30%, rgba(123,111,255,0.35), transparent 70%),
+                radial-gradient(ellipse 700px 400px at 85% 70%, rgba(78,205,196,0.18), transparent 70%),
+                var(--surface); }
+  .banner::after { content:""; position:absolute; inset:0; background-image:radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size:28px 28px; opacity:0.5; }
+
+  .identity-row { display:flex; align-items:flex-end; gap:0; margin-top:-72px; padding:0 8px; position:relative; z-index:2; }
+  .avatar { width:152px; height:152px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:52px; color:#fff;
+    border:6px solid var(--bg); box-shadow:0 12px 40px rgba(0,0,0,0.4); flex-shrink:0; }
+  .identity-actions { margin-left:auto; padding-bottom:20px; display:flex; gap:12px; }
+  .btn-primary { background:var(--accent); color:#fff; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; padding:13px 28px; border-radius:10px; border:none; box-shadow:0 4px 24px var(--accent-glow); }
+  .btn-secondary { background:var(--surface-2); color:var(--text); font-family:'Syne',sans-serif; font-weight:600; font-size:14px; padding:13px 24px; border-radius:10px; border:1px solid var(--border); }
+
+  .identity-block { padding:24px 8px 0; }
+  .name-row { display:flex; align-items:center; gap:10px; }
+  .name { font-family:'Syne',sans-serif; font-weight:800; font-size:42px; letter-spacing:-0.02em; }
+  .verified { color:var(--accent); font-size:24px; }
+  .meta { color:var(--text-3); font-size:15px; margin-top:8px; }
+  .building { font-size:18px; color:var(--text-2); margin-top:18px; line-height:1.6; }
+  .building b { color:var(--text); font-weight:600; }
+
+  /* Trust strip — generous room per item, icon + number + label stacked, not chips crammed together */
+  .trust-strip { display:flex; gap:56px; margin-top:36px; padding:28px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .trust-item { }
+  .trust-num { font-family:'Syne',sans-serif; font-weight:800; font-size:26px; }
+  .trust-num.amber { color:var(--amber); }
+  .trust-num.violet { color:var(--accent); }
+  .trust-label { font-size:12px; color:var(--text-3); margin-top:4px; }
+
+  .cols { display:grid; grid-template-columns:1fr 380px; gap:56px; margin-top:56px; }
+  .section-label { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-3); margin-bottom:24px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:36px; margin-bottom:32px; }
+  .about-text { font-size:15px; line-height:1.75; color:var(--text-2); }
+
+  /* Projects — Featured-style cards with real cover art, generous gap */
+  .proj-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .proj-card { }
+  .proj-cover { height:120px; border-radius:16px; background:linear-gradient(135deg,var(--surface-3),var(--surface-2)); display:flex; align-items:center; justify-content:center; font-size:36px; margin-bottom:16px; }
+  .proj-name { font-family:'Syne',sans-serif; font-weight:700; font-size:17px; }
+  .proj-status { font-size:13px; margin-top:6px; }
+  .proj-status.active { color:var(--mint); }
+  .proj-status.closed { color:var(--text-3); }
+
+  /* Vouches — spacious testimonial cards, not thin quote strips */
+  .vouch-card { padding:28px 0; border-bottom:1px solid var(--border); }
+  .vouch-card:last-child { border-bottom:none; }
+  .vouch-text { font-size:16px; line-height:1.65; color:var(--text); }
+  .vouch-meta { display:flex; align-items:center; gap:10px; margin-top:16px; }
+  .vouch-avatar { width:32px; height:32px; border-radius:50%; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text-2); }
+  .vouch-author { font-size:13px; color:var(--text-2); }
+  .vouch-context { font-size:12px; color:var(--text-3); }
+
+  /* Right rail — own breathing room, not squeezed bento cells */
+  .rail-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:32px; margin-bottom:24px; }
+  .rating-big { display:flex; align-items:baseline; gap:12px; }
+  .rating-num { font-family:'Syne',sans-serif; font-size:44px; font-weight:800; color:var(--amber); }
+  .rating-sub { font-size:13px; color:var(--text-3); }
+  .stars { color:var(--amber); font-size:16px; margin-top:8px; }
+  .endorse-row { display:flex; align-items:center; gap:14px; margin-top:20px; }
+  .endorse-name { flex:1; font-size:14px; }
+  .endorse-bar-track { flex:1.4; height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+  .endorse-bar-fill { height:100%; background:var(--accent); border-radius:99px; }
+  .endorse-count { font-size:13px; color:var(--text-3); width:24px; text-align:right; }
+  .skill-list { display:flex; flex-wrap:wrap; gap:10px; }
+  .skill-pill { font-size:14px; padding:9px 16px; border-radius:99px; border:1px solid var(--border); color:var(--text-2); }
+  .link-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); font-size:14px; color:var(--accent); }
+  .link-row:last-child { border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="logo">BFU</div><button class="ghost-btn">brightfuturesuzbekistan.uz</button></div>
+
+<div class="page">
+  <div class="banner"></div>
+  <div class="identity-row">
+    <div class="avatar">AK</div>
+    <div class="identity-actions">
+      <button class="btn-secondary">Message</button>
+      <button class="btn-primary">Open in Telegram →</button>
+    </div>
+  </div>
+  <div class="identity-block">
+    <div class="name-row"><div class="name">Aziz Karimov</div><div class="verified">✓</div></div>
+    <div class="meta">Tashkent, Uzbekistan · Founder at Solar Farm</div>
+    <div class="building">🔨 Currently building: <b>a solar microgrid bringing reliable power to rural schools</b></div>
+
+    <div class="trust-strip">
+      <div class="trust-item"><div class="trust-num amber">4.8</div><div class="trust-label">RATING · 12 REVIEWS</div></div>
+      <div class="trust-item"><div class="trust-num violet">34</div><div class="trust-label">ENDORSEMENTS</div></div>
+      <div class="trust-item"><div class="trust-num">8</div><div class="trust-label">VOUCHES</div></div>
+      <div class="trust-item"><div class="trust-num">6</div><div class="trust-label">MUTUAL CONNECTIONS</div></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <div class="section-label">About</div>
+        <div class="about-text">Third-year student at INHA University Tashkent, building energy infrastructure for underserved communities. Previously led a 40-person hackathon team to a top-3 finish. Looking for engineers who care about real-world impact over resume padding.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Projects</div>
+        <div class="proj-grid">
+          <div class="proj-card"><div class="proj-cover">☀️</div><div class="proj-name">Solar Farm</div><div class="proj-status active">● Active · Founder</div></div>
+          <div class="proj-card"><div class="proj-cover">🌱</div><div class="proj-name">EcoTeam</div><div class="proj-status closed">● Closed · Member</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">What people say</div>
+        <div class="vouch-card">
+          <div class="vouch-text">"Aziz ships fast and actually listens to feedback. One of the most reliable people I've worked with on a technical team."</div>
+          <div class="vouch-meta"><div class="vouch-avatar">D</div><div><div class="vouch-author">Dilnoza Yusupova</div><div class="vouch-context">Worked together on Solar Farm</div></div></div>
+        </div>
+        <div class="vouch-card">
+          <div class="vouch-text">"Brought real energy to our hackathon team and kept everyone on track under serious deadline pressure."</div>
+          <div class="vouch-meta"><div class="vouch-avatar">B</div><div><div class="vouch-author">Bekzod Rashidov</div><div class="vouch-context">Worked together on EcoTeam</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="rail-card">
+        <div class="section-label">Reputation</div>
+        <div class="rating-big"><div class="rating-num">4.8</div><div class="rating-sub">out of 5<br>12 ratings</div></div>
+        <div class="stars">★★★★★</div>
+        <div style="height:1px;background:var(--border);margin:24px 0"></div>
+        <div class="endorse-row"><div class="endorse-name">React</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:90%"></div></div><div class="endorse-count">18</div></div>
+        <div class="endorse-row"><div class="endorse-name">Product design</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:55%"></div></div><div class="endorse-count">11</div></div>
+        <div class="endorse-row"><div class="endorse-name">Python</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:25%"></div></div><div class="endorse-count">5</div></div>
+      </div>
+
+      <div class="rail-card">
+        <div class="section-label">Skills &amp; interests</div>
+        <div class="skill-list">
+          <span class="skill-pill">React</span><span class="skill-pill">Python</span>
+          <span class="skill-pill">Product design</span><span class="skill-pill">Climate</span>
+          <span class="skill-pill">Hardware</span>
+        </div>
+      </div>
+
+      <div class="rail-card">
+        <div class="section-label">Links</div>
+        <div class="link-row"><span>GitHub</span><span>↗</span></div>
+        <div class="link-row"><span>Personal site</span><span>↗</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

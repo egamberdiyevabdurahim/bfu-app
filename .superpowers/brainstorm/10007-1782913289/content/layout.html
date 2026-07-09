@@ -1,0 +1,113 @@
+<h2>Which desktop shell layout feels right for BFU?</h2>
+<p class="subtitle">This is the skeleton every desktop screen will sit inside — nav + content structure. Research recommends a sidebar + master-detail pattern (like Attio, Slack, WhatsApp Web), but let's compare it against two simpler options.</p>
+
+<style>
+  .wire { background:#0A0A0F; border:1px solid rgba(255,255,255,0.12); border-radius:10px; overflow:hidden; font-family:sans-serif; }
+  .wire-row { display:flex; height:220px; }
+  .wire-rail { background:#13131A; border-right:1px solid rgba(255,255,255,0.07); padding:10px 8px; display:flex; flex-direction:column; gap:6px; }
+  .wire-rail .item { padding:6px 8px; border-radius:6px; font-size:11px; color:#A6A6C0; }
+  .wire-rail .item.active { background:rgba(123,111,255,0.15); color:#7B6FFF; font-weight:600; }
+  .wire-list { background:#0F0F14; border-right:1px solid rgba(255,255,255,0.07); padding:8px; display:flex; flex-direction:column; gap:5px; overflow:hidden; }
+  .wire-list .row { padding:6px 8px; border-radius:6px; font-size:10px; color:#83839B; background:#13131A; }
+  .wire-list .row.sel { background:rgba(123,111,255,0.12); color:#F0F0FF; }
+  .wire-main { flex:1; padding:14px; color:#83839B; font-size:11px; }
+  .wire-main .block { background:#13131A; border:1px solid rgba(255,255,255,0.07); border-radius:8px; height:24px; margin-bottom:8px; }
+  .wire-main .block.big { height:60px; }
+  .wire-panel { width:130px; background:#13131A; border-left:1px solid rgba(255,255,255,0.07); padding:10px; }
+  .wire-panel .avatar { width:36px; height:36px; border-radius:99px; background:#7B6FFF; margin-bottom:8px; }
+  .wire-topbar { background:#13131A; border-bottom:1px solid rgba(255,255,255,0.07); padding:10px 14px; display:flex; gap:16px; font-size:11px; color:#A6A6C0; }
+  .wire-topbar .item.active { color:#7B6FFF; font-weight:600; }
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="a-simple-sidebar" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="wire">
+        <div class="wire-row">
+          <div class="wire-rail" style="width:70px">
+            <div class="item active">Discover</div>
+            <div class="item">Projects</div>
+            <div class="item">Events</div>
+            <div class="item">Mentors</div>
+            <div class="item">Admin</div>
+          </div>
+          <div class="wire-main">
+            <div class="block big"></div>
+            <div class="block"></div>
+            <div class="block"></div>
+            <div class="block"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Simple sidebar + single content pane</h3>
+      <p>Sidebar for nav only. Content area shows one thing at a time (list OR detail), similar to a wider version of the Mini App. Simplest to build.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b-master-detail" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="wire">
+        <div class="wire-row">
+          <div class="wire-rail" style="width:60px">
+            <div class="item active">Disc</div>
+            <div class="item">Proj</div>
+            <div class="item">Evnt</div>
+            <div class="item">Mntr</div>
+            <div class="item">Adm</div>
+          </div>
+          <div class="wire-list" style="width:90px">
+            <div class="row sel">Aziz K.</div>
+            <div class="row">Dilnoza</div>
+            <div class="row">Bekzod</div>
+            <div class="row">Malika</div>
+            <div class="row">Sardor</div>
+          </div>
+          <div class="wire-main">
+            <div class="block big"></div>
+            <div class="block"></div>
+          </div>
+          <div class="wire-panel">
+            <div class="avatar"></div>
+            <div style="font-size:9px">★4.8 · 12 vouches</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Sidebar + list + detail panel (RECOMMENDED)</h3>
+      <p>Three panes at once: nav, list (people/projects), and a detail/inspector panel that opens beside it — nothing covers the list. Matches Attio, Slack, WhatsApp Web. More to build, but feels like a real desktop workspace.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c-topbar" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="wire">
+        <div class="wire-topbar">
+          <div class="item active">Discover</div>
+          <div class="item">Projects</div>
+          <div class="item">Events</div>
+          <div class="item">Mentors</div>
+          <div class="item">Admin</div>
+        </div>
+        <div class="wire-main" style="display:flex;gap:10px;padding:14px">
+          <div style="flex:1">
+            <div class="block big"></div>
+            <div class="block"></div>
+            <div class="block"></div>
+          </div>
+          <div style="flex:1">
+            <div class="block big"></div>
+            <div class="block"></div>
+            <div class="block"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Top nav bar + wide grid content</h3>
+      <p>Horizontal nav on top (like a marketing/dashboard site), content below as a wide grid of cards. Feels more like a website, less like a workspace tool. Simple, but loses the "professional tool" feel research points to.</p>
+    </div>
+  </div>
+</div>

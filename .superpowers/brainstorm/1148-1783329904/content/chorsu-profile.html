@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chorsu — /u/{id} profile (lit window)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0B0A08;--surface:#1A1815;--surface-2:#232019;--text:#F5F1E8;--muted:#A8A093;--hair:#332E26;
+    --ember:#FF6A3D;--amber:#E8A15C;--terra:#C0563B;--teal:#12564F;--green:#7FB069;
+  }
+  body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0.045;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 1100px 460px at 70% -6%, rgba(232,161,92,0.13), transparent 68%),
+               radial-gradient(ellipse 1000px 500px at 20% 106%, rgba(18,86,79,0.16), transparent 70%)}
+
+  .wrap{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:0 40px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:26px 0}
+  .topbar .brand{display:flex;align-items:center;gap:10px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted)}
+  .topbar .actions{display:flex;gap:12px}
+  .btn{font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:14px;padding:11px 22px;border-radius:11px;cursor:pointer;border:none}
+  .btn.primary{background:linear-gradient(135deg,var(--amber),var(--terra));color:#160F0A;box-shadow:0 6px 30px rgba(232,161,92,0.3)}
+  .btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--hair)}
+
+  /* Identity strip */
+  .identity{display:flex;gap:26px;align-items:center;padding:36px 0 40px}
+  .id-av{width:110px;height:110px;border-radius:50%;flex-shrink:0;position:relative;
+    background:linear-gradient(135deg,var(--amber),var(--terra) 65%,var(--teal));
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:40px;color:#160F0A;
+    box-shadow:0 0 50px rgba(232,161,92,0.3)}
+  .id-av .online{position:absolute;bottom:6px;right:6px;width:18px;height:18px;border-radius:50%;background:var(--ember);border:3px solid var(--bg);box-shadow:0 0 12px var(--ember);animation:pulse 2s infinite}
+  .id-name{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:clamp(38px,5vw,58px);line-height:1;letter-spacing:-0.02em;display:flex;align-items:center;gap:10px}
+  .id-name .verified{color:var(--amber);font-size:0.55em}
+  .id-building{font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;color:var(--amber);margin-top:12px}
+  .id-sub{font-size:14px;color:var(--muted);margin-top:10px}
+  .id-actions{margin-left:auto;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+
+  /* Bento — airy, varied cells */
+  .bento{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:minmax(150px,auto);gap:20px;padding-bottom:36px}
+  .cell{background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:28px;position:relative;overflow:hidden;transition:transform .3s,border-color .3s}
+  .cell:hover{transform:translateY(-4px);border-color:rgba(232,161,92,0.35)}
+  .cell .lbl{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+  .cell.hero{grid-column:span 2;grid-row:span 2;background:linear-gradient(160deg,var(--surface-2),var(--surface))}
+  .hero-cover{height:150px;border-radius:14px;background:linear-gradient(135deg,var(--terra),var(--teal));display:flex;align-items:center;justify-content:center;font-size:52px;margin:6px 0 22px}
+  .hero-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:30px;letter-spacing:-0.01em}
+  .hero-desc{font-size:15px;color:var(--muted);line-height:1.55;margin-top:10px;max-width:460px}
+  .hero-metrics{display:flex;gap:32px;margin-top:24px}
+  .hero-metrics .m .n{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--amber)}
+  .hero-metrics .m .k{font-size:12px;color:var(--muted);margin-top:4px}
+
+  .rep-ring{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  .rep-ring svg{transform:rotate(-90deg)}
+  .rep-ring .num{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:34px;margin-top:-58px;margin-bottom:24px}
+  .rep-ring .cap{font-size:12px;color:var(--muted);margin-top:10px}
+
+  .raise-amt{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:32px;color:var(--green)}
+  .ach-row{display:flex;gap:10px;margin-top:6px}
+  .ach{width:44px;height:44px;border-radius:12px;background:var(--surface-2);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .ach.earned{background:rgba(232,161,92,0.12);border-color:rgba(232,161,92,0.4)}
+  .conn-stack{display:flex;margin-top:6px}
+  .conn-stack .f{width:38px;height:38px;border-radius:50%;margin-left:-10px;border:2px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#160F0A}
+  .conn-stack .f:first-child{margin-left:0}
+  .vouch-q{font-family:'Instrument Serif',serif;font-style:italic;font-size:17px;line-height:1.4;color:var(--text)}
+  .vouch-by{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--muted)}
+  .vouch-by .face{width:28px;height:28px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--amber)}
+
+  /* Threads — never bottoms out */
+  .threads{background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:30px;margin-bottom:70px}
+  .threads h3{font-family:'Instrument Serif',serif;font-style:italic;font-size:23px;font-weight:400;margin-bottom:18px;color:var(--amber)}
+  .t-row{display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid var(--hair);font-size:15px;cursor:pointer;transition:padding-left .25s}
+  .t-row:last-child{border-bottom:none}
+  .t-row:hover{padding-left:8px}
+  .t-row .av{width:34px;height:34px;border-radius:50%;flex-shrink:0}
+  .t-row .tag{font-family:'Space Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);background:var(--surface-2);padding:5px 10px;border-radius:6px;margin-left:auto}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:0.6}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><img src="bfu-mark.png" style="height:22px" alt="">Bright Futures · /u/aziz</div>
+    <div class="actions"><button class="btn ghost">Save to your list</button><button class="btn primary">Open in Telegram →</button></div>
+  </div>
+
+  <div class="identity">
+    <div class="id-av">AK<div class="online"></div></div>
+    <div>
+      <div class="id-name">Aziz Karimov <span class="verified">✓</span></div>
+      <div class="id-building">is building a solar microgrid for rural schools</div>
+      <div class="id-sub">Tashkent · Founder · Volunteer · Mentor · online now</div>
+    </div>
+  </div>
+
+  <div class="bento">
+    <div class="cell hero">
+      <div class="lbl">Currently building</div>
+      <div class="hero-cover">☀️</div>
+      <div class="hero-title">Solar Farm</div>
+      <div class="hero-desc">Affordable solar microgrids bringing reliable power to rural schools across the Fergana valley. Piloting in 3 districts.</div>
+      <div class="hero-metrics">
+        <div class="m"><div class="n" data-count="3">0</div><div class="k">Open roles</div></div>
+        <div class="m"><div class="n" data-count="2">0</div><div class="k">Co-founders</div></div>
+        <div class="m"><div class="n">Q2</div><div class="k">Launching</div></div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="lbl">Reputation</div>
+      <div class="rep-ring">
+        <svg width="120" height="120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6"/>
+        <circle id="repArc" cx="60" cy="60" r="52" fill="none" stroke="url(#g)" stroke-width="6" stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"/>
+        <defs><linearGradient id="g"><stop offset="0" stop-color="#E8A15C"/><stop offset="1" stop-color="#C0563B"/></linearGradient></defs></svg>
+        <div class="num">4.8</div>
+        <div class="cap">from 12 ratings · 34 endorsements</div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="lbl">Looking for</div>
+      <div class="raise-amt">A backend engineer</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:8px">who cares about impact over resume padding</div>
+    </div>
+
+    <div class="cell">
+      <div class="lbl">Achievements</div>
+      <div class="ach-row"><div class="ach earned">🌱</div><div class="ach earned">🤝</div><div class="ach earned">🏆</div><div class="ach">🔒</div></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:12px">Early adopter · Connector · Top inviter</div>
+    </div>
+
+    <div class="cell">
+      <div class="lbl">Vouched by 8 builders</div>
+      <div class="vouch-q">"Aziz ships fast and actually listens to feedback."</div>
+      <div class="vouch-by"><span class="face">D</span>Dilnoza Y. · Solar Farm</div>
+    </div>
+
+    <div class="cell">
+      <div class="lbl">Connected to</div>
+      <div class="conn-stack">
+        <span class="f" style="background:linear-gradient(135deg,#E8A15C,#C0563B)">D</span>
+        <span class="f" style="background:linear-gradient(135deg,#7FB069,#12564F)">B</span>
+        <span class="f" style="background:linear-gradient(135deg,#F0B429,#C0563B)">M</span>
+        <span class="f" style="background:linear-gradient(135deg,#5EC5B6,#12564F)">S</span>
+        <span class="f" style="background:var(--surface-2);color:var(--muted)">+6</span>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-top:14px">6 mutual connections with you</div>
+    </div>
+  </div>
+
+  <div class="threads">
+    <h3>Threads from here</h3>
+    <div class="t-row"><span class="av" style="background:linear-gradient(135deg,#7FB069,#12564F)"></span><span><b>3 builders</b> solving the same problem as Aziz</span><span class="tag">Same space</span></div>
+    <div class="t-row"><span class="av" style="background:linear-gradient(135deg,#E8A15C,#C0563B)"></span><span>People who also <b>volunteered in Fergana</b></span><span class="tag">Nearby</span></div>
+    <div class="t-row"><span class="av" style="background:linear-gradient(135deg,#F0B429,#C0563B)"></span><span>If you like Aziz, meet <b>Malika</b> — both climate + hardware</span><span class="tag">Serendipity</span></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // spring-fill the reputation ring: 4.8/5 -> 96%
+  setTimeout(()=>{const a=document.getElementById('repArc');if(a){a.style.transition='stroke-dashoffset 1.1s cubic-bezier(0.2,1.3,0.4,1)';a.style.strokeDashoffset=327*(1-0.96);}},350);
+  // count-up metrics
+  document.querySelectorAll('[data-count]').forEach(el=>{const t=+el.dataset.count;let n=0;const step=()=>{n++;el.textContent=n;if(n<t)setTimeout(step,140);};setTimeout(step,500);});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World 3 — Chorsu (Living Bazaar)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0B0A08;--surface:#1A1815;--surface-2:#232019;--text:#F5F1E8;--muted:#A8A093;--hair:#332E26;
+    --ember:#FF6A3D;--amber:#E8A15C;--terra:#C0563B;--teal:#12564F;--green:#7FB069;
+  }
+  body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0.045;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  /* firelit glow from bottom */
+  body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 1200px 500px at 50% 108%, rgba(255,106,61,0.14), transparent 70%),
+               radial-gradient(ellipse 900px 500px at 15% -10%, rgba(18,86,79,0.18), transparent 70%)}
+
+  .wrap{position:relative;z-index:2;max-width:1360px;margin:0 auto;padding:0 40px}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:26px 0}
+  .topbar .brand{display:flex;align-items:center;gap:10px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted)}
+  .live-count{display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:12px;color:var(--green)}
+  .live-count .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 1.8s infinite}
+
+  /* Ambient live ticker */
+  .ticker{margin:8px 0 4px;height:34px;overflow:hidden;position:relative;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+  .ticker-track{position:absolute;inset:0;display:flex;align-items:center}
+  .ticker-item{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);white-space:nowrap;transition:opacity .5s}
+  .ticker-item b{color:var(--text);font-weight:600}
+  .ticker-item .live{width:6px;height:6px;border-radius:50%;background:var(--ember);box-shadow:0 0 8px var(--ember)}
+
+  .hero-line{padding:44px 0 10px}
+  .hero-line h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:clamp(40px,6vw,74px);line-height:1.02;letter-spacing:-0.02em;max-width:900px}
+  .hero-line h1 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:var(--amber)}
+  .hero-line p{margin-top:18px;font-size:17px;color:var(--muted);max-width:560px;line-height:1.5}
+
+  .section-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin:44px 0 20px;display:flex;justify-content:space-between;align-items:center}
+
+  /* The city — grid of builder windows */
+  .city{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding-bottom:40px}
+  .builder{position:relative;border-radius:18px;padding:22px;cursor:pointer;overflow:hidden;
+    background:var(--surface);border:1px solid var(--hair);transition:transform .35s cubic-bezier(0.2,0.9,0.3,1),box-shadow .35s,border-color .35s;min-height:150px}
+  .builder .emberwash{position:absolute;inset:0;opacity:0.14;z-index:0;transition:opacity .35s}
+  .builder:hover{transform:translateY(-6px) scale(1.03);z-index:5;border-color:rgba(232,161,92,0.4);box-shadow:0 24px 60px rgba(0,0,0,0.5),0 0 40px rgba(255,106,61,0.12)}
+  .builder:hover .emberwash{opacity:0.26}
+  .builder:hover .bloom{max-height:120px;opacity:1;margin-top:14px}
+  .b-head{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+  .b-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#120E0A;flex-shrink:0}
+  .b-name{font-weight:600;font-size:16px;display:flex;align-items:center;gap:6px}
+  .b-role{font-size:12px;color:var(--muted);margin-top:2px}
+  .online{width:9px;height:9px;border-radius:50%;background:var(--ember);box-shadow:0 0 10px var(--ember);animation:onlinePulse 2s infinite}
+  .b-building{position:relative;z-index:1;margin-top:14px;font-size:13px;color:var(--text);line-height:1.4}
+  .b-building span{color:var(--amber)}
+  .bloom{max-height:0;opacity:0;overflow:hidden;transition:max-height .4s cubic-bezier(0.2,0.9,0.3,1),opacity .3s,margin-top .4s;position:relative;z-index:1}
+  .bloom .quote{font-family:'Instrument Serif',serif;font-style:italic;font-size:14px;color:var(--muted);line-height:1.4;border-left:2px solid var(--terra);padding-left:12px;margin-bottom:12px}
+  .bloom .row{display:flex;align-items:center;justify-content:space-between}
+  .ring{position:relative;width:44px;height:44px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+  .save-btn{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--amber);background:rgba(232,161,92,0.1);border:1px solid rgba(232,161,92,0.3);padding:8px 12px;border-radius:8px;cursor:pointer}
+
+  /* threads-from-here rail */
+  .threads{background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:28px;margin-bottom:80px}
+  .threads h3{font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;font-weight:400;margin-bottom:18px;color:var(--amber)}
+  .thread-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--hair);font-size:15px}
+  .thread-row:last-child{border-bottom:none}
+  .thread-row .tag{font-family:'Space Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);background:var(--surface-2);padding:5px 10px;border-radius:6px;margin-left:auto}
+
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
+  @keyframes onlinePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:0.6}}
+  .hint{text-align:center;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#5A5346;padding:0 0 50px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><img src="bfu-mark.png" style="height:22px" alt="">Bright Futures · Chorsu</div>
+    <div class="live-count"><span class="dot"></span>34 builders online now</div>
+  </div>
+
+  <div class="ticker"><div class="ticker-track" id="tick"></div></div>
+
+  <div class="hero-line">
+    <h1>A city of builders, <em>lit up</em> at dusk.</h1>
+    <p>Wander from one glowing window to the next. Someone is always building something right now.</p>
+  </div>
+
+  <div class="section-label"><span>Building tonight — Tashkent</span><span>Hover any window ↓</span></div>
+  <div class="city" id="city"></div>
+
+  <div class="threads">
+    <h3>Threads from here — the page never bottoms out</h3>
+    <div class="thread-row"><span>3 builders solving the same problem as Aziz</span><span class="tag">Same space</span></div>
+    <div class="thread-row"><span>People who also volunteered in Fergana</span><span class="tag">Nearby</span></div>
+    <div class="thread-row"><span>If you liked Dilnoza, meet Malika — both design + climate</span><span class="tag">Serendipity</span></div>
+  </div>
+
+  <div class="hint">World 3 — Chorsu · a scene, not a database</div>
+</div>
+
+<script>
+(function(){
+  const embers=[['#E8A15C','#C0563B'],['#7FB069','#12564F'],['#FF6A3D','#C0563B'],['#E8A15C','#12564F'],['#F0B429','#C0563B'],['#5EC5B6','#12564F']];
+  const people=[
+    {n:'Aziz Karimov',i:'AK',r:'Founder · Solar Farm',on:true,build:'a solar microgrid for rural schools',q:'"Ships fast, listens to feedback."',rep:96},
+    {n:'Dilnoza Y.',i:'DY',r:'Designer · EcoTeam',on:true,build:'a climate-data viz tool',q:'"Turns messy data into clarity."',rep:88},
+    {n:'Bekzod R.',i:'BR',r:'ML Engineer',on:false,build:'an Uzbek speech model',q:'"The calmest person under deadline."',rep:81},
+    {n:'Malika S.',i:'MS',r:'Founder · Volunteer',on:true,build:'a rural tutoring network',q:'"Relentless about impact."',rep:92},
+    {n:'Rustam A.',i:'RA',r:'Looking for co-founder',on:true,build:'a fintech for farmers',q:'"Sees opportunities others miss."',rep:74},
+    {n:'Nigora T.',i:'NT',r:'Product · Mentor',on:false,build:'a mentorship marketplace',q:'"Best mentor I ever had."',rep:90},
+    {n:'Sardor K.',i:'SK',r:'Hardware',on:true,build:'low-cost air-quality sensors',q:'"Builds things that actually ship."',rep:78},
+    {n:'Kamola I.',i:'KI',r:'Growth · Volunteer',on:false,build:'a youth civic platform',q:'"Grew our community 10x."',rep:85},
+  ];
+  const city=document.getElementById('city');
+  people.forEach((p,idx)=>{
+    const em=embers[idx%embers.length];
+    const off=Math.round(126*(1-p.rep/100));
+    const el=document.createElement('div');el.className='builder';
+    el.innerHTML=`
+      <div class="emberwash" style="background:radial-gradient(circle at 30% 20%, ${em[0]}, ${em[1]} 70%)"></div>
+      <div class="b-head">
+        <div class="b-av" style="background:linear-gradient(135deg,${em[0]},${em[1]})">${p.i}</div>
+        <div><div class="b-name">${p.n} ${p.on?'<span class="online"></span>':''}</div><div class="b-role">${p.r}</div></div>
+      </div>
+      <div class="b-building">🔨 Building <span>${p.build}</span></div>
+      <div class="bloom">
+        <div class="quote">${p.q}</div>
+        <div class="row">
+          <div class="ring">
+            <svg width="44" height="44"><circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+            <circle class="rep-arc" cx="22" cy="22" r="20" fill="none" stroke="${em[0]}" stroke-width="3" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="126" data-off="${off}"/></svg>
+            <div class="val">${p.rep}</div>
+          </div>
+          <button class="save-btn">+ Save</button>
+        </div>
+      </div>`;
+    el.addEventListener('mouseenter',()=>{const a=el.querySelector('.rep-arc');a.style.transition='stroke-dashoffset .7s cubic-bezier(0.2,1.4,0.4,1)';a.style.strokeDashoffset=a.dataset.off;});
+    el.addEventListener('mouseleave',()=>{const a=el.querySelector('.rep-arc');a.style.strokeDashoffset='126';});
+    city.appendChild(el);
+  });
+
+  // ambient ticker
+  const msgs=[
+    'Aziza just added a project','12 builders online in Tashkent right now','Rustam is looking for a co-founder',
+    'Dilnoza got 3 new endorsements','A new startup launched in Samarqand','Malika just vouched for Sardor',
+    'Nigora opened 2 mentor slots for this week','Bekzod shipped v1 of his speech model'
+  ];
+  const track=document.getElementById('tick');let ti=0;
+  function showMsg(){track.innerHTML=`<div class="ticker-item"><span class="live"></span><b>${msgs[ti%msgs.length]}</b></div>`;ti++;}
+  showMsg();setInterval(showMsg,2600);
+})();
+</script>
+</body>
+</html>

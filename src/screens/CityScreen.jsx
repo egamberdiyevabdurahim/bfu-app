@@ -96,7 +96,11 @@ export const CityScreen = () => {
   const [unread, setUnread] = useState(0);
   const [msgUnread, setMsgUnread] = useState(0);
   const [stats, setStats] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const loadSeq = useRef(0);
+
+  const PAGE = 60;
 
   // Dynamic discovery facets (mirrors the desktop FilterBar): every facet is a
   // real /users/discover server param (foryou/cofounder/volunteer/mentor/online/
@@ -150,14 +154,18 @@ export const CityScreen = () => {
     return () => { clearInterval(id); window.removeEventListener("focus", onFocus); window.removeEventListener("bfu:messages-read", onFocus); };
   }, []);
 
-  const loadUsers = async () => {
+  // append=true keeps the current list and pulls the next page (the "Load more"
+  // button). A fresh filter/sort change calls loadUsers() (append=false) → offset 0.
+  const loadUsers = async (append = false) => {
     const seq = ++loadSeq.current;
-    setLoading(true); setLoadError(false);
+    const off = append ? people.length : 0;
+    if (append) setLoadingMore(true);
+    else { setLoading(true); setLoadError(false); }
     try {
       const f = activeFilter;
       // Wider page so the header count / stat cards / derived skill chips sample
       // more than the newest 20 (they're still a sample, not a global total).
-      const q = { sort, limit: 60 };
+      const q = { sort, limit: PAGE, offset: off };
       if (verifiedOnly) q.verified = true;
       if (regionFilter) q.region_id = regionFilter;
       if (f === "foryou") q.match = true;
@@ -169,10 +177,16 @@ export const CityScreen = () => {
       const res = await users.discover(q);
       if (loadSeq.current !== seq) return;
       const list = Array.isArray(res) ? res : [];
-      setPeople(list);
+      // Dedupe on append (a just-registered user could shift the window and repeat).
+      setPeople((cur) => {
+        if (!append) return list;
+        const seen = new Set(cur.map((u) => u.id));
+        return [...cur, ...list.filter((u) => !seen.has(u.id))];
+      });
+      setHasMore(list.length === PAGE);   // a full page back ⇒ probably more
       // Refresh the skill chip set from the broadest view (no facet/region/verified),
-      // so the chips stay stable as the user narrows down.
-      if (f === "all" && !regionFilter && !verifiedOnly) {
+      // so the chips stay stable as the user narrows down. First page only.
+      if (!append && f === "all" && !regionFilter && !verifiedOnly) {
         const counts = new Map();
         for (const p of list) for (const s of (p.analysis?.skills || [])) {
           const k = String(s).trim(); if (!k) continue;
@@ -182,9 +196,11 @@ export const CityScreen = () => {
         if (top.length) setSkillChips(top);
       }
     } catch (e) {
-      if (loadSeq.current === seq) setLoadError(true);
+      if (loadSeq.current === seq && !append) setLoadError(true);
     }
-    if (loadSeq.current === seq) setLoading(false);
+    if (loadSeq.current !== seq) return;
+    if (append) setLoadingMore(false);
+    else setLoading(false);
   };
 
   // Header numbers = TRUE community scale (from /users/stats), falling back to
@@ -343,7 +359,7 @@ export const CityScreen = () => {
           ) : loadError ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>
               <div style={{ marginBottom: 12 }}>{t("common.loadError")}</div>
-              <button onClick={loadUsers} className="btn-ghost" style={{ width: "auto" }}>{t("common.retry")}</button>
+              <button onClick={() => loadUsers()} className="btn-ghost" style={{ width: "auto" }}>{t("common.retry")}</button>
             </div>
           ) : listCount === 0 ? (
             <GraceTile t={t} />
@@ -361,6 +377,18 @@ export const CityScreen = () => {
                 />
               ))}
               {listCount < 4 && <GraceTile t={t} />}
+            </div>
+          )}
+          {!loading && !loadError && hasMore && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "18px 0 4px" }}>
+              <button
+                onClick={() => loadUsers(true)}
+                disabled={loadingMore}
+                className="btn-ghost"
+                style={{ width: "auto", minWidth: 160, opacity: loadingMore ? 0.6 : 1 }}
+              >
+                {loadingMore ? t("common.loadingMore") : t("common.loadMore")}
+              </button>
             </div>
           )}
         </div>

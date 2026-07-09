@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>/u/{id} — real BFU gold/black brand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0A0A0A; --surface:#151513; --surface-2:#1E1E1B; --surface-3:#292926;
+    --gold:#C9A25E; --gold-light:#E8D4A0; --gold-dark:#8A6D3A; --gold-dim:rgba(201,162,94,0.15); --gold-glow:rgba(201,162,94,0.35);
+    --mint:#4ECDC4; --coral:#FF6B6B;
+    --text:#F5F0E6; --text-2:#B8AF9C; --text-3:#7A7468; --border:rgba(201,162,94,0.14);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); font-family:'DM Sans',sans-serif; color:var(--text); min-width:1400px; }
+  .disp { font-family:'Syne',sans-serif; }
+  .gold-text { background:linear-gradient(135deg,var(--gold-dark),var(--gold-light),var(--gold)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:24px 64px; border-bottom:1px solid var(--border); }
+  .topbar .brand { display:flex; align-items:center; gap:10px; }
+  .topbar img { height:28px; }
+  .topbar .brandname { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; letter-spacing:0.08em; color:var(--text-2); }
+  .ghost-btn { border:1px solid var(--border); background:transparent; color:var(--text-2); padding:10px 20px; border-radius:8px; font-size:13px; font-family:'DM Sans',sans-serif; }
+
+  .page { max-width:1240px; margin:0 auto 120px; padding-top:56px; }
+
+  .banner { height:200px; border-radius:20px; position:relative; overflow:hidden;
+    background:radial-gradient(ellipse 900px 400px at 15% 20%, rgba(201,162,94,0.22), transparent 70%),
+                linear-gradient(160deg, #17140D 0%, #0A0A0A 60%); border:1px solid var(--border); }
+  .banner::after { content:""; position:absolute; inset:0;
+    background-image:linear-gradient(90deg, transparent 0 24%, rgba(201,162,94,0.06) 24% 24.5%, transparent 24.5%),
+                      linear-gradient(0deg, transparent 0 30%, rgba(201,162,94,0.05) 30% 30.5%, transparent 30.5%);
+    opacity:0.6; }
+
+  .identity-row { display:flex; align-items:flex-end; gap:0; margin-top:-64px; padding:0 8px; position:relative; z-index:2; }
+  .avatar { width:148px; height:148px; border-radius:50%; background:var(--surface-2);
+    display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:50px;
+    border:4px solid var(--gold); box-shadow:0 0 0 6px var(--bg), 0 12px 40px rgba(0,0,0,0.5); flex-shrink:0; color:var(--gold-light); }
+  .identity-actions { margin-left:auto; padding-bottom:18px; display:flex; gap:12px; }
+  .btn-primary { background:linear-gradient(135deg,var(--gold-dark),var(--gold),var(--gold-light)); color:#181410; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; padding:13px 28px; border-radius:10px; border:none; box-shadow:0 4px 24px var(--gold-glow); }
+  .btn-secondary { background:var(--surface-2); color:var(--text); font-family:'Syne',sans-serif; font-weight:600; font-size:14px; padding:13px 24px; border-radius:10px; border:1px solid var(--border); }
+
+  .identity-block { padding:22px 8px 0; }
+  .name-row { display:flex; align-items:center; gap:10px; }
+  .name { font-family:'Syne',sans-serif; font-weight:800; font-size:40px; letter-spacing:-0.02em; }
+  .verified { color:var(--gold); font-size:22px; }
+  .meta { color:var(--text-3); font-size:15px; margin-top:8px; }
+  .building { font-size:17px; color:var(--text-2); margin-top:16px; line-height:1.6; }
+  .building b { color:var(--gold-light); font-weight:600; }
+
+  .trust-strip { display:flex; gap:56px; margin-top:32px; padding:26px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .trust-num { font-family:'Syne',sans-serif; font-weight:800; font-size:26px; }
+  .trust-label { font-size:11px; color:var(--text-3); margin-top:4px; letter-spacing:0.06em; }
+
+  .cols { display:grid; grid-template-columns:1fr 380px; gap:52px; margin-top:52px; }
+  .section-label { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); margin-bottom:22px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:34px; margin-bottom:28px; }
+  .about-text { font-size:15px; line-height:1.75; color:var(--text-2); }
+
+  .proj-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .proj-cover { height:110px; border-radius:14px; background:linear-gradient(135deg,var(--surface-3),var(--surface-2)); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:32px; margin-bottom:14px; }
+  .proj-name { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; }
+  .proj-status { font-size:13px; margin-top:6px; }
+  .proj-status.active { color:var(--mint); }
+  .proj-status.closed { color:var(--text-3); }
+
+  .vouch-card { padding:26px 0; border-bottom:1px solid var(--border); }
+  .vouch-card:last-child { border-bottom:none; }
+  .vouch-text { font-size:15px; line-height:1.65; color:var(--text); }
+  .vouch-meta { display:flex; align-items:center; gap:10px; margin-top:14px; }
+  .vouch-avatar { width:30px; height:30px; border-radius:50%; background:var(--surface-3); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--gold-light); }
+  .vouch-author { font-size:13px; color:var(--text-2); }
+  .vouch-context { font-size:12px; color:var(--text-3); }
+
+  .rail-card { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:30px; margin-bottom:22px; }
+  .rating-big { display:flex; align-items:baseline; gap:12px; }
+  .rating-num { font-family:'Syne',sans-serif; font-size:42px; font-weight:800; }
+  .rating-sub { font-size:13px; color:var(--text-3); }
+  .stars { color:var(--gold); font-size:15px; margin-top:6px; }
+  .endorse-row { display:flex; align-items:center; gap:14px; margin-top:18px; }
+  .endorse-name { flex:1; font-size:14px; }
+  .endorse-bar-track { flex:1.4; height:5px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+  .endorse-bar-fill { height:100%; background:linear-gradient(90deg,var(--gold-dark),var(--gold)); border-radius:99px; }
+  .endorse-count { font-size:13px; color:var(--text-3); width:22px; text-align:right; }
+  .skill-list { display:flex; flex-wrap:wrap; gap:10px; }
+  .skill-pill { font-size:13px; padding:8px 15px; border-radius:99px; border:1px solid var(--border); color:var(--text-2); }
+  .link-row { display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--border); font-size:14px; color:var(--gold-light); }
+  .link-row:last-child { border-bottom:none; }
+
+  .badge-row { display:flex; gap:8px; margin-top:4px; }
+  .badge { width:26px; height:26px; border-radius:50%; background:var(--gold-dim); border:1px solid var(--gold-dark); display:flex; align-items:center; justify-content:center; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><img src="bfu-mark.png" alt="BFU"><div class="brandname">BRIGHT FUTURES UZBEKISTAN</div></div>
+  <button class="ghost-btn">Open in Telegram</button>
+</div>
+
+<div class="page">
+  <div class="banner"></div>
+  <div class="identity-row">
+    <div class="avatar">AK</div>
+    <div class="identity-actions">
+      <button class="btn-secondary">Message</button>
+      <button class="btn-primary">Open in Telegram →</button>
+    </div>
+  </div>
+  <div class="identity-block">
+    <div class="name-row">
+      <div class="name">Aziz Karimov</div><div class="verified">✓</div>
+    </div>
+    <div class="badge-row"><div class="badge">🌱</div><div class="badge">🤝</div></div>
+    <div class="meta" style="margin-top:10px">Tashkent, Uzbekistan · Founder at Solar Farm</div>
+    <div class="building">🔨 Currently building: <b>a solar microgrid bringing reliable power to rural schools</b></div>
+
+    <div class="trust-strip">
+      <div><div class="trust-num gold-text">4.8</div><div class="trust-label">RATING · 12 REVIEWS</div></div>
+      <div><div class="trust-num gold-text">34</div><div class="trust-label">ENDORSEMENTS</div></div>
+      <div><div class="trust-num" style="color:var(--text)">8</div><div class="trust-label">VOUCHES</div></div>
+      <div><div class="trust-num" style="color:var(--text)">6</div><div class="trust-label">MUTUAL CONNECTIONS</div></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <div class="section-label">About</div>
+        <div class="about-text">Third-year student at INHA University Tashkent, building energy infrastructure for underserved communities. Previously led a 40-person hackathon team to a top-3 finish. Looking for engineers who care about real-world impact over resume padding.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Projects</div>
+        <div class="proj-grid">
+          <div><div class="proj-cover">☀️</div><div class="proj-name">Solar Farm</div><div class="proj-status active">● Active · Founder</div></div>
+          <div><div class="proj-cover">🌱</div><div class="proj-name">EcoTeam</div><div class="proj-status closed">● Closed · Member</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">What people say</div>
+        <div class="vouch-card">
+          <div class="vouch-text">"Aziz ships fast and actually listens to feedback. One of the most reliable people I've worked with on a technical team."</div>
+          <div class="vouch-meta"><div class="vouch-avatar">D</div><div><div class="vouch-author">Dilnoza Yusupova</div><div class="vouch-context">Worked together on Solar Farm</div></div></div>
+        </div>
+        <div class="vouch-card">
+          <div class="vouch-text">"Brought real energy to our hackathon team and kept everyone on track under serious deadline pressure."</div>
+          <div class="vouch-meta"><div class="vouch-avatar">B</div><div><div class="vouch-author">Bekzod Rashidov</div><div class="vouch-context">Worked together on EcoTeam</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="rail-card">
+        <div class="section-label">Reputation</div>
+        <div class="rating-big"><div class="rating-num gold-text">4.8</div><div class="rating-sub">out of 5<br>12 ratings</div></div>
+        <div class="stars">★★★★★</div>
+        <div style="height:1px;background:var(--border);margin:22px 0"></div>
+        <div class="endorse-row"><div class="endorse-name">React</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:90%"></div></div><div class="endorse-count">18</div></div>
+        <div class="endorse-row"><div class="endorse-name">Product design</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:55%"></div></div><div class="endorse-count">11</div></div>
+        <div class="endorse-row"><div class="endorse-name">Python</div><div class="endorse-bar-track"><div class="endorse-bar-fill" style="width:25%"></div></div><div class="endorse-count">5</div></div>
+      </div>
+
+      <div class="rail-card">
+        <div class="section-label">Skills &amp; interests</div>
+        <div class="skill-list">
+          <span class="skill-pill">React</span><span class="skill-pill">Python</span>
+          <span class="skill-pill">Product design</span><span class="skill-pill">Climate</span>
+          <span class="skill-pill">Hardware</span>
+        </div>
+      </div>
+
+      <div class="rail-card">
+        <div class="section-label">Links</div>
+        <div class="link-row"><span>GitHub</span><span>↗</span></div>
+        <div class="link-row"><span>Personal site</span><span>↗</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

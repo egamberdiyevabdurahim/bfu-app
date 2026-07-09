@@ -34,6 +34,24 @@ const ACHV_COLORS = {
   ember: { bg: "rgba(255,106,61,0.10)", border: "rgba(255,106,61,0.30)", text: "var(--ember)" },
 };
 
+// Client-side profile completeness (no network) — nudges builders to a fuller
+// profile so discovery/matching works better. Weighted; hidden at 100%.
+function profileCompleteness(u) {
+  if (!u) return 0;
+  let s = 0;
+  if (u.name && u.surname) s += 10;
+  if (u.photo_url) s += 15;
+  if (u.birth_year) s += 5;
+  if (u.gender) s += 5;
+  if (u.region_id) s += 10;
+  if (u.about) s += 20;
+  if (u.currently_building) s += 10;
+  if (u.checked) s += 10;
+  if ((u.analysis?.skills || []).length) s += 10;
+  if (u.open_to_work || u.open_to_volunteering) s += 5;
+  return Math.min(100, s);
+}
+
 const CIRCUMFERENCE = 2 * Math.PI * 52; // r=52, matches the ring SVG below
 
 function elasticEaseOut(x) {
@@ -302,6 +320,25 @@ export const ProfileScreen = () => {
             )}
           </div>
         </div>
+
+        {/* ── Profile completeness nudge (hidden at 100%) ── */}
+        {profileCompleteness(user) < 100 && (
+          <button onClick={() => setEditOpen(true)} style={{
+            width: "100%", textAlign: "left", marginTop: 20, padding: "13px 15px", cursor: "pointer",
+            background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                {t("complete.label", { n: profileCompleteness(user) })}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)" }}>{t("complete.hint")}</span>
+            </div>
+            <div style={{ height: 6, background: "var(--bg)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${profileCompleteness(user)}%`,
+                background: "linear-gradient(90deg, var(--amber), var(--ember))", borderRadius: 99, transition: "width 0.6s ease" }} />
+            </div>
+          </button>
+        )}
 
         {/* ── Home command center (needs-you-now + who-viewed-you) ── */}
         <HomeStrip

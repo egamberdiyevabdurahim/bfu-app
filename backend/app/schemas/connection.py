@@ -41,6 +41,15 @@ class BookingActionIn(BaseModel):
     action: str   # confirm | decline | cancel
 
 
+class MeetingLinkIn(BaseModel):
+    url: str | None = None   # http(s) link; empty/None clears it
+
+
+class SessionRatingIn(BaseModel):
+    stars: int
+    note: str | None = None
+
+
 class BookingOut(BaseModel):
     id: int
     slot_id: int

@@ -13,6 +13,8 @@ from app.models.user import User
 from app.schemas.connection import (
     BookingActionIn,
     BookingIn,
+    MeetingLinkIn,
+    SessionRatingIn,
     SlotIn,
 )
 from app.services.notifications import add_notification
@@ -50,9 +52,21 @@ async def list_mentors(
         .group_by(MentorSlot.mentor_id)
     )).all()
     open_by = {mid: c for mid, c in open_rows}
+    # Post-session rating avg + count per mentor, in ONE grouped query.
+    rating_rows = (await db.execute(
+        select(Booking.mentor_id, func.avg(Booking.mentee_rating), func.count(Booking.mentee_rating))
+        .where(Booking.mentor_id.in_(ids), Booking.status == "confirmed",
+               Booking.mentee_rating.is_not(None))  # a later-cancelled session must not count
+        .group_by(Booking.mentor_id)
+    )).all()
+    rating_by = {
+        mid: {"average": round(float(avg), 1) if avg is not None else None, "count": int(cnt or 0)}
+        for mid, avg, cnt in rating_rows
+    }
     return [
         {"id": m.id, "display_name": m.display_name, "photo_url": m.photo_url,
-         "bio": m.mentor_bio, "topics": _topics(m), "open_slots": open_by.get(m.id, 0)}
+         "bio": m.mentor_bio, "topics": _topics(m), "open_slots": open_by.get(m.id, 0),
+         "session_rating": rating_by.get(m.id, {"average": None, "count": 0})}
         for m in mentors
     ]
 
@@ -216,6 +230,67 @@ async def act_on_booking(
     return {"status": booking.status}
 
 
+@booking_router.patch("/{booking_id}/meeting-link", response_model=dict)
+async def set_meeting_link(
+    booking_id: int,
+    body: MeetingLinkIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mentor attaches (or edits/clears) the call link on a confirmed booking.
+    Both parties then see it in GET /bookings/me."""
+    booking = await db.get(Booking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.mentor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the mentor can set the link")
+    if booking.status != "confirmed":
+        raise HTTPException(status_code=409, detail="Confirm the booking first")
+    url = (body.url or "").strip()
+    if not url:
+        booking.meeting_link = None  # clear
+    elif url[:7].lower() != "http://" and url[:8].lower() != "https://":
+        raise HTTPException(status_code=422, detail="Enter a valid http(s) link")
+    elif len(url) > 500:
+        raise HTTPException(status_code=422, detail="Link is too long")
+    else:
+        booking.meeting_link = url
+    await db.commit()
+    return {"ok": True, "meeting_link": booking.meeting_link}
+
+
+@booking_router.post("/{booking_id}/rating", response_model=dict)
+async def rate_session(
+    booking_id: int,
+    body: SessionRatingIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The mentee rates a finished session (1-5 + optional note). Re-rating
+    updates in place. Gate: confirmed booking whose slot end is already past."""
+    if not (1 <= body.stars <= 5):
+        raise HTTPException(status_code=422, detail="stars must be 1-5")
+    booking = await db.get(Booking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.mentee_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the mentee can rate the session")
+    slot = await db.get(MentorSlot, booking.slot_id)
+    session_over = bool(
+        slot and slot.start_at
+        and slot.start_at + dt.timedelta(minutes=slot.duration_min or 15) < dt.datetime.utcnow()
+    )
+    if booking.status != "confirmed" or not session_over:
+        raise HTTPException(status_code=409, detail="Session hasn't finished yet")
+    # In-place upsert — the booking row already exists and its mentee is the sole
+    # writer, so there is no race and no unique-constraint dance.
+    booking.mentee_rating = body.stars
+    booking.mentee_rating_note = (body.note or "").strip()[:200] or None
+    booking.mentee_rated_at = dt.datetime.utcnow()
+    await db.commit()
+    return {"ok": True, "stars": body.stars, "note": booking.mentee_rating_note}
+
+
 @booking_router.get("/me", response_model=dict)
 async def my_bookings(
     current_user: User = Depends(get_current_user),
@@ -239,16 +314,26 @@ async def my_bookings(
         for u in (await db.execute(select(User).where(User.id.in_(other_ids)))).scalars().all():
             people[u.id] = {"id": u.id, "display_name": u.display_name, "photo_url": u.photo_url}
 
-    def _row(b, other_id):
+    now = dt.datetime.utcnow()
+
+    def _session_over(s) -> bool:
+        return bool(s and s.start_at and s.start_at + dt.timedelta(minutes=s.duration_min or 15) < now)
+
+    def _row(b, other_id, as_mentee):
         s = slots.get(b.slot_id)
         return {
             "id": b.id, "slot_id": b.slot_id, "status": b.status, "note": b.note,
             "start_at": s.start_at.isoformat() if (s and s.start_at) else None,
             "other": people.get(other_id),
             "created_at": b.created_at.isoformat() if b.created_at else None,
+            "meeting_link": b.meeting_link if b.status == "confirmed" else None,  # not on a cancelled/declined row
+            # the mentee may rate a confirmed session once it's over and not yet rated
+            "can_rate": bool(as_mentee and b.status == "confirmed" and _session_over(s) and b.mentee_rating is None),
+            "my_rating": ({"stars": b.mentee_rating, "note": b.mentee_rating_note}
+                          if b.mentee_rating is not None else None),
         }
 
     return {
-        "as_mentee": [_row(b, b.mentor_id) for b in rows if b.mentee_id == current_user.id],
-        "as_mentor": [_row(b, b.mentee_id) for b in rows if b.mentor_id == current_user.id],
+        "as_mentee": [_row(b, b.mentor_id, True) for b in rows if b.mentee_id == current_user.id],
+        "as_mentor": [_row(b, b.mentee_id, False) for b in rows if b.mentor_id == current_user.id],
     }

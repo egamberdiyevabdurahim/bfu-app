@@ -40,6 +40,7 @@ TYPE_TO_PREF = {
     "booking_request": "bookings",
     "booking_confirmed": "bookings",
     "booking_declined": "bookings",
+    "session_rate_prompt": "bookings",
     "event_rsvp": "events",
     "event_reminder": "events",
 }

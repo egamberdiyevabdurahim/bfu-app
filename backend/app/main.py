@@ -168,6 +168,12 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id BIGINT;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;",
+        # --- Mentorship v2: meeting link + post-session rating (columns on bookings) ---
+        "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meeting_link VARCHAR(500);",
+        "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS mentee_rating INTEGER;",
+        "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS mentee_rating_note VARCHAR(200);",
+        "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS mentee_rated_at TIMESTAMP;",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_mentor_rating ON bookings (mentor_id) WHERE mentee_rating IS NOT NULL AND status = 'confirmed';",
         # --- Events RSVP + deadline reminders (event_rsvps table via create_all) ---
         "CREATE INDEX IF NOT EXISTS ix_event_rsvps_event ON event_rsvps (event_id);",
         "CREATE INDEX IF NOT EXISTS ix_event_rsvps_user ON event_rsvps (user_id);",

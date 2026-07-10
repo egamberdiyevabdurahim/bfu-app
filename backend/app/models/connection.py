@@ -62,3 +62,8 @@ class Booking(Base):
     note: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Mentorship v2: the mentor's meeting link + the mentee's post-session rating.
+    meeting_link: Mapped[str | None] = mapped_column(String(500), nullable=True)   # http(s), mentor-set on a confirmed booking
+    mentee_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)       # 1..5 (validated in Python)
+    mentee_rating_note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mentee_rated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

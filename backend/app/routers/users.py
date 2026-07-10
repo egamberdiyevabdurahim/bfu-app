@@ -28,6 +28,7 @@ from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
 from app.services.notify import esc, notify_background, queue_registration_notice, send_telegram
+from app.services.ratelimit import rate_limit
 
 router = APIRouter(prefix="/users", tags=["users"])
 # Follow endpoints live at the app root (/follow), not under /users — a
@@ -1369,6 +1370,10 @@ async def create_report(
 ):
     if body.target_type not in ("user", "project"):
         raise HTTPException(status_code=400, detail="invalid target_type")
+    # Anti-flood: shared report budget (also spans /messages/{id}/report). Kept
+    # generous — a victim's reporting legitimately spikes during a harassment wave.
+    await rate_limit(db, current_user.id, "report", 30, 3600)    # 30 / hour
+    await rate_limit(db, current_user.id, "report", 100, 86400)  # 100 / day
     db.add(Report(
         reporter_id=current_user.id, target_type=body.target_type,
         target_id=body.target_id, reason=(body.reason or "")[:1000],
@@ -1471,6 +1476,11 @@ async def soft_interest(
     last = _last_interest.get(key)
     if last is not None and now - last < 60 * 60 * 24:
         raise HTTPException(status_code=429, detail="Already pinged in the last 24h")
+    # Global daily cap ACROSS distinct targets (the per-(from,to) guards below
+    # only stop re-pinging the SAME person). A real browser pings a few dozen at
+    # most; a bot pings hundreds. Checked BEFORE the in-process per-target claim
+    # so a daily-cap 429 doesn't poison this (from,to) cooldown without a ping.
+    await rate_limit(db, current_user.id, "interest", 40, 86400)  # 40 / day
     _last_interest[key] = now
     # Authoritative 24h guard via the DB (survives worker restarts).
     recent = await db.scalar(
@@ -1634,6 +1644,7 @@ async def endorse_skill(
         await db.delete(existing)
         endorsed = False
     else:
+        await rate_limit(db, current_user.id, "endorse", 60, 86400)  # 60 new endorsements / day
         db.add(Endorsement(endorser_id=current_user.id, target_id=user_id, skill=skill))
         endorsed = True
     await db.commit()
@@ -1671,6 +1682,7 @@ async def vouch_for(
         existing.updated_at = datetime.utcnow()
         vid = existing.id
     else:
+        await rate_limit(db, current_user.id, "vouch", 30, 86400)  # 30 new vouches / day
         v = Vouch(author_id=current_user.id, target_id=user_id, text=text)
         db.add(v)
         await db.flush()

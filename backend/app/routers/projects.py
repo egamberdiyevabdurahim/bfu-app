@@ -34,6 +34,7 @@ from app.schemas.project import (
 from app.schemas.connection import ProjectUpdateIn
 from app.schemas.role import RoleIn, RoleFilledIn
 from app.schemas.trust import RatingIn
+from app.services.ratelimit import rate_limit
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -421,6 +422,10 @@ async def create_project(
     if body.type not in ("startup", "volunteering"):
         raise HTTPException(status_code=400, detail="type must be 'startup' or 'volunteering'")
 
+    # Anti-flood: nobody legitimately launches 15 projects/day.
+    await rate_limit(db, current_user.id, "project_create", 5, 3600)    # 5 / hour
+    await rate_limit(db, current_user.id, "project_create", 15, 86400)  # 15 / day
+
     project = Project(
         type=body.type,
         creator_id=current_user.id,
@@ -775,6 +780,11 @@ async def apply_to_project(
 
     if any(a.applicant_id == current_user.id for a in project.applications):
         raise HTTPException(status_code=409, detail="Application already submitted")
+
+    # Anti-flood: unique-per-project already caps re-apply; this caps blasting
+    # applications across MANY projects (each pings that founder).
+    await rate_limit(db, current_user.id, "project_apply", 20, 3600)   # 20 / hour
+    await rate_limit(db, current_user.id, "project_apply", 60, 86400)  # 60 / day
 
     role = ((body.role if body else None) or "").strip()[:80] or None
     app = ProjectApplication(project_id=project_id, applicant_id=current_user.id,
@@ -1367,6 +1377,11 @@ async def post_update(
         raise HTTPException(status_code=404, detail="Project not found")
     if project.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the founder can post updates")
+
+    # Anti-flood: each update fans out an inbox item to EVERY follower+member —
+    # the worst amplifier on the platform. A real founder posts a couple a day.
+    await rate_limit(db, current_user.id, "project_update", 6, 3600)    # 6 / hour
+    await rate_limit(db, current_user.id, "project_update", 20, 86400)  # 20 / day
 
     upd = ProjectUpdatePost(project_id=project_id, author_id=current_user.id, text=text)
     db.add(upd)

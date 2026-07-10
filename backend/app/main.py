@@ -168,6 +168,16 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id BIGINT;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;",
+        # --- Rate-limiter COUNT predicates: composite (actor, created_at) indexes
+        #     so the per-write anti-flood counts stay index-only under load. ---
+        "CREATE INDEX IF NOT EXISTS ix_reports_reporter_created ON reports (reporter_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_interests_from_created ON interests (from_user_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_projects_creator_created ON projects (creator_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_applications_applicant_created ON project_applications (applicant_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_project_updates_author_created ON project_updates (author_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_event_rsvps_user_created ON event_rsvps (user_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_endorsements_endorser_created ON endorsements (endorser_id, created_at);",
+        "CREATE INDEX IF NOT EXISTS ix_vouches_author_created ON vouches (author_id, created_at);",
         # --- Mentorship v2: meeting link + post-session rating (columns on bookings) ---
         "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meeting_link VARCHAR(500);",
         "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS mentee_rating INTEGER;",

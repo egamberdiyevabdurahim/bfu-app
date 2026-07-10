@@ -31,6 +31,7 @@ from app.schemas.messaging import (
 )
 from app.services.notifications import add_notification
 from app.services.notify import esc, send_telegram
+from app.services.ratelimit import rate_limit
 
 router = APIRouter(tags=["messages"])
 
@@ -738,6 +739,10 @@ async def report_message(
         raise HTTPException(status_code=404, detail="Message not found")
     if not await _my_member_row(db, msg.conversation_id, current_user.id):
         raise HTTPException(status_code=403, detail="Not a member of this conversation")
+    # Anti-flood: shared report budget (also spans POST /users/reports). Kept
+    # generous — a victim's reporting legitimately spikes during a harassment wave.
+    await rate_limit(db, current_user.id, "report", 30, 3600)    # 30 / hour
+    await rate_limit(db, current_user.id, "report", 100, 86400)  # 100 / day
     reason = ((body.reason if body else None) or "")[:1000]
     db.add(Report(
         reporter_id=current_user.id, target_type="message",

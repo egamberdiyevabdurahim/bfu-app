@@ -16,6 +16,7 @@ from app.models.event_rsvp import EventRsvp
 from app.models.user import User
 from app.services.notifications import add_notification, should_push_telegram
 from app.services.notify import esc, notify_background
+from app.services.ratelimit import rate_limit
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -214,6 +215,9 @@ async def rsvp_event(
     )
     try:
         if row is None:
+            # Anti-flood only on a genuinely NEW RSVP (each first 'going' pings the
+            # creator). Toggling/status-changing an existing row is exempt.
+            await rate_limit(db, me.id, "event_rsvp", 60, 3600)  # 60 new RSVPs / hour
             db.add(EventRsvp(event_id=event_id, user_id=me.id, status=status))
         else:
             row.status = status  # switch going<->interested (reuses the row)

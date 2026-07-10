@@ -24,6 +24,7 @@ from app.models.trust import ProjectRating
 from app.models.connection import Follow, ProjectUpdate as ProjectUpdatePost
 from app.models.role import ProjectRole
 from app.models.user import User, Favorite, Notification
+from app.models.messaging import Conversation, ConversationMember
 from app.schemas.project import (
     ApplicationOut,
     ApplicantPublic,
@@ -37,6 +38,27 @@ from app.schemas.trust import RatingIn
 from app.services.ratelimit import rate_limit
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+async def _evict_from_team_chat(db: AsyncSession, project_id: int, user_id: int) -> None:
+    """Drop a user's ConversationMember row for the project's team chat when they
+    leave / are removed. All chat access + real-time fanout key off
+    ConversationMember, so without this a departed teammate keeps reading history,
+    posting, and receiving live message pushes. project_conversation re-adds
+    current members on next open, so a re-added teammate is restored automatically.
+    Best-effort: the chat may not exist yet (nobody opened it)."""
+    conv_id = (await db.execute(
+        select(Conversation.id).where(
+            Conversation.kind == "project", Conversation.project_id == project_id
+        )
+    )).scalar_one_or_none()
+    if conv_id is not None:
+        await db.execute(
+            delete(ConversationMember).where(
+                ConversationMember.conversation_id == conv_id,
+                ConversationMember.user_id == user_id,
+            )
+        )
 
 
 
@@ -1069,6 +1091,7 @@ async def leave_project(
         raise HTTPException(status_code=400, detail="Creator cannot leave; delete the project instead")
 
     await db.delete(member)
+    await _evict_from_team_chat(db, project_id, current_user.id)
     await db.commit()
 
 
@@ -1183,6 +1206,7 @@ async def remove_member(
     if not member:
         raise HTTPException(status_code=404, detail="Not a member")
     await db.delete(member)
+    await _evict_from_team_chat(db, project_id, user_id)
     # Best-effort inbox note for the removed teammate (never blocks the removal).
     from app.services.notifications import add_notification
     add_notification(db, user_id, "removed_from_project",

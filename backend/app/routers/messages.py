@@ -6,6 +6,7 @@ All endpoints are authed via get_current_user. Routes live at the app root
 /messages/{id}/report, /projects/{id}/conversation) read naturally without
 colliding with the existing users/projects routers (distinct method+path).
 """
+import asyncio
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -621,7 +622,23 @@ async def send_message(
                 su = await db.get(User, rt.sender_id)
                 if su:
                     senders[rt.sender_id] = su
-    return _message_out(msg, senders, reply_map)
+    out = _message_out(msg, senders, reply_map)
+    # Best-effort real-time fanout to every member (incl. the sender's other
+    # devices — clients dedupe by id). Fire-and-forget: a slow/stalled recipient
+    # socket must not delay the sender's 201, and a socket error must not 500 a
+    # good send. The HTTP response is the source of truth.
+    try:
+        from app.routers.ws import manager
+        from fastapi.encoders import jsonable_encoder
+        member_ids = list((await db.execute(
+            select(ConversationMember.user_id).where(
+                ConversationMember.conversation_id == conversation_id))).scalars().all())
+        payload = {"type": "message.new", "conversation_id": conversation_id,
+                   "message": jsonable_encoder(out)}
+        asyncio.create_task(manager.send_to_users(member_ids, payload))
+    except Exception:
+        pass
+    return out
 
 
 @router.patch("/conversations/{conversation_id}/messages/{message_id}", response_model=MessageOut)

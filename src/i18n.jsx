@@ -26,6 +26,8 @@ const STRINGS = {
   "msg.conversation": { en: "Conversation", uz: "Suhbat", ru: "Беседа" },
   "msg.onlineNow": { en: "online now", uz: "hozir onlayn", ru: "сейчас онлайн" },
   "msg.dm": { en: "Direct message", uz: "Shaxsiy xabar", ru: "Личное сообщение" },
+  "msg.typing": { en: "typing…", uz: "yozmoqda…", ru: "печатает…" },
+  "msg.typingName": { en: "{name} is typing…", uz: "{name} yozmoqda…", ru: "{name} печатает…" },
   "msg.loadingMessages": { en: "Loading messages…", uz: "Xabarlar yuklanmoqda…", ru: "Загрузка сообщений…" },
   "msg.threadError": { en: "Couldn't load this conversation.", uz: "Suhbatni yuklab bo‘lmadi.", ru: "Не удалось загрузить беседу." },
   "msg.loadingShort": { en: "Loading…", uz: "Yuklanmoqda…", ru: "Загрузка…" },

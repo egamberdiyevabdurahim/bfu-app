@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { messages as msgApi } from "../api";
+import { subscribe as wsSubscribe, sendTyping as wsSendTyping } from "../ws";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
 import { relTime, fmtDay } from "../timefmt";
@@ -12,6 +13,9 @@ import { relTime, fmtDay } from "../timefmt";
 
 const LIST_POLL_MS = 15000;
 const THREAD_POLL_MS = 6000;
+// When the realtime socket is connected, new messages arrive by push — so the
+// thread poll relaxes to a slow safety-net sweep instead of hammering every 6s.
+const THREAD_POLL_SLOW_MS = 30000;
 const MAX_BODY = 4000;
 
 const CARD_GRADIENTS = [
@@ -74,10 +78,17 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   const [actionMsg, setActionMsg] = useState(null);         // message tapped → action sheet
   const [replyingTo, setReplyingTo] = useState(null);       // message being replied to
   const [editing, setEditing] = useState(null);             // message being edited
+  const [peerTyping, setPeerTyping] = useState(null);       // {name} while the other side types
+  const [wsLive, setWsLive] = useState(false);              // realtime socket connected
 
   const bodyRef = useRef(null);
   const composerRef = useRef(null);
   const toastTimer = useRef(0);
+  const typingTimer = useRef(0);
+  // Live refs so the (once-registered) WS handler always sees current values
+  // without re-subscribing on every activeId/message change.
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   const active = Array.isArray(conversations)
     ? conversations.find((c) => c.id === activeId) || null
@@ -118,6 +129,15 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
     }
   }, []);
 
+  // Coalesce list refreshes: a busy chat pushes many message.new frames, and a
+  // per-frame loadList() (an ~8-query endpoint) would negate the point of push.
+  const listRefreshTimer = useRef(0);
+  const scheduleListRefresh = useCallback(() => {
+    clearTimeout(listRefreshTimer.current);
+    listRefreshTimer.current = setTimeout(() => loadList(), 1200);
+  }, [loadList]);
+  useEffect(() => () => clearTimeout(listRefreshTimer.current), []);
+
   useEffect(() => {
     loadList();
     let timer = null;
@@ -142,12 +162,29 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
       const r = await msgApi.thread(id, { limit: 30 });
       const incoming = Array.isArray(r?.messages) ? r.messages : [];
       if (silent) {
-        setMessages((cur) => {
-          if (cur.length === 0) return incoming;
+        // Merge, don't clobber (mirrors the desktop): update existing rows in
+        // place so peers' edits/deletes propagate, keep paginated-in history,
+        // and append genuinely-new messages. A >30-message burst has no overlap
+        // with what we hold, so full-replace to stay contiguous (else a
+        // blind append leaves a permanent hole).
+        const cur = messagesRef.current;
+        const curMax = cur.reduce((mx, m) => (m.id > mx ? m.id : mx), 0);
+        const oldestIncoming = incoming.length ? incoming[0].id : Infinity;
+        if (!cur.length || (incoming.length && oldestIncoming > curMax)) {
+          setMessages(incoming);
+          setHasMore(!!r?.has_more);
+        } else {
+          const incMap = new Map(incoming.map((m) => [m.id, m]));
           const seen = new Set(cur.map((m) => m.id));
-          const fresh = incoming.filter((m) => !seen.has(m.id));
-          return fresh.length ? [...cur, ...fresh] : cur;
-        });
+          const merged = cur.map((m) => {
+            const inc = incMap.get(m.id);
+            if (!inc) return m;
+            if (m.deleted && !inc.deleted) return m; // don't resurrect a locally-deleted row
+            return { ...m, ...inc };
+          });
+          for (const m of incoming) if (!seen.has(m.id)) merged.push(m);
+          setMessages(merged);
+        }
       } else {
         setMessages(incoming);
         setHasMore(!!r?.has_more);
@@ -166,32 +203,88 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
     }
   }, [loadList]);
 
+  // Open a thread: reset state, fetch membership, load the first page.
   useEffect(() => {
     if (!activeId) return;
     setBlockedLocal(false); setMenuOpen(false); setShowReport(false);
+    setPeerTyping(null);
     lastMarkedId.current = null;
+    atBottomRef.current = true; // freshly opened thread starts pinned to newest
+    lastCount.current = 0;      // force the autoscroll effect to fire on open
     setThreadMembers(null);
     msgApi.members(activeId).then((r) => {
       setThreadMembers(r);
       if (r?.kind === "dm") setBlockedLocal(!!r.blocked); // rehydrate block state
     }).catch(() => setThreadMembers(null));
     loadThread(activeId);
+  }, [activeId, loadThread]);
+
+  // Safety-net poll for the open thread. Relaxes to a slow sweep when the
+  // realtime socket is live (new messages then arrive by push), and reverts to
+  // the fast poll if the socket drops. Paused while the tab is hidden.
+  useEffect(() => {
+    if (!activeId) return;
+    const period = wsLive ? THREAD_POLL_SLOW_MS : THREAD_POLL_MS;
     let timer = null;
-    const start = () => { stop(); timer = window.setInterval(() => loadThread(activeId, { silent: true }), THREAD_POLL_MS); };
+    const start = () => { stop(); timer = window.setInterval(() => loadThread(activeId, { silent: true }), period); };
     const stop = () => { if (timer) window.clearInterval(timer); timer = null; };
     const onVis = () => { if (document.hidden) stop(); else { loadThread(activeId, { silent: true }); start(); } };
     start();
     document.addEventListener("visibilitychange", onVis);
     return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
-  }, [activeId, loadThread]);
+  }, [activeId, wsLive, loadThread]);
 
-  // Autoscroll to newest when count grows.
+  // ── Realtime socket (one subscription for the whole screen) ─────────────────
+  // Injects pushed messages into the open thread + refreshes the list live, and
+  // surfaces the other side's typing indicator. Registered once; reads the
+  // current conversation via activeIdRef so it never needs to re-subscribe.
+  useEffect(() => {
+    const off = wsSubscribe((msg) => {
+      if (msg.type === "ws.ready") { setWsLive(true); return; }
+      if (msg.type === "ws.closed") { setWsLive(false); return; }
+      if (msg.type === "message.new") {
+        const cid = msg.conversation_id;
+        const m = msg.message;
+        if (!m || m.id == null) return;
+        if (cid === activeIdRef.current) {
+          setMessages((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, m]));
+          setPeerTyping(null);
+          if (m.sender_id !== meId && m.id !== lastMarkedId.current) {
+            lastMarkedId.current = m.id;
+            msgApi.markRead(cid).then(() => {
+              scheduleListRefresh();
+              window.dispatchEvent(new CustomEvent("bfu:messages-read"));
+            }).catch(() => {});
+          }
+        }
+        scheduleListRefresh(); // keep previews / unread badges fresh (debounced)
+        return;
+      }
+      if (msg.type === "typing") {
+        if (msg.conversation_id === activeIdRef.current && msg.user_id !== meId) {
+          setPeerTyping(msg.sender_name || "");
+          clearTimeout(typingTimer.current);
+          typingTimer.current = setTimeout(() => setPeerTyping(null), 5000);
+        }
+        return;
+      }
+    });
+    return () => { off(); clearTimeout(typingTimer.current); };
+  }, [meId, scheduleListRefresh]);
+
+  // Autoscroll to newest when the count grows — but ONLY if the user is already
+  // near the bottom, so a pushed/polled message doesn't yank them away from
+  // history they've scrolled up to read (matches the desktop). atBottomRef is
+  // kept fresh by the body's onScroll and reset true on open / self-send.
+  const messagesRef = useRef([]); // mirror for the silent poll-merge decision
+  const atBottomRef = useRef(true);
   const lastCount = useRef(0);
   useEffect(() => {
+    messagesRef.current = messages;
     const el = bodyRef.current;
     if (!el) return;
     if (messages.length !== lastCount.current) {
-      el.scrollTop = el.scrollHeight;
+      if (atBottomRef.current) el.scrollTop = el.scrollHeight;
       lastCount.current = messages.length;
     }
   }, [messages]);
@@ -199,7 +292,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
   const openConversation = (id) => setActiveId(id);
   const backToList = () => {
     setActiveId(null); setMessages([]); setThreadMembers(null);
-    setReplyingTo(null); setEditing(null); setDraft("");
+    setReplyingTo(null); setEditing(null); setDraft(""); setPeerTyping(null);
     lastCount.current = 0; lastMarkedId.current = null;
   };
 
@@ -216,7 +309,10 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
       } else {
         const created = await msgApi.send(activeId, text, replyingTo?.id);
         setDraft(""); setReplyingTo(null);
-        if (created && created.id) setMessages((m) => [...m, created]);
+        atBottomRef.current = true; // a self-send always pins to the newest
+        // Dedupe: the direct-WS echo of our own message may beat this proxied
+        // POST response, so guard against a double-append (duplicate React key).
+        if (created && created.id) setMessages((m) => (m.some((x) => x.id === created.id) ? m : [...m, created]));
         else loadThread(activeId, { silent: true });
         loadList();
       }
@@ -339,10 +435,12 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
               }}>{convTitle(active || {}, t)}</div>
               <div style={{
                 fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.08em",
-                textTransform: "uppercase", color: "var(--muted-strong)",
+                textTransform: "uppercase", color: peerTyping != null ? "var(--teal-bright)" : "var(--muted-strong)",
               }}>
-                {active?.kind === "project" ? t("msg.teamChat")
-                  : active?.other?.is_online ? t("msg.onlineNow") : t("msg.dm")}
+                {peerTyping != null
+                  ? (active?.kind === "project" && peerTyping ? t("msg.typingName", { name: peerTyping }) : t("msg.typing"))
+                  : active?.kind === "project" ? t("msg.teamChat")
+                    : active?.other?.is_online ? t("msg.onlineNow") : t("msg.dm")}
               </div>
             </div>
             {isDm && active?.other && (
@@ -394,9 +492,14 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
 
       {/* Body */}
       {showThread ? (
-        <div ref={bodyRef} style={{
-          flex: "1 1 auto", overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8,
-        }}>
+        <div ref={bodyRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+          }}
+          style={{
+            flex: "1 1 auto", overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8,
+          }}>
           {threadState === "loading" && <Hint>{t("msg.loadingMessages")}</Hint>}
           {threadState === "error" && (
             <Hint tone="error">{t("msg.threadError")}{" "}
@@ -584,7 +687,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
             <>
               <textarea
                 ref={composerRef} value={draft}
-                onChange={(e) => setDraft(e.target.value.slice(0, MAX_BODY))}
+                onChange={(e) => { setDraft(e.target.value.slice(0, MAX_BODY)); if (activeId) wsSendTyping(activeId); }}
                 onKeyDown={onComposerKey} placeholder={t("msg.composerPlaceholder")} rows={1} disabled={sending}
                 style={{
                   flex: "1 1 auto", resize: "none", maxHeight: 120, minHeight: 44, borderRadius: 14,

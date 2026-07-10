@@ -217,6 +217,12 @@ app = FastAPI(title="BFU API", version="2.0.0", docs_url="/docs", redoc_url=None
 origins = settings.CORS_ORIGINS.copy()
 if settings.WEBAPP_URL and settings.WEBAPP_URL not in origins:
     origins.append(settings.WEBAPP_URL.rstrip('/'))
+# Keep HTTP CORS + the WS Origin allow-list from drifting: fold in the WS origins
+# (the live Vercel/Telegram hosts) so cross-origin HTTP calls work too.
+from app.routers.ws import WS_ALLOWED_ORIGINS as _WS_ORIGINS  # noqa: E402
+for _o in _WS_ORIGINS:
+    if _o not in origins:
+        origins.append(_o)
 
 app.add_middleware(
     CORSMiddleware,
@@ -264,6 +270,8 @@ app.include_router(admin.router)
 app.include_router(mentors.router)
 app.include_router(mentors.booking_router)
 app.include_router(messages.router)
+from app.routers import ws as ws_router  # noqa: E402
+app.include_router(ws_router.router)
 
 @app.exception_handler(Exception)
 async def _report_unhandled(request: Request, exc: Exception):

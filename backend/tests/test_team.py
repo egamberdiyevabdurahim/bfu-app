@@ -175,6 +175,75 @@ async def test_delete_non_member_404(make_user, as_user, db):
     assert r.status_code == 404
 
 
+# ── Removal / leaving revokes team-chat membership (real-time push + history) ───
+
+async def _seed_team_chat(db, project_id, *user_ids):
+    """Create the project's team Conversation with the given users as members,
+    mirroring what messages.py:project_conversation lazily builds."""
+    from app.models.messaging import Conversation, ConversationMember
+    conv = Conversation(kind="project", project_id=project_id)
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+    db.add_all([ConversationMember(conversation_id=conv.id, user_id=uid) for uid in user_ids])
+    await db.commit()
+    return conv
+
+
+async def _chat_member_ids(db, conversation_id):
+    from sqlalchemy import select
+    from app.models.messaging import ConversationMember
+    return set((await db.execute(
+        select(ConversationMember.user_id).where(
+            ConversationMember.conversation_id == conversation_id)
+    )).scalars().all())
+
+
+async def test_remove_member_evicts_from_team_chat(make_user, as_user, db):
+    founder = await make_user(name="F")
+    mate = await make_user(name="M")
+    p = await _mk_project(db, founder.id)
+    await _member(db, p.id, founder.id)
+    await _member(db, p.id, mate.id)
+    conv = await _seed_team_chat(db, p.id, founder.id, mate.id)
+
+    c = as_user(founder)
+    assert (await c.delete(f"/projects/{p.id}/team/{mate.id}")).status_code == 204
+
+    # The removed teammate loses their conversation membership (so no more history
+    # reads, posts, or live message.new push); the founder keeps theirs.
+    members = await _chat_member_ids(db, conv.id)
+    assert mate.id not in members
+    assert founder.id in members
+
+
+async def test_leave_project_evicts_from_team_chat(make_user, as_user, db):
+    founder = await make_user(name="F")
+    mate = await make_user(name="M")
+    p = await _mk_project(db, founder.id)
+    await _member(db, p.id, founder.id)
+    await _member(db, p.id, mate.id)
+    conv = await _seed_team_chat(db, p.id, founder.id, mate.id)
+
+    c = as_user(mate)
+    assert (await c.delete(f"/projects/{p.id}/join")).status_code in (200, 204)
+
+    members = await _chat_member_ids(db, conv.id)
+    assert mate.id not in members
+    assert founder.id in members
+
+
+async def test_remove_member_without_team_chat_is_fine(make_user, as_user, db):
+    # No conversation exists yet (nobody opened the chat) — removal must not 500.
+    founder = await make_user(name="F")
+    mate = await make_user(name="M")
+    p = await _mk_project(db, founder.id)
+    await _member(db, p.id, founder.id)
+    await _member(db, p.id, mate.id)
+    c = as_user(founder)
+    assert (await c.delete(f"/projects/{p.id}/team/{mate.id}")).status_code == 204
+
+
 # ── Public /p/{id} payload now carries member roles ─────────────────────────────
 
 async def test_public_project_team_carries_roles(make_user, db, client):

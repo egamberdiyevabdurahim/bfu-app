@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bfu } from "@/lib/client-api";
+import { subscribe as wsSubscribe, sendTyping as wsSendTyping } from "@/lib/ws";
 import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
 import { useToast } from "@/lib/useToast";
@@ -23,6 +24,9 @@ import { useT } from "@/components/i18n/LocaleProvider";
 
 const LIST_POLL_MS = 15000;
 const THREAD_POLL_MS = 6000;
+// When the realtime socket is connected, new messages arrive by push, so the
+// thread poll relaxes to a slow safety-net sweep instead of every 6s.
+const THREAD_POLL_SLOW_MS = 30000;
 
 function Avatar({ id, name, photoUrl, size = 40 }) {
   return (
@@ -109,6 +113,8 @@ export default function Messenger({ meId }) {
   const [dividerBeforeId, setDividerBeforeId] = useState(null); // "New messages" anchor (a message id)
   const [threadStarted, setThreadStarted] = useState(null); // conversation started_at → context line
   const [threadKind, setThreadKind] = useState(null); // "project" | "dm" from the members response (survives deep-link before the list loads)
+  const [peerTyping, setPeerTyping] = useState(null); // name string while the other side is typing (null = nobody)
+  const [wsLive, setWsLive] = useState(false); // realtime socket connected
 
   const threadBodyRef = useRef(null);
   const composerRef = useRef(null);
@@ -116,6 +122,11 @@ export default function Messenger({ meId }) {
   const atBottomRef = useRef(true); // is the thread scrolled near the bottom? (gates autoscroll)
   const messagesRef = useRef([]); // mirror of `messages` for the poll merge (loadThread doesn't close over it)
   const lastCount = useRef(0); // last message count the autoscroll effect acted on
+  const typingTimer = useRef(0); // clears the peer-typing indicator after a lull
+  const lastMarkedRef = useRef(null); // newest id we've marked-read (avoids duplicate read POSTs on push)
+  // Live ref so the once-registered WS handler always sees the current thread.
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   const active = Array.isArray(conversations)
     ? conversations.find((c) => c.id === activeId) || null
@@ -190,6 +201,15 @@ export default function Messenger({ meId }) {
       setListState((s) => (s === "ready" ? "ready" : "error"));
     }
   }, []);
+
+  // Coalesce list refreshes: a busy chat pushes many message.new frames, and a
+  // per-frame loadList() (an ~8-query endpoint) would negate the point of push.
+  const listRefreshTimer = useRef(0);
+  const scheduleListRefresh = useCallback(() => {
+    clearTimeout(listRefreshTimer.current);
+    listRefreshTimer.current = setTimeout(() => loadList(), 1200);
+  }, [loadList]);
+  useEffect(() => () => clearTimeout(listRefreshTimer.current), []);
 
   useEffect(() => {
     loadList();
@@ -274,10 +294,15 @@ export default function Messenger({ meId }) {
           pendingUnreadRef.current = 0;
           setDividerBeforeId(u > 0 && msgs.length > 0 ? msgs[Math.max(0, msgs.length - u)]?.id ?? null : null);
         }
-        // Mark read — best effort; then refresh the list badge.
-        bfu(`/conversations/${id}/read`, { method: "POST" })
-          .then(() => loadList())
-          .catch(() => {});
+        // Mark read only when the newest loaded message actually changed, so
+        // idle poll ticks don't POST /read + reload the whole list every interval.
+        const newestId = msgs.length ? msgs[msgs.length - 1].id : null;
+        if (newestId != null && newestId !== lastMarkedRef.current) {
+          lastMarkedRef.current = newestId;
+          bfu(`/conversations/${id}/read`, { method: "POST" })
+            .then(() => loadList())
+            .catch(() => {});
+        }
       } catch (e) {
         if (!silent) setThreadState("error");
       }
@@ -299,6 +324,7 @@ export default function Messenger({ meId }) {
     }
   }, []);
 
+  // Open a thread: reset state, load the first page + roster.
   useEffect(() => {
     if (!activeId) return;
     setBlockedLocal(false);
@@ -312,6 +338,8 @@ export default function Messenger({ meId }) {
     setOpenMsgId(null);
     setDraft("");
     setDividerBeforeId(null);
+    setPeerTyping(null);
+    lastMarkedRef.current = null;
     atBottomRef.current = true; // a freshly opened thread starts pinned to newest
     lastCount.current = 0; // force the autoscroll effect to fire even if the new thread has the same count
     // Snapshot the unread count NOW (before loadThread's mark-read zeroes it) so
@@ -320,13 +348,22 @@ export default function Messenger({ meId }) {
     pendingUnreadRef.current = openConv?.unread || 0;
     loadThread(activeId);
     loadMembers(activeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, loadThread, loadMembers]);
+
+  // Safety-net poll for the open thread + live read-receipts. Relaxes to a slow
+  // sweep when the realtime socket is connected (messages then push in), and
+  // reverts to the fast poll if it drops. Paused while the tab is hidden.
+  useEffect(() => {
+    if (!activeId) return;
+    const period = wsLive ? THREAD_POLL_SLOW_MS : THREAD_POLL_MS;
     let timer = null;
     const start = () => {
       stop();
       timer = window.setInterval(() => {
         loadThread(activeId, { silent: true });
         loadMembers(activeId); // keep "seen" live as others read
-      }, THREAD_POLL_MS);
+      }, period);
     };
     const stop = () => {
       if (timer) window.clearInterval(timer);
@@ -346,7 +383,47 @@ export default function Messenger({ meId }) {
       stop();
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [activeId, loadThread, loadMembers]);
+  }, [activeId, wsLive, loadThread, loadMembers]);
+
+  // ── Realtime socket (one subscription for the whole component) ────────────
+  // Injects pushed messages into the open thread + refreshes the list live, and
+  // surfaces the other side's typing indicator. Registered once; reads the
+  // current conversation via activeIdRef so it never re-subscribes.
+  useEffect(() => {
+    const off = wsSubscribe((msg) => {
+      if (msg.type === "ws.ready") { setWsLive(true); return; }
+      if (msg.type === "ws.closed") { setWsLive(false); return; }
+      if (msg.type === "message.new") {
+        const cid = msg.conversation_id;
+        const m = msg.message;
+        if (!m || m.id == null) return;
+        if (cid === activeIdRef.current) {
+          setMessages((cur) => {
+            if (cur.some((x) => x.id === m.id)) return cur; // dedupe (incl. our own echo)
+            return [...cur, m];
+          });
+          setPeerTyping(null);
+          if (m.sender_id !== meId && m.id !== lastMarkedRef.current) {
+            lastMarkedRef.current = m.id;
+            bfu(`/conversations/${cid}/read`, { method: "POST" })
+              .then(() => scheduleListRefresh())
+              .catch(() => {});
+          }
+        }
+        scheduleListRefresh(); // keep previews / unread badges fresh (debounced)
+        return;
+      }
+      if (msg.type === "typing") {
+        if (msg.conversation_id === activeIdRef.current && msg.user_id !== meId) {
+          setPeerTyping(msg.sender_name || "");
+          clearTimeout(typingTimer.current);
+          typingTimer.current = setTimeout(() => setPeerTyping(null), 5000);
+        }
+        return;
+      }
+    });
+    return () => { off(); clearTimeout(typingTimer.current); };
+  }, [meId, scheduleListRefresh]);
 
   // Autoscroll to the newest message when the count grows — but only if the user
   // is already near the bottom, so a polled-in message doesn't yank them away
@@ -370,6 +447,7 @@ export default function Messenger({ meId }) {
 
   function backToList() {
     setActiveId(null);
+    setPeerTyping(null);
     router.replace("/messages", { scroll: false });
   }
 
@@ -448,8 +526,10 @@ export default function Messenger({ meId }) {
         setDraft("");
         setReplyTo(null);
         atBottomRef.current = true; // a self-send always pins to the newest, even if scrolled up
+        // Dedupe: the direct-WS echo of our own message may beat this proxied
+        // POST response, so guard against a double-append (duplicate React key).
         if (created && created.id) {
-          setMessages((m) => [...m, created]);
+          setMessages((m) => (m.some((x) => x.id === created.id) ? m : [...m, created]));
         } else {
           loadThread(activeId, { silent: true });
         }
@@ -683,12 +763,16 @@ export default function Messenger({ meId }) {
                   ) : (
                     <span className="msg-thread-name">{convTitle(active, t)}</span>
                   )}
-                  <span className="msg-thread-sub">
-                    {active.kind === "project"
-                      ? t("messages.team_chat")
-                      : active.other?.is_online
-                        ? t("messages.online_now")
-                        : t("messages.direct_message")}
+                  <span className="msg-thread-sub" data-typing={peerTyping != null ? "1" : undefined}>
+                    {peerTyping != null
+                      ? (active.kind === "project" && peerTyping
+                          ? t("messages.typing_name", { name: peerTyping })
+                          : t("messages.typing"))
+                      : active.kind === "project"
+                        ? t("messages.team_chat")
+                        : active.other?.is_online
+                          ? t("messages.online_now")
+                          : t("messages.direct_message")}
                   </span>
                 </div>
               </>
@@ -880,7 +964,7 @@ export default function Messenger({ meId }) {
                   ref={composerRef}
                   className="msg-input"
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value.slice(0, 4000))}
+                  onChange={(e) => { setDraft(e.target.value.slice(0, 4000)); if (activeId) wsSendTyping(activeId); }}
                   onKeyDown={onComposerKey}
                   placeholder={t("messages.composer_placeholder")}
                   rows={1}
@@ -1007,6 +1091,7 @@ export default function Messenger({ meId }) {
         .msg-thread-link { text-decoration: none; }
         .msg-thread-link:hover { color: var(--amber); }
         .msg-thread-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-strong); }
+        .msg-thread-sub[data-typing="1"] { color: var(--teal-bright); }
         .msg-menu-wrap { position: relative; flex: 0 0 auto; }
         .msg-more {
           width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--hair);

@@ -5,6 +5,81 @@ import { tgAlert, tgConfirm } from "../tg";
 
 const fmtDT = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return ""; } };
 
+const Stars = ({ value, onPick }) => (
+  <div style={{ display: "flex", gap: 3 }}>
+    {[1, 2, 3, 4, 5].map((n) => (
+      <button key={n} onClick={() => onPick(n)} style={{
+        background: "none", border: "none", cursor: "pointer", padding: 0,
+        fontSize: 20, color: n <= value ? "#FFB347" : "var(--surface-3)",
+      }}>★</button>
+    ))}
+  </div>
+);
+
+// Module-scope so its identity is stable across BookingsSheet reloads — a nested
+// definition would remount every row on each load() and wipe unsaved link edits.
+const BookingRow = ({ b, role, t, onAct, onSaveLink, onRate }) => {
+  const [linkVal, setLinkVal] = useState(b.meeting_link || "");
+  return (
+    <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)",
+      borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{b.other?.display_name || ""}</span>
+        <span style={{ fontSize: 11, color: "var(--text-3)" }}>{t(`booking.${b.status}`) || b.status}</span>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{fmtDT(b.start_at)}</div>
+      {b.note && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>"{b.note}"</div>}
+
+      {/* Meeting link — mentee sees a Join button; mentor gets an inline input to set/edit it. */}
+      {b.status === "confirmed" && role === "mentee" && b.meeting_link && (
+        <a href={b.meeting_link} target="_blank" rel="noopener noreferrer" style={{
+          display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "7px 13px",
+          borderRadius: "var(--radius-pill)", background: "var(--accent)", color: "#fff",
+          fontSize: 12, fontWeight: 700, textDecoration: "none",
+        }}>🎥 {t("booking.joinCall")}</a>
+      )}
+      {b.status === "confirmed" && role === "mentor" && (
+        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          <input value={linkVal} onChange={(e) => setLinkVal(e.target.value)} placeholder={t("booking.linkPh")}
+            style={{ flex: 1, minWidth: 0, background: "var(--surface-3)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)", color: "var(--text)", padding: "7px 10px", fontSize: 12 }} />
+          <button onClick={() => onSaveLink(b.id, linkVal)} style={{ flex: "0 0 auto", background: "var(--surface-3)",
+            border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-2)",
+            padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>{t("common.save")}</button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        {role === "mentor" && b.status === "requested" && (
+          <>
+            <button onClick={() => onAct(b.id, "confirm")} style={{ background: "var(--accent)", border: "none",
+              borderRadius: "var(--radius-sm)", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700,
+              cursor: "pointer" }}>{t("booking.confirm")}</button>
+            <button onClick={() => onAct(b.id, "decline")} style={{ background: "rgba(255,107,107,0.1)",
+              border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)", color: "#FF6B6B",
+              padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>{t("booking.decline")}</button>
+          </>
+        )}
+        {role === "mentee" && (b.status === "requested" || b.status === "confirmed") && (
+          <button onClick={() => onAct(b.id, "cancel")} style={{ background: "var(--surface-3)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", color: "var(--text-2)", padding: "6px 14px", fontSize: 12,
+            cursor: "pointer" }}>{t("booking.cancel")}</button>
+        )}
+      </div>
+
+      {/* Post-session rating — mentee rates a finished session (or sees/updates their rating). */}
+      {role === "mentee" && (b.can_rate || b.my_rating) && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4 }}>
+            {b.my_rating ? t("booking.yourRating") : t("booking.rateSession")}
+          </div>
+          <Stars value={b.my_rating?.stars || 0} onPick={(n) => onRate(b.id, n)} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Sheet = ({ title, onClose, children }) => (
   <div style={{ position: "fixed", inset: 0, zIndex: 340, display: "flex", flexDirection: "column" }}>
     <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }} />
@@ -155,34 +230,14 @@ export const BookingsSheet = ({ onClose }) => {
     catch (e) { tgAlert(e.message); }
   };
 
-  const Row = ({ b, role }) => (
-    <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)",
-      borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{b.other?.display_name || ""}</span>
-        <span style={{ fontSize: 11, color: "var(--text-3)" }}>{t(`booking.${b.status}`) || b.status}</span>
-      </div>
-      <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{fmtDT(b.start_at)}</div>
-      {b.note && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>"{b.note}"</div>}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        {role === "mentor" && b.status === "requested" && (
-          <>
-            <button onClick={() => act(b.id, "confirm")} style={{ background: "var(--accent)", border: "none",
-              borderRadius: "var(--radius-sm)", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700,
-              cursor: "pointer" }}>{t("booking.confirm")}</button>
-            <button onClick={() => act(b.id, "decline")} style={{ background: "rgba(255,107,107,0.1)",
-              border: "1px solid rgba(255,107,107,0.25)", borderRadius: "var(--radius-sm)", color: "#FF6B6B",
-              padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>{t("booking.decline")}</button>
-          </>
-        )}
-        {role === "mentee" && (b.status === "requested" || b.status === "confirmed") && (
-          <button onClick={() => act(b.id, "cancel")} style={{ background: "var(--surface-3)", border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)", color: "var(--text-2)", padding: "6px 14px", fontSize: 12,
-            cursor: "pointer" }}>{t("booking.cancel")}</button>
-        )}
-      </div>
-    </div>
-  );
+  const saveLink = async (id, url) => {
+    try { await bookings.setLink(id, url.trim()); load(); }
+    catch (e) { tgAlert(e.message); }
+  };
+  const rate = async (id, stars) => {
+    try { await bookings.rate(id, stars); load(); }
+    catch (e) { tgAlert(e.message); }
+  };
 
   return (
     <Sheet title={t("booking.title")} onClose={onClose}>
@@ -195,13 +250,13 @@ export const BookingsSheet = ({ onClose }) => {
           {data.as_mentee.length > 0 && (
             <>
               <div className="section-label">{t("booking.asMentee")}</div>
-              {data.as_mentee.map(b => <Row key={b.id} b={b} role="mentee" />)}
+              {data.as_mentee.map(b => <BookingRow key={b.id} b={b} role="mentee" t={t} onAct={act} onSaveLink={saveLink} onRate={rate} />)}
             </>
           )}
           {data.as_mentor.length > 0 && (
             <>
               <div className="section-label" style={{ marginTop: 14 }}>{t("booking.asMentor")}</div>
-              {data.as_mentor.map(b => <Row key={b.id} b={b} role="mentor" />)}
+              {data.as_mentor.map(b => <BookingRow key={b.id} b={b} role="mentor" t={t} onAct={act} onSaveLink={saveLink} onRate={rate} />)}
             </>
           )}
         </>

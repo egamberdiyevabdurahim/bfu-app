@@ -118,6 +118,11 @@ export const MentorsScreen = ({ onClose } = {}) => {
                     >
                       {hasSlots ? t("mentor.openSlots", { n: m.open_slots }) : t("mentor.noSlots")}
                     </div>
+                    {m.session_rating?.average != null && (
+                      <div style={{ marginTop: 4, fontFamily: "var(--font-mono)", fontSize: 11, color: "#FFB347" }}>
+                        ★ {m.session_rating.average} · {t("mentor.sessionCount", { n: m.session_rating.count })}
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -774,6 +774,7 @@ const STRINGS = {
   "mentor.mySlots": { en: "My mentor slots", uz: "Mening vaqtlarim", ru: "Мои слоты" },
   "mentor.addSlot": { en: "Add a slot", uz: "Vaqt qo‘shish", ru: "Добавить слот" },
   "mentor.noSlots": { en: "No open slots", uz: "Bo‘sh vaqt yo‘q", ru: "Нет свободных слотов" },
+  "mentor.sessionCount": { en: "{n} sessions", uz: "{n} sessiya", ru: "{n} сессий" },
   "mentor.slotPast": { en: "Pick a future time", uz: "Kelajakdagi vaqtni tanlang", ru: "Выберите будущее время" },
   // ── Batch C: bookings ───────────────────────────────────────────────────────
   "booking.title": { en: "My bookings", uz: "Bandlovlarim", ru: "Мои записи" },
@@ -790,6 +791,10 @@ const STRINGS = {
   "booking.cancel": { en: "Cancel", uz: "Bekor qilish", ru: "Отменить" },
   "booking.booked": { en: "Booked!", uz: "Band qilindi!", ru: "Записано!" },
   "booking.none": { en: "No bookings yet", uz: "Hali bandlov yo‘q", ru: "Пока нет записей" },
+  "booking.joinCall": { en: "Join call", uz: "Qo‘ng‘iroqqa qo‘shilish", ru: "Войти в звонок" },
+  "booking.linkPh": { en: "Paste meeting link (https://…)", uz: "Uchrashuv havolasi (https://…)", ru: "Ссылка на встречу (https://…)" },
+  "booking.rateSession": { en: "Rate this session", uz: "Sessiyani baholang", ru: "Оцените сессию" },
+  "booking.yourRating": { en: "Your rating", uz: "Bahoyingiz", ru: "Ваша оценка" },
   // ── Batch C: inbox notification text ────────────────────────────────────────
   "inbox.new_follower": { en: "{name} started following you", uz: "{name} sizni kuzata boshladi", ru: "{name} подписался(ась) на вас" },
   "inbox.project_update": { en: "New update in {project}", uz: "{project} loyihasida yangilik", ru: "Новое обновление в {project}" },

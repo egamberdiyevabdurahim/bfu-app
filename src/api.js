@@ -229,6 +229,8 @@ export const bookings = {
   book:    (slot_id, note)     => req("/bookings", { method: "POST", body: JSON.stringify({ slot_id, note: note || null }) }),
   act:     (id, action)        => req(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   mine:    ()                  => req("/bookings/me"),
+  setLink: (id, url)           => req(`/bookings/${id}/meeting-link`, { method: "PATCH", body: JSON.stringify({ url }) }),
+  rate:    (id, stars, note)   => req(`/bookings/${id}/rating`, { method: "POST", body: JSON.stringify({ stars, note: note || null }) }),
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import StarInput from "@/components/projects/StarInput";
 
 // Sessions (Batch 4). Loads GET /bookings/me →
 //   { as_mentee:[row], as_mentor:[row] }
@@ -98,12 +99,19 @@ function Avatar({ id, name, photo, size = 44 }) {
   );
 }
 
-function Row({ booking, role, onAct, busy }) {
+function Row({ booking, role, onAct, busy, onSetLink, onRate }) {
   const t = useT();
   const other = booking.other || {};
   const name = other.display_name || t("community.builderFallback");
   const canMentorAct = role === "mentor" && booking.status === "requested";
   const canMenteeCancel = role === "mentee" && (booking.status === "requested" || booking.status === "confirmed");
+  const [linkVal, setLinkVal] = useState(booking.meeting_link || "");
+  // Only reserve the wrapped full-width line when a block will actually render
+  // (else a confirmed-but-linkless mentee row shows an empty gap).
+  const showExtras =
+    (role === "mentee" && booking.status === "confirmed" && booking.meeting_link) ||
+    (role === "mentor" && booking.status === "confirmed") ||
+    (role === "mentee" && (booking.can_rate || booking.my_rating));
 
   return (
     <div className="ch-cell-static" style={{ display: "flex", alignItems: "center", gap: 16, padding: 18, flexWrap: "wrap" }}>
@@ -185,6 +193,39 @@ function Row({ booking, role, onAct, busy }) {
           ) : null}
         </div>
       ) : null}
+
+      {/* Meeting link + post-session rating (wraps to a full-width row below). */}
+      {showExtras ? (
+        <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
+          {booking.status === "confirmed" && role === "mentee" && booking.meeting_link ? (
+            <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer" className="ch-btn-primary"
+              style={{ alignSelf: "flex-start", padding: "9px 16px", fontSize: 13, textDecoration: "none" }}>
+              🎥 {t("community.bookings.joinCall")}
+            </a>
+          ) : null}
+          {booking.status === "confirmed" && role === "mentor" ? (
+            <div style={{ display: "flex", gap: 8, maxWidth: 460 }}>
+              <input
+                value={linkVal}
+                onChange={(e) => setLinkVal(e.target.value)}
+                placeholder={t("community.bookings.linkPh")}
+                style={{ flex: 1, minWidth: 0, background: "var(--surface-2)", border: "1px solid var(--hair)",
+                  borderRadius: "var(--radius-sm)", color: "var(--text)", padding: "9px 12px", fontSize: 13 }}
+              />
+              <button type="button" onClick={() => onSetLink(booking, linkVal)} className="ch-btn-ghost"
+                style={{ flex: "0 0 auto" }}>{t("community.bookings.saveLink")}</button>
+            </div>
+          ) : null}
+          {role === "mentee" && (booking.can_rate || booking.my_rating) ? (
+            <div>
+              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginBottom: 4 }}>
+                {booking.my_rating ? t("community.bookings.yourRating") : t("community.bookings.rateSession")}
+              </div>
+              <StarInput value={booking.my_rating?.stars || 0} onChange={(n) => onRate(booking, n)} size={22} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -248,6 +289,27 @@ export default function BookingsList() {
     }
   }
 
+  async function setLink(booking, url) {
+    try {
+      const res = await bfu(`/bookings/${booking.id}/meeting-link`, { method: "PATCH", body: { url } });
+      setAsMentor((cur) => cur.map((b) => (b.id === booking.id ? { ...b, meeting_link: res?.meeting_link ?? null } : b)));
+      flash(t("community.bookings.linkSaved"));
+    } catch (e) {
+      flash(e?.message || t("community.bookings.updateError"), "err");
+    }
+  }
+
+  async function rate(booking, stars) {
+    try {
+      await bfu(`/bookings/${booking.id}/rating`, { method: "POST", body: { stars } });
+      // note is a full replace server-side; this simple UI sends stars only → note clears
+      setAsMentee((cur) => cur.map((b) => (b.id === booking.id ? { ...b, my_rating: { stars, note: null }, can_rate: false } : b)));
+      flash(t("community.bookings.rated"));
+    } catch (e) {
+      flash(e?.message || t("community.bookings.updateError"), "err");
+    }
+  }
+
   if (state === "loading") {
     return (
       <div style={{ marginTop: 28, color: "var(--muted-strong)", fontSize: 14 }} role="status" aria-live="polite">
@@ -280,7 +342,7 @@ export default function BookingsList() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
             {asMentor.map((b) => (
-              <Row key={b.id} booking={b} role="mentor" onAct={act} busy={busy} />
+              <Row key={b.id} booking={b} role="mentor" onAct={act} busy={busy} onSetLink={setLink} onRate={rate} />
             ))}
           </div>
         </section>
@@ -305,7 +367,7 @@ export default function BookingsList() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
             {asMentee.map((b) => (
-              <Row key={b.id} booking={b} role="mentee" onAct={act} busy={busy} />
+              <Row key={b.id} booking={b} role="mentee" onAct={act} busy={busy} onSetLink={setLink} onRate={rate} />
             ))}
           </div>
         )}

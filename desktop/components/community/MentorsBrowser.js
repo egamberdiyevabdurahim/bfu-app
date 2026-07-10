@@ -527,6 +527,14 @@ export default function MentorsBrowser() {
                     >
                       {m.open_slots > 0 ? t(m.open_slots === 1 ? "community.mentors.openSlot" : "community.mentors.openSlots", { n: m.open_slots }) : t("community.mentors.noOpenSlots")}
                     </div>
+                    {m.session_rating?.average != null ? (
+                      <div style={{ marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 12, color: "#FFB347" }}>
+                        ★ {m.session_rating.average}
+                        <span style={{ color: "var(--muted-strong)" }}>
+                          {" · "}{t("community.mentors.sessionCount", { n: m.session_rating.count })}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   {isSelf ? (
                     <span

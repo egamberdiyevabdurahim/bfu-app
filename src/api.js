@@ -235,6 +235,10 @@ export const bookings = {
 export const events = {
   list: (p = {}) => req(`/events${qs(p)}`),
   forMe: () => req("/events/for-me"),
+  rsvp: (id, status) => req(`/events/${id}/rsvp`, { method: "POST", body: JSON.stringify({ status }) }),
+  unrsvp: (id) => req(`/events/${id}/rsvp`, { method: "DELETE" }),
+  myRsvps: () => req("/events/mine/rsvps"),
+  attendees: (id, limit) => req(`/events/${id}/attendees${qs({ limit })}`),
 };
 
 export const partners = {

@@ -16,10 +16,12 @@ export const metadata = {
   description: "Hackathons, grants, scholarships and meetups for builders.",
 };
 
-export default async function EventsPage() {
+export default async function EventsPage({ searchParams }) {
   const me = await getMe();
   if (!me) redirect("/login");
   const { t } = await getT();
+  // Deep-link target from a notification link "/events?e={id}" → highlight it.
+  const highlightEventId = Number(searchParams?.e) || null;
 
   return (
     <AppTopBar active="events" me={me}>
@@ -73,7 +75,7 @@ export default async function EventsPage() {
           </p>
         </div>
 
-        <EventsBrowser />
+        <EventsBrowser highlightEventId={highlightEventId} />
 
         <SiteFooter tagline={t("community.events.footer")} />
     </AppTopBar>

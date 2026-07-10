@@ -6,7 +6,7 @@ import { PartnersModal } from "../components/PartnersModal";
 import { useT } from "../i18n";
 import { fmtDate } from "../timefmt";
 
-const TYPES = ["foryou", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
+const TYPES = ["foryou", "myrsvps", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
 // Type → Chorsu accent, mirrored from the desktop EventsBrowser TYPE_STYLE so the
 // hackathon/grant/scholarship/meetup pills read the same warm-firelit language.
@@ -19,9 +19,57 @@ const TYPE_STYLE = {
 const DEFAULT_TYPE = { color: "var(--text-2)", bg: "var(--surface-2)", bd: "var(--hair)" };
 const KNOWN_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
 
-// Firelit event card — whole card is the outbound link when `ev.link` exists
-// (mirrors desktop), else a passive .ch-cell-static tile. Deep-linked card glows.
-const EventCard = ({ ev, i, highlighted, t, fmt }) => {
+// RSVP / Interested toggles + "N going" social proof. Lives OUTSIDE the card's
+// outbound <a>, so a tap never triggers the external nav. Optimistic; the server
+// response (rsvp_count/my_rsvp) reconciles.
+const RsvpRow = ({ ev, t, onRsvp }) => {
+  const [busy, setBusy] = useState(false);
+  const set = async (status) => {
+    if (busy) return;
+    setBusy(true);
+    const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
+    const toggleOff = ev.my_rsvp === status;
+    const nextStatus = toggleOff ? null : status;
+    const delta = (nextStatus === "going" ? 1 : 0) - (ev.my_rsvp === "going" ? 1 : 0);
+    onRsvp(ev.id, { my_rsvp: nextStatus, rsvp_count: Math.max(0, (ev.rsvp_count || 0) + delta) });
+    try {
+      const r = toggleOff ? await events.unrsvp(ev.id) : await events.rsvp(ev.id, status);
+      onRsvp(ev.id, { rsvp_count: r.rsvp_count, my_rsvp: r.my_rsvp });
+    } catch {
+      onRsvp(ev.id, prev); // revert (err.status===404 ⇒ event gone)
+    } finally {
+      setBusy(false);
+    }
+  };
+  const base = {
+    fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.06em",
+    borderRadius: "var(--radius-pill)", fontSize: 11, padding: "7px 13px", cursor: "pointer",
+    transition: "background 0.15s ease, color 0.15s ease",
+  };
+  const pill = (active) => active
+    ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 700, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
+    : { background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--hair)", fontWeight: 500 };
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14 }}>
+      <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
+        {ev.my_rsvp === "going" ? "✓ " : ""}{t("events.rsvp.going")}
+      </button>
+      <button disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
+        {ev.my_rsvp === "interested" ? "✓ " : ""}{t("events.rsvp.interested")}
+      </button>
+      {ev.rsvp_count > 0 && (
+        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
+          {t("events.rsvp.count", { n: ev.rsvp_count })}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Firelit event card — the tappable content is the outbound link when `ev.link`
+// exists (mirrors desktop); the RSVP row is a sibling below it, always live.
+// Deep-linked card glows.
+const EventCard = ({ ev, i, highlighted, t, fmt, onRsvp }) => {
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = ev.deadline ? fmt(ev.deadline) : null;
   const typeLabel = KNOWN_TYPES.includes(ev.type)
@@ -95,13 +143,15 @@ const EventCard = ({ ev, i, highlighted, t, fmt }) => {
     </>
   );
 
-  return ev.link ? (
-    <a href={ev.link} target="_blank" rel="noopener noreferrer" className="ch-cell-static" style={containerStyle}>
-      {inner}
-    </a>
-  ) : (
+  return (
     <div className="ch-cell-static" style={containerStyle}>
-      {inner}
+      {ev.link ? (
+        <a href={ev.link} target="_blank" rel="noopener noreferrer"
+           style={{ display: "block", color: "inherit", textDecoration: "none", cursor: "pointer" }}>
+          {inner}
+        </a>
+      ) : inner}
+      <RsvpRow ev={ev} t={t} onRsvp={onRsvp} />
     </div>
   );
 };
@@ -110,21 +160,29 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   const { t } = useT();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState("foryou");
+  // A deep-linked event (from a notification) opens on "all" so the target card
+  // is actually in the loaded list — the "For you" radar rarely contains your own event.
+  const [type, setType] = useState(deepLinkEventId ? "all" : "foryou");
   const [partnersOpen, setPartnersOpen] = useState(false);
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
+  useEffect(() => { if (deepLinkEventId) setType("all"); }, [deepLinkEventId]);
 
   const load = async () => {
     setLoading(true);
     try {
       let res;
-      if (type === "foryou") res = await events.forMe();      // Opportunity Radar
+      if (type === "foryou") res = await events.forMe();        // Opportunity Radar
+      else if (type === "myrsvps") res = await events.myRsvps(); // mine, upcoming-first
       else res = await events.list(type === "all" ? {} : { type });
       setList(Array.isArray(res) ? res : []);
     } catch (e) { setList([]); }
     setLoading(false);
   };
+
+  // Update rsvp_count / my_rsvp for one card in place after an RSVP toggle.
+  const onRsvp = (id, patch) =>
+    setList((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 
   const fmt = (iso) => fmtDate(iso) || "—"; // Tashkent-time, UTC-safe
 
@@ -175,7 +233,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
                 boxShadow: on ? "0 6px 16px rgba(232,161,92,0.28)" : "none",
                 transition: "background 0.15s ease, color 0.15s ease",
               }}>
-                {ty === "all" ? t("events.filterAll") : ty === "foryou" ? t("events.foryou") : t(`events.type.${ty}`)}
+                {ty === "all" ? t("events.filterAll") : ty === "foryou" ? t("events.foryou") : ty === "myrsvps" ? t("events.myRsvps") : t(`events.type.${ty}`)}
               </button>
             );
           })}
@@ -200,6 +258,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
                   highlighted={deepLinkEventId === ev.id}
                   t={t}
                   fmt={fmt}
+                  onRsvp={onRsvp}
                 />
               ))}
             </div>

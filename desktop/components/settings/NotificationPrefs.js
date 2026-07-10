@@ -14,6 +14,7 @@ const CATEGORIES = [
   { key: "applications" },
   { key: "project_updates" },
   { key: "bookings" },
+  { key: "events" },
   { key: "weekly_digest" },
 ];
 
@@ -21,7 +22,7 @@ const CATEGORIES = [
 // omits so a toggle never reads `undefined`.
 const DEFAULT_PREFS = {
   messages: true, interest: true, applications: true, project_updates: true,
-  bookings: true, weekly_digest: true, telegram_push: true,
+  bookings: true, events: true, weekly_digest: true, telegram_push: true,
 };
 
 // role=switch toggle. --ember track when on, --surface-2 / --hair when off.

@@ -92,6 +92,7 @@ const STRINGS = {
   "notif.cat.applications": { en: "Applications", uz: "Arizalar", ru: "Заявки" },
   "notif.cat.project_updates": { en: "Project updates", uz: "Loyiha yangiliklari", ru: "Обновления проектов" },
   "notif.cat.bookings": { en: "Sessions", uz: "Sessiyalar", ru: "Сессии" },
+  "notif.cat.events": { en: "Events", uz: "Tadbirlar", ru: "События" },
   "notif.cat.weekly_digest": { en: "Weekly digest", uz: "Haftalik xulosa", ru: "Еженедельная сводка" },
   "notif.mutedNote": { en: "Push is off — you'll still see everything in your in-app inbox.", uz: "Push o‘chiq — hammasini ilova ichidagi inboxda ko‘rasiz.", ru: "Push выключен — всё видно во входящих в приложении." },
 
@@ -620,6 +621,10 @@ const STRINGS = {
   "events.type.other": { en: "Event", uz: "Tadbir", ru: "Мероприятие" },
   "events.filterAll": { en: "All", uz: "Hammasi", ru: "Все" },
   "events.foryou": { en: "✨ For You", uz: "✨ Siz uchun", ru: "✨ Для вас" },
+  "events.myRsvps": { en: "Mine", uz: "Meniki", ru: "Мои" },
+  "events.rsvp.going": { en: "Going", uz: "Boraman", ru: "Иду" },
+  "events.rsvp.interested": { en: "Interested", uz: "Qiziqaman", ru: "Интересно" },
+  "events.rsvp.count": { en: "{n} going", uz: "{n} kishi boradi", ru: "Идут: {n}" },
   "badge.verified":   { en: "Verified", uz: "Tasdiqlangan", ru: "Проверен" },
   "badge.early":      { en: "Early", uz: "Boshlang‘ich", ru: "Первые" },
   "badge.connector":  { en: "Connector", uz: "Bog‘lovchi", ru: "Коннектор" },
@@ -791,6 +796,7 @@ const STRINGS = {
   "inbox.booking_request": { en: "{name} requested a mentor session", uz: "{name} mentor sessiyasini so‘radi", ru: "{name} запросил(а) сессию" },
   "inbox.booking_confirmed": { en: "{name} confirmed your session", uz: "{name} sessiyangizni tasdiqladi", ru: "{name} подтвердил(а) вашу сессию" },
   "inbox.booking_declined": { en: "{name} declined your session", uz: "{name} sessiyangizni rad etdi", ru: "{name} отклонил(а) вашу сессию" },
+  "inbox.event_rsvp": { en: "{name} is going to your event", uz: "{name} tadbiringizga bormoqchi", ru: "{name} идёт на ваше мероприятие" },
   // ── Batch D: open roles ─────────────────────────────────────────────────────
   "roles.title": { en: "Open roles", uz: "Ochiq rollar", ru: "Открытые роли" },
   "roles.searchPh": { en: "Search roles…", uz: "Rollarni qidirish…", ru: "Поиск ролей…" },

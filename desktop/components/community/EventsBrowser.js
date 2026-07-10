@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useT } from "@/components/i18n/LocaleProvider";
 
@@ -26,10 +26,63 @@ function fmtDeadline(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function EventCard({ ev }) {
+// RSVP / Interested toggles + "N going" — a sibling BELOW the card's outbound
+// <a>, so a tap never triggers the external nav. Optimistic; server reconciles.
+function RsvpRow({ ev, onRsvp }) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const set = async (status) => {
+    if (busy) return;
+    setBusy(true);
+    const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
+    const toggleOff = ev.my_rsvp === status;
+    const nextStatus = toggleOff ? null : status;
+    const delta = (nextStatus === "going" ? 1 : 0) - (ev.my_rsvp === "going" ? 1 : 0);
+    onRsvp(ev.id, { my_rsvp: nextStatus, rsvp_count: Math.max(0, (ev.rsvp_count || 0) + delta) });
+    try {
+      const r = toggleOff
+        ? await bfu(`/events/${ev.id}/rsvp`, { method: "DELETE" })
+        : await bfu(`/events/${ev.id}/rsvp`, { method: "POST", body: { status } });
+      onRsvp(ev.id, { rsvp_count: r.rsvp_count, my_rsvp: r.my_rsvp });
+    } catch {
+      onRsvp(ev.id, prev);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const base = {
+    fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.06em",
+    borderRadius: "var(--radius-pill)", fontSize: 11.5, padding: "8px 15px", cursor: "pointer",
+    transition: "background 0.15s ease, color 0.15s ease",
+  };
+  const pill = (active) => active
+    ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 800, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
+    : { background: "var(--surface-2)", color: "var(--muted-strong)", border: "1px solid var(--hair)", fontWeight: 500 };
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "14px 28px 24px" }}>
+      <button type="button" disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
+        {ev.my_rsvp === "going" ? "✓ " : ""}{t("community.events.rsvpGoing")}
+      </button>
+      <button type="button" disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
+        {ev.my_rsvp === "interested" ? "✓ " : ""}{t("community.events.rsvpInterested")}
+      </button>
+      {ev.rsvp_count > 0 ? (
+        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)" }}>
+          {t("community.events.goingCount", { n: ev.rsvp_count })}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function EventCard({ ev, onRsvp, highlighted }) {
   const t = useT();
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = fmtDeadline(ev.deadline);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (highlighted && ref.current) ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlighted]);
   const inner = (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -119,63 +172,89 @@ function EventCard({ ev }) {
     </>
   );
 
-  const cellStyle = { display: "block", padding: 28, color: "var(--text)", textDecoration: "none" };
-  // Only the outbound-link variant is a real clickable tile → keep the .ch-cell
-  // hover glow. A card with no link is passive → .ch-cell-static (no false lift).
-  return ev.link ? (
-    <a href={ev.link} target="_blank" rel="noopener noreferrer" className="ch-cell" style={cellStyle}>
+  // The whole card is ONE tile (outer .ch-cell for the hover glow when linkable,
+  // else .ch-cell-static). The body is a plain block link over the content; the
+  // RSVP row sits below it inside the same tile but OUTSIDE the <a>, so its clicks
+  // never trigger the outbound nav.
+  const contentStyle = { display: "block", padding: "28px 28px 0", color: "var(--text)", textDecoration: "none" };
+  const body = ev.link ? (
+    <a href={ev.link} target="_blank" rel="noopener noreferrer" style={{ ...contentStyle, cursor: "pointer" }}>
       {inner}
     </a>
   ) : (
-    <div className="ch-cell-static" style={cellStyle}>
-      {inner}
+    <div style={contentStyle}>{inner}</div>
+  );
+  return (
+    <div
+      ref={ref}
+      className={ev.link ? "ch-cell" : "ch-cell-static"}
+      style={{
+        padding: 0, overflow: "hidden",
+        ...(highlighted ? { border: "1.5px solid var(--amber)", boxShadow: "0 0 24px rgba(232,161,92,0.28)" } : null),
+      }}
+    >
+      {body}
+      <RsvpRow ev={ev} onRsvp={onRsvp} />
     </div>
   );
 }
 
-export default function EventsBrowser() {
+export default function EventsBrowser({ highlightEventId = null }) {
   const t = useT();
-  const [tab, setTab] = useState("all"); // all | forme
+  const [tab, setTab] = useState("all"); // all | forme | mine
   const [state, setState] = useState("loading"); // loading | ready | error
   const [all, setAll] = useState(null);
   const [forme, setForme] = useState(null);
+  const [mine, setMine] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const cacheFor = (tb) => (tb === "all" ? all : tb === "forme" ? forme : mine);
+  const setCacheFor = (tb, v) => (tb === "all" ? setAll(v) : tb === "forme" ? setForme(v) : setMine(v));
+  const pathFor = (tb) => (tb === "all" ? "/events" : tb === "forme" ? "/events/for-me" : "/events/mine/rsvps");
 
   useEffect(() => {
     let alive = true;
-    const loaded = tab === "all" ? all : forme;
-    if (loaded !== null) {
+    if (cacheFor(tab) !== null) {
       setState("ready");
       return undefined;
     }
     setState("loading");
-    const path = tab === "all" ? "/events" : "/events/for-me";
-    bfu(path)
+    bfu(pathFor(tab))
       .then((res) => {
         if (!alive) return;
-        const list = Array.isArray(res) ? res : [];
-        if (tab === "all") setAll(list);
-        else setForme(list);
+        setCacheFor(tab, Array.isArray(res) ? res : []);
         setState("ready");
       })
       .catch(() => alive && setState("error"));
     return () => {
       alive = false;
     };
-  }, [tab, all, forme, reloadKey]);
+  }, [tab, all, forme, mine, reloadKey]);
 
-  const list = tab === "all" ? all : forme;
+  const list = cacheFor(tab);
 
   // Re-attempt the current tab: clear its cache so the effect refetches.
   function retry() {
-    if (tab === "all") setAll(null);
-    else setForme(null);
+    setCacheFor(tab, null);
     setReloadKey((k) => k + 1);
+  }
+
+  // After an RSVP toggle, patch that event across the loaded "all"/"forme" tabs so
+  // counts + button state stay consistent. For "mine" (Going): patch in place while
+  // you're viewing it, but otherwise INVALIDATE its cache so it refetches fresh next
+  // open — an in-place patch can't add a newly-RSVP'd event or drop an un-RSVP'd one.
+  function onRsvp(id, patch) {
+    const upd = (arr) => (Array.isArray(arr) ? arr.map((e) => (e.id === id ? { ...e, ...patch } : e)) : arr);
+    setAll(upd);
+    setForme(upd);
+    if (tab === "mine") setMine(upd);
+    else setMine(null);
   }
 
   const TABS = [
     { id: "all", label: t("community.events.tabAll") },
     { id: "forme", label: t("community.events.tabForMe") },
+    { id: "mine", label: t("community.events.tabMine") },
   ];
 
   return (
@@ -245,7 +324,11 @@ export default function EventsBrowser() {
           <div className="ch-grace" style={{ marginTop: 24 }}>
             <span className="ch-grace-k">{t("community.events.emptyKicker")}</span>
             <div className="ch-grace-t">
-              {tab === "forme" ? t("community.events.emptyTitleForMe") : t("community.events.emptyTitleAll")}
+              {tab === "forme"
+                ? t("community.events.emptyTitleForMe")
+                : tab === "mine"
+                  ? t("community.events.emptyTitleMine")
+                  : t("community.events.emptyTitleAll")}
             </div>
             <div className="ch-grace-s">
               {tab === "forme"
@@ -261,7 +344,7 @@ export default function EventsBrowser() {
         ) : (
           <div className="ch-grid" style={{ marginTop: 24 }}>
             {list.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <EventCard key={ev.id} ev={ev} onRsvp={onRsvp} highlighted={highlightEventId === ev.id} />
             ))}
           </div>
         )}

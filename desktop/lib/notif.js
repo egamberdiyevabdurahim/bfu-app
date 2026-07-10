@@ -34,6 +34,7 @@ export const NOTIF_EMOJI = {
   booking_declined: "🚫",
   removed_from_project: "🚪",
   message: "✉️",
+  event_rsvp: "🎟️",
 };
 
 /** Emoji for a notification type, falling back to a generic bell. */
@@ -86,6 +87,8 @@ export function notifText(n, t) {
       return name ? t("inbox.notif_booking_declined_named", { name }) : t("inbox.notif_booking_declined");
     case "message":
       return name ? t("inbox.notif_message_named", { name }) : t("inbox.notif_message");
+    case "event_rsvp":
+      return name ? t("inbox.notif_event_rsvp_named", { name }) : t("inbox.notif_event_rsvp");
     default:
       return name || t("inbox.notif_default");
   }
@@ -123,6 +126,8 @@ export function notifHref(n) {
       // The exact thread comes from the server `link` (/messages?c={id}); this
       // fallback just opens the messenger.
       return "/messages";
+    case "event_rsvp":
+      return n.event_id ? `/events?e=${n.event_id}` : "/events";
     default:
       return n.actor?.id ? `/u/${n.actor.id}` : null;
   }

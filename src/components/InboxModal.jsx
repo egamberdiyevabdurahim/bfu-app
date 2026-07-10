@@ -24,6 +24,7 @@ function notifText(t, n) {
     case "booking_request":   return t("inbox.booking_request", { name });
     case "booking_confirmed": return t("inbox.booking_confirmed", { name });
     case "booking_declined":  return t("inbox.booking_declined", { name });
+    case "event_rsvp":        return t("inbox.event_rsvp", { name });
     default:            return name;
   }
 }
@@ -33,6 +34,7 @@ const TYPE_EMOJI = {
   application: "🔔", accepted: "✅", declined: "📭", rate_prompt: "⭐",
   new_follower: "➕", project_update: "📣",
   booking_request: "📅", booking_confirmed: "✅", booking_declined: "🚫",
+  event_rsvp: "🎟️",
 };
 
 export const InboxModal = ({ onClose }) => {
@@ -101,9 +103,17 @@ export const InboxModal = ({ onClose }) => {
               <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("inbox.empty")}</div>
             ) : items.map(n => {
               const isRatePrompt = n.type === "rate_prompt" && !!n.project?.id;
-              const clickable = !!n.actor || isRatePrompt;
+              const isEvent = n.type === "event_rsvp" && !!n.event_id;
+              const clickable = !!n.actor || isRatePrompt || isEvent;
               const onTap = () => {
                 if (isRatePrompt) { setRateProjectId(n.project.id); return; }
+                if (isEvent) {
+                  // Open the Events tab + highlight the card (Mini App reads
+                  // start_param, not the desktop "/events?e=" link string).
+                  window.dispatchEvent(new CustomEvent("bfu:open-event", { detail: { eventId: n.event_id } }));
+                  onClose?.();
+                  return;
+                }
                 if (n.actor) setViewingUserId(n.actor.id);
               };
               return (

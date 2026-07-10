@@ -84,6 +84,15 @@ function MiniApp() {
     return () => window.removeEventListener("bfu:open-project", onOpenProject);
   }, []);
 
+  useEffect(() => {
+    const onOpenEvent = (e) => {
+      const id = e?.detail?.eventId;
+      if (id) { setDeepLink({ tab: "events", eventId: id }); setActiveTab("events"); }
+    };
+    window.addEventListener("bfu:open-event", onOpenEvent);
+    return () => window.removeEventListener("bfu:open-event", onOpenEvent);
+  }, []);
+
   // On mount: verify existing token and registration status
   useEffect(() => {
     if (!storage.getAccess()) {

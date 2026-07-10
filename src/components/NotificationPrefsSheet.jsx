@@ -14,6 +14,7 @@ const CATEGORIES = [
   { key: "applications",    glyph: "✒" },
   { key: "project_updates", glyph: "◆" },
   { key: "bookings",        glyph: "◷" },
+  { key: "events",          glyph: "📅" },
   { key: "weekly_digest",   glyph: "📰" },
 ];
 

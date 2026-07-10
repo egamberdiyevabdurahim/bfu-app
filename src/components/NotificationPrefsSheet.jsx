@@ -35,6 +35,7 @@ export const NotificationPrefsSheet = ({ onClose }) => {
   const { t } = useT();
   const [prefs, setPrefs] = useState(null);
   const [dmPrivacy, setDmPrivacy] = useState("everyone");
+  const [whoViewed, setWhoViewed] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -43,6 +44,7 @@ export const NotificationPrefsSheet = ({ onClose }) => {
       .then(([r, me]) => {
         setPrefs(r?.prefs || {});
         if (me?.dm_privacy) setDmPrivacy(me.dm_privacy);
+        if (me && typeof me.who_viewed_consent === "boolean") setWhoViewed(me.who_viewed_consent);
         setLoading(false);
       })
       .catch(() => { setError(true); setLoading(false); });
@@ -59,6 +61,17 @@ export const NotificationPrefsSheet = ({ onClose }) => {
       window.dispatchEvent(new CustomEvent("bfu:me-updated"));
     } catch {
       setDmPrivacy(prev);
+    }
+  };
+
+  const toggleWhoViewed = async () => {
+    const next = !whoViewed;
+    setWhoViewed(next); // optimistic
+    try {
+      const me = await users.updateMe({ who_viewed_consent: next });
+      if (me && typeof me.who_viewed_consent === "boolean") setWhoViewed(me.who_viewed_consent);
+    } catch {
+      setWhoViewed(!next);
     }
   };
 
@@ -172,6 +185,18 @@ export const NotificationPrefsSheet = ({ onClose }) => {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Who-viewed-me consent (incognito) */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 13, padding: "13px 15px", marginTop: 8,
+              background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoViewed")}</div>
+                <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoViewedHint")}</div>
+              </div>
+              <Switch on={whoViewed} onClick={toggleWhoViewed} />
             </div>
           </>
         )}

@@ -62,6 +62,9 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # Who may open/continue a DM with this user: "everyone" (default) | "connections"
     # (mutual-interest peers only). Block always outranks it. Team chats are exempt.
     dm_privacy: Mapped[str] = mapped_column(String(20), default="everyone", server_default="everyone")
+    # LinkedIn-style: when False (incognito), my profile views aren't recorded AND
+    # I can't see who viewed me (reciprocity). Default True = participate.
+    who_viewed_consent: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

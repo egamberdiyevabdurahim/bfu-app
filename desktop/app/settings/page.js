@@ -124,7 +124,7 @@ export default async function SettingsPage() {
         </div>
 
         <div style={{ marginTop: 26 }}>
-          <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} />
+          <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} initialWhoViewed={me?.who_viewed_consent !== false} />
         </div>
 
         <SiteFooter tagline={t("settings.footer_tagline")} />

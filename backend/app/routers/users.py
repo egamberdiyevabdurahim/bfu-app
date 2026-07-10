@@ -2002,6 +2002,10 @@ async def my_profile_viewers(
     `updated_at` first). Banned/deleted viewers are excluded from both. Each row
     is one distinct viewer (UNIQUE viewer_id, viewed_id), so `count` == number of
     distinct viewers."""
+    # Reciprocity: an incognito user (who_viewed_consent off) can't see who viewed
+    # them — they also aren't recorded when they browse (see get_user_profile).
+    if not current_user.who_viewed_consent:
+        return {"count": 0, "recent": []}
     limit = max(1, min(limit, 50))
 
     base = (
@@ -2012,6 +2016,9 @@ async def my_profile_viewers(
             ProfileView.viewed_id == current_user.id,
             User.is_deleted == False,
             User.banned == False,
+            # A currently-incognito viewer is hidden from everyone's list — even
+            # for views they made before going incognito (retroactive + reversible).
+            User.who_viewed_consent == True,
         )
     )
     rows = (await db.execute(
@@ -2025,6 +2032,7 @@ async def my_profile_viewers(
             ProfileView.viewed_id == current_user.id,
             User.is_deleted == False,
             User.banned == False,
+            User.who_viewed_consent == True,
         )
     ) or 0
 
@@ -2061,7 +2069,10 @@ async def get_user_profile(
     # Record that the viewer looked at this profile ("who viewed you"). Skip
     # self-views and banned/deleted targets. Best-effort + isolated commit — it
     # must never change the response shape or fail the request.
-    if current_user.id != user.id and not user.banned and not user.is_deleted:
+    # ...unless the viewer is browsing incognito (who_viewed_consent off) — then
+    # their view is not recorded, so the viewed user never sees them.
+    if (current_user.who_viewed_consent
+            and current_user.id != user.id and not user.banned and not user.is_deleted):
         await _record_profile_view(db, current_user.id, user.id)
     # Inject the richer invite-based badge (one query, only on profile view).
     invited = await db.scalar(

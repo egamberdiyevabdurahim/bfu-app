@@ -7,26 +7,39 @@ import { useToast } from "@/lib/useToast";
 
 // Who-can-message privacy. Backend gate lives on the DM-open + send endpoints
 // (dm_privacy: "everyone" | "connections"); this just sets it via PATCH /users/me.
-export default function PrivacyPrefs({ initialDmPrivacy = "everyone" }) {
+export default function PrivacyPrefs({ initialDmPrivacy = "everyone", initialWhoViewed = true }) {
   const t = useT();
   const [dmPrivacy, setDmPrivacy] = useState(initialDmPrivacy === "connections" ? "connections" : "everyone");
+  const [whoViewed, setWhoViewed] = useState(initialWhoViewed !== false);
   const [busy, setBusy] = useState(false);
   const { toast, flash } = useToast(3200);
 
-  const choose = async (val) => {
-    if (busy || val === dmPrivacy) return;
-    const prev = dmPrivacy;
+  const patch = async (body, apply, revert) => {
+    if (busy) return;
     setBusy(true);
-    setDmPrivacy(val); // optimistic
+    apply();
     try {
-      const me = await bfu("/users/me", { method: "PATCH", body: { dm_privacy: val } });
-      if (me?.dm_privacy) setDmPrivacy(me.dm_privacy);
+      const me = await bfu("/users/me", { method: "PATCH", body });
+      return me;
     } catch {
-      setDmPrivacy(prev);
+      revert();
       flash(t("settings.privacy_save_failed"), "error");
     } finally {
       setBusy(false);
     }
+  };
+
+  const choose = async (val) => {
+    if (val === dmPrivacy) return;
+    const prev = dmPrivacy;
+    const me = await patch({ dm_privacy: val }, () => setDmPrivacy(val), () => setDmPrivacy(prev));
+    if (me?.dm_privacy) setDmPrivacy(me.dm_privacy);
+  };
+
+  const toggleWhoViewed = async () => {
+    const next = !whoViewed;
+    const me = await patch({ who_viewed_consent: next }, () => setWhoViewed(next), () => setWhoViewed(!next));
+    if (me && typeof me.who_viewed_consent === "boolean") setWhoViewed(me.who_viewed_consent);
   };
 
   return (
@@ -76,6 +89,37 @@ export default function PrivacyPrefs({ initialDmPrivacy = "everyone" }) {
             );
           })}
         </div>
+      </div>
+
+      {/* Who-viewed-me consent (incognito) */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginTop: 20 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{t("settings.privacy_whoviewed_label")}</div>
+          <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+            {t("settings.privacy_whoviewed_desc")}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={whoViewed}
+          aria-label={t("settings.privacy_whoviewed_label")}
+          disabled={busy}
+          onClick={toggleWhoViewed}
+          className="ch-toggle"
+          style={{
+            flex: "0 0 auto", width: 46, height: 26, borderRadius: 999, cursor: busy ? "default" : "pointer",
+            border: "none", position: "relative",
+            background: whoViewed ? "var(--ember)" : "var(--surface-2)",
+            boxShadow: whoViewed ? "none" : "inset 0 0 0 1px var(--hair)",
+            transition: "background 0.2s ease",
+          }}
+        >
+          <span aria-hidden style={{
+            position: "absolute", top: 3, left: whoViewed ? 23 : 3, width: 20, height: 20, borderRadius: "50%",
+            background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.4)", transition: "left 0.2s ease",
+          }} />
+        </button>
       </div>
 
       {toast?.text ? (

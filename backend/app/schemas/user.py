@@ -131,6 +131,7 @@ class UserResponse(BaseModel):
     is_following: bool = False
     mentor: MentorOut = MentorOut()
     dm_privacy: str = "everyone"   # "everyone" | "connections" (own setting)
+    who_viewed_consent: bool = True  # False = incognito (don't record/show views)
 
     model_config = {"from_attributes": True}
 
@@ -161,6 +162,7 @@ class UserUpdate(BaseModel):
     mentor_bio: str | None = None
     mentor_topics: list[str] | None = None
     dm_privacy: str | None = None   # "everyone" | "connections" (validated in update_me)
+    who_viewed_consent: bool | None = None
 
 class NotificationPrefsUpdate(BaseModel):
     """PATCH /users/me/notification-prefs body. Every category is optional; only

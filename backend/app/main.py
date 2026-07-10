@@ -168,6 +168,8 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id BIGINT;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;",
         "ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;",
+        # --- Privacy: who-can-message-me (everyone | connections) ---
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS dm_privacy VARCHAR(20) NOT NULL DEFAULT 'everyone';",
         # --- Rate-limiter COUNT predicates: composite (actor, created_at) indexes
         #     so the per-write anti-flood counts stay index-only under load. ---
         "CREATE INDEX IF NOT EXISTS ix_reports_reporter_created ON reports (reporter_id, created_at);",

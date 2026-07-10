@@ -18,7 +18,7 @@ from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.messaging import Block, Conversation, ConversationMember, Message
 from app.models.project import Project, ProjectMember
-from app.models.user import Report, User
+from app.models.user import Interest, Report, User
 from app.schemas.messaging import (
     ConversationOut,
     ConversationRef,
@@ -103,6 +103,24 @@ async def _blocked_between(db: AsyncSession, a: int, b: int) -> bool:
         )
     )
     return bool(n)
+
+
+async def _are_connected(db: AsyncSession, a: int, b: int) -> bool:
+    """Connected = mutual interest (both pinged each other). Drives the
+    connections-only DM privacy gate."""
+    if not await db.scalar(select(func.count(Interest.id)).where(
+        Interest.from_user_id == a, Interest.to_user_id == b)):
+        return False
+    return bool(await db.scalar(select(func.count(Interest.id)).where(
+        Interest.from_user_id == b, Interest.to_user_id == a)))
+
+
+async def _dm_allowed(db: AsyncSession, opener_id: int, target: User) -> bool:
+    """Whether `opener_id` may DM `target`, per target.dm_privacy. Block is
+    checked separately and always wins; team chats are exempt (DM-only)."""
+    if (target.dm_privacy or "everyone") != "connections":
+        return True
+    return await _are_connected(db, opener_id, target.id)
 
 
 async def _my_member_row(db: AsyncSession, conv_id: int, uid: int) -> ConversationMember | None:
@@ -279,6 +297,11 @@ async def dm_conversation(
     )).scalar_one_or_none()
     if existing:
         return {"id": existing.id}
+
+    # Privacy: a connections-only recipient can't be cold-DM'd by a non-connection.
+    # (Only gates NEW threads — a pre-existing conversation opens above.)
+    if not await _dm_allowed(db, me, target):
+        raise HTTPException(status_code=400, detail="Messaging is unavailable with this user")
 
     conv = Conversation(kind="dm", dm_key=key)
     db.add(conv)
@@ -532,12 +555,26 @@ async def send_message(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Block gate for DMs.
+    # Block + privacy gate for DMs (block wins; connections-only bites retroactively
+    # so a recipient who tightens the setting stops receiving from non-connections).
     other_id = None
     if conv.kind == "dm":
         other_id = await _other_dm_user_id(db, conversation_id, me)
-        if other_id is not None and await _blocked_between(db, me, other_id):
-            raise HTTPException(status_code=403, detail="Messaging is unavailable with this user")
+        if other_id is not None:
+            if await _blocked_between(db, me, other_id):
+                raise HTTPException(status_code=403, detail="Messaging is unavailable with this user")
+            other = await db.get(User, other_id)
+            if other is not None and not await _dm_allowed(db, me, other):
+                # But a REPLY is always allowed: if the other party has already
+                # posted here, they chose to talk to me — a connections-only user
+                # who cold-opened this thread must still be able to receive answers.
+                they_spoke = await db.scalar(select(func.count(Message.id)).where(
+                    Message.conversation_id == conversation_id,
+                    Message.sender_id == other_id,
+                    Message.deleted_at.is_(None),
+                ))
+                if not they_spoke:
+                    raise HTTPException(status_code=403, detail="Messaging is unavailable with this user")
 
     # Rate limit: authoritative DB count of my recent sends (survives restarts).
     since = datetime.utcnow() - timedelta(seconds=RL_WINDOW_S)

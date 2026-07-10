@@ -34,16 +34,33 @@ const Switch = ({ on, disabled, onClick }) => (
 export const NotificationPrefsSheet = ({ onClose }) => {
   const { t } = useT();
   const [prefs, setPrefs] = useState(null);
+  const [dmPrivacy, setDmPrivacy] = useState("everyone");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    users.notificationPrefs()
-      .then((r) => { setPrefs(r?.prefs || {}); setLoading(false); })
+    Promise.all([users.notificationPrefs(), users.me().catch(() => null)])
+      .then(([r, me]) => {
+        setPrefs(r?.prefs || {});
+        if (me?.dm_privacy) setDmPrivacy(me.dm_privacy);
+        setLoading(false);
+      })
       .catch(() => { setError(true); setLoading(false); });
   }, []);
 
   const master = prefs?.telegram_push !== false;
+
+  const setPrivacy = async (val) => {
+    const prev = dmPrivacy;
+    setDmPrivacy(val); // optimistic
+    try {
+      const me = await users.updateMe({ dm_privacy: val });
+      if (me?.dm_privacy) setDmPrivacy(me.dm_privacy);
+      window.dispatchEvent(new CustomEvent("bfu:me-updated"));
+    } catch {
+      setDmPrivacy(prev);
+    }
+  };
 
   const toggle = async (key) => {
     const current = prefs[key] !== false;
@@ -132,6 +149,30 @@ export const NotificationPrefsSheet = ({ onClose }) => {
                 {t("notif.mutedNote")}
               </div>
             )}
+
+            {/* Privacy — who can start a DM with you */}
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: "var(--muted)", margin: "26px 4px 10px" }}>
+              {t("privacy.section")}
+            </div>
+            <div style={{ padding: "13px 15px", background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)" }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoCanMessage")}</div>
+              <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoCanMessageHint")}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+                {["everyone", "connections"].map((opt) => {
+                  const on = dmPrivacy === opt;
+                  return (
+                    <button key={opt} onClick={() => setPrivacy(opt)} style={{
+                      flex: 1, padding: "9px 10px", borderRadius: "var(--radius-pill)", cursor: "pointer",
+                      fontFamily: "var(--font-mono)", fontSize: 11.5, letterSpacing: "0.04em", textTransform: "uppercase",
+                      background: on ? "var(--amber)" : "var(--surface)", color: on ? "#160E08" : "var(--muted-strong)",
+                      border: on ? "1px solid var(--amber)" : "1px solid var(--hair)", fontWeight: on ? 700 : 500,
+                      transition: "background 0.15s ease, color 0.15s ease",
+                    }}>{t(`privacy.dm.${opt}`)}</button>
+                  );
+                })}
+              </div>
+            </div>
           </>
         )}
       </div>

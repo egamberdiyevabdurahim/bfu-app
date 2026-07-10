@@ -5,6 +5,7 @@ import { getRegions } from "@/lib/bfu-api";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
 import NotificationPrefs from "@/components/settings/NotificationPrefs";
+import PrivacyPrefs from "@/components/settings/PrivacyPrefs";
 import SiteFooter from "@/components/ui/SiteFooter";
 
 const API_BASE = process.env.BFU_API_URL;
@@ -120,6 +121,10 @@ export default async function SettingsPage() {
 
         <div style={{ marginTop: 26 }}>
           <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
+        </div>
+
+        <div style={{ marginTop: 26 }}>
+          <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} />
         </div>
 
         <SiteFooter tagline={t("settings.footer_tagline")} />

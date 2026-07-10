@@ -130,6 +130,7 @@ class UserResponse(BaseModel):
     following_count: int = 0
     is_following: bool = False
     mentor: MentorOut = MentorOut()
+    dm_privacy: str = "everyone"   # "everyone" | "connections" (own setting)
 
     model_config = {"from_attributes": True}
 
@@ -159,6 +160,7 @@ class UserUpdate(BaseModel):
     is_mentor: bool | None = None
     mentor_bio: str | None = None
     mentor_topics: list[str] | None = None
+    dm_privacy: str | None = None   # "everyone" | "connections" (validated in update_me)
 
 class NotificationPrefsUpdate(BaseModel):
     """PATCH /users/me/notification-prefs body. Every category is optional; only

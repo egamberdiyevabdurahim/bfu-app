@@ -59,6 +59,9 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # notifications on; users only ever store `false` for what they turn off.
     # See app.services.notifications (NOTIF_PREF_KEYS / pref_enabled).
     notification_prefs: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
+    # Who may open/continue a DM with this user: "everyone" (default) | "connections"
+    # (mutual-interest peers only). Block always outranks it. Team chats are exempt.
+    dm_privacy: Mapped[str] = mapped_column(String(20), default="everyone", server_default="everyone")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

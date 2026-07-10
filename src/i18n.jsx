@@ -83,6 +83,11 @@ const STRINGS = {
 
   // ── Notification preferences ──────────────────────────────────────────────
   "notif.title": { en: "Notifications", uz: "Bildirishnomalar", ru: "Уведомления" },
+  "privacy.section": { en: "Privacy", uz: "Maxfiylik", ru: "Приватность" },
+  "privacy.whoCanMessage": { en: "Who can message you", uz: "Sizga kim yozishi mumkin", ru: "Кто может писать вам" },
+  "privacy.whoCanMessageHint": { en: "Connections = people you've both shown interest in.", uz: "Aloqalar = ikkovingiz qiziqish bildirgan odamlar.", ru: "Связи — это те, с кем у вас взаимный интерес." },
+  "privacy.dm.everyone": { en: "Everyone", uz: "Hamma", ru: "Все" },
+  "privacy.dm.connections": { en: "Connections", uz: "Aloqalar", ru: "Связи" },
   "notif.settingsRow": { en: "Notification settings", uz: "Bildirishnoma sozlamalari", ru: "Настройки уведомлений" },
   "notif.master": { en: "Telegram notifications", uz: "Telegram bildirishnomalari", ru: "Уведомления Telegram" },
   "notif.masterHint": { en: "Push alerts from the bot. Turn off to go quiet — everything still waits in your inbox.", uz: "Botdan push xabarlar. O‘chirsangiz — hammasi baribir inboxda qoladi.", ru: "Push от бота. Выключите — всё останется во входящих." },

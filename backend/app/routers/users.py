@@ -798,6 +798,11 @@ async def update_me(
             if s:
                 clean.append(s)
         current_user.mentor_topics = json.dumps(clean) if clean else None
+    if "dm_privacy" in data:
+        # Whitelist — an unknown value falls back to the open default. Always pop
+        # so the generic setattr loop below can't re-apply the raw string.
+        v = data.pop("dm_privacy")
+        current_user.dm_privacy = v if v in ("everyone", "connections") else "everyone"
 
     for field, value in data.items():
         setattr(current_user, field, value)

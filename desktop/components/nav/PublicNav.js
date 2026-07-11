@@ -60,7 +60,7 @@ export default function PublicNav({ active }) {
           return (
             <a
               key={item.key}
-              href={item.href}
+              href={`/web${item.href}`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

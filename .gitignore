@@ -38,3 +38,6 @@ env/
 *.sw?
 
 .vercel
+
+# DO deploy secrets (live only on the droplet)
+backend/deploy/.env

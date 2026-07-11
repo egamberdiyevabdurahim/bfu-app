@@ -1,0 +1,92 @@
+# BFU backend stack for the DigitalOcean droplet (hybrid: frontends stay on
+# Vercel). ONE of each service — the API is a single replica on purpose (the
+# in-memory WS hub + throttles are not multi-instance safe), and only one bot
+# may poll Telegram at a time.
+#
+#   cd /opt/bfu/backend/deploy && docker compose up -d --build
+#
+# Requires a .env in this dir (see .env.example). Caddy terminates TLS for
+# api.brightfuturesuzbekistan.uz and proxies HTTP + WebSocket to the API.
+
+services:
+  db:
+    image: postgres:18-alpine   # match Railway's PG 18 for a clean pg_dump/restore
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bfu
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: bfu
+    command: ["postgres", "-c", "max_connections=200"]
+    volumes:
+      # PG18 Docker images store data in a version subdir → mount the PARENT.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bfu -d bfu"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      RUN_BOT_INLINE: "false"   # bot runs as its own service below
+      PORT: "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose: ["8000"]
+    # Bound to loopback only → lets us `curl localhost:8000/health` ON the droplet
+    # to verify the stack BEFORE DNS/TLS is cut over. Not publicly reachable.
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  bot:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "bot.py"]
+
+  cron:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DB_POOL_SIZE: "1"
+      DB_MAX_OVERFLOW: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+    # cron_dispatch.py decides which jobs run by the current UTC hour → run it
+    # ~hourly. (Same contract as the old external Railway Cron.)
+    command: ["sh", "-c", "while true; do python cron_dispatch.py || true; sleep 3600; done"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  caddydata:
+  caddyconfig:

@@ -1,0 +1,7 @@
+# TLS + reverse proxy for the BFU API. Caddy auto-issues a Let's Encrypt cert
+# once api.brightfuturesuzbekistan.uz resolves to this droplet and ports 80/443
+# are open. reverse_proxy transparently upgrades WebSocket (/ws) connections.
+api.brightfuturesuzbekistan.uz {
+	encode zstd gzip
+	reverse_proxy api:8000
+}

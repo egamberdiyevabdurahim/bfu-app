@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // Team cell — the FULL project roster on `/p/[id]`: the founder first (marked
 // "Founder"), then each teammate as a row (avatar + online dot + name linking to
@@ -19,7 +20,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
   const label = name || t("messages.team_member_fallback");
   return (
     <Link
-      href={`/web/u/${id}`}
+      href={`/web/u/${handleFor(id)}`}
       title={label}
       style={{
         display: "flex",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { gradientFor, initials } from "@/lib/avatar";
+import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // Founder cell — a bento tile presenting the project's founder as a card that
@@ -19,7 +20,7 @@ export default function FounderCell({ founder }) {
       <div className="ch-cell-label">{t("profile.founder")}</div>
 
       <Link
-        href={`/web/u/${founder.id}`}
+        href={`/web/u/${handleFor(founder.id)}`}
         style={{
           marginTop: 18,
           display: "flex",

@@ -519,7 +519,7 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
                     {project.members.map(m => {
                       const isFounder = m.user_id === project.creator_id;
-                      const displayName = m.display_name || `User #${m.user_id}`;
+                      const displayName = m.display_name || t("common.member");
                       return (
                         <div key={m.user_id}
                           onClick={() => setViewingUserId(m.user_id)}

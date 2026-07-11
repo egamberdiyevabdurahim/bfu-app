@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/components/ui/Toast";
 import Pagination, { paginate } from "@/components/ui/Pagination";
+import { handleFor } from "@/lib/handle";
 
 // The user moderation table for /dashboard/users.
 //
@@ -409,7 +410,7 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
     >
       {/* identity */}
       <a
-        href={`/web/u/${u.id}`}
+        href={`/web/u/${handleFor(u.id)}`}
         style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", minWidth: 220, flex: "1 1 220px" }}
       >
         <div

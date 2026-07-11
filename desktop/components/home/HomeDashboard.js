@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { useCountUp } from "@/lib/useCountUp";
 import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
+import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // HomeDashboard — the personal /home dashboard body. Renders four stacked
@@ -616,7 +617,7 @@ function ViewerAvatar({ v }) {
   const grad = gradientFor(v.id);
   return (
     <a
-      href={`/web/u/${v.id}`}
+      href={`/web/u/${handleFor(v.id)}`}
       title={v.display_name}
       aria-label={`${v.display_name}${v.is_online ? t("home.viewers.online_suffix") : ""}`}
       style={{ position: "relative", marginLeft: -10, flex: "0 0 auto", textDecoration: "none" }}
@@ -659,7 +660,7 @@ function ViewerAvatar({ v }) {
 function ViewerRow({ v }) {
   const grad = gradientFor(v.id);
   return (
-    <a href={`/web/u/${v.id}`} className="hd-vrow">
+    <a href={`/web/u/${handleFor(v.id)}`} className="hd-vrow">
       <span className="hd-vrow-av" style={{ background: grad }}>
         {v.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element

@@ -2,6 +2,7 @@
 
 import { gradientFor, initials } from "../lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // Ports the mockup's `.card` (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html
 // lines 86-111, 236-250) into a SERVER component. No hooks — the online pulse is
@@ -68,7 +69,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
 
   return (
     <a
-      href={`/web/u/${id}`}
+      href={`/web/u/${handleFor(id)}`}
       className={`ch-card${big ? " ch-card-big" : ""}`}
       style={{ animationDelay: `${Math.min(index, 11) * 55}ms` }}
       // ── FilterBar <-> BuilderCard data-* contract ──

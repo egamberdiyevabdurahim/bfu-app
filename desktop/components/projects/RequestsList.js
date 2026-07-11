@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // "Applications" — the founder's inbox. Loads GET /projects/my-requests, which
 // returns the PENDING applications submitted TO the current user's projects
@@ -161,7 +162,7 @@ export default function RequestsList() {
                   <Avatar id={a.id} name={name} photo={a.photo_url} />
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <a
-                      href={`/web/u/${a.id}`}
+                      href={`/web/u/${handleFor(a.id)}`}
                       style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)", textDecoration: "none" }}
                     >
                       {name}

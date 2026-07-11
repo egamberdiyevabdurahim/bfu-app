@@ -52,7 +52,7 @@ def _person_dict(u: User | None) -> dict | None:
         return None
     return {
         "id": u.id,
-        "display_name": u.display_name or f"User #{u.id}",
+        "display_name": u.display_name or "BFU a'zosi",
         "photo_url": u.photo_url,
         "is_online": bool(u.is_online),
     }
@@ -63,7 +63,7 @@ def _sender_dict(u: User | None) -> dict | None:
         return None
     return {
         "id": u.id,
-        "display_name": u.display_name or f"User #{u.id}",
+        "display_name": u.display_name or "BFU a'zosi",
         "photo_url": u.photo_url,
     }
 
@@ -443,7 +443,7 @@ async def conversation_members(
             joined = (project.created_at if (is_creator and project) else (m.joined_at if m else None))
             out.append({
                 "id": u.id,
-                "display_name": u.display_name or f"User #{u.id}",
+                "display_name": u.display_name or "BFU a'zosi",
                 "photo_url": u.photo_url,
                 "joined_at": joined,
                 "role": (m.role if m else None),
@@ -467,7 +467,7 @@ async def conversation_members(
         for u in (await db.execute(select(User).where(User.id.in_(uids)))).scalars().all():
             users_map[u.id] = u
     members = [
-        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url,
+        {"id": u.id, "display_name": u.display_name or "BFU a'zosi", "photo_url": u.photo_url,
          "last_read_at": read_by_uid.get(u.id)}
         for u in users_map.values()
     ]
@@ -744,7 +744,7 @@ async def blocked_users(
         return []
     people = (await db.execute(select(User).where(User.id.in_(ids)))).scalars().all()
     return [
-        {"id": u.id, "display_name": u.display_name or f"User #{u.id}", "photo_url": u.photo_url}
+        {"id": u.id, "display_name": u.display_name or "BFU a'zosi", "photo_url": u.photo_url}
         for u in people
     ]
 

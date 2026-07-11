@@ -8,6 +8,7 @@ import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // The in-app messenger. Two-pane on desktop (conversation list left, thread
 // right); single-column on mobile (list → thread with a back arrow). Reads
@@ -767,7 +768,7 @@ export default function Messenger({ meId }) {
                 </span>
                 <div className="msg-thread-id">
                   {isDm && active.other ? (
-                    <a href={`/web/u/${active.other.id}`} className="msg-thread-name msg-thread-link">
+                    <a href={`/web/u/${handleFor(active.other.id)}`} className="msg-thread-name msg-thread-link">
                       {active.other.display_name}
                     </a>
                   ) : (

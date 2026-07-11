@@ -11,6 +11,7 @@ import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
 import { useT } from "@/components/i18n/LocaleProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import NavIcon from "@/components/nav/NavIcon";
+import { handleFor } from "@/lib/handle";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
 // (the "Hybrid" design). It owns the page chrome so pages only supply content:
@@ -511,7 +512,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               <div role="menu" className="ash-menu">
                 {me?.id && (
                   <a
-                    href={`/web/u/${me.id}`}
+                    href={`/web/u/${handleFor(me.id)}`}
                     role="menuitem"
                     className="ash-menu-item"
                     onClick={() => setMenuOpen(false)}

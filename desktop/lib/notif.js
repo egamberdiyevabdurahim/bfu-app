@@ -17,6 +17,8 @@
 // application, accepted, declined, rate_prompt, project_update, booking_request,
 // booking_confirmed, booking_declined.
 
+import { handleFor } from "@/lib/handle";
+
 // Type → emoji glyph shown when there is no actor avatar (and as a small badge
 // alongside the actor). Matches the Mini App's TYPE_EMOJI table.
 export const NOTIF_EMOJI = {
@@ -128,7 +130,7 @@ function _notifTarget(n) {
     case "mutual":
     case "intro":
     case "new_follower":
-      return n.actor?.id ? `/u/${n.actor.id}` : null;
+      return n.actor?.id ? `/u/${handleFor(n.actor.id)}` : null;
     case "message":
       // The exact thread comes from the server `link` (/messages?c={id}); this
       // fallback just opens the messenger.
@@ -136,7 +138,7 @@ function _notifTarget(n) {
     case "event_rsvp":
       return n.event_id ? `/events?e=${n.event_id}` : "/events";
     default:
-      return n.actor?.id ? `/u/${n.actor.id}` : null;
+      return n.actor?.id ? `/u/${handleFor(n.actor.id)}` : null;
   }
 }
 

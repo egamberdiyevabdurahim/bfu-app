@@ -85,6 +85,18 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
         return avatar_url(self.id, self.photo_file_id)
 
     @property
+    def handle(self) -> str | None:
+        """Public profile handle for /u/{handle} URLs — the @username when set,
+        else a short opaque code (never the raw sequential id). Read by the User
+        schemas via from_attributes so every profile/list row carries it."""
+        if self.tg_username:
+            return self.tg_username
+        if self.id:
+            from app.core.handles import encode_id
+            return encode_id(self.id)
+        return None
+
+    @property
     def is_online(self) -> bool:
         """Real presence: True if this user pinged within the last 5 minutes.
         Read by the User schemas via from_attributes so every profile/discover

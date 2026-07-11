@@ -5,6 +5,7 @@ const SUPPORTED = ["en", "uz", "ru"];
 const STRINGS = {
   // ── Common ────────────────────────────────────────────────────────────────
   "common.loading": { en: "Loading…", uz: "Yuklanmoqda…", ru: "Загрузка…" },
+  "common.member": { en: "BFU member", uz: "BFU a'zosi", ru: "участник BFU" },
   "common.connectError": { en: "Couldn't reach the server", uz: "Serverga ulanib bo‘lmadi", ru: "Не удалось подключиться к серверу" },
   "common.connectErrorHint": { en: "Check your connection and try again — you're still signed in.", uz: "Aloqani tekshirib, qayta urinib ko‘ring — hisobingizdan chiqmagansiz.", ru: "Проверьте соединение и попробуйте снова — вы всё ещё в системе." },
   "common.loadingProfile": { en: "Loading profile…", uz: "Profil yuklanmoqda…", ru: "Загрузка профиля…" },

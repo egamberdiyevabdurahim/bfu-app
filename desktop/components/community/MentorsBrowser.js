@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // Mentors browser (Batch 4). Loads GET /mentors → each is
 //   { id, display_name, photo_url, bio, topics:[], open_slots:int }.
@@ -499,7 +500,7 @@ export default function MentorsBrowser() {
                   <Avatar id={m.id} name={name} photo={m.photo_url} />
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <a
-                      href={`/web/u/${m.id}`}
+                      href={`/web/u/${handleFor(m.id)}`}
                       style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, color: "var(--text)", textDecoration: "underline", textDecorationColor: "transparent", textUnderlineOffset: 3, transition: "text-decoration-color 0.15s ease" }}
                       onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = "var(--amber)")}
                       onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = "transparent")}

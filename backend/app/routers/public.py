@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.core.handles import decode_handle
 from app.database import get_db
 from app.models.project import Project
 from app.models.region import Region
@@ -760,17 +761,37 @@ async def profile_avatar(
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
-@router.get("/u/{user_id}/data")
-async def public_profile_data(user_id: int, db: AsyncSession = Depends(get_db)):
-    """JSON contract for the Chorsu desktop /u/{id} page. Same anonymous-
-    viewer semantics as the existing HTML /public/u/{id} route (viewer=None
-    throughout — no personalization, no auth). Reuses every existing
-    extras helper so this can never drift from what /users/{id} shows to a
-    logged-in viewer."""
-    user = (await db.execute(
-        select(User).options(selectinload(User.analysis))
-        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
-    )).scalar_one_or_none()
+async def _resolve_public_user(db: AsyncSession, ident: str):
+    """Resolve a profile handle → a public User (or None). Accepts @username, an
+    opaque code, or a legacy numeric id. Username wins (a real record), then the
+    opaque code, then a bare numeric id (backward compat with old /u/123 links)."""
+    ident = (ident or "").lstrip("@").strip()
+    if not ident:
+        return None
+    base = (User.is_deleted == False, User.is_registered == True)  # noqa: E712
+
+    async def _by(cond):
+        return (await db.execute(
+            select(User).options(selectinload(User.analysis)).where(cond, *base)
+        )).scalar_one_or_none()
+
+    u = await _by(func.lower(User.tg_username) == ident.lower())
+    if u:
+        return u
+    uid = decode_handle(ident)
+    if uid is None and ident.isdigit():
+        uid = int(ident)
+    if uid is None:
+        return None
+    return await _by(User.id == uid)
+
+
+@router.get("/u/{ident}/data")
+async def public_profile_data(ident: str, db: AsyncSession = Depends(get_db)):
+    """JSON contract for the desktop /u/{handle} page. `ident` is a @username,
+    opaque code, or legacy numeric id (see _resolve_public_user). Anonymous-viewer
+    semantics (viewer=None) — no personalization, no auth."""
+    user = await _resolve_public_user(db, ident)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -839,9 +860,10 @@ async def public_profile_data(user_id: int, db: AsyncSession = Depends(get_db)):
         "following_count": conn["following_count"],
         "mentor": conn["mentor"],
         "achievements": ach["achievements"],
+        "handle": user.handle,  # clean URL segment (@username or opaque code)
         "og_image_url": f"{api_base}/public/og/{user.id}.png?sig={og_sig(user.id)}",
         "telegram_open_url": f"https://t.me/{bot}?startapp=user_{user.id}",
-        "canonical_url": f"{base}/u/{user.id}" if base else f"/u/{user.id}",
+        "canonical_url": f"{base}/u/{user.handle}" if base else f"/u/{user.handle}",
     }
 
 
@@ -856,8 +878,8 @@ def _esc(s) -> str:
             .replace('"', "&quot;").replace("'", "&#39;"))
 
 
-@router.get("/u/{user_id}", response_class=HTMLResponse)
-async def public_profile(user_id: int, db: AsyncSession = Depends(get_db)):
+@router.get("/u/{ident}", response_class=HTMLResponse)
+async def public_profile(ident: str, db: AsyncSession = Depends(get_db)):
     """Crawlable, login-free profile page for sharing with employers. Reuses the
     Batch-A `_profile_extras` + Batch-B `_trust_extras` builders. No JS.
 
@@ -866,10 +888,7 @@ async def public_profile(user_id: int, db: AsyncSession = Depends(get_db)):
     text, vouch author name, portfolio labels) with no framework escaping.
     Portfolio links are also restricted to http(s):// — enforced upstream by
     `_sanitize_portfolio` (Batch A), re-checked here as defense in depth."""
-    user = (await db.execute(
-        select(User).options(selectinload(User.analysis))
-        .where(User.id == user_id, User.is_deleted == False, User.is_registered == True)
-    )).scalar_one_or_none()
+    user = await _resolve_public_user(db, ident)
     if not user:
         return HTMLResponse(
             content="<!doctype html><html><head><meta charset='utf-8'>"
@@ -945,7 +964,7 @@ async def public_profile(user_id: int, db: AsyncSession = Depends(get_db)):
         meta.append("✓ Verified")
     meta_html = " · ".join(meta)
 
-    canonical = f"{base}/u/{user.id}" if base else f"/u/{user.id}"
+    canonical = f"{base}/u/{user.handle}" if base else f"/u/{user.handle}"
     jsonld = (
         '{"@context":"https://schema.org","@type":"Person",'
         f'"name":"{name}","description":"{desc}","url":"{_esc(canonical)}"}}'

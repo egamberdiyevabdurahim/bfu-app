@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { downloadResume } from "@/lib/resume";
 import { useToast } from "@/lib/useToast";
+import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 import AchievementsCell from "@/components/AchievementsCell";
 
@@ -690,7 +691,7 @@ export default function ProfileEditor({ initial, regions }) {
 
           {/* View public profile */}
           <a
-            href={`/web/u/${me.id}`}
+            href={`/web/u/${handleFor(me.id)}`}
             className="ch-cell"
             style={{
               display: "flex",

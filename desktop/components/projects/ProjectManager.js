@@ -9,6 +9,7 @@ import { useToast } from "@/lib/useToast";
 import CreateProjectForm from "@/components/projects/CreateProjectForm";
 import StarInput from "@/components/projects/StarInput";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { handleFor } from "@/lib/handle";
 
 // Owner cockpit for a single project. Loads the AUTHED GET /projects/{id}
 // (viewer-specific fields) on mount, then:
@@ -114,7 +115,7 @@ function ApplicantRow({ app, onDecision, busy }) {
       <Avatar id={a.id} name={name} photo={a.photo_url} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <a
-          href={`/web/u/${a.id}`}
+          href={`/web/u/${handleFor(a.id)}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
@@ -660,7 +661,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Avatar id={person.id} name={name} photo={person.photo_url} size={40} />
         <a
-          href={`/web/u/${person.id}`}
+          href={`/web/u/${handleFor(person.id)}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
@@ -870,7 +871,7 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
       <Avatar id={u.id} name={name} photo={u.photo_url} size={40} />
       <div style={{ flex: 1, minWidth: 150 }}>
         <a
-          href={`/web/u/${u.id}`}
+          href={`/web/u/${handleFor(u.id)}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,

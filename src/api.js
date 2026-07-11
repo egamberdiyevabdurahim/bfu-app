@@ -1,6 +1,7 @@
 /**
  * BFU API Client — all backend endpoints, JWT auto-refresh, dev helpers.
  */
+import { handleFor } from "./handle";
 
 // Use the configured API URL; "" means same-origin (the prod default, since
 // Vercel rewrites proxy to the backend). Only fall back to localhost in dev —
@@ -149,7 +150,7 @@ export const users = {
   endorse:         (id, skill) => req(`/users/${id}/endorse`, { method: "POST", body: JSON.stringify({ skill }) }),
   vouch:           (id, text)  => req(`/users/${id}/vouch`,   { method: "POST", body: JSON.stringify({ text }) }),
   deleteVouch:     (id)        => req(`/users/${id}/vouch`,   { method: "DELETE" }),
-  publicUrl:       (id)        => `${window.location.origin}/u/${id}`,
+  publicUrl:       (id)        => `${window.location.origin}/u/${handleFor(id)}`,
   follow:        (target_type, target_id) => req("/follow", { method: "POST", body: JSON.stringify({ target_type, target_id }) }),
   unfollow:      (target_type, target_id) => req("/follow", { method: "DELETE", body: JSON.stringify({ target_type, target_id }) }),
   following:     ()       => req("/users/me/following"),

@@ -6,6 +6,7 @@ import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
 import StarInput from "@/components/projects/StarInput";
+import { handleFor } from "@/lib/handle";
 
 // Sessions (Batch 4). Loads GET /bookings/me →
 //   { as_mentee:[row], as_mentor:[row] }
@@ -120,7 +121,7 @@ function Row({ booking, role, onAct, busy, onSetLink, onRate }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {other.id != null ? (
             <a
-              href={`/web/u/${other.id}`}
+              href={`/web/u/${handleFor(other.id)}`}
               style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)", textDecoration: "none" }}
             >
               {name}

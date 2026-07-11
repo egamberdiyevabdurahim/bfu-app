@@ -1352,9 +1352,9 @@ async def leaderboard(
     names: dict[int, str] = {}
     if ids:
         for u in (await db.execute(select(User).where(User.id.in_(ids)))).scalars().all():
-            names[u.id] = u.display_name
+            names[u.id] = u.display_name or "BFU a'zosi"
     top = [
-        {"rank": i + 1, "name": names.get(rid, f"User #{rid}"),
+        {"rank": i + 1, "name": names.get(rid, "BFU a'zosi"),
          "count": c, "is_me": rid == current_user.id}
         for i, (rid, c) in enumerate(rows)
     ]

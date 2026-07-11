@@ -1,3 +1,5 @@
+import { handleFor } from "@/lib/handle";
+
 // Single source of truth for the site navigation. Consumed by the logged-in
 // left-sidebar shell (AppShell) so labels, hrefs and accent glyphs never drift
 // apart. The amber emoji glyphs match the Batches 1–4 accent grammar used across
@@ -46,7 +48,7 @@ export const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 // callers can filter it out.
 export function resolveYouHref(item, me) {
   if (item.dynamic === "profile") {
-    return me?.id ? `/u/${me.id}` : "/settings";
+    return me?.id ? `/u/${handleFor(me.id)}` : "/settings";
   }
   return item.href || null;
 }

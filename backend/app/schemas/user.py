@@ -214,6 +214,7 @@ class UserPublic(BaseModel):
     id: int
     telegram_id: int
     tg_username: str | None = None
+    handle: str | None = None  # public URL handle (@username or opaque code, never the raw id)
     role: str
     checked: bool = False
     display_name: str

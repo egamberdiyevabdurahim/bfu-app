@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // Client-side "your network" list for /connections. Loads two authed endpoints
@@ -24,7 +25,7 @@ function PersonCard({ person, variant }) {
   const following = variant === "following";
   return (
     <a
-      href={`/web/u/${person.id}`}
+      href={`/web/u/${handleFor(person.id)}`}
       className="ch-card"
       style={{ textDecoration: "none", padding: "22px 22px 20px" }}
     >

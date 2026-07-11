@@ -213,9 +213,9 @@ def _project_response(project: Project, current_user: User | None = None, fav_se
     for m in project.members:
         dname = ""
         if hasattr(m, "user") and m.user:
-            dname = m.user.display_name or f"User #{m.user_id}"
+            dname = m.user.display_name or "BFU a'zosi"
         else:
-            dname = f"User #{m.user_id}"
+            dname = "BFU a'zosi"
         members_out.append(MemberOut(
             user_id=m.user_id,
             joined_at=m.joined_at,
@@ -1337,7 +1337,7 @@ async def rateable(
     return {
         "closed": not project.is_active,
         "cohort": [
-            {"id": uid, "display_name": people[uid].display_name if uid in people else f"#{uid}",
+            {"id": uid, "display_name": people[uid].display_name if uid in people else "BFU a'zosi",
              "photo_url": people[uid].photo_url if uid in people else None,
              "rated_by_me": uid in rated}
             for uid in others if uid in people

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
+import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // CommandPalette — the app-wide ⌘K / Ctrl-K search overlay.
@@ -163,7 +164,7 @@ export default function CommandPalette() {
       }));
     }
     const people = (results?.people || []).map((p) => ({
-      kind: "person", key: `u-${p.id}`, href: `/u/${p.id}`,
+      kind: "person", key: `u-${p.id}`, href: `/u/${handleFor(p.id)}`,
       title: p.display_name || p.name || t("misc.member"),
       subtitle: p.region || null, person: p,
     }));

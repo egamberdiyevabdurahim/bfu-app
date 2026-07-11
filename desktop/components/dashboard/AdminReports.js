@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
+import { handleFor } from "@/lib/handle";
 
 // The reports list for /dashboard/reports.
 //
@@ -15,7 +16,7 @@ import { useToast } from "@/components/ui/Toast";
 
 function targetHref(type, id) {
   const t = (type || "").toLowerCase();
-  if (t === "user") return `/web/u/${id}`;
+  if (t === "user") return `/web/u/${handleFor(id)}`;
   if (t === "project") return `/web/p/${id}`;
   return null;
 }

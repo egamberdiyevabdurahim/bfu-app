@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
 
     migrations = [
         # --- columns (idempotent) ---
+        "ALTER TABLE web_login_tokens ADD COLUMN IF NOT EXISTS code VARCHAR(8);",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_username VARCHAR(255);",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';",
         "ALTER TABLE schools ADD COLUMN IF NOT EXISTS group_id BIGINT;",

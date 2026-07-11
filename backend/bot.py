@@ -124,14 +124,68 @@ async def _handle_web_login(message: types.Message, nonce: str) -> None:
                     return
         elif user.is_deleted:
             user.is_deleted = False
-        is_reg = bool(user.is_registered)
-        row.user_id = user.id
-        row.confirmed = True
+        row.user_id = user.id  # remember who tapped — but DON'T confirm yet
+        code = row.code or "----"
         await db.commit()
-    if is_reg:
-        await message.answer("✅ You're logged in on the web. Head back to your browser.")
-    else:
-        await message.answer("✅ Almost there — head back to your browser to finish signing up.")
+    # Require explicit, INFORMED confirmation with a matching code. This defeats
+    # the login-CSRF: a phished victim who never opened the website sees no
+    # matching code on any screen, so they tap Cancel.
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Confirm login", callback_data=f"wl:ok:{nonce}"),
+        InlineKeyboardButton(text="❌ Cancel", callback_data=f"wl:no:{nonce}"),
+    ]])
+    await message.answer(
+        "🔐 <b>Confirm web login</b>\n\n"
+        "Only continue if you just opened the BFU website and it shows this code:\n\n"
+        f"<code>{code}</code>\n\n"
+        "If you didn't open the website, tap Cancel.",
+        parse_mode="HTML", reply_markup=kb,
+    )
+
+
+@dp.callback_query(F.data.startswith("wl:"))
+async def _web_login_confirm(cb: types.CallbackQuery) -> None:
+    """Finalize (or cancel) a web-login handshake. Only the person who tapped the
+    link may confirm, and only via this explicit button — never on the tap alone."""
+    from app.models.web_login import WebLoginToken
+    try:
+        _, action, nonce = cb.data.split(":", 2)
+    except ValueError:
+        await cb.answer()
+        return
+    async with AsyncSessionLocal() as db:
+        row = (await db.execute(
+            select(WebLoginToken).where(WebLoginToken.nonce == nonce)
+        )).scalar_one_or_none()
+        if row is None or datetime.utcnow() - row.created_at > timedelta(minutes=5):
+            await cb.answer("This login has expired.", show_alert=True)
+            try:
+                await cb.message.edit_text("⚠️ This login link expired. Try again from the website.")
+            except Exception:
+                pass
+            return
+        # Defence in depth: only the recorded tapper may confirm.
+        if row.user_id is not None:
+            u = await db.get(User, row.user_id)
+            if u is None or not cb.from_user or u.telegram_id != cb.from_user.id:
+                await cb.answer("This isn't your login.", show_alert=True)
+                return
+        if action == "ok":
+            row.confirmed = True
+            await db.commit()
+            await cb.answer("Confirmed ✅")
+            try:
+                await cb.message.edit_text("✅ Logged in. Head back to your browser.")
+            except Exception:
+                pass
+        else:
+            await db.delete(row)
+            await db.commit()
+            await cb.answer("Cancelled")
+            try:
+                await cb.message.edit_text("❌ Login cancelled.")
+            except Exception:
+                pass
 
 
 @dp.message(CommandStart())

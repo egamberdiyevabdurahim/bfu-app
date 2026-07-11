@@ -37,6 +37,7 @@ function LoginInner() {
 
   // Handshake state.
   const [deepLink, setDeepLink] = useState(null);
+  const [code, setCode] = useState(null); // confirmation code the user must match in the bot
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [liveError, setLiveError] = useState(null);
   // `terminal` marks an error the user can't recover from by waiting (a failed
@@ -77,6 +78,7 @@ function LoginInner() {
 
       nonceRef.current = data.nonce;
       setDeepLink(data.deep_link);
+      setCode(data.code || null);
       setLiveError(null);
       setTerminal(false);
       setStarting(false);
@@ -342,6 +344,22 @@ function LoginInner() {
               </div>
             )}
           </div>
+
+          {/* Confirmation code the user must match in the bot before approving —
+              blocks login-CSRF (a phished tapper sees no matching code here). */}
+          {deepLink && code && (
+            <div style={{ marginTop: 20, textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted-strong)", marginBottom: 8 }}>
+                {t("login.code.label")}
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 30, fontWeight: 700, letterSpacing: "0.3em", color: "var(--amber)", paddingLeft: "0.3em" }}>
+                {code}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8, maxWidth: 300, marginInline: "auto", lineHeight: 1.5 }}>
+                {t("login.code.hint")}
+              </div>
+            </div>
+          )}
 
           {/* QR fallback for signing in from a phone. The label only appears
               once a QR actually exists, so we never show "or scan" with nothing

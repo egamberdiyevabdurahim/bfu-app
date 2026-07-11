@@ -19,4 +19,9 @@ class WebLoginToken(Base):
     nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Short human-readable code shown in BOTH the browser and the bot. The user
+    # must confirm the login only if the codes match — blocks the login-CSRF
+    # where an attacker starts the handshake and phishes a victim into tapping
+    # the deep link (the victim's browser shows no matching code).
+    code: Mapped[str | None] = mapped_column(String(8), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

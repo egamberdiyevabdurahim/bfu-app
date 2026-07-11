@@ -47,6 +47,7 @@ export async function POST() {
     {
       nonce: data?.nonce,
       deep_link: data?.deep_link,
+      code: data?.code,
       expires_in: data?.expires_in,
     },
     { status: 200 }

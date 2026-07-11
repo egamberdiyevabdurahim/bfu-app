@@ -59,10 +59,15 @@ async def web_login_start(db: AsyncSession = Depends(get_db)):
     t.me deep link; the web app opens the link and polls until the user taps
     Start in the bot."""
     nonce = secrets.token_urlsafe(32)
-    db.add(WebLoginToken(nonce=nonce, confirmed=False))
+    # 4-char confirmation code (no ambiguous chars) shown in the browser; the bot
+    # shows the same code and the user must match it before confirming — this is
+    # what blocks the login-CSRF/session-fixation attack.
+    code = "".join(secrets.choice("ABCDEFGHJKMNPQRSTUVWXYZ23456789") for _ in range(4))
+    db.add(WebLoginToken(nonce=nonce, confirmed=False, code=code))
     await db.commit()
     return {
         "nonce": nonce,
+        "code": code,
         "deep_link": f"https://t.me/{settings.BOT_USERNAME}?start=web_{nonce}",
         "expires_in": int(WEB_LOGIN_TTL.total_seconds()),
     }

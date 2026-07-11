@@ -365,5 +365,27 @@
      + the 11 runtime-compiled text/babel modules. -->
 <script src="src/app.bundle.js"></script>
 
+<script>
+  // Splash watchdog: if the app never mounts within 9s — e.g. a runtime CDN
+  // (React / framer-motion / gsap / lenis) failed — replace the endless splash
+  // with a usable fallback instead of leaving a permanently blank page.
+  (function () {
+    setTimeout(function () {
+      if (!document.getElementById('bfu-splash')) return; // app mounted → all good
+      var root = document.getElementById('root');
+      if (!root) return;
+      root.innerHTML =
+        '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;color:#F0F0FF;background:#0A0A0F;font-family:system-ui,sans-serif">'
+      + '<img src="/bfu-mark.png" alt="BFU" style="width:88px;height:88px;object-fit:contain"/>'
+      + '<div style="font-size:18px;font-weight:700">Bright Futures Uzbekistan</div>'
+      + '<div style="max-width:340px;color:#A6A6C0;line-height:1.5">Sahifani to‘liq yuklab bo‘lmadi. Qayta yuklang yoki Telegram’da oching.</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">'
+      + '<a href="https://t.me/BrightFuturesUzbekistan_bot" style="background:#A78BFA;color:#0A0A0F;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">Telegramda ochish</a>'
+      + '<button onclick="location.reload()" style="background:#1C1C28;color:#F0F0FF;padding:12px 20px;border-radius:12px;border:1px solid #333;cursor:pointer;font-weight:600">Qayta yuklash</button>'
+      + '</div></div>';
+    }, 9000);
+  })();
+</script>
+
 </body>
 </html>

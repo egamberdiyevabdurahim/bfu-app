@@ -1,5 +1,6 @@
 """Unauthenticated landing endpoints — no JWT needed. Used by the public
 marketing site at brightfuturesuzbekistan.uz/ and /r/<id>."""
+import asyncio
 import hmac
 import time
 from datetime import datetime, timedelta
@@ -680,7 +681,10 @@ async def profile_card(
     if user.photo_file_id:
         from app.services.telegram_media import download_photo
         photo_bytes = await download_photo(user.photo_file_id)
-    png = render_card_png(
+    # Heavy synchronous PIL render (~1s) — run OFF the event loop so it can't
+    # freeze the single-process API during a share/unfurl burst.
+    png = await asyncio.to_thread(
+        render_card_png,
         name=(user.name or "BFU member").capitalize(),
         region=region_name, age=age, gender=user.gender,
         checked=bool(user.checked), tags=tags, photo_bytes=photo_bytes,
@@ -721,7 +725,9 @@ async def og_image(
             photo_bytes = None
 
     from app.services.card import render_og_png
-    png = render_og_png(
+    # Off the event loop: crawlers unfurl these on every shared /u/{id} link.
+    png = await asyncio.to_thread(
+        render_og_png,
         name=(user.name or "BFU member").capitalize(),
         currently_building=extras.get("currently_building"),
         rating_average=trust["rating"]["average"],

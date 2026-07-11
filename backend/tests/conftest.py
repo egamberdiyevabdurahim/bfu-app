@@ -31,6 +31,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-suite-only-not-r
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
 os.environ.setdefault("ADMIN_GROUP_ID", "0")
 os.environ.setdefault("DEVELOPER_GROUP_ID", "0")
+os.environ.setdefault("WEBAPP_URL", "https://test.bfu.local")  # prod-guard needs it set
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

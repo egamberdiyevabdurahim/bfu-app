@@ -11,15 +11,33 @@ from aiogram.types import (
     InlineQueryResultArticle, InputTextMessageContent, WebAppInfo,
 )
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.project import Project
 from app.models.user import PendingLocation, User
 
+# Fail fast with a clear message if the token is missing — otherwise aiogram's
+# Bot() raises a cryptic validation error at import (the old main() guard was
+# dead code because construction already crashed).
+if not settings.BOT_TOKEN:
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.error("BOT_TOKEN is not set — cannot start the bot.")
+    sys.exit(1)
+
 # Initialize Bot and Dispatcher
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
+
+
+@dp.error()
+async def _on_bot_error(event: types.ErrorEvent):
+    """A single failing handler must NOT kill the polling loop. Log + swallow so
+    the bot keeps serving everyone else (blocked-user 403s, DB blips, etc.)."""
+    upd = getattr(event.update, "update_id", "?")
+    logging.exception("Bot handler error on update %s: %s", upd, event.exception)
+    return True
 
 _START = {
     "en": {
@@ -88,7 +106,22 @@ async def _handle_web_login(message: types.Message, nonce: str) -> None:
                 tg_username=message.from_user.username or None,
             )
             db.add(user)
-            await db.flush()
+            try:
+                await db.flush()
+            except IntegrityError:
+                # A concurrent /auth/telegram (or a double tap) created this
+                # telegram_id first — reload both rows in the reset session
+                # instead of stranding the login with a 500.
+                await db.rollback()
+                row = (await db.execute(
+                    select(WebLoginToken).where(WebLoginToken.nonce == nonce)
+                )).scalar_one_or_none()
+                user = (await db.execute(
+                    select(User).where(User.telegram_id == tg_id)
+                )).scalar_one_or_none()
+                if row is None or user is None:
+                    await message.answer("⚠️ Login failed — please try again from the website.")
+                    return
         elif user.is_deleted:
             user.is_deleted = False
         is_reg = bool(user.is_registered)
@@ -275,21 +308,37 @@ async def location_handler(message: types.Message) -> None:
         if loc:
             loc.latitude = lat
             loc.longitude = lng
+            await session.commit()
         else:
             session.add(PendingLocation(telegram_id=tg_id, latitude=lat, longitude=lng))
-        await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError:
+                # Concurrent share racing the PK — reload and update instead.
+                await session.rollback()
+                loc = await session.get(PendingLocation, tg_id)
+                if loc:
+                    loc.latitude = lat
+                    loc.longitude = lng
+                    await session.commit()
     lang = _lang_of(message)
     await message.answer(_LOC.get(lang, _LOC["en"]).format(lat=lat, lng=lng))
 
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    if not settings.BOT_TOKEN:
-        logging.error("BOT_TOKEN is not set in .env")
-        return
-        
     logging.info("Starting Telegram Bot launcher...")
-    await dp.start_polling(bot)
+    # Supervise polling: a transient network error / Telegram outage must not
+    # permanently kill the bot. Restart with a short backoff (KeyboardInterrupt
+    # / SystemExit still exit cleanly).
+    while True:
+        try:
+            await dp.start_polling(bot)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            logging.exception("Polling crashed — restarting in 5s")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     try:

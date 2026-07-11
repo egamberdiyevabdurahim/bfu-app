@@ -49,6 +49,7 @@ function MiniApp() {
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgConv, setMsgConv] = useState(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const [bootError, setBootError] = useState(false); // transient failure verifying the session
 
   useEffect(() => {
     const stop = startUpdateCheck();
@@ -121,13 +122,14 @@ function MiniApp() {
         }
       })
       .catch((e) => {
-        // Only force re-auth on a real auth failure. A network blip / 5xx /
-        // Railway cold-start shouldn't nuke a valid session.
-        if (e?.message === "Session expired") {
+        // Only force re-auth on a REAL auth failure. A network blip / 5xx /
+        // cold-start must NOT nuke a valid session — keep the token and show a
+        // retriable "couldn't connect" screen instead of bouncing to login.
+        if (e?.message === "Session expired" || e?.status === 401 || e?.status === 403) {
           storage.clear();
           setAuthed(false);
         } else {
-          setAuthed(false);
+          setBootError(true); // transient — token preserved, retry re-verifies
         }
       });
   }, []);
@@ -205,6 +207,26 @@ function MiniApp() {
                   onBack={() => setActiveTab("city")} />,
     profile:  <ProfileScreen />,
   };
+
+  // Transient boot failure (network / 5xx / cold start): the token is still
+  // valid, so offer a retry instead of dropping to the login screen.
+  if (bootError) {
+    return (
+      <>
+        <FontLoader />
+        <div style={{ maxWidth: 430, margin: "0 auto", height: "var(--app-h, 100dvh)", background: "var(--bg)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 34 }} aria-hidden>📡</div>
+          <div style={{ color: "var(--text)", fontSize: 15, fontWeight: 600 }}>{t("common.connectError")}</div>
+          <div style={{ color: "var(--text-3)", fontSize: 13, lineHeight: 1.5 }}>{t("common.connectErrorHint")}</div>
+          <button type="button" onClick={() => window.location.reload()} className="btn-primary"
+            style={{ marginTop: 4, padding: "12px 28px", width: "auto" }}>
+            {t("common.retry")}
+          </button>
+        </div>
+      </>
+    );
+  }
 
   // Loading state
   if (authed === null) {

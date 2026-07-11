@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     AI_MODEL: str = "claude-haiku-4-5-20251001"
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     ENVIRONMENT: str = "production"
-    WEBAPP_URL: str = "https://grilled-renae-unforeseeably.ngrok-free.dev"
+    # Public HTTPS URL of the Mini App — the bot's ONLY "Launch BFU" CTA target.
+    # Default is empty so an unset prod env fails loudly at boot (below) instead
+    # of silently pointing every user at a dead personal ngrok tunnel.
+    WEBAPP_URL: str = ""
     # Default Telegram groups every user must join
     TG_GLOBAL_GROUP_ID: int = 0
     TG_GLOBAL_GROUP_LINK: str = ""
@@ -36,6 +39,12 @@ class Settings(BaseSettings):
     # override it explicitly.
     PUBLIC_API_URL: str = ""
     RAILWAY_PUBLIC_DOMAIN: str = ""
+    # DB connection pool per PROCESS. The API and the bot each open their own
+    # engine, so total live connections = (API pool+overflow) + (bot pool+overflow)
+    # + cron. Keep the sum under the Postgres server's max_connections. The bot
+    # sets small values via its own env (DB_POOL_SIZE=2 / DB_MAX_OVERFLOW=3).
+    DB_POOL_SIZE: int = 15
+    DB_MAX_OVERFLOW: int = 15
 
     @property
     def is_dev(self) -> bool:
@@ -60,4 +69,12 @@ if not settings.is_dev and settings.SECRET_KEY in ("", "change-me"):
         "SECRET_KEY is unset or default in production. "
         "Set a strong SECRET_KEY env var (e.g. python -c "
         '"import secrets; print(secrets.token_urlsafe(48))").'
+    )
+
+# The bot's only CTA opens WEBAPP_URL — an unset value in prod means a dead
+# "Launch BFU" button for every user. Fail at boot rather than ship it broken.
+if not settings.is_dev and not settings.WEBAPP_URL:
+    raise RuntimeError(
+        "WEBAPP_URL is unset in production. Set it to the live Mini App URL "
+        "(e.g. https://brightfuturesuzbekistan.uz)."
     )

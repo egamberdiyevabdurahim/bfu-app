@@ -76,3 +76,20 @@ async def test_admin_user_endpoints_require_admin(make_user, as_user, db):
     c = as_user(plain)
     assert (await c.get("/admin/users")).status_code == 403
     assert (await c.get(f"/admin/users/{other.id}/full")).status_code == 403
+
+
+async def test_regular_admin_cannot_moderate_super_admin(make_user, as_user, db):
+    admin = await make_user(name="Admin", role="admin")
+    founder = await make_user(name="Founder", role="super_admin")
+    c = as_user(admin)
+    # A regular admin must not ban / deny / uncheck the founder.
+    assert (await c.delete(f"/admin/users/{founder.id}")).status_code == 403
+    assert (await c.post(f"/admin/users/{founder.id}/deny", json={"fields": ["about"]})).status_code == 403
+    assert (await c.patch(f"/admin/users/{founder.id}/toggle-check")).status_code == 403
+
+
+async def test_super_admin_can_moderate_another_super_admin(make_user, as_user, db):
+    boss = await make_user(name="Boss", role="super_admin")
+    other = await make_user(name="Other", role="super_admin")
+    c = as_user(boss)
+    assert (await c.patch(f"/admin/users/{other.id}/toggle-check")).status_code == 200

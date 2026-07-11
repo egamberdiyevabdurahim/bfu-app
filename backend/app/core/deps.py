@@ -41,7 +41,11 @@ async def get_current_user(
     from sqlalchemy.orm import selectinload
 
     result = await db.execute(
-        select(User).options(selectinload(User.analysis)).where(User.id == int(user_id), User.is_deleted == False)
+        select(User).options(selectinload(User.analysis)).where(
+            User.id == int(user_id),
+            User.is_deleted == False,  # noqa: E712
+            User.banned == False,      # noqa: E712 — a mid-session ban revokes access on the next request
+        )
     )
     user = result.scalar_one_or_none()
     if not user:

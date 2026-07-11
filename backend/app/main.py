@@ -232,28 +232,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import asyncio as _asyncio
 import time as _time
-from collections import deque
+from collections import deque, OrderedDict
 
 _RL_WINDOW = 60
-_RL_MAX = 30  # per IP per window for sensitive auth endpoints
-_rl_hits: dict[str, deque] = {}
+_RL_MAX = 30              # per IP per window for the sensitive unauthenticated auth endpoints
+_RL_MAX_KEYS = 20_000    # hard cap: spoofed IPs cannot grow this map without bound (OOM guard)
+_RL_PATHS = ("/auth/telegram", "/auth/web-login/start")
+# LRU (OrderedDict) so we can evict the oldest keys once past the cap.
+_rl_hits: "OrderedDict[str, deque]" = OrderedDict()
+
+
+def _rl_ip(request: Request) -> str:
+    # We are NOT behind Cloudflare (Railway / DigitalOcean), so `cf-connecting-ip`
+    # is attacker-controlled — never trust it. X-Forwarded-For's leftmost is the
+    # real client as set by Railway's edge / DO's Caddy. It IS spoofable, but the
+    # map is bounded below so spoofing can only bypass the limiter (login is still
+    # HMAC-verified), never exhaust memory. On DO, run uvicorn with --proxy-headers
+    # and this stays correct.
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    return request.client.host if request.client else "unknown"
 
 
 @app.middleware("http")
 async def _rate_limit(request: Request, call_next):
-    if request.url.path == "/auth/telegram":
-        ip = (request.headers.get("cf-connecting-ip")
-              or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-              or (request.client.host if request.client else "unknown"))
+    if request.url.path in _RL_PATHS:
+        ip = _rl_ip(request)
         now = _time.monotonic()
-        dq = _rl_hits.setdefault(ip, deque())
+        dq = _rl_hits.get(ip)
+        if dq is None:
+            dq = deque()
+            _rl_hits[ip] = dq
+            # Bound memory: evict oldest-inserted keys once over the cap.
+            while len(_rl_hits) > _RL_MAX_KEYS:
+                _rl_hits.popitem(last=False)
+        else:
+            _rl_hits.move_to_end(ip)
         while dq and now - dq[0] > _RL_WINDOW:
             dq.popleft()
         if len(dq) >= _RL_MAX:
             return JSONResponse(status_code=429, content={"detail": "Too many requests"})
         dq.append(now)
     return await call_next(request)
+
+
+# Retain fire-and-forget tasks so the event loop can't GC them mid-run.
+_bg_tasks: set = set()
+
+
+def _spawn_bg(coro):
+    t = _asyncio.create_task(coro)
+    _bg_tasks.add(t)
+    t.add_done_callback(_bg_tasks.discard)
+    return t
+
+
+# Dedupe 500-alerts: 1 Telegram ping per (path, error-type) per minute so an
+# outage doesn't turn every failing request into an outbound Telegram call.
+_err_alert_last: "OrderedDict[str, float]" = OrderedDict()
+_ERR_ALERT_WINDOW = 60
 
 
 app.include_router(auth.router)
@@ -290,13 +332,22 @@ async def _report_unhandled(request: Request, exc: Exception):
     except Exception:
         pass
     if settings.DEVELOPER_GROUP_ID:
-        # Tracebacks routinely contain '<' (<module>, <lambda>, object reprs);
-        # Telegram rejects unescaped angle brackets even inside <pre>.
-        await send_telegram(
-            settings.DEVELOPER_GROUP_ID,
-            f"🐞 <b>Unhandled error</b>\n<code>{esc(f'{request.method} {request.url.path}')}</code>\n"
-            f"<pre>{esc(tb)}</pre>",
-        )
+        # Fire-and-forget + dedupe so a burst of 500s (e.g. DB pool saturated)
+        # can't amplify the outage by awaiting an outbound Telegram call on every
+        # failed request. Tracebacks contain '<' (<module>, reprs) → must esc().
+        sig = f"{request.url.path}|{type(exc).__name__}"
+        now = _time.monotonic()
+        last = _err_alert_last.get(sig, 0.0)
+        if now - last > _ERR_ALERT_WINDOW:
+            _err_alert_last[sig] = now
+            _err_alert_last.move_to_end(sig)
+            while len(_err_alert_last) > 500:
+                _err_alert_last.popitem(last=False)
+            _spawn_bg(send_telegram(
+                settings.DEVELOPER_GROUP_ID,
+                f"🐞 <b>Unhandled error</b>\n<code>{esc(f'{request.method} {request.url.path}')}</code>\n"
+                f"<pre>{esc(tb)}</pre>",
+            ))
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 

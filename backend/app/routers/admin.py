@@ -373,6 +373,8 @@ async def list_users(
     pending shells (started sign-up, never finished — NOT in Discover) don't get
     mistaken for live members. Every AdminUserOut carries is_registered /
     is_deleted / banned so the UI can badge each row."""
+    limit = max(1, min(limit, 200))
+    skip = max(0, skip)
     q = select(User).order_by(User.id.desc())
     if search:
         search_term = f"%{search}%"
@@ -408,6 +410,13 @@ async def user_full(
     data = {c.key: getattr(u, c.key) for c in sa_inspect(User).mapper.column_attrs}
     return jsonable_encoder(data)
 
+def _guard_privileged_target(actor: User, target: User) -> None:
+    """A regular admin must not moderate a super-admin (the founder). Only another
+    super-admin can. Blocks a rogue/compromised admin from banning the owner."""
+    if target.role == "super_admin" and actor.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Cannot act on a super-admin")
+
+
 @router.patch("/users/{user_id}/toggle-check")
 async def toggle_user_check(
     user_id: int,
@@ -417,6 +426,7 @@ async def toggle_user_check(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    _guard_privileged_target(admin, user)
     user.checked = not user.checked
     await log_action(db, admin.id, "user.toggle_check", "user", user_id, {"checked": user.checked})
     await db.commit()
@@ -435,6 +445,7 @@ async def deny_user_fields(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    _guard_privileged_target(admin, user)
     user.denied_fields = json.dumps(sorted(set(body.fields)))
     user.denied_note = (body.note or "")[:500] or None
     user.checked = False
@@ -526,6 +537,7 @@ async def soft_delete_user(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    _guard_privileged_target(admin, user)
     user.is_deleted = True
     # Admin removal is a ban: without this flag /auth/telegram auto-restores
     # the user the next time they open the Mini App.

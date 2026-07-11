@@ -7,6 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import Text, cast, func, or_, select, union, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
@@ -1652,7 +1653,14 @@ async def endorse_skill(
         await rate_limit(db, current_user.id, "endorse", 60, 86400)  # 60 new endorsements / day
         db.add(Endorsement(endorser_id=current_user.id, target_id=user_id, skill=skill))
         endorsed = True
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent double-submit both saw existing=None and inserted; the loser
+        # hits the unique (endorser,target,skill). The endorsement exists → treat
+        # as endorsed instead of 500ing.
+        await db.rollback()
+        endorsed = True
 
     count = await db.scalar(
         select(func.count(Endorsement.id)).where(
@@ -1690,8 +1698,22 @@ async def vouch_for(
         await rate_limit(db, current_user.id, "vouch", 30, 86400)  # 30 new vouches / day
         v = Vouch(author_id=current_user.id, target_id=user_id, text=text)
         db.add(v)
-        await db.flush()
-        vid = v.id
+        try:
+            await db.flush()
+            vid = v.id
+        except IntegrityError:
+            # Concurrent double-submit racing the unique (author,target): the other
+            # request already created it → update that row instead of 500ing.
+            await db.rollback()
+            existing = (await db.execute(
+                select(Vouch).where(Vouch.author_id == current_user.id, Vouch.target_id == user_id)
+            )).scalar_one_or_none()
+            if existing:
+                existing.text = text
+                existing.updated_at = datetime.utcnow()
+                vid = existing.id
+            else:
+                raise HTTPException(status_code=409, detail="Could not save vouch, retry")
     await db.commit()
     return {"ok": True, "id": vid}
 
@@ -1842,6 +1864,8 @@ async def discover(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    limit = max(1, min(limit, 100))   # never let a caller pull the whole table into memory
+    offset = max(0, offset)
     q = (
         select(User)
         .options(selectinload(User.analysis))

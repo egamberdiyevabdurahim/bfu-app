@@ -6,6 +6,7 @@ import { getServerLang } from "@/lib/i18n/server";
 export const metadata = {
   title: "Bright Futures Uzbekistan",
   description: "A city of builders, lit up at dusk.",
+  icons: { icon: "/bfu-mark.png", shortcut: "/bfu-mark.png", apple: "/bfu-mark.png" },
 };
 
 export default async function RootLayout({ children }) {

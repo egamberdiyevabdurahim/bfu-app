@@ -264,6 +264,7 @@ class AdminUserOut(BaseModel):
     checked: bool
     is_registered: bool
     is_deleted: bool
+    banned: bool = False
     region_id: int | None = None
     denied_fields: str | None = None
     denied_note: str | None = None

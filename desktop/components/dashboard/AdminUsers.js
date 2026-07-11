@@ -45,17 +45,19 @@ export default function AdminUsers({ me }) {
   const [rows, setRows] = useState([]);
   const [state, setState] = useState("loading"); // loading | ready | error
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // "" | registered | pending | deleted | banned
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [denyFor, setDenyFor] = useState(null); // user object being denied, or null
+  const [fullFor, setFullFor] = useState(null); // { user, data } for the "all fields" reveal
   const [page, setPage] = useState(1);          // client-side page over the loaded window
 
-  const load = useCallback(async (nextSkip, q) => {
+  const load = useCallback(async (nextSkip, q, status) => {
     setState("loading");
     try {
       const data = await bfu("/admin/users", {
-        params: { skip: nextSkip, limit: PAGE_SIZE, search: q || undefined },
+        params: { skip: nextSkip, limit: PAGE_SIZE, search: q || undefined, status: status || undefined },
       });
       const list = Array.isArray(data) ? data : [];
       setRows(list);
@@ -69,8 +71,25 @@ export default function AdminUsers({ me }) {
   }, []);
 
   useEffect(() => {
-    load(0, "");
+    load(0, "", "");
   }, [load]);
+
+  const onStatus = (v) => {
+    setStatusFilter(v);
+    load(0, search.trim(), v);
+  };
+
+  // Reveal EVERY field of one user (phone, flags, raw ids, timestamps).
+  async function openFull(u) {
+    setFullFor({ user: u, data: null }); // open with a spinner
+    try {
+      const data = await bfu(`/admin/users/${u.id}/full`);
+      setFullFor({ user: u, data });
+    } catch (e) {
+      showToast(e.message || "Couldn't load full record", "err");
+      setFullFor(null);
+    }
+  }
 
   // Keep the client page in range when optimistic bans/deletes shrink the window.
   useEffect(() => {
@@ -83,7 +102,7 @@ export default function AdminUsers({ me }) {
   const onSearch = (v) => {
     setSearch(v);
     window.clearTimeout(searchTimer.current);
-    searchTimer.current = window.setTimeout(() => load(0, v.trim()), 350);
+    searchTimer.current = window.setTimeout(() => load(0, v.trim(), statusFilter), 350);
   };
 
   // Patch a single row in place (optimistic).
@@ -210,10 +229,27 @@ export default function AdminUsers({ me }) {
           aria-label="Search users"
           style={inputStyle}
         />
+        <select
+          value={statusFilter}
+          onChange={(e) => onStatus(e.target.value)}
+          aria-label="Filter by status"
+          style={{ ...selectStyle, borderRadius: 11, padding: "10px 12px" }}
+        >
+          <option value="">All users</option>
+          <option value="registered">Registered (in Discover)</option>
+          <option value="pending">Pending — not finished</option>
+          <option value="deleted">Deleted</option>
+          <option value="banned">Banned</option>
+        </select>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em" }}>
           {state === "ready" ? `${rows.length} shown` : ""}
         </span>
       </div>
+      {statusFilter === "pending" && (
+        <div style={{ marginTop: -8, marginBottom: 16, fontSize: 12.5, color: "var(--muted)" }}>
+          These opened the app but never finished sign-up (no region/skills) — so they don't appear in Discover yet.
+        </div>
+      )}
 
       {state === "loading" && (
         <div style={{ color: "var(--muted)", fontSize: 14 }}>
@@ -250,6 +286,7 @@ export default function AdminUsers({ me }) {
                   onRestore={() => doRestore(u)}
                   onHardDelete={() => doHardDelete(u)}
                   onDeny={() => setDenyFor(u)}
+                  onShowFull={() => openFull(u)}
                 />
               ))}
             </div>
@@ -265,7 +302,7 @@ export default function AdminUsers({ me }) {
             type="button"
             className="ch-btn-ghost"
             disabled={skip === 0}
-            onClick={() => load(Math.max(0, skip - PAGE_SIZE), search.trim())}
+            onClick={() => load(Math.max(0, skip - PAGE_SIZE), search.trim(), statusFilter)}
           >
             ← Previous
           </button>
@@ -276,7 +313,7 @@ export default function AdminUsers({ me }) {
             type="button"
             className="ch-btn-ghost"
             disabled={!hasMore}
-            onClick={() => load(skip + PAGE_SIZE, search.trim())}
+            onClick={() => load(skip + PAGE_SIZE, search.trim(), statusFilter)}
           >
             Next →
           </button>
@@ -291,14 +328,23 @@ export default function AdminUsers({ me }) {
         />
       )}
 
+      {fullFor && (
+        <FullFieldsDialog
+          user={fullFor.user}
+          data={fullFor.data}
+          onClose={() => setFullFor(null)}
+        />
+      )}
+
       <Toast />
     </div>
   );
 }
 
-function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny }) {
+function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny, onShowFull }) {
   const name = u.name ? `${u.name}${u.surname ? " " + u.surname : ""}` : u.tg_username || `User #${u.id}`;
-  const banned = u.is_deleted;
+  const banned = u.banned || u.is_deleted;
+  const pending = !u.is_registered && !banned; // started sign-up, never finished → NOT in Discover
   return (
     <div
       className="ch-cell"
@@ -341,6 +387,9 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
         <Pill tone={u.role === "super_admin" ? "amber" : u.role === "admin" ? "ember" : "muted"}>
           {roleLabel(u.role)}
         </Pill>
+        {pending
+          ? <Pill tone="terra" title="Started sign-up but never finished — not shown in Discover">⏳ Pending</Pill>
+          : !banned && <Pill tone="green">Registered</Pill>}
         {u.checked ? <Pill tone="green">✓ Checked</Pill> : <Pill tone="muted">Unchecked</Pill>}
         {banned && <Pill tone="terra">Banned</Pill>}
         {u.denied_fields && <Pill tone="terra">Corrections</Pill>}
@@ -348,6 +397,7 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
 
       {/* actions */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "1 1 auto" }}>
+        <ActionBtn onClick={onShowFull} busy={busy} title="Show every field for this user">Fields</ActionBtn>
         {!banned && !u.checked && (
           <ActionBtn onClick={onVerify} busy={busy} title="Mark this profile verified">✓ Verify</ActionBtn>
         )}
@@ -406,7 +456,7 @@ function ActionBtn({ children, onClick, busy, tone, title }) {
   );
 }
 
-function Pill({ children, tone }) {
+function Pill({ children, tone, title }) {
   const color =
     tone === "amber" ? "var(--amber)" :
     tone === "ember" ? "var(--ember)" :
@@ -414,6 +464,7 @@ function Pill({ children, tone }) {
     tone === "terra" ? "var(--terra)" : "var(--muted)";
   return (
     <span
+      title={title}
       style={{
         fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.06em",
         textTransform: "uppercase", color,
@@ -497,6 +548,73 @@ function DenyDialog({ user, onCancel, onSubmit }) {
             Send correction request
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// "Show all fields": every column of one user, including the ones the list view
+// hides (phone, flags, raw ids, timestamps). Read-only reveal for the admin.
+function FullFieldsDialog({ user, data, onClose }) {
+  const name = user.name || user.tg_username || `User #${user.id}`;
+  const fmt = (v) => {
+    if (v === null || v === undefined) return "—";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  };
+  const entries = data ? Object.entries(data).sort(([a], [b]) => a.localeCompare(b)) : [];
+  const copyAll = async () => {
+    try { await navigator.clipboard?.writeText(JSON.stringify(data, null, 2)); } catch { /* ignore */ }
+  };
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`All fields for ${name}`}
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 90,
+        background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="ch-cell"
+        style={{ width: "100%", maxWidth: 560, maxHeight: "82vh", display: "flex", flexDirection: "column", padding: 24, background: "var(--surface)" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+          <div className="ch-cell-label" style={{ margin: 0 }}>All fields</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="ch-btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={copyAll} disabled={!data}>Copy JSON</button>
+            <button type="button" className="ch-btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={onClose}>Close</button>
+          </div>
+        </div>
+        <h2 style={{ margin: "0 0 14px", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "var(--text)" }}>
+          {name}
+        </h2>
+        {!data ? (
+          <div style={{ color: "var(--muted)", fontSize: 14, padding: "20px 0" }}>
+            <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span> Loading full record…
+          </div>
+        ) : (
+          <div style={{ overflowY: "auto", border: "1px solid var(--hair)", borderRadius: 10 }}>
+            {entries.map(([k, v], i) => (
+              <div
+                key={k}
+                style={{
+                  display: "grid", gridTemplateColumns: "minmax(120px, 38%) 1fr", gap: 12,
+                  padding: "8px 12px", borderBottom: i < entries.length - 1 ? "1px solid var(--hair)" : "none",
+                  background: i % 2 ? "rgba(255,255,255,0.02)" : "transparent",
+                }}
+              >
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)", wordBreak: "break-all" }}>{k}</span>
+                <span style={{ fontSize: 12.5, color: "var(--text)", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{fmt(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

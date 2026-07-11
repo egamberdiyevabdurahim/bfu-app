@@ -260,6 +260,18 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
         scheduleListRefresh(); // keep previews / unread badges fresh (debounced)
         return;
       }
+      if (msg.type === "read") {
+        // Someone read the thread → bump their last_read_at so my ✓ flips to ✓✓
+        // live (receipts derive from threadMembers' last_read_at).
+        if (msg.conversation_id === activeIdRef.current) {
+          setThreadMembers((tm) => {
+            if (!tm || !Array.isArray(tm.members)) return tm;
+            return { ...tm, members: tm.members.map((m) =>
+              m.id === msg.user_id ? { ...m, last_read_at: msg.last_read_at } : m) };
+          });
+        }
+        return;
+      }
       if (msg.type === "typing") {
         if (msg.conversation_id === activeIdRef.current && msg.user_id !== meId) {
           setPeerTyping(msg.sender_name || "");

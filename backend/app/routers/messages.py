@@ -709,8 +709,22 @@ async def mark_read(
     row = await _my_member_row(db, conversation_id, current_user.id)
     if not row:
         raise HTTPException(status_code=403, detail="Not a member of this conversation")
-    row.last_read_at = datetime.utcnow()
+    now = datetime.utcnow()
+    row.last_read_at = now
     await db.commit()
+    # Live read-receipt: tell the OTHER members I just read, so their ✓ flips to
+    # ✓✓ without a reload. Best-effort, fire-and-forget (never load-bearing).
+    try:
+        from app.routers.ws import manager
+        others = (await db.execute(
+            select(ConversationMember.user_id).where(
+                ConversationMember.conversation_id == conversation_id,
+                ConversationMember.user_id != current_user.id))).scalars().all()
+        asyncio.create_task(manager.send_to_users(list(others), {
+            "type": "read", "conversation_id": conversation_id,
+            "user_id": current_user.id, "last_read_at": now.isoformat()}))
+    except Exception:
+        pass
     return {"ok": True}
 
 

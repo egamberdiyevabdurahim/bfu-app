@@ -365,17 +365,48 @@ async def analytics_skill_gap(
 async def list_users(
     skip: int = 0, limit: int = 50,
     search: str | None = None,
+    status: str | None = None,  # all(default) | registered | pending | deleted | banned
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """List users for the admin panel. `status` narrows by lifecycle state so
+    pending shells (started sign-up, never finished — NOT in Discover) don't get
+    mistaken for live members. Every AdminUserOut carries is_registered /
+    is_deleted / banned so the UI can badge each row."""
     q = select(User).order_by(User.id.desc())
     if search:
         search_term = f"%{search}%"
         q = q.where(User.name.ilike(search_term) | User.surname.ilike(search_term) | User.tg_username.ilike(search_term))
-    
+    if status == "registered":
+        q = q.where(User.is_registered == True, User.is_deleted == False)  # noqa: E712 — exactly what Discover shows
+    elif status == "pending":
+        q = q.where(User.is_registered == False, User.is_deleted == False)  # noqa: E712
+    elif status == "deleted":
+        q = q.where(User.is_deleted == True)  # noqa: E712
+    elif status == "banned":
+        q = q.where(User.banned == True)  # noqa: E712
+
     q = q.offset(skip).limit(limit)
     res = await db.execute(q)
     return res.scalars().all()
+
+
+@router.get("/users/{user_id}/full", response_model=dict)
+async def user_full(
+    user_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """EVERY column of one user for the admin panel's "Show all fields" reveal —
+    including fields the list view hides (phone, flags, timestamps, denied_note,
+    raw ids). Admin-gated; returns a flat {field: value} map (JSON-encoded)."""
+    from sqlalchemy import inspect as sa_inspect
+    from fastapi.encoders import jsonable_encoder
+    u = await db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    data = {c.key: getattr(u, c.key) for c in sa_inspect(User).mapper.column_attrs}
+    return jsonable_encoder(data)
 
 @router.patch("/users/{user_id}/toggle-check")
 async def toggle_user_check(

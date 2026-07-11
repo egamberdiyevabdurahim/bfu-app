@@ -410,6 +410,49 @@ async def user_full(
     data = {c.key: getattr(u, c.key) for c in sa_inspect(User).mapper.column_attrs}
     return jsonable_encoder(data)
 
+
+# Localized "you started the bot but never finished sign-up — do it in the app"
+# nudge. web_app button opens the Mini App, where an unregistered user lands on
+# the registration flow.
+_REG_NUDGE = {
+    "uz": ("Assalomu alaykum! 👋\n\nSiz BFU botini <b>ishga tushirdingiz</b>, lekin "
+           "ro‘yxatdan o‘tishni yakunlamadingiz. Ilovada profilingizni to‘ldiring — "
+           "shundan so‘ng loyihalar, hammuassislar, mentorlar va imkoniyatlar siz uchun "
+           "ochiladi 👇", "🚀 Ro‘yxatdan o‘tishni yakunlash"),
+    "ru": ("Здравствуйте! 👋\n\nВы <b>запустили</b> бота BFU, но не завершили регистрацию. "
+           "Заполните профиль в приложении — и вам откроются проекты, со-основатели, "
+           "менторы и возможности 👇", "🚀 Завершить регистрацию"),
+    "en": ("Hi! 👋\n\nYou <b>started</b> the BFU bot but didn’t finish registering. "
+           "Complete your profile in the app — then projects, co-founders, mentors and "
+           "opportunities open up for you 👇", "🚀 Finish registration"),
+}
+
+
+@router.post("/users/{user_id}/nudge-register")
+async def nudge_register(
+    user_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """DM a user a 'finish your registration' nudge with a button that opens the
+    Mini App (where an unregistered user is routed to the sign-up flow). For the
+    people who /start-ed the bot but never completed sign-up."""
+    u = await db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    if not u.telegram_id:
+        raise HTTPException(400, "User has no Telegram id to message")
+    lang = (u.language or "uz") if (u.language or "uz") in _REG_NUDGE else "uz"
+    text, btn = _REG_NUDGE[lang]
+    ok = await send_telegram(u.telegram_id, text, reply_markup={"inline_keyboard": [[
+        {"text": btn, "web_app": {"url": settings.WEBAPP_URL}},
+    ]]})
+    await log_action(db, admin.id, "user.nudge_register", "user", user_id, {"ok": ok})
+    await db.commit()
+    # ok=False usually means the user never opened a chat with the bot (Telegram
+    # forbids bot-initiated DMs to such users) — surfaced so the admin knows.
+    return {"ok": ok, "reason": None if ok else "unreachable"}
+
 def _guard_privileged_target(actor: User, target: User) -> None:
     """A regular admin must not moderate a super-admin (the founder). Only another
     super-admin can. Blocks a rogue/compromised admin from banning the owner."""

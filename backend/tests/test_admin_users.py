@@ -93,3 +93,17 @@ async def test_super_admin_can_moderate_another_super_admin(make_user, as_user, 
     other = await make_user(name="Other", role="super_admin")
     c = as_user(boss)
     assert (await c.patch(f"/admin/users/{other.id}/toggle-check")).status_code == 200
+
+
+async def test_nudge_register_sends_and_is_admin_gated(make_user, as_user, db):
+    admin = await make_user(name="Admin", role="admin")
+    pending = await make_user(name="Half", is_registered=False)
+    c = as_user(admin)
+    r = await c.post(f"/admin/users/{pending.id}/nudge-register")
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True  # _noop_send returns True
+
+    # 404 for a missing user; 403 for a non-admin caller.
+    assert (await c.post("/admin/users/999999/nudge-register")).status_code == 404
+    plain = await make_user(name="Plain")
+    assert (await as_user(plain).post(f"/admin/users/{pending.id}/nudge-register")).status_code == 403

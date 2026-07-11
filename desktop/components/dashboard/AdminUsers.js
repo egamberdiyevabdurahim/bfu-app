@@ -79,6 +79,42 @@ export default function AdminUsers({ me }) {
     load(0, search.trim(), v);
   };
 
+  // DM a "finish your registration" nudge to someone who started the bot but
+  // never completed sign-up.
+  async function doNudge(u) {
+    setBusyId(u.id);
+    try {
+      const res = await bfu(`/admin/users/${u.id}/nudge-register`, { method: "POST" });
+      if (res?.ok) showToast(`Reminder sent to ${u.name || "user"}`);
+      else showToast(`Couldn't reach ${u.name || "user"} — they haven't opened the bot chat`, "err");
+    } catch (e) {
+      showToast(e.message || "Couldn't send reminder", "err");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Nudge every pending user in the loaded window (sequential, so we never
+  // burst Telegram). Summarised in one toast.
+  async function doNudgeAll() {
+    const targets = rows.filter((r) => !r.is_registered && !r.banned && !r.is_deleted && r.telegram_id);
+    if (!targets.length) return;
+    if (!window.confirm(`Send a "finish registration" reminder to ${targets.length} pending user(s)?`)) return;
+    setBusyId("bulk");
+    let sent = 0;
+    let failed = 0;
+    for (const u of targets) {
+      try {
+        const res = await bfu(`/admin/users/${u.id}/nudge-register`, { method: "POST" });
+        res?.ok ? (sent += 1) : (failed += 1);
+      } catch {
+        failed += 1;
+      }
+    }
+    setBusyId(null);
+    showToast(`Reminders: ${sent} sent${failed ? `, ${failed} unreachable` : ""}`);
+  }
+
   // Reveal EVERY field of one user (phone, flags, raw ids, timestamps).
   async function openFull(u) {
     setFullFor({ user: u, data: null }); // open with a spinner
@@ -246,8 +282,21 @@ export default function AdminUsers({ me }) {
         </span>
       </div>
       {statusFilter === "pending" && (
-        <div style={{ marginTop: -8, marginBottom: 16, fontSize: 12.5, color: "var(--muted)" }}>
-          These opened the app but never finished sign-up (no region/skills) — so they don't appear in Discover yet.
+        <div style={{ marginTop: -8, marginBottom: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+            These opened the app but never finished sign-up (no region/skills) — so they don't appear in Discover yet.
+          </span>
+          {rows.some((r) => !r.is_registered && !r.banned && !r.is_deleted) && (
+            <button
+              type="button"
+              className="ch-btn-ghost"
+              style={{ padding: "6px 12px", fontSize: 12.5, borderColor: "var(--amber)", color: "var(--amber)" }}
+              disabled={busyId === "bulk"}
+              onClick={doNudgeAll}
+            >
+              {busyId === "bulk" ? "Sending…" : "📩 Remind all shown"}
+            </button>
+          )}
         </div>
       )}
 
@@ -287,6 +336,7 @@ export default function AdminUsers({ me }) {
                   onHardDelete={() => doHardDelete(u)}
                   onDeny={() => setDenyFor(u)}
                   onShowFull={() => openFull(u)}
+                  onNudge={() => doNudge(u)}
                 />
               ))}
             </div>
@@ -341,7 +391,7 @@ export default function AdminUsers({ me }) {
   );
 }
 
-function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny, onShowFull }) {
+function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny, onShowFull, onNudge }) {
   const name = u.name ? `${u.name}${u.surname ? " " + u.surname : ""}` : u.tg_username || `User #${u.id}`;
   const banned = u.banned || u.is_deleted;
   const pending = !u.is_registered && !banned; // started sign-up, never finished → NOT in Discover
@@ -398,6 +448,11 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
       {/* actions */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "1 1 auto" }}>
         <ActionBtn onClick={onShowFull} busy={busy} title="Show every field for this user">Fields</ActionBtn>
+        {pending && (
+          <ActionBtn onClick={onNudge} busy={busy} title="DM a 'finish your registration' reminder that opens the app">
+            📩 Remind to register
+          </ActionBtn>
+        )}
         {!banned && !u.checked && (
           <ActionBtn onClick={onVerify} busy={busy} title="Mark this profile verified">✓ Verify</ActionBtn>
         )}

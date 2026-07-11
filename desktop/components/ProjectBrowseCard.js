@@ -70,7 +70,7 @@ export default function ProjectBrowseCard({ project = {}, index = 0 }) {
 
   return (
     <a
-      href={`/p/${id}`}
+      href={`/web/p/${id}`}
       className={`ch-pcard${pinned ? " ch-pcard-pinned" : ""}`}
       style={{ animationDelay: `${Math.min(index, 11) * 55}ms` }}
       // ── FilterBar <-> ProjectBrowseCard data-* contract ──

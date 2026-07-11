@@ -120,7 +120,7 @@ function OwnedCard({ project }) {
           </span>
         </div>
         <a
-          href={`/projects/${project.id}/manage`}
+          href={`/web/projects/${project.id}/manage`}
           onClick={(e) => e.stopPropagation()}
           className="ch-btn-primary"
           style={{ padding: "9px 16px", fontSize: 13 }}
@@ -137,7 +137,7 @@ function JoinedCard({ project }) {
   const meta = typeMeta(project.type);
   return (
     <a
-      href={`/p/${project.id}`}
+      href={`/web/p/${project.id}`}
       className="ch-pcard"
       style={{ animation: "none", opacity: 1, transform: "none", textDecoration: "none" }}
     >

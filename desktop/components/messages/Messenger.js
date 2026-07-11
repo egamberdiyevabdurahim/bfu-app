@@ -767,7 +767,7 @@ export default function Messenger({ meId }) {
                 </span>
                 <div className="msg-thread-id">
                   {isDm && active.other ? (
-                    <a href={`/u/${active.other.id}`} className="msg-thread-name msg-thread-link">
+                    <a href={`/web/u/${active.other.id}`} className="msg-thread-name msg-thread-link">
                       {active.other.display_name}
                     </a>
                   ) : (

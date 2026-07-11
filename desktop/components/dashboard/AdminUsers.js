@@ -359,7 +359,7 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
     >
       {/* identity */}
       <a
-        href={`/u/${u.id}`}
+        href={`/web/u/${u.id}`}
         style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", minWidth: 220, flex: "1 1 220px" }}
       >
         <div

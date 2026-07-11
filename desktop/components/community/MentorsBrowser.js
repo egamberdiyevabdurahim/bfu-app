@@ -499,7 +499,7 @@ export default function MentorsBrowser() {
                   <Avatar id={m.id} name={name} photo={m.photo_url} />
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <a
-                      href={`/u/${m.id}`}
+                      href={`/web/u/${m.id}`}
                       style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, color: "var(--text)", textDecoration: "underline", textDecorationColor: "transparent", textUnderlineOffset: 3, transition: "text-decoration-color 0.15s ease" }}
                       onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = "var(--amber)")}
                       onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = "transparent")}

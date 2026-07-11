@@ -19,7 +19,7 @@ export default function FounderCell({ founder }) {
       <div className="ch-cell-label">{t("profile.founder")}</div>
 
       <Link
-        href={`/u/${founder.id}`}
+        href={`/web/u/${founder.id}`}
         style={{
           marginTop: 18,
           display: "flex",

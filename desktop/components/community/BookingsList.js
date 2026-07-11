@@ -120,7 +120,7 @@ function Row({ booking, role, onAct, busy, onSetLink, onRate }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {other.id != null ? (
             <a
-              href={`/u/${other.id}`}
+              href={`/web/u/${other.id}`}
               style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)", textDecoration: "none" }}
             >
               {name}

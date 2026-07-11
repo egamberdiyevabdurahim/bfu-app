@@ -68,7 +68,7 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
 
   return (
     <a
-      href={`/u/${id}`}
+      href={`/web/u/${id}`}
       className={`ch-card${big ? " ch-card-big" : ""}`}
       style={{ animationDelay: `${Math.min(index, 11) * 55}ms` }}
       // ── FilterBar <-> BuilderCard data-* contract ──

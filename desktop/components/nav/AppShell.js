@@ -63,7 +63,10 @@ function deriveActiveKey(pathname, items) {
 function NavRow({ item, label, on, isCollapsed, badge, onNavigate }) {
   return (
     <a
-      href={item.href}
+      // Render the /web-prefixed href (the app is basePath-hosted), but keep
+      // navConfig hrefs BARE so deriveActiveKey still matches usePathname()
+      // (which strips basePath).
+      href={`/web${item.href}`}
       onClick={onNavigate}
       aria-current={on ? "page" : undefined}
       className="ash-row"
@@ -508,7 +511,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               <div role="menu" className="ash-menu">
                 {me?.id && (
                   <a
-                    href={`/u/${me.id}`}
+                    href={`/web/u/${me.id}`}
                     role="menuitem"
                     className="ash-menu-item"
                     onClick={() => setMenuOpen(false)}

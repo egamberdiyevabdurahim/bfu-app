@@ -21,7 +21,7 @@ function SavedCard({ project, onUnsave, busy }) {
   const meta = typeMeta(project.type);
   return (
     <a
-      href={`/p/${project.id}`}
+      href={`/web/p/${project.id}`}
       className="ch-pcard"
       style={{ textDecoration: "none", position: "relative" }}
     >

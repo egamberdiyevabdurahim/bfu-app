@@ -133,7 +133,7 @@ export default function RequestsList() {
             <h2>
               {/* The project name itself is now the link to its cockpit. */}
               <a
-                href={`/projects/${pid}/manage`}
+                href={`/web/projects/${pid}/manage`}
                 style={{ color: "inherit", textDecoration: "none" }}
               >
                 {list[0].project_name}
@@ -141,7 +141,7 @@ export default function RequestsList() {
             </h2>
             <span className="ch-slab-line" />
             <a
-              href={`/projects/${pid}/manage`}
+              href={`/web/projects/${pid}/manage`}
               style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)", textDecoration: "none", whiteSpace: "nowrap" }}
             >
               {t("projmanage.manage_link")} →
@@ -161,7 +161,7 @@ export default function RequestsList() {
                   <Avatar id={a.id} name={name} photo={a.photo_url} />
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <a
-                      href={`/u/${a.id}`}
+                      href={`/web/u/${a.id}`}
                       style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)", textDecoration: "none" }}
                     >
                       {name}

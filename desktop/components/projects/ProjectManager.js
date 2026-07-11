@@ -114,7 +114,7 @@ function ApplicantRow({ app, onDecision, busy }) {
       <Avatar id={a.id} name={name} photo={a.photo_url} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <a
-          href={`/u/${a.id}`}
+          href={`/web/u/${a.id}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
@@ -660,7 +660,7 @@ function RateableRow({ projectId, person, flash, onRated }) {
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Avatar id={person.id} name={name} photo={person.photo_url} size={40} />
         <a
-          href={`/u/${person.id}`}
+          href={`/web/u/${person.id}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
@@ -870,7 +870,7 @@ function TeamRow({ projectId, member, onRemoved, flash }) {
       <Avatar id={u.id} name={name} photo={u.photo_url} size={40} />
       <div style={{ flex: 1, minWidth: 150 }}>
         <a
-          href={`/u/${u.id}`}
+          href={`/web/u/${u.id}`}
           style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
@@ -1243,7 +1243,7 @@ export default function ProjectManager({ projectId, meId }) {
             {project.name}
           </h1>
         </div>
-        <a href={`/p/${project.id}`} className="ch-btn-ghost">
+        <a href={`/web/p/${project.id}`} className="ch-btn-ghost">
           {t("projmanage.view_public_page")} <span style={{ fontSize: 14 }}>↗</span>
         </a>
       </div>

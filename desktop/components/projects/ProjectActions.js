@@ -208,7 +208,7 @@ export default function ProjectActions({ projectId }) {
     const n = project.pending_applications_count || 0;
     control = (
       <a
-        href={`/projects/${projectId}/manage`}
+        href={`/web/projects/${projectId}/manage`}
         className="ch-btn-primary"
         style={{ width: "100%", justifyContent: "center" }}
       >

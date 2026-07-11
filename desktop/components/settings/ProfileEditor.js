@@ -690,7 +690,7 @@ export default function ProfileEditor({ initial, regions }) {
 
           {/* View public profile */}
           <a
-            href={`/u/${me.id}`}
+            href={`/web/u/${me.id}`}
             className="ch-cell"
             style={{
               display: "flex",

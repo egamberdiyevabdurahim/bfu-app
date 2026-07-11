@@ -273,7 +273,7 @@ function ProjectRow({ p, isSuper, busy, onApprove, onPin, onDelete, onHardDelete
       className="ch-cell"
       style={{ padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 16 }}
     >
-      <a href={`/p/${p.id}`} style={{ textDecoration: "none", minWidth: 240, flex: "1 1 240px" }}>
+      <a href={`/web/p/${p.id}`} style={{ textDecoration: "none", minWidth: 240, flex: "1 1 240px" }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>
           {p.name}
         </div>

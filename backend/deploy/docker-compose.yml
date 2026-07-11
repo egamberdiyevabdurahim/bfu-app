@@ -29,7 +29,7 @@ services:
   api:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -47,7 +47,7 @@ services:
   bot:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -61,7 +61,7 @@ services:
   cron:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: [.env]
     environment:

@@ -19,7 +19,7 @@ function MemberRow({ id, name, photo, online, checked, role, isFounder }) {
   const label = name || t("messages.team_member_fallback");
   return (
     <Link
-      href={`/u/${id}`}
+      href={`/web/u/${id}`}
       title={label}
       style={{
         display: "flex",

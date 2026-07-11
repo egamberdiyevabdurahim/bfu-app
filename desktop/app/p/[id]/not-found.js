@@ -57,7 +57,7 @@ export default async function ProjectNotFound() {
         >
           {t("projects.nf_body")}
         </p>
-        <Link href="/web/city" className="ch-btn-primary" style={{ marginTop: 10 }}>
+        <Link href="/city" className="ch-btn-primary" style={{ marginTop: 10 }}>
           {t("projects.nf_cta")} <span style={{ fontSize: 14 }}>↗</span>
         </Link>
       </div>

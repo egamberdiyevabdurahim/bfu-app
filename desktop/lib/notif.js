@@ -104,6 +104,13 @@ export function notifText(n, t) {
  * - person items (interest/mutual/intro/new_follower) → the actor /u/{id}
  */
 export function notifHref(n) {
+  // The desktop is basePath-hosted under /web; prefix every internal target
+  // (both server-provided n.link and the derived fallbacks) once, here.
+  const p = _notifTarget(n);
+  return p ? `/web${p}` : null;
+}
+
+function _notifTarget(n) {
   if (n.link) return n.link;
   switch (n.type) {
     case "application":

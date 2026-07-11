@@ -24,7 +24,7 @@ function PersonCard({ person, variant }) {
   const following = variant === "following";
   return (
     <a
-      href={`/u/${person.id}`}
+      href={`/web/u/${person.id}`}
       className="ch-card"
       style={{ textDecoration: "none", padding: "22px 22px 20px" }}
     >

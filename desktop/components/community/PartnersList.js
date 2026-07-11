@@ -98,7 +98,7 @@ export default function PartnersList() {
   return (
     <div className="ch-grid" style={{ marginTop: 24 }}>
       {partners.map((p) => (
-        <a key={p.id} href={`/partners/${p.id}`} className="ch-cell" style={{ display: "block", padding: 28, color: "var(--text)", textDecoration: "none" }}>
+        <a key={p.id} href={`/web/partners/${p.id}`} className="ch-cell" style={{ display: "block", padding: 28, color: "var(--text)", textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Logo id={p.id} name={p.name} url={p.logo_url} />
             <div style={{ minWidth: 0 }}>

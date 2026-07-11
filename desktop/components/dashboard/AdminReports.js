@@ -15,8 +15,8 @@ import { useToast } from "@/components/ui/Toast";
 
 function targetHref(type, id) {
   const t = (type || "").toLowerCase();
-  if (t === "user") return `/u/${id}`;
-  if (t === "project") return `/p/${id}`;
+  if (t === "user") return `/web/u/${id}`;
+  if (t === "project") return `/web/p/${id}`;
   return null;
 }
 

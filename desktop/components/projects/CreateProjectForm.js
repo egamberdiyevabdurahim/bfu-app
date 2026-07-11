@@ -634,7 +634,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
         <div style={{ display: "flex", gap: 10 }}>
           {isEdit && (
             <a
-              href={`/projects/${init.id}/manage`}
+              href={`/web/projects/${init.id}/manage`}
               className="ch-btn-ghost"
               aria-disabled={state === "saving" ? "true" : undefined}
               style={

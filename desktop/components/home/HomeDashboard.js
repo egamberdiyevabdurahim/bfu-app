@@ -616,7 +616,7 @@ function ViewerAvatar({ v }) {
   const grad = gradientFor(v.id);
   return (
     <a
-      href={`/u/${v.id}`}
+      href={`/web/u/${v.id}`}
       title={v.display_name}
       aria-label={`${v.display_name}${v.is_online ? t("home.viewers.online_suffix") : ""}`}
       style={{ position: "relative", marginLeft: -10, flex: "0 0 auto", textDecoration: "none" }}
@@ -659,7 +659,7 @@ function ViewerAvatar({ v }) {
 function ViewerRow({ v }) {
   const grad = gradientFor(v.id);
   return (
-    <a href={`/u/${v.id}`} className="hd-vrow">
+    <a href={`/web/u/${v.id}`} className="hd-vrow">
       <span className="hd-vrow-av" style={{ background: grad }}>
         {v.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element

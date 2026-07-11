@@ -28,7 +28,7 @@ function TabLink({ t, active }) {
   const on = active === t.key;
   return (
     <a
-      href={t.href}
+      href={`/web${t.href}`}
       aria-current={on ? "page" : undefined}
       className="ch-btn-ghost"
       style={

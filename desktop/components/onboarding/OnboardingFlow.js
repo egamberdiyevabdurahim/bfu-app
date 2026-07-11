@@ -534,7 +534,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
                   {t("onboarding.step3.emptyBody")}
                 </p>
                 <a
-                  href="/city"
+                  href="/web/city"
                   className="ch-btn-primary"
                   onClick={() => finish()}
                   style={{ alignSelf: "flex-start" }}

@@ -279,7 +279,7 @@ function EmptyState() {
       <span className="ch-empty-k">{t("projects.empty_mine_k")}</span>
       <div className="ch-empty-t">{t("projects.empty_mine_t")}</div>
       <div className="ch-empty-s">{t("projects.empty_mine_s")}</div>
-      <a href="/projects/new" className="ch-btn-primary" style={{ marginTop: 8 }}>
+      <a href="/web/projects/new" className="ch-btn-primary" style={{ marginTop: 8 }}>
         {t("projects.start_one")} <span style={{ fontSize: 14 }}>→</span>
       </a>
     </div>

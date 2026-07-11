@@ -65,7 +65,7 @@ function LoginInner() {
     setTerminal(false);
     setLiveError(null);
     try {
-      const res = await fetch("/api/auth/web-login/start", { method: "POST" });
+      const res = await fetch("/web/api/auth/web-login/start", { method: "POST" });
       const data = await res.json();
       if (!mountedRef.current) return;
 
@@ -125,7 +125,7 @@ function LoginInner() {
       let data;
       try {
         const res = await fetch(
-          `/api/auth/web-login/poll?nonce=${encodeURIComponent(nonce)}`
+          `/web/api/auth/web-login/poll?nonce=${encodeURIComponent(nonce)}`
         );
         data = await res.json();
       } catch {
@@ -136,7 +136,7 @@ function LoginInner() {
 
       if (data?.status === "ok") {
         // Brand-new members finish sign-up on the web; returning members go home.
-        window.location.href = data.is_registered === false ? "/register" : "/home";
+        window.location.href = data.is_registered === false ? "/web/register" : "/web/home";
         return;
       }
       if (data?.status === "expired") {

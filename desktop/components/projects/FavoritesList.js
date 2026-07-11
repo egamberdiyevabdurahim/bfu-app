@@ -106,7 +106,7 @@ function EmptyState() {
       <div className="ch-empty-s">
         {t("projmanage.fav_empty_s")}
       </div>
-      <a href="/city" className="ch-btn-primary" style={{ marginTop: 8 }}>
+      <a href="/web/city" className="ch-btn-primary" style={{ marginTop: 8 }}>
         {t("projmanage.fav_explore")} <span style={{ fontSize: 14 }}>→</span>
       </a>
     </div>

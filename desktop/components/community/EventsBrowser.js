@@ -336,7 +336,7 @@ export default function EventsBrowser({ highlightEventId = null }) {
                 : t("community.events.emptyBodyAll")}
             </div>
             {tab === "forme" ? (
-              <a href="/settings" className="ch-btn-ghost" style={{ marginTop: 14 }}>
+              <a href="/web/settings" className="ch-btn-ghost" style={{ marginTop: 14 }}>
                 {t("community.events.completeProfile")}
               </a>
             ) : null}

@@ -5,7 +5,7 @@ import { useT } from "@/components/i18n/LocaleProvider";
 
 // Screen 4 (/projects) project window — a SERVER component (no hooks; the
 // hover-bloom + rise-in are pure CSS in globals.css `.ch-pcard`). The whole
-// card is an <a href="/p/{id}">, mirroring BuilderCard's link-card grammar.
+// card is an <a href="/web/p/{id}">, mirroring BuilderCard's link-card grammar.
 //
 // Visual grammar: a type badge (Startup amber / Volunteering teal-green), a
 // hiring pill (green, reusing the ch-online-ping halo) and/or a pinned marker,

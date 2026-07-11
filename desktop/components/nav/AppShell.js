@@ -119,7 +119,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
       typeof window !== "undefined" &&
       !window.location.pathname.startsWith("/register")
     ) {
-      window.location.href = "/register";
+      window.location.href = "/web/register";
     }
   }, [me]);
 
@@ -365,7 +365,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
         <div className="ash-head">
           <div className="ash-head-top">
             <a
-              href="/home"
+              href="/web/home"
               className="ash-brand"
               onClick={closeDrawer}
               title={isCollapsed ? "Bright Futures" : undefined}
@@ -390,7 +390,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           {/* Primary action */}
           {isCollapsed ? (
             <a
-              href="/projects/new"
+              href="/web/projects/new"
               className="ash-cta ash-cta-icon"
               onClick={closeDrawer}
               title={t("common.start_project")}
@@ -399,7 +399,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               <NavIcon name="plus" size={19} />
             </a>
           ) : (
-            <a href="/projects/new" className="ash-cta" onClick={closeDrawer}>
+            <a href="/web/projects/new" className="ash-cta" onClick={closeDrawer}>
               <NavIcon name="plus" size={17} />
               {t("common.start_project")}
             </a>
@@ -520,7 +520,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                   </a>
                 )}
                 <a
-                  href="/settings"
+                  href="/web/settings"
                   role="menuitem"
                   className="ash-menu-item"
                   onClick={() => setMenuOpen(false)}
@@ -531,7 +531,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                   {t("common.edit_profile")}
                 </a>
                 <div className="ash-menu-hair" />
-                <a href="/api/auth/logout" role="menuitem" className="ash-menu-item ash-menu-muted">
+                <a href="/web/api/auth/logout" role="menuitem" className="ash-menu-item ash-menu-muted">
                   <span className="ash-menu-icon" aria-hidden>
                     ↩
                   </span>
@@ -617,7 +617,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           >
             ☰
           </button>
-          <a href="/home" className="ash-topbar-brand">
+          <a href="/web/home" className="ash-topbar-brand">
             <img
               src="/bfu-mark.png"
               alt="BFU"
@@ -625,7 +625,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
             />
           </a>
           <a
-            href="/notifications"
+            href="/web/notifications"
             className="ash-topbar-bell"
             aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
           >

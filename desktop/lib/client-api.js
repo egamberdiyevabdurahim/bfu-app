@@ -32,7 +32,7 @@ function buildQuery(params) {
  */
 export async function bfu(path, { method = "GET", body, params } = {}) {
   const query = buildQuery(params);
-  const res = await fetch(`/api/bfu${path}${query}`, {
+  const res = await fetch(`/web/api/bfu${path}${query}`, {
     method,
     credentials: "include",
     headers: body ? { "Content-Type": "application/json" } : {},

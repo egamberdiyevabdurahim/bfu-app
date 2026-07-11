@@ -27,7 +27,7 @@ export default async function PartnerPage({ params }) {
     <AppTopBar active="partners" me={me}>
         <div style={{ marginTop: 8 }}>
           <a
-            href="/partners"
+            href="/web/partners"
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 11,

@@ -384,7 +384,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
           {t("people.thisIsYouBody")}
         </p>
-        <a href="/settings" className="ch-btn-primary" style={{ justifyContent: "center" }}>
+        <a href="/web/settings" className="ch-btn-primary" style={{ justifyContent: "center" }}>
           {t("people.editProfile")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>
@@ -398,7 +398,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.55 }}>
           {t("people.anonBody", { name: personName || t("people.thisBuilder") })}
         </p>
-        <a href="/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
+        <a href="/web/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
           {t("people.loginToConnect")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>

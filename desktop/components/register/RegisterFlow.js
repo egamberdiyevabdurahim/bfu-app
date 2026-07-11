@@ -197,7 +197,7 @@ export default function RegisterFlow({ me, preview = false }) {
         },
       });
       await bfu("/users/me/finalize", { method: "POST" });
-      window.location.href = "/home";
+      window.location.href = "/web/home";
     } catch (err) {
       setLoading(false);
       setSubmitError(err?.message || t("register.err_generic"));

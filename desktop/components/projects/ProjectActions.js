@@ -168,7 +168,7 @@ export default function ProjectActions({ projectId }) {
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted-strong)", lineHeight: 1.55 }}>
           {t("projects.anon_body")}
         </p>
-        <a href="/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
+        <a href="/web/login" className="ch-btn-primary" style={{ justifyContent: "center" }}>
           {t("projects.login_to_apply")} <span style={{ fontSize: 14 }}>→</span>
         </a>
       </div>

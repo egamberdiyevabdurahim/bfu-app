@@ -361,7 +361,7 @@ export default function NotificationsBell() {
           </div>
 
           <a
-            href="/notifications"
+            href="/web/notifications"
             onClick={() => setOpen(false)}
             style={{
               display: "block",

@@ -360,7 +360,7 @@ export default function BookingsList() {
               title={t("community.bookings.emptyTitle")}
               body={t("community.bookings.emptyBody")}
             />
-            <a href="/mentors" className="ch-btn-primary" style={{ marginTop: 16, display: "inline-flex" }}>
+            <a href="/web/mentors" className="ch-btn-primary" style={{ marginTop: 16, display: "inline-flex" }}>
               {t("community.bookings.browseMentors")}
             </a>
           </div>

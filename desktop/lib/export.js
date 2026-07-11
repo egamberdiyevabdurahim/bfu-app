@@ -19,7 +19,7 @@ export async function downloadExport(kind) {
   const spec = KINDS[kind];
   if (!spec) throw new Error(`Unknown export: ${kind}`);
 
-  const res = await fetch(`/api/bfu${spec.path}`, { credentials: "include" });
+  const res = await fetch(`/web/api/bfu${spec.path}`, { credentials: "include" });
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {

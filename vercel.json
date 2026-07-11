@@ -29,6 +29,8 @@
     { "source": "/public/:path*", "destination": "https://bfu-backend-production.up.railway.app/public/:path*" },
     { "source": "/health", "destination": "https://bfu-backend-production.up.railway.app/health" },
     { "source": "/u/:id", "destination": "https://bfu-backend-production.up.railway.app/public/u/:id" },
-    { "source": "/((?!landing|u/).*)", "destination": "/index.html" }
+    { "source": "/web", "destination": "https://bfu-desktop.vercel.app/web" },
+    { "source": "/web/:path*", "destination": "https://bfu-desktop.vercel.app/web/:path*" },
+    { "source": "/((?!landing|u/|web).*)", "destination": "/index.html" }
   ]
 }

@@ -110,7 +110,7 @@ export default function RequestsList() {
         <div className="ch-empty-s">
           {t("projmanage.req_empty_s")}
         </div>
-        <a href="/projects/mine" className="ch-btn-ghost" style={{ marginTop: 8 }}>
+        <a href="/web/projects/mine" className="ch-btn-ghost" style={{ marginTop: 8 }}>
           {t("projmanage.your_projects")} →
         </a>
       </div>

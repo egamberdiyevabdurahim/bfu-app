@@ -243,7 +243,7 @@ export default function PartnerDetail({ partnerId }) {
         <span className="ch-grace-k">{t("community.partnerDetail.notFoundKicker")}</span>
         <div className="ch-grace-t">{t("community.partnerDetail.notFoundTitle")}</div>
         <div className="ch-grace-s">{t("community.partnerDetail.notFoundBody")}</div>
-        <a href="/partners" className="ch-btn-ghost" style={{ marginTop: 12 }}>
+        <a href="/web/partners" className="ch-btn-ghost" style={{ marginTop: 12 }}>
           {t("community.partnerDetail.back")}
         </a>
       </div>

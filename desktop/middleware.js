@@ -87,7 +87,12 @@ function unauthenticated(req, isApi) {
   if (isApi) {
     res = NextResponse.json({ detail: "Session expired" }, { status: 401 });
   } else {
-    res = NextResponse.redirect(new URL("/login", req.url));
+    // Clone nextUrl (a basePath-aware NextURL) so the redirect resolves under
+    // /web (→ /web/login), not the bare /login which would 404.
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    res = NextResponse.redirect(url);
   }
   clearCookie(res, SESSION_COOKIE);
   clearCookie(res, REFRESH_COOKIE);

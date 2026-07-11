@@ -16,7 +16,7 @@ const LINKS = [
 function Brand() {
   return (
     <a
-      href="/city"
+      href="/web/city"
       style={{ display: "flex", alignItems: "center", gap: 13, textDecoration: "none", flex: "0 0 auto" }}
     >
       <img
@@ -83,7 +83,7 @@ export default function PublicNav({ active }) {
         })}
       </nav>
 
-      <a href="/login" className="ch-btn-primary" style={{ marginLeft: "auto", flex: "0 0 auto" }}>
+      <a href="/web/login" className="ch-btn-primary" style={{ marginLeft: "auto", flex: "0 0 auto" }}>
         {t("misc.log_in")} <span style={{ fontSize: 14 }}>↗</span>
       </a>
 

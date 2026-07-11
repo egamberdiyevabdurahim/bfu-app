@@ -47,11 +47,11 @@ export default function StartProjectCTA() {
         flexWrap: "wrap",
       }}
     >
-      <a href="/projects/mine" className="ch-btn-ghost">
+      <a href="/web/projects/mine" className="ch-btn-ghost">
         <span style={{ fontSize: 15, color: "var(--amber)" }} aria-hidden>◆</span>{" "}
         {t("projects.your_projects")}
       </a>
-      <a href="/projects/new" className="ch-btn-primary">
+      <a href="/web/projects/new" className="ch-btn-primary">
         + {t("projects.start_project")}
       </a>
     </div>

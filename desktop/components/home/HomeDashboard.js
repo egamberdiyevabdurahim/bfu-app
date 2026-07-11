@@ -313,7 +313,7 @@ function ProfileMeter({ profile }) {
             {missing.map((m) => (
               <a
                 key={m.id}
-                href="/settings"
+                href="/web/settings"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -420,7 +420,7 @@ function Pulse({ followerCount }) {
           <div className="ch-grace-s">
             {t("home.pulse.empty_s")}
           </div>
-          <a href="/projects/new" className="ch-btn-primary" style={{ marginTop: 14 }}>
+          <a href="/web/projects/new" className="ch-btn-primary" style={{ marginTop: 14 }}>
             + {t("home.pulse.start")}
           </a>
         </div>
@@ -532,7 +532,7 @@ function CityTonight({ stats, builders }) {
     <section>
       <Slab kicker={t("home.city.kicker")} title={t("home.city.title")} />
       <a
-        href="/city"
+        href="/web/city"
         className="ch-cell"
         style={{
           display: "flex",

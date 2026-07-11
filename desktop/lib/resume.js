@@ -7,7 +7,7 @@
 // a new tab.
 
 export async function downloadResume() {
-  const res = await fetch("/api/resume", { credentials: "include" });
+  const res = await fetch("/web/api/resume", { credentials: "include" });
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {

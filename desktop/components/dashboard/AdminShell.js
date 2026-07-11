@@ -207,10 +207,10 @@ function AdminsOnly() {
                 flexWrap: "wrap",
               }}
             >
-              <a href="/home" className="ch-btn-primary">
+              <a href="/web/home" className="ch-btn-primary">
                 Back to your bazaar <span style={{ fontSize: 14 }}>→</span>
               </a>
-              <a href="/city" className="ch-btn-ghost">
+              <a href="/web/city" className="ch-btn-ghost">
                 <span style={{ fontSize: 15, color: "var(--amber)" }}>✦</span> Wander the city
               </a>
             </div>

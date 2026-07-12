@@ -52,6 +52,9 @@ async def _nudge_abandoned(session, now: datetime) -> int:
             User.created_at >= earliest,
             User.created_at <= latest,
             User.telegram_id.is_not(None),
+            # Only DM users the bot can actually reach — story-link users who
+            # never granted write access can't be messaged (see User.can_message).
+            User.can_message == True,
         )
     )).scalars().all()
     sent = 0

@@ -90,6 +90,12 @@ class ConnectionManager:
     def disconnect(self, uid: int, ws: WebSocket) -> None:
         self._drop(uid, ws)
 
+    def is_online(self, uid: int) -> bool:
+        """True when the user has at least one live socket — i.e. they're in the
+        app right now and already got the WS fanout, so an offline-only Telegram
+        push should skip them."""
+        return bool(self._by_user.get(uid))
+
     async def send_to_users(self, uids: Iterable[int], payload: dict) -> None:
         # Carry each target's uid so a failed send prunes the RIGHT user's set
         # (O(dead), not O(users)) and can reclaim an emptied key.

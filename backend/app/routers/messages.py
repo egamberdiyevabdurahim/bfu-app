@@ -7,6 +7,7 @@ All endpoints are authed via get_current_user. Routes live at the app root
 colliding with the existing users/projects routers (distinct method+path).
 """
 import asyncio
+import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,8 +31,8 @@ from app.schemas.messaging import (
     SendMessageIn,
     UnreadCount,
 )
-from app.services.notifications import add_notification
-from app.services.notify import esc, send_telegram
+from app.services.notifications import add_notification, should_push_telegram
+from app.services.notify import esc, notify_background, send_telegram
 from app.services.ratelimit import rate_limit
 
 router = APIRouter(tags=["messages"])
@@ -40,6 +41,49 @@ router = APIRouter(tags=["messages"])
 MAX_BODY = 4000
 RL_WINDOW_S = 60
 RL_MAX = 20  # >20 messages / 60s → 429
+
+# "Who wrote" Telegram DM: when a recipient is OFFLINE (no live socket — they
+# didn't get the WS fanout), the bot pings them so they come back. Debounced per
+# (conversation, recipient) so a burst of messages is one ping, not a flood.
+_MSG_PUSH_MIN_INTERVAL = 900.0  # 15 min
+_last_msg_push: dict[tuple[int, int], float] = {}
+_MSG_PUSH_TEXT = {
+    "en": "💬 <b>{name}</b> sent you a message on BFU.",
+    "uz": "💬 <b>{name}</b> sizga BFU’da xabar yozdi.",
+    "ru": "💬 <b>{name}</b> написал(а) вам в BFU.",
+}
+_MSG_PUSH_BTN = {"en": "💬 Open chat", "uz": "💬 Ochish", "ru": "💬 Открыть"}
+
+
+async def _push_message_dm(db, recipient_ids, sender, conversation_id) -> None:
+    """Best-effort 'who wrote' Telegram ping to OFFLINE recipients only. Online
+    users already received the live WS fanout, so pinging them would double-notify.
+    Gated by reachability (can_message), the user's notification prefs, and a
+    per-conversation debounce. Fire-and-forget — never delays or breaks the send."""
+    from app.routers.ws import manager
+    offline = [rid for rid in recipient_ids if not manager.is_online(rid)]
+    if not offline:
+        return
+    now = time.monotonic()
+    users = (await db.execute(select(User).where(User.id.in_(offline)))).scalars().all()
+    sname = esc(sender.display_name or "BFU a'zosi")
+    for u in users:
+        if not u.telegram_id or not u.can_message:
+            continue
+        if not should_push_telegram(u, "message"):
+            continue
+        key = (conversation_id, u.id)
+        if now - _last_msg_push.get(key, 0.0) < _MSG_PUSH_MIN_INTERVAL:
+            continue
+        _last_msg_push[key] = now
+        lang = (u.language or "en") if (u.language or "en") in _MSG_PUSH_TEXT else "en"
+        notify_background(
+            u.telegram_id,
+            _MSG_PUSH_TEXT[lang].format(name=sname),
+            reply_markup={"inline_keyboard": [[
+                {"text": _MSG_PUSH_BTN[lang], "web_app": {"url": settings.WEBAPP_URL}},
+            ]]},
+        )
 
 
 def _dm_key(a: int, b: int) -> str:
@@ -636,6 +680,11 @@ async def send_message(
         payload = {"type": "message.new", "conversation_id": conversation_id,
                    "message": jsonable_encoder(out)}
         asyncio.create_task(manager.send_to_users(member_ids, payload))
+    except Exception:
+        pass
+    # "Who wrote" bot ping for recipients who AREN'T in the app right now.
+    try:
+        await _push_message_dm(db, recipients, current_user, conversation_id)
     except Exception:
         pass
     return out

@@ -9,7 +9,15 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.deps import get_current_user
-from app.services.notify import esc, send_telegram
+from app.services.notify import esc, push_event, send_telegram
+
+# Project-update → Telegram push copy (gated per-recipient by push_event).
+_PROJ_UPDATE_PUSH = {
+    "en": "📢 <b>{name}</b> posted an update in <b>{project}</b>.",
+    "uz": "📢 <b>{name}</b> <b>{project}</b> loyihasida yangilik joyladi.",
+    "ru": "📢 <b>{name}</b> опубликовал(а) обновление в проекте <b>{project}</b>.",
+}
+_PROJ_OPEN_BTN = {"en": "📂 Open project", "uz": "📂 Loyihani ochish", "ru": "📂 Открыть проект"}
 from app.services.notifications import should_push_telegram
 from app.database import get_db
 from app.models.project import (
@@ -1428,6 +1436,15 @@ async def post_update(
         add_notification(db, rid, "project_update", actor_id=current_user.id,
                          project_id=project_id)
     await db.commit()
+    # Telegram push to reachable, opted-in recipients (in-app inbox above is
+    # unconditional; this is the outbound ping). Deep-links into the project.
+    if recipients:
+        url = f"{settings.WEBAPP_URL}?startapp=project_{project_id}"
+        fmt = {"name": esc(current_user.display_name), "project": esc(project.name)}
+        targets = (await db.execute(select(User).where(User.id.in_(recipients)))).scalars().all()
+        for u in targets:
+            push_event(u, "project_update", _PROJ_UPDATE_PUSH, fmt=fmt,
+                       url=url, btn_by_lang=_PROJ_OPEN_BTN)
     return {"ok": True, "id": uid}
 
 

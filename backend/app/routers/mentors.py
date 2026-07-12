@@ -18,6 +18,25 @@ from app.schemas.connection import (
     SlotIn,
 )
 from app.services.notifications import add_notification
+from app.services.notify import esc, push_event
+from app.config import settings
+
+# Booking → Telegram push copy (gated per-user by push_event).
+_BK_REQUEST = {
+    "en": "📅 <b>{name}</b> requested a mentor session with you.",
+    "uz": "📅 <b>{name}</b> sizdan mentor sessiya so‘radi.",
+    "ru": "📅 <b>{name}</b> запросил(а) у вас менторскую сессию.",
+}
+_BK_CONFIRMED = {
+    "en": "✅ <b>{name}</b> confirmed your mentor session.",
+    "uz": "✅ <b>{name}</b> mentor sessiyangizni tasdiqladi.",
+    "ru": "✅ <b>{name}</b> подтвердил(а) вашу менторскую сессию.",
+}
+_BK_DECLINED = {
+    "en": "❌ <b>{name}</b> declined your mentor session request.",
+    "uz": "❌ <b>{name}</b> mentor sessiya so‘rovingizni rad etdi.",
+    "ru": "❌ <b>{name}</b> отклонил(а) ваш запрос на менторскую сессию.",
+}
 
 router = APIRouter(prefix="/mentors", tags=["mentors"])
 booking_router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -163,11 +182,16 @@ async def create_booking(
     await db.flush()
     bid = booking.id
     add_notification(db, slot.mentor_id, "booking_request", actor_id=current_user.id)
+    mentor_id = slot.mentor_id
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Slot was just taken")
+    mentor = await db.get(User, mentor_id)
+    if mentor:
+        push_event(mentor, "booking_request", _BK_REQUEST,
+                   fmt={"name": esc(current_user.display_name)}, url=settings.WEBAPP_URL)
     return {"ok": True, "id": bid, "status": "requested"}
 
 
@@ -226,7 +250,15 @@ async def act_on_booking(
         slot = await db.get(MentorSlot, booking.slot_id)
         if slot and slot.status == "booked":
             slot.status = "open"
+    mentee_id = booking.mentee_id
     await db.commit()
+    # Ping the mentee that the mentor decided (cancel is the mentee's own action).
+    if action in ("confirm", "decline"):
+        mentee = await db.get(User, mentee_id)
+        if mentee:
+            push_event(mentee, f"booking_{booking.status}",
+                       _BK_CONFIRMED if action == "confirm" else _BK_DECLINED,
+                       fmt={"name": esc(current_user.display_name)}, url=settings.WEBAPP_URL)
     return {"status": booking.status}
 
 

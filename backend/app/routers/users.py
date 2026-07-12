@@ -28,7 +28,15 @@ from app.schemas.trust import EndorseIn, VouchIn
 from app.schemas.connection import FollowIn
 from app.services.ai import analyze_and_save, generate_icebreakers, generate_match_reason, improve_text, translate_bio_async
 from app.services.geo import nearest_region_id
-from app.services.notify import esc, notify_background, queue_registration_notice, send_telegram
+from app.services.notify import esc, notify_background, push_event, queue_registration_notice, send_telegram
+
+# New-follower → Telegram push copy (gated per-user by push_event).
+_NEW_FOLLOWER_PUSH = {
+    "en": "➕ <b>{name}</b> started following you on BFU.",
+    "uz": "➕ <b>{name}</b> sizni BFU’da kuzata boshladi.",
+    "ru": "➕ <b>{name}</b> подписался(ась) на вас в BFU.",
+}
+_VIEW_PROFILE_BTN = {"en": "👤 View profile", "uz": "👤 Profilni ko‘rish", "ru": "👤 Открыть профиль"}
 from app.services.ratelimit import rate_limit
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -1597,12 +1605,21 @@ async def follow(
                       target_id=body.target_id))
         if body.target_type == "user":
             add_notification(db, body.target_id, "new_follower", actor_id=current_user.id)
+        committed = True
         try:
             await db.commit()
         except Exception:
             # Concurrent double-follow raced past the check; unique index caught
             # it. Same idempotent outcome.
             await db.rollback()
+            committed = False
+        if committed and body.target_type == "user":
+            target = await db.get(User, body.target_id)
+            if target:
+                push_event(target, "new_follower", _NEW_FOLLOWER_PUSH,
+                           fmt={"name": esc(current_user.display_name)},
+                           url=f"{settings.WEBAPP_URL}?startapp=user_{current_user.id}",
+                           btn_by_lang=_VIEW_PROFILE_BTN)
 
     count = await db.scalar(
         select(func.count(Follow.id)).where(

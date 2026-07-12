@@ -85,6 +85,38 @@ async def send_telegram(
     return (await send_telegram_result(chat_id, text, reply_markup)).ok
 
 
+_OPEN_BTN = {"en": "🚀 Open BFU", "uz": "🚀 BFU'ni ochish", "ru": "🚀 Открыть BFU"}
+
+
+def push_event(user, notif_type: str, text_by_lang: dict, fmt: dict | None = None,
+               url: str | None = None, btn_by_lang: dict | None = None) -> None:
+    """Personal Telegram push for an in-app notification, if allowed. No-op unless
+    the user is REACHABLE (can_message), has a telegram_id, and hasn't muted this
+    category (should_push_telegram). Text is localized by user.language and `fmt`
+    fills {placeholders}. A url adds a web-app button. Fire-and-forget; never raises."""
+    try:
+        if not getattr(user, "telegram_id", None) or not getattr(user, "can_message", False):
+            return
+        from app.services.notifications import should_push_telegram
+        if not should_push_telegram(user, notif_type):
+            return
+        lang = getattr(user, "language", None) or "en"
+        if lang not in text_by_lang:
+            lang = "en"
+        text = text_by_lang[lang]
+        if fmt:
+            text = text.format(**fmt)
+        markup = None
+        if url:
+            btns = btn_by_lang or _OPEN_BTN
+            markup = {"inline_keyboard": [[
+                {"text": btns.get(lang, btns.get("en")), "web_app": {"url": url}},
+            ]]}
+        notify_background(user.telegram_id, text, reply_markup=markup)
+    except Exception:  # a push must never break the request that triggered it
+        pass
+
+
 def notify_background(chat_id: int | str, text: str, reply_markup: dict | None = None) -> None:
     """Fire-and-forget a Telegram message — schedules it and returns
     immediately, so a slow/rate-limited Telegram API call never adds latency

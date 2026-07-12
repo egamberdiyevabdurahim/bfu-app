@@ -169,6 +169,11 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
     is_new = user is None
 
     tg_username = tg.get("username") or None
+    # Telegram includes allows_write_to_pm=true in initData once the user has
+    # granted the bot write access (or started it). Capture it so admin nudges
+    # can actually reach these users. Upgrade-only: a login where the field is
+    # absent must NOT revoke a previously-granted True (only a real 403 send does).
+    allows_write = bool(tg.get("allows_write_to_pm"))
 
     if is_new:
         lang_code = tg.get("language_code", "en")
@@ -179,6 +184,7 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
             surname=tg.get("last_name"),
             language=lang,
             tg_username=tg_username,
+            can_message=allows_write,
         )
         db.add(user)
     elif user.banned:
@@ -193,6 +199,11 @@ async def telegram_auth(body: TelegramAuthRequest, db: AsyncSession = Depends(ge
     # Keep the Telegram @username fresh on every login (if the user has one)
     if tg_username and user.tg_username != tg_username:
         user.tg_username = tg_username
+        db.add(user)
+
+    # Reachability upgrade (never downgrade here — see note above)
+    if allows_write and not user.can_message:
+        user.can_message = True
         db.add(user)
 
     try:

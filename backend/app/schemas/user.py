@@ -266,6 +266,9 @@ class AdminUserOut(BaseModel):
     is_registered: bool
     is_deleted: bool
     banned: bool = False
+    # Can the bot DM this user? False = story-link/never-started user a reminder
+    # can't reach until they grant write access or open the bot. See User.can_message.
+    can_message: bool = False
     region_id: int | None = None
     denied_fields: str | None = None
     denied_note: str | None = None

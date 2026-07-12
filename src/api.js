@@ -125,6 +125,7 @@ export const users = {
   fetchTgUsername: ()       => req("/users/me/fetch-tg-username", { method: "POST" }),
   checkGroups:     ()       => req("/users/me/groups"),
   finalize:        ()       => req("/users/me/finalize", { method: "POST" }),
+  allowMessages:   ()       => req("/users/me/allow-messages", { method: "POST" }),
   updateTags:      ()       => req("/users/me/update-tags", { method: "POST" }),
   invite:          ()       => req("/users/me/invite"),
   card:            ()       => req("/users/me/card"),

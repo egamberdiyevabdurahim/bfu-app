@@ -904,6 +904,21 @@ async def complete_onboarding(
     return {"ok": True, "onboarding_completed": True}
 
 
+@router.post("/me/allow-messages", response_model=dict)
+async def allow_messages(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Called by the Mini App right after the user GRANTS Telegram write access
+    (requestWriteAccess). Records that the bot may now DM them, so admin
+    registration reminders can reach story-link users who never started the bot.
+    Idempotent; only ever upgrades to True (a decline leaves the flag as-is)."""
+    if not current_user.can_message:
+        current_user.can_message = True
+        await db.commit()
+    return {"ok": True, "can_message": True}
+
+
 @router.post("/me/register", response_model=dict)
 async def register_member(
     body: RegisterRequest,

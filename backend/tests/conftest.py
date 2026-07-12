@@ -132,6 +132,10 @@ def _no_network(monkeypatch):
     async def _noop_send(*args, **kwargs):
         return True
 
+    async def _noop_send_result(*args, **kwargs):
+        from app.services.notify import SendResult
+        return SendResult(True, 200, False)
+
     async def _noop_notify_founder(*args, **kwargs):
         return None
 
@@ -147,6 +151,8 @@ def _no_network(monkeypatch):
     monkeypatch.setattr("app.routers.users.send_telegram", _noop_send, raising=False)
     monkeypatch.setattr("app.routers.projects.send_telegram", _noop_send, raising=False)
     monkeypatch.setattr("app.routers.admin.send_telegram", _noop_send, raising=False)
+    monkeypatch.setattr("app.services.notify.send_telegram_result", _noop_send_result, raising=False)
+    monkeypatch.setattr("app.routers.admin.send_telegram_result", _noop_send_result, raising=False)
     monkeypatch.setattr("app.routers.projects._notify_founder", _noop_notify_founder, raising=False)
     # AI / Telegram-media helpers used on the user-update path.
     monkeypatch.setattr("app.services.ai.analyze_and_save", _noop_analyze, raising=False)

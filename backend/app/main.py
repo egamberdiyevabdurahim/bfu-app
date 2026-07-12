@@ -172,6 +172,8 @@ async def lifespan(app: FastAPI):
         # --- Privacy: who-can-message-me (everyone | connections) + who-viewed consent ---
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS dm_privacy VARCHAR(20) NOT NULL DEFAULT 'everyone';",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS who_viewed_consent BOOLEAN NOT NULL DEFAULT true;",
+        # --- Telegram reachability: can the bot DM this user? (write-access / started bot / send-succeeded) ---
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS can_message BOOLEAN NOT NULL DEFAULT false;",
         # --- Rate-limiter COUNT predicates: composite (actor, created_at) indexes
         #     so the per-write anti-flood counts stay index-only under load. ---
         "CREATE INDEX IF NOT EXISTS ix_reports_reporter_created ON reports (reporter_id, created_at);",

@@ -200,6 +200,19 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
         await _handle_web_login(message, payload[len("web_"):])
         return
 
+    # Reaching /start proves the bot CAN DM this user — flip their reachability
+    # flag so admin nudges know it. Best-effort: never let it break /start.
+    try:
+        async with AsyncSessionLocal() as db:
+            u = (await db.execute(
+                select(User).where(User.telegram_id == message.from_user.id)
+            )).scalar_one_or_none()
+            if u is not None and not u.can_message:
+                u.can_message = True
+                await db.commit()
+    except Exception:
+        pass
+
     webapp_url = getattr(settings, "WEBAPP_URL", "https://your-mini-app.telegram.app")
     tr = _START[_lang_of(message)]
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "../components/Icons";
 import { auth, health, makeDevInitData, storage, regions, users } from "../api";
 import { useT } from "../i18n";
-import { tgAlert, tgConfirm, getStartParam } from "../tg";
+import { tgAlert, tgConfirm, getStartParam, requestWriteAccess } from "../tg";
 import { nearestRegionId } from "../regionCentroids";
 
 const LANGUAGES = [
@@ -47,6 +47,8 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   // Validation errors
   const [errors, setErrors] = useState({});
+
+  const askedWriteRef = useRef(false);
 
   useEffect(() => {
     health().then(res => setDevMode(res?.env === "development")).catch(() => {});
@@ -181,6 +183,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
       // Finalize: mark registered + set name tags in all groups
       await users.finalize();
+      await ensureWriteAccess();
       onComplete(true);
     } catch (err) {
       tgAlert(t("auth.registerFailed", { msg: err.message }));
@@ -188,7 +191,19 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     }
   };
 
+  // Ask for bot-DM permission once (so admin can later reach this user), then
+  // record the grant. Best-effort — a decline or any error must never block sign-up.
+  const ensureWriteAccess = async () => {
+    if (askedWriteRef.current) return;
+    askedWriteRef.current = true;
+    try {
+      const granted = await requestWriteAccess();
+      if (granted) await users.allowMessages();
+    } catch { /* ignore */ }
+  };
+
   const goNext = () => {
+    ensureWriteAccess();
     if (!validateStep(regStep)) return;
     if (regStep === steps.length - 1) {
       submitRegistration();

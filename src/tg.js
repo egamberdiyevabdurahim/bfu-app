@@ -165,6 +165,22 @@ export function shareToStory(mediaUrl, { text = "", linkUrl = "", linkName = "" 
   }
 }
 
+// Ask the user to let the BFU bot message them (Telegram Bot API 6.9+). Story-link
+// users open the Mini App via ?startapp=... and never start the bot, so without this
+// the bot can't DM them (e.g. "finish registration" reminders). Resolves true only
+// when the user grants it. Safe to call when unsupported — resolves false.
+export function requestWriteAccess() {
+  const w = wa();
+  return new Promise((resolve) => {
+    if (!w || typeof w.requestWriteAccess !== "function") { resolve(false); return; }
+    try {
+      w.requestWriteAccess((granted) => resolve(!!granted));
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 // Open a project's Telegram group chat (deep link). Bots can't create groups —
 // the link is the founder-pasted t.me invite, validated by the backend on save.
 // No-op when unset.

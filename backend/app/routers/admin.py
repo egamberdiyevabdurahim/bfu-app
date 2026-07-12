@@ -9,7 +9,7 @@ from app.database import get_db, AsyncSessionLocal
 import asyncio
 import json
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
-from app.services.notify import esc, send_telegram
+from app.services.notify import esc, send_telegram, send_telegram_result
 from app.services.audit import log_action
 from app.models.project import Project, ProjectMember, ProjectReqSkill
 from app.models.user_analysis import UserAnalysis
@@ -442,16 +442,70 @@ async def nudge_register(
         raise HTTPException(404, "User not found")
     if not u.telegram_id:
         raise HTTPException(400, "User has no Telegram id to message")
+    res = await _send_reg_nudge(u)
+    # Self-healing reachability: a delivered nudge proves the bot can DM them;
+    # an "unreachable" rejection (403/blocked) proves it can't. A transient
+    # failure (429/5xx/timeout) leaves the flag untouched.
+    if res.ok and not u.can_message:
+        u.can_message = True
+    elif res.unreachable and u.can_message:
+        u.can_message = False
+    await log_action(db, admin.id, "user.nudge_register", "user", user_id,
+                     {"ok": res.ok, "status": res.status})
+    await db.commit()
+    reason = None
+    if not res.ok:
+        reason = "unreachable" if res.unreachable else "error"
+    return {"ok": res.ok, "reason": reason, "can_message": u.can_message}
+
+
+async def _send_reg_nudge(u: User):
+    """Send the localized 'finish registration' DM to one user, returning the
+    detailed SendResult. Shared by the single- and bulk-nudge endpoints."""
     lang = (u.language or "uz") if (u.language or "uz") in _REG_NUDGE else "uz"
     text, btn = _REG_NUDGE[lang]
-    ok = await send_telegram(u.telegram_id, text, reply_markup={"inline_keyboard": [[
+    return await send_telegram_result(u.telegram_id, text, reply_markup={"inline_keyboard": [[
         {"text": btn, "web_app": {"url": settings.WEBAPP_URL}},
     ]]})
-    await log_action(db, admin.id, "user.nudge_register", "user", user_id, {"ok": ok})
+
+
+@router.post("/users/nudge-all-pending")
+async def nudge_all_pending(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk 'finish registration' reminder to EVERY reachable pending user (not
+    just the current admin page). Telegram forbids DMing users who never started
+    the bot / granted write access, so we only target can_message=True rows and
+    report how many were skipped as unreachable. Reachability flags self-heal
+    from each send outcome. Rate-limited spacing keeps us under Telegram flood."""
+    rows = (await db.execute(
+        select(User).where(
+            User.is_registered.is_(False),
+            User.is_deleted.is_(False),
+            User.banned.is_(False),
+            User.telegram_id.isnot(None),
+        )
+    )).scalars().all()
+    reachable = [u for u in rows if u.can_message]
+    unreachable = len(rows) - len(reachable)
+    sent = 0
+    failed = 0
+    for u in reachable:
+        res = await _send_reg_nudge(u)
+        if res.ok:
+            sent += 1
+        else:
+            failed += 1
+            if res.unreachable:
+                u.can_message = False  # self-heal: they blocked / never really opened
+        await asyncio.sleep(0.05)  # ~20 msg/s, well under Telegram's flood limit
+    await log_action(db, admin.id, "user.nudge_all_pending", "user", None,
+                     {"pending": len(rows), "sent": sent, "failed": failed,
+                      "unreachable_skipped": unreachable})
     await db.commit()
-    # ok=False usually means the user never opened a chat with the bot (Telegram
-    # forbids bot-initiated DMs to such users) — surfaced so the admin knows.
-    return {"ok": ok, "reason": None if ok else "unreachable"}
+    return {"pending": len(rows), "sent": sent, "failed": failed,
+            "unreachable_skipped": unreachable}
 
 def _guard_privileged_target(actor: User, target: User) -> None:
     """A regular admin must not moderate a super-admin (the founder). Only another

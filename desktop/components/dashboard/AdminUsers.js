@@ -95,25 +95,23 @@ export default function AdminUsers({ me }) {
     }
   }
 
-  // Nudge every pending user in the loaded window (sequential, so we never
-  // burst Telegram). Summarised in one toast.
+  // Nudge every pending user via one server call — the backend fans out to
+  // Telegram and skips story-link users it can't DM. Summarised in one toast.
   async function doNudgeAll() {
-    const targets = rows.filter((r) => !r.is_registered && !r.banned && !r.is_deleted && r.telegram_id);
-    if (!targets.length) return;
-    if (!window.confirm(`Send a "finish registration" reminder to ${targets.length} pending user(s)?`)) return;
+    if (!window.confirm('Send a "finish registration" reminder to all pending users?')) return;
     setBusyId("bulk");
-    let sent = 0;
-    let failed = 0;
-    for (const u of targets) {
-      try {
-        const res = await bfu(`/admin/users/${u.id}/nudge-register`, { method: "POST" });
-        res?.ok ? (sent += 1) : (failed += 1);
-      } catch {
-        failed += 1;
-      }
+    try {
+      const res = await bfu("/admin/users/nudge-all-pending", { method: "POST" });
+      let msg = `${res.sent} reminded • ${res.unreachable_skipped} can't be reached yet`;
+      if (res.failed > 0) msg += ` • ${res.failed} failed`;
+      showToast(msg);
+      // Reload the current window so refreshed can_message flags show up.
+      load(skip, search.trim(), statusFilter);
+    } catch (e) {
+      showToast(e.message || "Couldn't send reminders", "err");
+    } finally {
+      setBusyId(null);
     }
-    setBusyId(null);
-    showToast(`Reminders: ${sent} sent${failed ? `, ${failed} unreachable` : ""}`);
   }
 
   // Reveal EVERY field of one user (phone, flags, raw ids, timestamps).
@@ -295,7 +293,7 @@ export default function AdminUsers({ me }) {
               disabled={busyId === "bulk"}
               onClick={doNudgeAll}
             >
-              {busyId === "bulk" ? "Sending…" : "📩 Remind all shown"}
+              {busyId === "bulk" ? "Sending…" : "📩 Remind all pending"}
             </button>
           )}
         </div>
@@ -438,9 +436,21 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
         <Pill tone={u.role === "super_admin" ? "amber" : u.role === "admin" ? "ember" : "muted"}>
           {roleLabel(u.role)}
         </Pill>
-        {pending
-          ? <Pill tone="terra" title="Started sign-up but never finished — not shown in Discover">⏳ Pending</Pill>
-          : !banned && <Pill tone="green">Registered</Pill>}
+        {pending ? (
+          <>
+            <Pill tone="terra" title="Started sign-up but never finished — not shown in Discover">⏳ Pending</Pill>
+            {u.can_message === false && (
+              <Pill
+                tone="muted"
+                title="This user opened the Mini App from a link but never started the bot or granted message permission, so a reminder can't reach them yet."
+              >
+                ✋ Can't DM yet
+              </Pill>
+            )}
+          </>
+        ) : (
+          !banned && <Pill tone="green">Registered</Pill>
+        )}
         {u.checked ? <Pill tone="green">✓ Checked</Pill> : <Pill tone="muted">Unchecked</Pill>}
         {banned && <Pill tone="terra">Banned</Pill>}
         {u.denied_fields && <Pill tone="terra">Corrections</Pill>}

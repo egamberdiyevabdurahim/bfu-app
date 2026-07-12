@@ -65,6 +65,13 @@ class User(SoftDeleteMixin, TimestampMixin, Base):
     # LinkedIn-style: when False (incognito), my profile views aren't recorded AND
     # I can't see who viewed me (reciprocity). Default True = participate.
     who_viewed_consent: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Telegram lets a bot DM a user only after they've started the bot OR granted
+    # write access in the Mini App (requestWriteAccess / initData.allows_write_to_pm).
+    # Story-link users open the Mini App via ?startapp=... and do neither, so bot
+    # nudges 403. We flip this True on any proof of reachability (write-access grant,
+    # /start, or a successful bot send) and False when a send is rejected as
+    # unreachable — so admin knows who can actually be messaged.
+    can_message: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     region = relationship("Region", back_populates="users")
     learning_centers = relationship("UserLearningCenter", back_populates="user", cascade="all, delete-orphan")

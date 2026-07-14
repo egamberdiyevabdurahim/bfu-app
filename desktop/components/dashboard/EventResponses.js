@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
@@ -61,12 +61,17 @@ export default function EventResponses({ event, onClose, showToast }) {
   const t = useT();
   const [rows, setRows] = useState([]);
   const [schema, setSchema] = useState([]);
+  const [funnel, setFunnel] = useState(null); // GET /admin/events/{id}/funnel — stage counts
+  const [sentFor, setSentFor] = useState(null); // user_id whose result DM we just triggered
   const [state, setState] = useState("loading"); // loading | ready | error
   const [csvBusy, setCsvBusy] = useState(false);
   const [openRow, setOpenRow] = useState(null); // one response, expanded
   const [aiOpen, setAiOpen] = useState(false);  // AI summary modal
   const [aiState, setAiState] = useState("idle"); // idle | loading | ready | error
   const [aiReport, setAiReport] = useState(null); // { summary, response_count, generated_at }
+  // Guards the "result sent" timeout so it never sets state on an unmounted modal.
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
 
   useEffect(() => {
     let alive = true;
@@ -74,15 +79,19 @@ export default function EventResponses({ event, onClose, showToast }) {
       try {
         // The schema read is best-effort: if it fails we still show the answers,
         // just keyed by question key instead of by label.
-        const [responses, full] = await Promise.all([
+        const [responses, full, funnelRes] = await Promise.all([
           bfu(`/admin/events/${event.id}/responses`),
           Object.prototype.hasOwnProperty.call(event, "form_schema")
             ? Promise.resolve({ form_schema: event.form_schema })
             : bfu(`/events/${event.id}`).catch(() => null),
+          // Best-effort: the funnel is a headline, but a failed read must not
+          // hide the responses table.
+          bfu(`/admin/events/${event.id}/funnel`).catch(() => null),
         ]);
         if (!alive) return;
         setRows(Array.isArray(responses) ? responses : []);
         setSchema(normalizeSchema(full?.form_schema));
+        setFunnel(funnelRes && typeof funnelRes === "object" ? funnelRes : null);
         setState("ready");
       } catch {
         if (alive) setState("error");
@@ -187,7 +196,17 @@ export default function EventResponses({ event, onClose, showToast }) {
         body: { score: next },
       });
       if (res && Object.prototype.hasOwnProperty.call(res, "score")) patchRespRow(r.user_id, { score: res.score });
-      showToast?.(t("dash.resp.score_saved"));
+      // Setting a score (not clearing it) makes the backend DM the student their
+      // result. Say so — a toast + a brief inline "sent" tick by the input.
+      if (next != null) {
+        showToast?.(t("dash.resp.score_sent"));
+        setSentFor(r.user_id);
+        setTimeout(() => {
+          if (aliveRef.current) setSentFor((cur) => (cur === r.user_id ? null : cur));
+        }, 4000);
+      } else {
+        showToast?.(t("dash.resp.score_saved"));
+      }
     } catch (err) {
       patchRespRow(r.user_id, { score: prev });
       showToast?.(err.message || t("dash.resp.score_failed"), "err");
@@ -302,6 +321,10 @@ export default function EventResponses({ event, onClose, showToast }) {
             <div style={{ color: "var(--terra)", fontSize: 14 }}>{t("dash.resp.error")}</div>
           )}
 
+          {state === "ready" && funnel && (funnel.total || 0) > 0 && (
+            <Funnel data={funnel} t={t} />
+          )}
+
           {state === "ready" && count === 0 && (
             <div className="ch-grace" style={{ minHeight: 160 }}>
               <span className="ch-grace-k">{t("dash.resp.kicker")}</span>
@@ -350,6 +373,7 @@ export default function EventResponses({ event, onClose, showToast }) {
                           <ScoreCell
                             value={r.score}
                             onCommit={(raw) => setScore(r, raw)}
+                            sent={sentFor === r.user_id}
                             t={t}
                           />
                         </Td>
@@ -439,7 +463,7 @@ function LeadStatusSelect({ value, onChange, t }) {
 
 // ── score cell: number input that only commits (PATCH) on blur / Enter ────────
 
-function ScoreCell({ value, onCommit, t }) {
+function ScoreCell({ value, onCommit, sent, t }) {
   const [draft, setDraft] = useState(value == null ? "" : String(value));
   // Re-sync when the stored value changes underneath us (optimistic rollback,
   // or a fresh server value replacing the optimistic one).
@@ -448,21 +472,32 @@ function ScoreCell({ value, onCommit, t }) {
   }, [value]);
 
   return (
-    <input
-      type="number"
-      inputMode="numeric"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onCommit(draft)}
-      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-      placeholder={t("dash.resp.score_ph")}
-      aria-label={t("dash.resp.score")}
-      style={{
-        fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text)",
-        background: "var(--surface-2)", border: "1px solid var(--hair)",
-        borderRadius: 9, padding: "6px 8px", width: 74, outline: "none",
-      }}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => onCommit(draft)}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        placeholder={t("dash.resp.score_ph")}
+        aria-label={t("dash.resp.score")}
+        style={{
+          fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text)",
+          background: "var(--surface-2)", border: `1px solid ${sent ? "var(--green)" : "var(--hair)"}`,
+          borderRadius: 9, padding: "6px 8px", width: 74, outline: "none",
+        }}
+      />
+      {/* The backend DMs the student their result when a score is saved — confirm it. */}
+      {sent && (
+        <span style={{
+          fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.04em",
+          color: "var(--green)", whiteSpace: "nowrap",
+        }}>
+          ✦ {t("dash.resp.result_sent")}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -680,6 +715,98 @@ function ResponseSheet({ row, schema, columns, onClose }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── the funnel: registered → showed → scored → called → enrolled ─────────────
+// The headline. Reads GET /admin/events/{id}/funnel and lays the pipeline out as
+// horizontal bars (count + % of total), with the off-pipeline states (going /
+// interested / waitlisted / no-show) as chips underneath.
+
+function Funnel({ data, t }) {
+  const total = data.total || 0;
+  if (!total) return null;
+
+  // Pipeline order. Colours mirror the lead-status palette used in the table.
+  const STAGES = [
+    { key: "registered", tone: "var(--muted)" },
+    { key: "showed", tone: "var(--ember)" },
+    { key: "scored", tone: "var(--amber)" },
+    { key: "called", tone: "var(--amber)" },
+    { key: "enrolled", tone: "var(--green)" },
+  ];
+  // Off-pipeline tallies, shown only when non-zero.
+  const CHIPS = [
+    { key: "going", tone: "var(--green)" },
+    { key: "interested", tone: "var(--muted)" },
+    { key: "waitlisted", tone: "var(--amber)" },
+    { key: "no_show", tone: "var(--terra)" },
+  ];
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+  const chipLabel = (key) =>
+    key === "no_show" ? t("dash.resp.lead.no_show") : t(`dash.resp.funnel.${key}`);
+
+  return (
+    <div className="ch-cell" style={{ padding: "18px 20px", marginBottom: 22, background: "var(--surface-2)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div className="ch-cell-label">{t("dash.resp.funnel_kicker")}</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+          {t("dash.resp.funnel_total", { n: total })}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {STAGES.map(({ key, tone }) => {
+          const n = data[key] || 0;
+          const p = pct(n);
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                title={t(`dash.resp.lead.${key}`)}
+                style={{
+                  flex: "0 0 118px", fontFamily: "var(--font-mono)", fontSize: 11,
+                  letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}
+              >
+                {t(`dash.resp.lead.${key}`)}
+              </div>
+              <div
+                style={{
+                  flex: "1 1 auto", height: 22, borderRadius: 6, position: "relative",
+                  background: "var(--surface)", border: "1px solid var(--hair)", overflow: "hidden",
+                }}
+              >
+                {/* Bar width tracks % of total; a hair of width so a non-zero count is never invisible. */}
+                <div style={{ position: "absolute", inset: 0, width: `${n > 0 ? Math.max(p, 3) : 0}%`, background: tone, opacity: 0.32, transition: "width 0.4s ease" }} />
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 9, gap: 8 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{n}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--muted)" }}>{p}%</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {CHIPS.some(({ key }) => (data[key] || 0) > 0) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+          {CHIPS.filter(({ key }) => (data[key] || 0) > 0).map(({ key, tone }) => (
+            <span
+              key={key}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em",
+                textTransform: "uppercase", color: tone,
+                border: `1px solid ${tone}`, borderRadius: 99, padding: "3px 10px",
+              }}
+            >
+              {chipLabel(key)} <b style={{ color: "var(--text)" }}>{data[key] || 0}</b>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

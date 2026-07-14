@@ -13,7 +13,7 @@ import io
 import json
 from typing import Any
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
-from app.services.notify import esc, send_telegram, send_telegram_result
+from app.services.notify import esc, push_event, send_telegram, send_telegram_result
 from app.services.audit import log_action
 from app.services.event_forms import (
     answer_to_text, has_form, normalize_schema, validate_schema,
@@ -24,6 +24,9 @@ from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
 from app.models.event_rsvp import EventRsvp
 from app.models.partner import Partner
+# Waitlist promotion helpers live with the RSVP logic (events router). Safe to
+# import here: events.py never imports admin, so there is no cycle.
+from app.routers.events import notify_seat_opened, promote_from_waitlist
 
 # These two live in sibling service modules written in parallel. Degrade to a
 # no-op if they haven't landed yet so this router (and the whole test suite)
@@ -743,6 +746,9 @@ class EventBody(BaseModel):
     starts_at: datetime | None = None      # when the event actually happens
     region_id: int | None = None
     partner_id: int | None = None
+    # Max "going" attendees; null = unlimited. Overflow "going" RSVPs are
+    # waitlisted (see app.routers.events). Accepted on create + edit.
+    capacity: int | None = None
     # The registration form's question list (see app.services.event_forms).
     # null/[] = no form → plain one-click RSVP.
     form_schema: list[dict] | None = None
@@ -759,6 +765,7 @@ class EventOut(BaseModel):
     starts_at: datetime | None = None
     region_id: int | None = None
     partner_id: int | None = None
+    capacity: int | None = None
     is_approved: bool = True
     is_deleted: bool
     form_schema: list[dict] | None = None
@@ -846,6 +853,7 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         starts_at=_to_naive_utc(body.starts_at),
         region_id=body.region_id, created_by=admin.id,
         partner_id=body.partner_id, is_approved=True,
+        capacity=body.capacity,
         form_schema=_checked_schema(body.form_schema),
     )
     db.add(e); await db.commit(); await db.refresh(e)
@@ -985,6 +993,45 @@ async def _event_responses(db: AsyncSession, event_id: int) -> list[tuple[EventR
     )).all())
 
 
+# Lead-pipeline stages (from EventRsvp.lead_status) + RSVP statuses (from
+# EventRsvp.status). Disjoint sets → the funnel dict merges both without
+# collision. Every key is reported (0 when absent).
+_FUNNEL_LEAD_KEYS = ("registered", "showed", "scored", "called", "enrolled", "no_show")
+_FUNNEL_STATUS_KEYS = ("waitlisted", "going", "interested")
+
+
+@router.get("/events/{event_id}/funnel")
+async def admin_event_funnel(
+    event_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stage counts for an event: the partner lead pipeline (lead_status) plus the
+    RSVP status breakdown, in two grouped queries. ``total`` = every RSVP row."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    lead_rows = dict((await db.execute(
+        select(EventRsvp.lead_status, func.count())
+        .where(EventRsvp.event_id == event_id)
+        .group_by(EventRsvp.lead_status)
+    )).all())
+    status_rows = dict((await db.execute(
+        select(EventRsvp.status, func.count())
+        .where(EventRsvp.event_id == event_id)
+        .group_by(EventRsvp.status)
+    )).all())
+    funnel = {k: 0 for k in (_FUNNEL_LEAD_KEYS + _FUNNEL_STATUS_KEYS)}
+    for k, c in lead_rows.items():
+        if k in funnel:
+            funnel[k] = c
+    for k, c in status_rows.items():
+        if k in funnel:
+            funnel[k] = c
+    funnel["total"] = sum(status_rows.values())
+    return funnel
+
+
 @router.get("/events/{event_id}/responses.csv")
 async def admin_event_responses_csv(
     event_id: int,
@@ -1030,6 +1077,15 @@ async def admin_event_responses_csv(
     )
 
 
+# Localized "your {title} result: {score}" DM (HTML — {title} is esc()'d by the
+# caller; {score} is an int). Sent best-effort when an admin sets/changes a score.
+_SCORE_RESULT = {
+    "en": "📊 Your <b>{title}</b> result: <b>{score}</b>",
+    "uz": "📊 <b>{title}</b> natijangiz: <b>{score}</b>",
+    "ru": "📊 Ваш результат «<b>{title}</b>»: <b>{score}</b>",
+}
+
+
 @router.patch("/events/{event_id}/responses/{user_id}", response_model=FormResponseOut)
 async def admin_update_event_response(
     event_id: int,
@@ -1040,13 +1096,19 @@ async def admin_update_event_response(
 ):
     """Advance one registrant through the partner lead pipeline (lead_status)
     and/or record a number for them (score). Both fields are optional — a PATCH
-    can set just one. An unknown lead_status is a 422 and writes nothing."""
+    can set just one. An unknown lead_status is a 422 and writes nothing.
+
+    Side effects (best-effort, after commit):
+      * setting/changing ``score`` DMs the student their result (localized);
+      * marking a going attendee ``no_show`` frees their seat → the oldest
+        waitlisted registrant is promoted to going and DMed."""
     row = (await db.execute(select(EventRsvp).where(
         EventRsvp.event_id == event_id, EventRsvp.user_id == user_id,
     ))).scalar_one_or_none()
     if not row:
         raise HTTPException(404, "Registration not found")
     patch = body.model_dump(exclude_unset=True)
+    old_lead, old_score = row.lead_status, row.score
     if "lead_status" in patch and patch["lead_status"] is not None:
         if patch["lead_status"] not in LEAD_STATUSES:
             raise HTTPException(
@@ -1057,10 +1119,31 @@ async def admin_update_event_response(
         row.lead_status = patch["lead_status"]
     if "score" in patch:
         row.score = patch["score"]
+
+    # A no_show releases the attendee's seat → promote the oldest waitlisted.
+    became_no_show = (
+        patch.get("lead_status") == "no_show" and old_lead != "no_show"
+    )
+    score_changed = (
+        "score" in patch and patch["score"] is not None and patch["score"] != old_score
+    )
+    ev = await db.get(Event, event_id) if (became_no_show or score_changed) else None
+    promoted = None
+    if became_no_show and ev is not None:
+        # autoflush writes the no_show above before _seats_taken counts seats.
+        promoted = await promote_from_waitlist(db, ev)
+
     await log_action(db, admin.id, "event.response.update", "event", event_id,
                      {"user_id": user_id, **patch})
     await db.commit()
+
     u = await db.get(User, user_id)
+    if promoted is not None and ev is not None:
+        await notify_seat_opened(db, promoted.user_id, ev)
+    if score_changed and ev is not None and u is not None:
+        push_event(u, "event_reminder", _SCORE_RESULT,
+                   fmt={"title": esc(ev.title), "score": patch["score"]})
+
     return FormResponseOut(
         user_id=user_id, display_name=u.display_name if u else str(user_id),
         tg_username=u.tg_username if u else None,

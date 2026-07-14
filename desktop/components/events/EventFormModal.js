@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
 import { Toast } from "@/components/ui/Toast";
-import { useT } from "@/components/i18n/LocaleProvider";
+import { useT, useLang } from "@/components/i18n/LocaleProvider";
+import InviteModal from "@/components/InviteModal";
 
 // Event registration form (desktop). An event may carry a `form_schema` — a list
 // of questions authored by an admin in the panel, so the questions are DATA and
@@ -58,6 +59,32 @@ const KNOWN_TYPES = new Set([
   "date",
   "phone",
 ]);
+
+// A question may carry `prefill: "name"|"surname"|"full_name"|"phone"|"region"|
+// "birth_year"` — a hint to seed that answer from the current user's profile
+// (GET /users/me) as an ordinary editable value. `full_name` = name + surname;
+// `region` resolves to the region NAME (localized) via the regions list;
+// `birth_year` becomes a string.
+const PREFILL_KINDS = new Set(["name", "surname", "full_name", "phone", "region", "birth_year"]);
+
+function prefillValue(kind, me, regionName) {
+  switch (kind) {
+    case "name":
+      return me?.name ? String(me.name) : "";
+    case "surname":
+      return me?.surname ? String(me.surname) : "";
+    case "full_name":
+      return [me?.name, me?.surname].filter(Boolean).join(" ");
+    case "phone":
+      return me?.phone_number ? String(me.phone_number) : "";
+    case "region":
+      return regionName || "";
+    case "birth_year":
+      return me?.birth_year != null ? String(me.birth_year) : "";
+    default:
+      return "";
+  }
+}
 
 /* ─────────────────────────── draft persistence ─────────────────────────── */
 
@@ -134,6 +161,8 @@ function normalizeSchema(raw) {
         ? q.options.map((o) => String(o))
         : [],
       section: q.section ? String(q.section) : null,
+      prefill:
+        typeof q.prefill === "string" && PREFILL_KINDS.has(q.prefill) ? q.prefill : null,
     });
   }
   return out;
@@ -551,6 +580,7 @@ function Field({ q, value, error, onChange, inputRef, eventId }) {
  */
 export default function EventFormModal({ event, meId = null, onClose, onRsvp }) {
   const t = useT();
+  const { lang } = useLang();
   const { toast, flash } = useToast(3200);
 
   const eventId = event?.id;
@@ -565,6 +595,10 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
   const [restored, setRestored] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [hadResponse, setHadResponse] = useState(false);
+  // After a successful FIRST registration we show a celebratory "invite a friend"
+  // prompt (reusing InviteModal) before closing, instead of closing immediately.
+  const [registered, setRegistered] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Baseline = what the SERVER has for this user. "Discard draft" returns here.
   const baselineRef = useRef({});
@@ -622,6 +656,40 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
           server[q.key] = Array.isArray(v) ? v.map(String).join(", ") : String(v);
         }
       }
+
+      // PREFILL — seed answers tagged with a `prefill` hint from the user's
+      // profile, but only where the server has no answer for that question
+      // (my-response wins over prefill). Baked into the baseline BEFORE the draft
+      // merge below, so a saved draft still wins (draft > my-response > prefill >
+      // empty). Best-effort: a failed /users/me never blocks the form.
+      const prefillQs = qs.filter(
+        (q) => q.prefill && PREFILL_KINDS.has(q.prefill) && !isMulti(q.type)
+      );
+      if (prefillQs.length) {
+        try {
+          const me = await bfu("/users/me");
+          let regionName = "";
+          if (me?.region_id && prefillQs.some((q) => q.prefill === "region")) {
+            try {
+              const list = await bfu("/regions");
+              const r = (Array.isArray(list) ? list : []).find((x) => x.id === me.region_id);
+              if (r) regionName = r[`name_${lang}`] || r.name_en || r.name || "";
+            } catch {
+              /* region name is best-effort */
+            }
+          }
+          if (aliveRef.current) {
+            for (const q of prefillQs) {
+              if (isAnswered(server[q.key])) continue; // a real saved answer wins
+              const val = prefillValue(q.prefill, me, regionName);
+              if (val) server[q.key] = val; // non-multi → plain string
+            }
+          }
+        } catch {
+          /* prefill is a courtesy, never a gate */
+        }
+      }
+
       baselineRef.current = server;
       setHadResponse(!!raw && Object.keys(raw).length > 0);
 
@@ -655,7 +723,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
       setLoadError(err?.message || t("community.events.form.loadError"));
       setPhase("error");
     }
-  }, [eventId, meId, t]);
+  }, [eventId, meId, t, lang]);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -783,7 +851,14 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
           json?.rsvp_count ??
           Math.max(0, (event?.rsvp_count || 0) + (event?.my_rsvp === "going" ? 0 : 1)),
       });
-      onClose?.(hadResponse ? "updated" : "registered");
+      // First-time registration → celebrate + offer the invite bonus before
+      // closing (the parent still gets the "registered" reason on dismiss). An
+      // edit of existing answers just closes with "updated".
+      if (hadResponse) {
+        onClose?.("updated");
+      } else if (aliveRef.current) {
+        setRegistered(true);
+      }
     } catch (err) {
       setFormError(err?.message || t("community.events.form.submitError"));
       flash(t("community.events.form.errToast"), "err");
@@ -814,6 +889,100 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
   }
 
   const alreadyGoing = event?.my_rsvp === "going" || hadResponse;
+
+  // Invite bonus (reuses the existing InviteModal). Rendered alone so there's no
+  // nested-overlay / backdrop-propagation tangle with this modal's own dialog.
+  if (inviteOpen) {
+    return <InviteModal onClose={() => setInviteOpen(false)} />;
+  }
+
+  // Post-registration celebration + the optional "bring a friend" nudge. Dismiss
+  // (Done or backdrop) hands the parent the "registered" reason it expects.
+  if (registered) {
+    const dismiss = () => onClose?.("registered");
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("community.events.form.registeredTitle")}
+        onClick={dismiss}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 90,
+          background: "rgba(6,5,4,0.72)",
+          backdropFilter: "blur(3px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 20,
+          overflowY: "auto",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="ch-cell-static"
+          style={{
+            width: "100%",
+            maxWidth: 440,
+            padding: "30px 28px",
+            background: "var(--surface)",
+            margin: "auto",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 46 }} aria-hidden>🎉</div>
+          <h2
+            style={{
+              margin: 0,
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: 22,
+              lineHeight: 1.2,
+              color: "var(--text)",
+            }}
+          >
+            {t("community.events.form.registeredTitle")}
+          </h2>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14.5,
+              lineHeight: 1.5,
+              color: "var(--muted-strong)",
+              maxWidth: 340,
+            }}
+          >
+            {t("community.events.form.registeredBody")}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginTop: 8,
+            }}
+          >
+            <button
+              type="button"
+              className="ch-btn-primary"
+              onClick={() => setInviteOpen(true)}
+            >
+              🎁 {t("community.events.form.inviteFriend")}
+            </button>
+            <button type="button" className="ch-btn-ghost" onClick={dismiss}>
+              {t("community.events.form.registeredDone")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

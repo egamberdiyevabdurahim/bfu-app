@@ -69,7 +69,9 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
     }
     setBusy(true);
     const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
-    const toggleOff = ev.my_rsvp === status;
+    // A full-capacity "going" is stored as "waitlisted" — tapping the active
+    // Going/Waitlisted pill on a no-form event still leaves the event.
+    const toggleOff = ev.my_rsvp === status || (status === "going" && ev.my_rsvp === "waitlisted");
     const nextStatus = toggleOff ? null : status;
     const delta = (nextStatus === "going" ? 1 : 0) - (ev.my_rsvp === "going" ? 1 : 0);
     onRsvp(ev.id, { my_rsvp: nextStatus, rsvp_count: Math.max(0, (ev.rsvp_count || 0) + delta) });
@@ -92,6 +94,9 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
   const pill = (active) => active
     ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 800, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
     : { background: "var(--surface-2)", color: "var(--muted-strong)", border: "1px solid var(--hair)", fontWeight: 500 };
+  const waitPill = { background: "transparent", color: "var(--amber)", border: "1px solid var(--amber)", fontWeight: 800 };
+  const waitlisted = ev.my_rsvp === "waitlisted";
+  const goingIsh = ev.my_rsvp === "going" || waitlisted;
   return (
     <div style={{ padding: "14px 28px 24px" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -99,12 +104,14 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
           type="button"
           disabled={busy}
           onClick={() => set("going")}
-          style={{ ...base, ...pill(ev.my_rsvp === "going") }}
+          style={{ ...base, ...(waitlisted ? waitPill : pill(ev.my_rsvp === "going")) }}
         >
-          {ev.my_rsvp === "going" ? "✓ " : ""}
-          {ev.has_form && ev.my_rsvp !== "going"
-            ? t("community.events.rsvpRegister")
-            : t("community.events.rsvpGoing")}
+          {waitlisted ? "◔ " : ev.my_rsvp === "going" ? "✓ " : ""}
+          {waitlisted
+            ? t("community.events.rsvpWaitlisted")
+            : ev.has_form && ev.my_rsvp !== "going"
+              ? t("community.events.rsvpRegister")
+              : t("community.events.rsvpGoing")}
         </button>
         <button type="button" disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
           {ev.my_rsvp === "interested" ? "✓ " : ""}{t("community.events.rsvpInterested")}
@@ -129,7 +136,7 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
             color: "var(--muted)",
           }}
         >
-          {ev.my_rsvp === "going" ? (
+          {goingIsh ? (
             <button
               type="button"
               onClick={() => onOpenForm?.(ev)}
@@ -151,6 +158,32 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// Capacity state, mirroring the Mini App card. Only for events that carry a cap
+// (ev.capacity != null) — no-capacity events show nothing. "N seats left",
+// "Full — waitlist open", or "You're on the waitlist" for a waitlisted member.
+function SeatsLine({ ev, t }) {
+  if (ev.capacity == null) return null;
+  const waitlisted = ev.my_rsvp === "waitlisted";
+  const seatsLeft = ev.seats_left;
+  let label;
+  let color;
+  if (waitlisted) {
+    label = `◔ ${t("community.events.onWaitlist")}`;
+    color = "var(--amber)";
+  } else if (typeof seatsLeft === "number" && seatsLeft > 0) {
+    label = `◎ ${seatsLeft === 1 ? t("community.events.seatsLeftOne") : t("community.events.seatsLeft", { n: seatsLeft })}`;
+    color = "var(--green)";
+  } else {
+    label = `◔ ${t("community.events.full")}`;
+    color = "var(--amber)";
+  }
+  return (
+    <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.04em", color }}>
+      {label}
     </div>
   );
 }
@@ -218,6 +251,8 @@ function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
           ◷ {t("community.events.starts", { date: start })}
         </div>
       ) : null}
+
+      <SeatsLine ev={ev} t={t} />
 
       {ev.description ? (
         <p

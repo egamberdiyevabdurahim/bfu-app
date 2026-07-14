@@ -59,6 +59,13 @@ MAX_INPUT_CHARS = 150_000
 # Output budget: ~600 words of Uzbek ≈ 1.3–1.8k tokens once headings are added.
 _MAX_OUTPUT_TOKENS = 2000
 
+# The event digest is a high-value, low-frequency analysis (a founder runs it a
+# handful of times per event), so it uses the stronger Sonnet model rather than
+# settings.AI_MODEL — which stays the cheap Haiku for the high-volume per-user
+# bio-coach / tag-extraction calls. Overriding settings.AI_MODEL here would make
+# every one of those pay Sonnet prices, so the report model is pinned separately.
+REPORT_MODEL = "claude-sonnet-5"
+
 _SYSTEM_PROMPT = (
     "Siz O'zbekistondagi bir o'quv markazi tashkil qilgan tadbir uchun "
     "ro'yxatdan o'tish anketasi javoblarini tahlil qilyapsiz. Javob berganlar — "
@@ -305,7 +312,7 @@ async def generate_event_report(event_id: int) -> dict:
         # ── ONE Claude call (outside the DB session — no lock held) ─────────────
         try:
             resp = await ai._create_message(
-                model=settings.AI_MODEL,
+                model=REPORT_MODEL,
                 max_tokens=_MAX_OUTPUT_TOKENS,
                 system=_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": content}],

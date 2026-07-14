@@ -36,6 +36,13 @@ NUMBER_TYPES = ("number",)
 OPTION_TYPES = SINGLE_CHOICE_TYPES + MULTI_CHOICE_TYPES  # these REQUIRE options
 QUESTION_TYPES = FREE_TYPES + SINGLE_CHOICE_TYPES + MULTI_CHOICE_TYPES + NUMBER_TYPES
 
+# ── prefill ─────────────────────────────────────────────────────────────────
+# A question may carry an optional "prefill" naming a field of the current user's
+# profile — the CLIENT seeds that answer from GET /users/me (still editable). It
+# is purely a client hint: validated here only as "one of the known fields", and
+# entirely IGNORED by answer validation (parse_answers never reads it).
+PREFILL_FIELDS = ("name", "surname", "full_name", "phone", "region", "birth_year")
+
 
 def has_form(schema: Any) -> bool:
     """True when the event carries at least one question (null/[] = plain RSVP)."""
@@ -99,6 +106,13 @@ def validate_schema(schema: Any) -> dict[str, str]:
             errors[slot] = f"Section must be a string (max {MAX_SECTION_LEN} chars)"
             continue
 
+        prefill = q.get("prefill")
+        if prefill is not None and prefill not in PREFILL_FIELDS:
+            errors[slot] = (
+                f"Unknown prefill '{prefill}' (allowed: {', '.join(PREFILL_FIELDS)})"
+            )
+            continue
+
         if qtype in OPTION_TYPES:
             opts = q.get("options")
             if not isinstance(opts, list) or not opts:
@@ -136,6 +150,9 @@ def normalize_schema(schema: Any) -> list[dict] | None:
         section = q.get("section")
         if isinstance(section, str) and section.strip():
             item["section"] = section.strip()
+        prefill = q.get("prefill")
+        if isinstance(prefill, str) and prefill in PREFILL_FIELDS:
+            item["prefill"] = prefill  # client hint only — never touches answers
         out.append(item)
     return out
 

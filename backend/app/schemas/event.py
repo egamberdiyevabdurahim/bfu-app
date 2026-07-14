@@ -20,9 +20,16 @@ class EventOut(BaseModel):
     starts_at: datetime | None = None  # when the event actually happens
     region_id: int | None = None
     created_at: datetime
-    rsvp_count: int = 0          # number of "going" RSVPs
-    my_rsvp: str | None = None   # this user's status ("going"/"interested") or None
+    rsvp_count: int = 0          # number of "going" RSVPs (== going_count; kept for back-compat)
+    my_rsvp: str | None = None   # this user's status ("going"/"interested"/"waitlisted") or None
     has_form: bool = False       # does RSVPing require filling a registration form?
+    # Capacity + waitlist accounting. capacity is null when the event is
+    # unlimited; seats_left is then null too. going_count/waitlist_count are the
+    # live tallies (computed per request; see events._attach_rsvp).
+    capacity: int | None = None
+    going_count: int = 0
+    waitlist_count: int = 0
+    seats_left: int | None = None
     model_config = {"from_attributes": True}
 
 

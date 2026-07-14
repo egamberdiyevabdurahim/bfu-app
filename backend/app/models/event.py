@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -37,6 +37,12 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     # deploy. NULL / [] = no form, i.e. a plain one-click RSVP. Every rule about
     # this blob lives in app.services.event_forms (validate_schema).
     form_schema: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Max number of "going" attendees. NULL = unlimited. When set and the seats
+    # are full, a new "going" RSVP is stored "waitlisted" instead; a freed seat
+    # (a going attendee cancels, or an admin marks one no_show) auto-promotes the
+    # OLDEST waitlisted registrant. Seat accounting excludes no-shows — see
+    # app.routers.events._seats_taken.
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     @property
     def has_form(self) -> bool:

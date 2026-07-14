@@ -87,7 +87,12 @@ export const community = {
     // An event may carry a form_schema: questions the admin authors in the panel.
     // "Going" on such an event opens the form; "Interested" never does.
     "community.events.rsvpRegister": "Register",
+    "community.events.rsvpWaitlisted": "Waitlisted",
     "community.events.hasForm": "Registration form",
+    "community.events.seatsLeft": "{n} seats left",
+    "community.events.seatsLeftOne": "1 seat left",
+    "community.events.full": "Full — waitlist open",
+    "community.events.onWaitlist": "You're on the waitlist",
     "community.events.editAnswers": "Edit your answers",
     "community.events.form.kicker": "Registration",
     "community.events.form.dialogAria": "Registration form for {title}",
@@ -123,6 +128,10 @@ export const community = {
     "community.events.form.toastRegistered": "You're registered",
     "community.events.form.toastUpdated": "Answers updated",
     "community.events.form.toastWithdrawn": "Registration cancelled",
+    "community.events.form.registeredTitle": "You're registered!",
+    "community.events.form.registeredBody": "Know a builder who'd love this? Invite a friend.",
+    "community.events.form.inviteFriend": "Invite a friend",
+    "community.events.form.registeredDone": "Done",
 
     // — partners page + list —
     "community.partners.kicker": "The people in your corner",
@@ -295,7 +304,12 @@ export const community = {
 
     // — tadbirga ro‘yxatdan o‘tish shakli (EventFormModal) —
     "community.events.rsvpRegister": "Ro‘yxatdan o‘tish",
+    "community.events.rsvpWaitlisted": "Navbatda",
     "community.events.hasForm": "Ro‘yxatdan o‘tish shakli",
+    "community.events.seatsLeft": "{n} ta joy qoldi",
+    "community.events.seatsLeftOne": "1 ta joy qoldi",
+    "community.events.full": "Joylar to‘ldi — navbat ochiq",
+    "community.events.onWaitlist": "Siz navbatdasiz",
     "community.events.editAnswers": "Javoblaringizni tahrirlash",
     "community.events.form.kicker": "Ro‘yxatdan o‘tish",
     "community.events.form.dialogAria": "{title} uchun ro‘yxatdan o‘tish shakli",
@@ -331,6 +345,10 @@ export const community = {
     "community.events.form.toastRegistered": "Ro‘yxatdan o‘tdingiz",
     "community.events.form.toastUpdated": "Javoblar yangilandi",
     "community.events.form.toastWithdrawn": "Ro‘yxat bekor qilindi",
+    "community.events.form.registeredTitle": "Ro‘yxatdan o‘tdingiz!",
+    "community.events.form.registeredBody": "Buni yoqtiradigan quruvchini bilasizmi? Do‘stingizni taklif qiling.",
+    "community.events.form.inviteFriend": "Do‘stni taklif qilish",
+    "community.events.form.registeredDone": "Tayyor",
 
     // — partners page + list —
     "community.partners.kicker": "Yoningizdagi odamlar",
@@ -503,7 +521,12 @@ export const community = {
 
     // — форма регистрации на событие (EventFormModal) —
     "community.events.rsvpRegister": "Регистрация",
+    "community.events.rsvpWaitlisted": "В ожидании",
     "community.events.hasForm": "Форма регистрации",
+    "community.events.seatsLeft": "Осталось мест: {n}",
+    "community.events.seatsLeftOne": "Осталось 1 место",
+    "community.events.full": "Мест нет — открыт лист ожидания",
+    "community.events.onWaitlist": "Вы в листе ожидания",
     "community.events.editAnswers": "Изменить ответы",
     "community.events.form.kicker": "Регистрация",
     "community.events.form.dialogAria": "Форма регистрации: {title}",
@@ -539,6 +562,10 @@ export const community = {
     "community.events.form.toastRegistered": "Вы зарегистрированы",
     "community.events.form.toastUpdated": "Ответы обновлены",
     "community.events.form.toastWithdrawn": "Регистрация отменена",
+    "community.events.form.registeredTitle": "Вы зарегистрированы!",
+    "community.events.form.registeredBody": "Знаете строителя, кому это понравится? Пригласите друга.",
+    "community.events.form.inviteFriend": "Пригласить друга",
+    "community.events.form.registeredDone": "Готово",
 
     // — partners page + list —
     "community.partners.kicker": "Люди на вашей стороне",

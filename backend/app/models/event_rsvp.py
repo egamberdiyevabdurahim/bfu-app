@@ -17,8 +17,10 @@ from app.database import Base
 class EventRsvp(Base):
     """A user's RSVP to an event (which, on BFU, is an opportunity keyed by a
     deadline — grant/scholarship/hackathon/meetup). ``status`` is ``going`` (the
-    countable RSVP) or ``interested`` (a softer save). One row per (event, user)
-    — toggling status reuses the row; un-RSVP deletes it."""
+    countable RSVP), ``interested`` (a softer save), or ``waitlisted`` (a
+    ``going`` request that arrived after the event's capacity filled — promoted
+    to ``going`` automatically when a seat frees; see app.routers.events). One
+    row per (event, user) — toggling status reuses the row; un-RSVP deletes it."""
 
     __tablename__ = "event_rsvps"
     __table_args__ = (

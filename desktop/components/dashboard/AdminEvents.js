@@ -55,6 +55,16 @@ function hasForm(e) {
   return e.has_form === true;
 }
 
+// Coerce the capacity input to what EventBody wants: null (unlimited) or a
+// non-negative integer. Empty or non-numeric → null (never NaN over the wire).
+function capacityValue(raw) {
+  const s = String(raw ?? "").trim();
+  if (s === "") return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.trunc(n));
+}
+
 export default function AdminEvents() {
   const t = useT();
   const { showToast, Toast } = useToast();
@@ -193,6 +203,14 @@ export default function AdminEvents() {
                   {Array.isArray(e.form_schema) ? ` · ${e.form_schema.length}` : ""}
                 </Pill>
               )}
+              {e.capacity != null && (
+                <Pill tone={typeof e.seats_left === "number" && e.seats_left <= 0 ? "terra" : "green"}>
+                  ◎ {(e.going_count ?? 0)}/{e.capacity}
+                  {typeof e.waitlist_count === "number" && e.waitlist_count > 0
+                    ? ` · +${e.waitlist_count}`
+                    : ""}
+                </Pill>
+              )}
               {e.region_id && regionName(e.region_id) && <Pill tone="muted">{regionName(e.region_id)}</Pill>}
               {e.partner_id && partnerName(e.partner_id) && <Pill tone="muted">◆ {partnerName(e.partner_id)}</Pill>}
             </div>
@@ -277,6 +295,9 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
   const [deadline, setDeadline] = useState(toTashkentInput(event?.deadline));
   const [regionId, setRegionId] = useState(event?.region_id ? String(event.region_id) : "");
   const [partnerId, setPartnerId] = useState(event?.partner_id ? String(event.partner_id) : "");
+  // Max "going" attendees. Blank = unlimited. Beyond it, RSVPs are waitlisted
+  // (enforced server-side) and auto-promoted when a seat frees up.
+  const [capacity, setCapacity] = useState(event?.capacity != null ? String(event.capacity) : "");
   const [saving, setSaving] = useState(false);
 
   const regionName = (r) => r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`;
@@ -299,6 +320,9 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
       deadline: fromTashkentInput(deadline),
       region_id: regionId ? Number(regionId) : null,
       partner_id: partnerId ? Number(partnerId) : null,
+      // Blank → unlimited (null). Otherwise a non-negative whole number; garbage
+      // (non-numeric) also falls back to null rather than sending NaN.
+      capacity: capacityValue(capacity),
     };
     await onSubmit(payload, isNew ? null : event.id);
     setSaving(false);
@@ -365,6 +389,18 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
             <option value="">None</option>
             {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+        </Field>
+        {/* Optional seat cap. Blank = unlimited. Full events waitlist new RSVPs. */}
+        <Field label="Capacity (seats)">
+          <input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+            placeholder="Unlimited"
+            style={{ ...inputStyle, width: "100%" }}
+          />
         </Field>
       </Row>
 

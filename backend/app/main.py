@@ -210,6 +210,10 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS lead_status VARCHAR(20) NOT NULL DEFAULT 'registered';",
         "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS score INTEGER;",
         "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS reminded_1h_at TIMESTAMP;",
+        # --- Event capacity + waitlist: cap "going" attendees; overflow RSVPs are
+        #     stored status="waitlisted" and auto-promoted when a seat frees.
+        #     NULL capacity = unlimited (never waitlists). See app.routers.events.
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS capacity INTEGER;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

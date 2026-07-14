@@ -59,6 +59,15 @@ export const TYPES = [
 // The three types that need an options list. Everything else must NOT carry one.
 const CHOICE_LIKE = new Set(["choice", "checkboxes", "dropdown"]);
 
+// A question may PRE-FILL its answer from the signed-in member's profile
+// (GET /users/me) — the client drops the value in but leaves it editable, so the
+// student doesn't retype their name/phone/region on every event. These are the
+// only profile fields a question is allowed to bind to (the SHARED CONTRACT). "" =
+// no prefill. Written into the question schema as `prefill`; the form-fill clients
+// read it.
+export const PREFILL_FIELDS = ["name", "surname", "full_name", "phone", "region", "birth_year"];
+const PREFILL_SET = new Set(PREFILL_FIELDS);
+
 // ── The founder's real Marstiff SAT survey ───────────────────────────────────
 // 30 questions, verbatim Uzbek, in his order, with his section headers. Loaded
 // with one click and then trimmed / reordered / marked optional before saving.
@@ -72,7 +81,9 @@ const S5 = "O'tmishdagi urinishlar";
 const S6 = "Orzu qilingan natija";
 
 export const MARSTIFF_SAT_SURVEY = [
-  [S1, "Ismingiz, nechinchi sinfda o'qiysiz?"],
+  // Q1 pre-fills the student's name from their profile (still editable). Rest of
+  // the tuples are [section, label]; a 3rd element is the optional prefill key.
+  [S1, "Ismingiz, nechinchi sinfda o'qiysiz?", "name"],
   [S1, "Bo'sh vaqtingizda nima qilishni yoqtirasiz?"],
   [S1, "Maktabdan tashqari yana qayerlarda o'qiysiz (kurs, repetitor)?"],
 
@@ -107,7 +118,7 @@ export const MARSTIFF_SAT_SURVEY = [
   [S6, "Agar bugun kimdir sizga \"mana shu narsa bilan tayyorlaning\" deb bitta narsa taklif qilsa, bu nima bo'lishini xohlardingiz?"],
   [S6, "Nima bo'lsa, ertaga kursga yozilishga qaror qilardingiz?"],
   [S6, "Agar hozir menga bitta savol bersangiz — SAT haqida, kurslar haqida, nima bo'lardi?"],
-].map(([section, label]) => ({ section, label, type: "text", required: true }));
+].map(([section, label, prefill]) => ({ section, label, type: "text", required: true, prefill: prefill || "" }));
 
 // ── schema helpers ───────────────────────────────────────────────────────────
 
@@ -129,6 +140,8 @@ export function normalizeSchema(raw) {
         ? q.options.map((o) => String(o))
         : [],
       section: typeof q.section === "string" ? q.section : "",
+      // Bind to a profile field, or "" (unknown values degrade to no prefill).
+      prefill: typeof q.prefill === "string" && PREFILL_SET.has(q.prefill) ? q.prefill : "",
     });
   }
   return out;
@@ -165,6 +178,9 @@ function toWire(list) {
     }
     const section = (q.section || "").trim();
     if (section) out.section = section;
+    // Only emit prefill when it's a recognised profile field — keeps the stored
+    // schema clean and lets the server reject unknown bindings.
+    if (q.prefill && PREFILL_SET.has(q.prefill)) out.prefill = q.prefill;
     return out;
   });
 }
@@ -295,6 +311,7 @@ export default function EventFormBuilder({ event, onClose, onSaved, showToast })
         options: [],
         // Inherit the last section so a run of questions keeps its heading.
         section: qs.length ? qs[qs.length - 1].section : "",
+        prefill: "",
       },
     ]);
 
@@ -642,6 +659,22 @@ function QuestionRow({ q, index, total, error, sections, onPatch, onUp, onDown, 
           </select>
         </label>
 
+        {/* Pre-fill this answer from the member's profile (still editable by them). */}
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 180px", minWidth: 0 }}>
+          <span style={labelStyle}>{t("dash.form.prefill")}</span>
+          <select
+            value={q.prefill || ""}
+            onChange={(e) => onPatch({ prefill: e.target.value })}
+            style={{ ...selectStyle, width: "100%", ...(q.prefill ? { color: "var(--amber)", borderColor: "var(--amber)" } : {}) }}
+            title={t("dash.form.prefill_hint")}
+          >
+            <option value="">{t("dash.form.prefill_none")}</option>
+            {PREFILL_FIELDS.map((f) => (
+              <option key={f} value={f}>{t(`dash.form.pf_${f}`)}</option>
+            ))}
+          </select>
+        </label>
+
         <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "2 1 240px", minWidth: 0 }}>
           <span style={labelStyle}>{t("dash.form.section")}</span>
           <input
@@ -732,6 +765,18 @@ function Preview({ questions, t }) {
                   {q.label || <span style={{ color: "var(--muted)" }}>…</span>}
                   {q.required && <span style={{ color: "var(--terra)", marginLeft: 4 }}>*</span>}
                 </div>
+                {q.prefill && PREFILL_SET.has(q.prefill) && (
+                  <div
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5, marginBottom: 7,
+                      fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.06em",
+                      textTransform: "uppercase", color: "var(--amber)",
+                      border: "1px solid var(--amber)", borderRadius: 99, padding: "2px 8px",
+                    }}
+                  >
+                    ↳ {t("dash.form.prefill_badge", { field: t(`dash.form.pf_${q.prefill}`) })}
+                  </div>
+                )}
                 <PreviewInput q={q} />
               </div>
             ))}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { events } from "../api";
+import { events, users, regions } from "../api";
 import { Icon } from "./Icons";
+import { InviteSheet } from "./InviteSheet";
 import { useT } from "../i18n";
 import { haptic } from "../tg";
 
@@ -47,6 +48,11 @@ const S = {
   "err.tooLong":  { en: "Too long (max 2000 characters)", uz: "Juda uzun (maks. 2000 belgi)", ru: "Слишком длинно (макс. 2000 символов)" },
   "err.fix":      { en: "Check {n} question(s) below", uz: "Quyidagi {n} ta savolni tekshiring", ru: "Проверьте {n} вопрос(ов) ниже" },
   "err.generic":  { en: "Couldn't send. Try again.", uz: "Yuborib bo‘lmadi. Qayta urinib ko‘ring.", ru: "Не удалось отправить. Попробуйте снова." },
+  // Bring-a-friend prompt shown after a successful FIRST registration.
+  "reg.title": { en: "You're registered!", uz: "Ro‘yxatdan o‘tdingiz!", ru: "Вы зарегистрированы!" },
+  "reg.sub":   { en: "Know a builder who'd love this? Invite a friend.", uz: "Buni yoqtiradigan quruvchini bilasizmi? Do‘stingizni taklif qiling.", ru: "Знаете строителя, кому это понравится? Пригласите друга." },
+  "reg.invite": { en: "Invite a friend", uz: "Do‘stni taklif qilish", ru: "Пригласить друга" },
+  "reg.done":  { en: "Done", uz: "Tayyor", ru: "Готово" },
   // Used by EventsScreen (same local map, so all new strings stay in one file)
   "card.hasForm":  { en: "Registration form", uz: "Ro‘yxat formasi", ru: "Форма регистрации" },
   "card.editAnsw": { en: "✎ Edit answers", uz: "✎ Javoblarni tahrirlash", ru: "✎ Изменить ответы" },
@@ -94,6 +100,26 @@ const coerce = (q, v) => {
   if (v == null) return emptyFor(q);
   if (isMulti(q)) return Array.isArray(v) ? v.map(String) : [String(v)];
   return Array.isArray(v) ? v.map(String).join(", ") : String(v);
+};
+
+// ── Profile prefill ──────────────────────────────────────────────────────────
+// A question may carry `prefill: "name"|"surname"|"full_name"|"phone"|"region"|
+// "birth_year"` (authored in the admin panel). When set, the matching question is
+// seeded from the current user's profile (GET /users/me) as an ordinary, editable
+// answer. `full_name` = name + surname; `region` resolves to the region NAME via
+// the regions list (id-based lookup, localized), `birth_year` becomes a string.
+const PREFILL_KINDS = new Set(["name", "surname", "full_name", "phone", "region", "birth_year"]);
+
+const prefillValue = (kind, me, regionName) => {
+  switch (kind) {
+    case "name":       return me?.name ? String(me.name) : "";
+    case "surname":    return me?.surname ? String(me.surname) : "";
+    case "full_name":  return [me?.name, me?.surname].filter(Boolean).join(" ");
+    case "phone":      return me?.phone_number ? String(me.phone_number) : "";
+    case "region":     return regionName || "";
+    case "birth_year": return me?.birth_year != null ? String(me.birth_year) : "";
+    default:           return "";
+  }
 };
 
 // Client-side gate. Mirrors the server rules; the server still has the last word.
@@ -269,6 +295,7 @@ const Field = ({ q, value, error, onChange, tf, bindRef }) => {
 // ── The sheet ────────────────────────────────────────────────────────────────
 export const EventFormSheet = ({ event, onClose, onDone }) => {
   const tf = useEventFormT();
+  const { lang } = useT();
   const eventId = event?.id;
   const alreadyGoing = event?.my_rsvp === "going";
 
@@ -280,6 +307,10 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState(false);
   const [saving, setSaving] = useState(false);
+  // After a successful FIRST registration we don't close straight away — we offer
+  // a one-tap "invite a friend" bonus (reusing the existing InviteSheet).
+  const [registered, setRegistered] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const hydrated = useRef(false);   // don't persist the empty pre-load state over a real draft
   const refs = useRef({});
@@ -311,6 +342,31 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       const prev = mine?.answers && typeof mine.answers === "object" ? mine.answers : null;
       if (prev) qs.forEach((q) => { if (prev[q.key] != null) base[q.key] = coerce(q, prev[q.key]); });
 
+      // PREFILL — for questions tagged with a `prefill` hint, seed the answer from
+      // the current user's profile, but only where the server has no answer yet
+      // (my-response wins over prefill). Runs BEFORE the draft merge so a later
+      // auto-saved draft that merely echoes the prefill isn't read as "restored".
+      // Best-effort: a failed /users/me never blocks the form.
+      const prefillQs = qs.filter((q) => q.prefill && PREFILL_KINDS.has(q.prefill) && !isMulti(q));
+      if (prefillQs.length) {
+        try {
+          const me = await users.me();
+          let regionName = "";
+          if (me?.region_id && prefillQs.some((q) => q.prefill === "region")) {
+            try {
+              const list = await regions.list();
+              const r = (Array.isArray(list) ? list : []).find((x) => x.id === me.region_id);
+              if (r) regionName = r[`name_${lang}`] || r.name_en || r.name || "";
+            } catch { /* region name is best-effort */ }
+          }
+          for (const q of prefillQs) {
+            if (isAnswered(q, base[q.key])) continue;   // a real saved answer wins
+            const v = prefillValue(q.prefill, me, regionName);
+            if (v) base[q.key] = coerce(q, v);
+          }
+        } catch { /* prefill is a courtesy, never a gate */ }
+      }
+
       // …and the local draft (their most recent typing) wins over it.
       const draft = loadDraft(eventId);
       let didRestore = false;
@@ -329,7 +385,7 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       setLoadErr(true);
     }
     setLoading(false);
-  }, [eventId, onClose, onDone]);
+  }, [eventId, onClose, onDone, lang]);
 
   useEffect(() => { load(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [eventId]);
 
@@ -382,7 +438,14 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       clearDraft(eventId);
       haptic("success");
       onDone?.(r || {});
-      onClose();
+      // First registration → celebrate + offer the invite bonus before closing.
+      // Re-editing existing answers just closes (they've been here before).
+      if (alreadyGoing) {
+        onClose();
+      } else {
+        setRegistered(true);
+        setSaving(false);
+      }
     } catch (e) {
       const se = serverErrors(e, schema.map((q) => q.key));
       if (Object.keys(se).length) {
@@ -396,6 +459,34 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       setSaving(false);
     }
   };
+
+  // Invite bonus (reuses the existing InviteSheet). Rendered as the sole view so
+  // it sits alone on screen — no z-index race with the form's own overlay.
+  if (inviteOpen) return <InviteSheet onClose={() => setInviteOpen(false)} />;
+
+  // Post-registration celebration + the optional "bring a friend" nudge.
+  if (registered) {
+    return (
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 340, background: "var(--bg)",
+        maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", textAlign: "center",
+        padding: "24px 24px calc(var(--safe-b) + 24px)",
+      }}>
+        <div style={{ fontSize: 46, marginBottom: 8 }} aria-hidden>🎉</div>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22, color: "var(--text)", marginBottom: 8 }}>
+          {tf("reg.title")}
+        </div>
+        <div style={{ fontSize: 14.5, color: "var(--text-2)", lineHeight: 1.5, maxWidth: 300, marginBottom: 26 }}>
+          {tf("reg.sub")}
+        </div>
+        <div style={{ width: "100%", maxWidth: 320, display: "flex", flexDirection: "column", gap: 12 }}>
+          <button className="btn-primary" onClick={() => setInviteOpen(true)}>🎁 {tf("reg.invite")}</button>
+          <button className="btn-ghost" style={{ width: "100%" }} onClick={onClose}>{tf("reg.done")}</button>
+        </div>
+      </div>
+    );
+  }
 
   const total = schema?.length || 0;
   const done = schema ? schema.filter((q) => isAnswered(q, answers[q.key])).length : 0;

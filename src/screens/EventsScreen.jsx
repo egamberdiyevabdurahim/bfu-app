@@ -31,17 +31,21 @@ const KNOWN_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
 // un-RSVPing by tapping an active pill) is untouched 1-click behaviour.
 const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
   const [busy, setBusy] = useState(false);
+  // A capacity-full "going" RSVP comes back as "waitlisted" from the server — for
+  // toggling and labels, treat it as "already in this event".
+  const goingIsh = ev.my_rsvp === "going" || ev.my_rsvp === "waitlisted";
   const set = async (status) => {
     if (busy) return;
-    // Form event, not going yet → fill it in first. No optimistic flip: they are
-    // not "going" until the answers are in.
-    if (status === "going" && ev.has_form && ev.my_rsvp !== "going") {
+    // Form event, not registered yet → fill it in first. No optimistic flip: they
+    // are not "going" (or waitlisted) until the answers are in.
+    if (status === "going" && ev.has_form && !goingIsh) {
       onOpenForm(ev);
       return;
     }
     setBusy(true);
     const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
-    const toggleOff = ev.my_rsvp === status;
+    // Tapping the active Going/Waitlisted pill leaves the event.
+    const toggleOff = ev.my_rsvp === status || (status === "going" && ev.my_rsvp === "waitlisted");
     const nextStatus = toggleOff ? null : status;
     const delta = (nextStatus === "going" ? 1 : 0) - (ev.my_rsvp === "going" ? 1 : 0);
     onRsvp(ev.id, { my_rsvp: nextStatus, rsvp_count: Math.max(0, (ev.rsvp_count || 0) + delta) });
@@ -62,11 +66,15 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
   const pill = (active) => active
     ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 700, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
     : { background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--hair)", fontWeight: 500 };
+  // Waitlisted = amber outline (in the event, but not counted as going).
+  const waitPill = { background: "transparent", color: "var(--amber)", border: "1px solid var(--amber)", fontWeight: 700 };
+  const waitlisted = ev.my_rsvp === "waitlisted";
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
-          {ev.my_rsvp === "going" ? "✓ " : ""}{t("events.rsvp.going")}
+        <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...(waitlisted ? waitPill : pill(ev.my_rsvp === "going")) }}>
+          {waitlisted ? "◔ " : ev.my_rsvp === "going" ? "✓ " : ""}
+          {waitlisted ? t("events.rsvp.waitlisted") : t("events.rsvp.going")}
         </button>
         <button disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
           {ev.my_rsvp === "interested" ? "✓ " : ""}{t("events.rsvp.interested")}
@@ -81,7 +89,7 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
       {/* Form events say so up front — and, once registered, offer a way back in
           to fix a typo (re-submitting overwrites the previous answers). */}
       {ev.has_form && (
-        ev.my_rsvp === "going" ? (
+        goingIsh ? (
           <button onClick={() => onOpenForm(ev)} style={{
             ...base, marginTop: 8, background: "transparent", color: "var(--amber)",
             border: "1px solid rgba(232,161,92,0.34)", fontWeight: 600,
@@ -97,6 +105,35 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
           </div>
         )
       )}
+    </div>
+  );
+};
+
+// Capacity state for a card. Only rendered for events that HAVE a cap
+// (ev.capacity != null); no-capacity events are untouched. Shows "N seats left",
+// "Full — waitlist open", or "You're on the waitlist" if this member is on it.
+const SeatsLine = ({ ev, t }) => {
+  if (ev.capacity == null) return null;
+  const waitlisted = ev.my_rsvp === "waitlisted";
+  const seatsLeft = ev.seats_left;
+  let label;
+  let color;
+  if (waitlisted) {
+    label = `◔ ${t("events.onWaitlist")}`;
+    color = "var(--amber)";
+  } else if (typeof seatsLeft === "number" && seatsLeft > 0) {
+    label = `◎ ${seatsLeft === 1 ? t("events.seatsLeftOne") : t("events.seatsLeft", { n: seatsLeft })}`;
+    color = "var(--green)";
+  } else {
+    label = `◔ ${t("events.full")}`;
+    color = "var(--amber)";
+  }
+  return (
+    <div style={{
+      marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11.5,
+      letterSpacing: "0.02em", color,
+    }}>
+      {label}
     </div>
   );
 };
@@ -163,6 +200,8 @@ const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
           ◷ {t("events.starts", { d: start })}
         </div>
       )}
+
+      <SeatsLine ev={ev} t={t} />
 
       {ev.matched?.length > 0 && (
         <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", color: "var(--green)" }}>

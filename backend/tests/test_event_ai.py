@@ -125,7 +125,9 @@ async def test_ai_configured_single_call(use_test_db, db, make_user, monkeypatch
 
     out = await event_ai.generate_event_report(ev.id)
     assert calls["n"] == 1                       # EXACTLY one Claude call
-    assert calls["model"] == event_ai.settings.AI_MODEL
+    # The report uses the stronger Sonnet model (pinned), NOT the cheap Haiku
+    # settings.AI_MODEL that the high-volume bio-coach calls use.
+    assert calls["model"] == event_ai.REPORT_MODEL == "claude-sonnet-5"
     assert out["response_count"] == 1
     assert out["summary"] == "Xulosa: og'riqli nuqta narx."
     assert "sampled" not in out

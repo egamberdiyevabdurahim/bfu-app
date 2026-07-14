@@ -14,6 +14,7 @@ import json
 from typing import Any
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
 from app.services.notify import esc, push_event, send_telegram, send_telegram_result
+from app.services.group_moderation import queue_group_post
 from app.services.audit import log_action
 from app.services.event_forms import (
     answer_to_text, has_form, normalize_schema, validate_schema,
@@ -51,16 +52,12 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 async def _broadcast_to_group(text: str, start_param: str) -> None:
-    """Post a card with a deep-link button into the global Telegram group.
-    Approval/new-event become distribution: the app feeds the groups, the
-    groups feed the app. Best-effort — never raises into the request."""
-    if not settings.TG_GLOBAL_GROUP_ID:
-        return
-    url = f"https://t.me/{settings.BOT_USERNAME}?startapp={start_param}"
-    await send_telegram(
-        settings.TG_GLOBAL_GROUP_ID, text,
-        reply_markup={"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]},
-    )
+    """QUEUE a card (with a deep-link button) for MANAGEMENT approval instead of
+    posting it straight to the public group. Founder's rule: nothing reaches the
+    public group automatically — a manager approves it in the management group
+    first, and only then does the bot post it to TG_GLOBAL_GROUP_ID. Best-effort —
+    never raises into the request. See app.services.group_moderation."""
+    await queue_group_post(text, start_param)
 
 
 class BroadcastBody(BaseModel):

@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     # Notification groups
     ADMIN_GROUP_ID: int = 0
     DEVELOPER_GROUP_ID: int = 0
+    # Management-approval queue for public-group posts. When set, NOTHING is
+    # posted to the public group (TG_GLOBAL_GROUP_ID) automatically — every
+    # would-be public-group card is first queued into THIS management group with
+    # Approve / Reject buttons, and only posts to the public group after a manager
+    # approves it here. The bot MUST be a member/admin of this group. When UNSET
+    # (the founder's default), group distribution is OFF: nothing is posted to any
+    # group. See app.services.group_moderation.
+    TG_MANAGEMENT_GROUP_ID: int | None = None
+    # Optional forum-topic thread id inside the management group. If set, pending
+    # posts go to that thread (Telegram message_thread_id); otherwise to the
+    # group's main feed.
+    TG_MANAGEMENT_TOPIC_ID: int | None = None
     BOT_USERNAME: str = "BrightFuturesUzbekistan_bot"
     # Published BFU sticker pack URL (https://t.me/addstickers/<name>). Set once
     # the founder creates the pack via @Stickers (FOUNDER STEP 2). Empty until

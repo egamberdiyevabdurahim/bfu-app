@@ -1,4 +1,5 @@
 import asyncio
+import html
 import logging
 import sys
 
@@ -193,6 +194,70 @@ async def _web_login_confirm(cb: types.CallbackQuery) -> None:
                 await cb.message.edit_text("❌ Login cancelled.")
             except Exception:
                 pass
+
+
+@dp.callback_query(F.data.startswith("gp_"))
+async def _group_post_decision(cb: types.CallbackQuery) -> None:
+    """Approve / Reject a pending PUBLIC-group post from the MANAGEMENT group.
+
+    Security: only honored when the click comes from settings.TG_MANAGEMENT_GROUP_ID
+    — so only the management group can approve a post. On approve the bot posts the
+    queued card to the public group (via resolve_group_post); on reject it's
+    dropped. The management card is edited to record the decision and its buttons
+    removed. Wrapped so a bad click never crashes the polling loop."""
+    try:
+        # Gate: only the management group may decide.
+        chat = cb.message.chat if cb.message else None
+        if chat is None or chat.id != settings.TG_MANAGEMENT_GROUP_ID:
+            await cb.answer("Not allowed", show_alert=True)
+            return
+
+        try:
+            key, sid = (cb.data or "").split(":", 1)
+            post_id = int(sid)
+        except (ValueError, AttributeError):
+            await cb.answer()
+            return
+
+        action = "approve" if key == "gp_ok" else "reject"
+        decider = cb.from_user.id if cb.from_user else None
+        name = (cb.from_user.full_name if cb.from_user else None) or "a manager"
+
+        from app.services.group_moderation import resolve_group_post
+        result = await resolve_group_post(post_id, action, decider)
+
+        if result == "already":
+            await cb.answer("Already handled")
+            return
+        if result == "not_found":
+            await cb.answer("Post not found", show_alert=True)
+            return
+        if result == "error":
+            await cb.answer("Something went wrong", show_alert=True)
+            return
+
+        if result == "posted":
+            new_text = f"✅ Approved &amp; posted by {html.escape(name)}"
+            toast = "Posted ✅"
+        else:  # "rejected"
+            new_text = f"❌ Rejected by {html.escape(name)}"
+            toast = "Rejected"
+        # Reflect the decision on the management card + drop the buttons. Falls
+        # back to just removing the keyboard if the text edit fails.
+        try:
+            await cb.message.edit_text(new_text, parse_mode="HTML")
+        except Exception:
+            try:
+                await cb.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+        await cb.answer(toast)
+    except Exception:
+        logging.exception("group-post decision failed")
+        try:
+            await cb.answer()
+        except Exception:
+            pass
 
 
 @dp.message(CommandStart())

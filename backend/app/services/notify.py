@@ -85,6 +85,43 @@ async def send_telegram(
     return (await send_telegram_result(chat_id, text, reply_markup)).ok
 
 
+async def send_telegram_message(
+    chat_id: int | str, text: str, reply_markup: dict | None = None,
+    message_thread_id: int | None = None,
+) -> int | None:
+    """Send a bot message and return Telegram's message_id (or None on failure).
+
+    Unlike send_telegram (bool) / send_telegram_result (SendResult), this exposes
+    the sent message's id so the caller can later edit it. Used by the group-
+    moderation queue, which must remember the management-group card so the bot can
+    rewrite it on Approve/Reject. `message_thread_id` targets a forum-topic thread
+    when set. Never raises."""
+    if not settings.BOT_TOKEN or not chat_id:
+        return None
+    payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": "HTML",
+                     "disable_web_page_preview": True}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    if message_thread_id:
+        payload["message_thread_id"] = message_thread_id
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.post(
+                f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage",
+                json=payload,
+            )
+        if r.status_code >= 400:
+            logger.warning(
+                "Telegram send_message rejected (%s) chat=%s: %s",
+                r.status_code, chat_id, r.text[:300],
+            )
+            return None
+        return ((r.json() or {}).get("result") or {}).get("message_id")
+    except Exception as exc:  # never let a notification break a request
+        logger.warning("Telegram send_message failed: %s", exc)
+        return None
+
+
 _OPEN_BTN = {"en": "🚀 Open BFU", "uz": "🚀 BFU'ni ochish", "ru": "🚀 Открыть BFU"}
 
 

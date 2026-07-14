@@ -1,12 +1,18 @@
 """Event start reminders — one-shot script for a Railway Cron service.
 
-Posts a "starts tomorrow" reminder to the global Telegram group (and the
-relevant region's school/LC groups, if the event is region-specific) for every
-event whose START falls ~24h out. The reminder targets the event START time,
-computed as COALESCE(Event.starts_at, Event.deadline): events with a real start
-time remind relative to it; legacy events that only carry a signup ``deadline``
-fall back to it unchanged. Run daily so each event is reminded once — the daily
-cadence + the 24h-wide window give one post per event without a stamp column.
+QUEUES a "starts tomorrow" reminder for management approval for every event
+whose START falls ~24h out. The reminder targets the event START time, computed
+as COALESCE(Event.starts_at, Event.deadline): events with a real start time
+remind relative to it; legacy events that only carry a signup ``deadline`` fall
+back to it unchanged. Run daily so each event is reminded once — the daily
+cadence + the 24h-wide window give one queued post per event without a stamp
+column.
+
+Founder's rule (see app.services.group_moderation): nothing is posted to a
+public group automatically. Instead of the old direct fan-out to the region's
+school/LC groups + the global group, each reminder is now queued into the
+management group; a manager approves it there and the bot then posts it to the
+public group. If no management group is configured, nothing is posted at all.
 
 Schedule on Railway:
   Schedule (UTC):  0 6 * * *   (11:00 Tashkent)
@@ -21,11 +27,9 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 
-from app.config import settings
 from app.database import AsyncSessionLocal, engine
 from app.models.event import Event
-from app.models.region import LearningCenter, School
-from app.services.notify import send_telegram
+from app.services.group_moderation import queue_group_post
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("event_reminders")
@@ -39,7 +43,7 @@ async def main() -> int:
     # Remind on the real start when set, else fall back to the signup deadline.
     remind_at = func.coalesce(Event.starts_at, Event.deadline)
 
-    sent = 0
+    queued = 0
     async with AsyncSessionLocal() as s:
         events = (await s.execute(
             select(Event).where(
@@ -50,37 +54,20 @@ async def main() -> int:
             )
         )).scalars().all()
 
-        for e in events:
-            start_at = e.starts_at or e.deadline
-            url = f"https://t.me/{settings.BOT_USERNAME}?startapp=event_{e.id}"
-            text = (
-                f"⏰ <b>Starts tomorrow</b>\n"
-                f"📅 {html.escape(e.title)} ({html.escape(e.type)})\n"
-                f"Starts {start_at + timedelta(hours=5):%d %b %H:%M}."
-            )
-            markup = {"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]}
+    # Queue each reminder for management approval (its own session; safe outside
+    # the read session above). queue_group_post no-ops when no management group
+    # is set, so this posts nothing until the founder configures the queue.
+    for e in events:
+        start_at = e.starts_at or e.deadline
+        text = (
+            f"⏰ <b>Starts tomorrow</b>\n"
+            f"📅 {html.escape(e.title)} ({html.escape(e.type)})\n"
+            f"Starts {start_at + timedelta(hours=5):%d %b %H:%M}."
+        )
+        await queue_group_post(text, f"event_{e.id}")
+        queued += 1
 
-            # Region-specific events go to that region's school/LC groups;
-            # otherwise to the global group.
-            targets: list[int] = []
-            if e.region_id:
-                for model in (School, LearningCenter):
-                    rows = (await s.execute(
-                        select(model.group_id).where(
-                            model.region_id == e.region_id,
-                            model.group_id.is_not(None),
-                        )
-                    )).scalars().all()
-                    targets.extend(g for g in rows if g)
-            if not targets and settings.TG_GLOBAL_GROUP_ID:
-                targets = [settings.TG_GLOBAL_GROUP_ID]
-
-            for chat_id in set(targets):
-                if await send_telegram(chat_id, text, reply_markup=markup):
-                    sent += 1
-                await asyncio.sleep(0.05)
-
-    log.info("event reminders: %d events, %d messages sent", len(events), sent)
+    log.info("event reminders: %d events queued for approval", queued)
     await engine.dispose()
     return 0
 

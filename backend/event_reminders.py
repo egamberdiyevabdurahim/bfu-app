@@ -56,7 +56,7 @@ async def main() -> int:
             text = (
                 f"⏰ <b>Starts tomorrow</b>\n"
                 f"📅 {html.escape(e.title)} ({html.escape(e.type)})\n"
-                f"Starts {start_at:%d %b %H:%M}."
+                f"Starts {start_at + timedelta(hours=5):%d %b %H:%M}."
             )
             markup = {"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]}
 

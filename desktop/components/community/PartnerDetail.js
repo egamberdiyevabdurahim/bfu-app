@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { fmtDate, fromTashkentInput } from "@/lib/datetime";
 
 // Partner detail (Batch 4). Loads, for a given partner id:
 //   GET /partners/{id}   → { id, name, about, website, logo_url, region_id,
@@ -28,11 +29,9 @@ const TYPE_STYLE = {
 };
 const DEFAULT_TYPE = { color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" };
 
+// Deadlines are NAIVE-UTC; render date-only in Tashkent via the shared helper.
 function fmtDeadline(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return fmtDate(iso) || null;
 }
 
 const inputStyle = {
@@ -123,14 +122,15 @@ function PostForm({ onPosted, flash }) {
       return;
     }
     setBusy(true);
-    // deadline is a date input → send as ISO at end of that day so the backend
-    // (datetime) parses it; omit when blank.
+    // deadline is a date input → send as end-of-day, interpreted as Tashkent
+    // (fixed +05:00, not the browser's zone) so the stored instant is correct
+    // regardless of where the admin is; omit when blank.
     const body = {
       type,
       title: title.trim(),
       description: description.trim() || undefined,
       link: link.trim() || undefined,
-      deadline: deadline ? new Date(`${deadline}T23:59:00`).toISOString() : undefined,
+      deadline: deadline ? fromTashkentInput(`${deadline}T23:59:00`) : undefined,
     };
     try {
       await bfu("/partners/mine/opportunity", { method: "POST", body });

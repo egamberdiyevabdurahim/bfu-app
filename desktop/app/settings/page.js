@@ -54,15 +54,14 @@ export default async function SettingsPage() {
   // Fetch region options (public) + achievements/invite (authed) in parallel so
   // the editor paints fully-hydrated on first load.
   //
-  // The notification-prefs GET is skipped entirely while FLAGS.NOTIF_PREFS is
-  // false: with the section hidden there is nothing to hydrate, so paying for a
-  // round-trip on every /settings render would be pure waste. Flip the flag and
-  // the fetch (and the section it feeds) comes back.
+  // The notification-prefs GET runs regardless of FLAGS.NOTIF_PREFS: the "Bot
+  // notifications" master switch is always visible, so its on/off state has to be
+  // hydrated on first paint even when the 8 category rows stay hidden.
   const [regions, achievements, invite, notifPrefs] = await Promise.all([
     getRegions(),
     authedGet("/users/me/achievements", token),
     authedGet("/users/me/invite", token),
-    FLAGS.NOTIF_PREFS ? authedGet("/users/me/notification-prefs", token) : null,
+    authedGet("/users/me/notification-prefs", token),
   ]);
 
   const initial = {
@@ -127,19 +126,17 @@ export default async function SettingsPage() {
 
         <ProfileEditor initial={initial} regions={regions} />
 
-        {/* Notification + privacy preferences — both hidden for V1.
-            The guard sits OUTSIDE each spacer <div> on purpose: the marginTop is
-            the gap that separates the block from what precedes it, so gating the
-            wrapper (not just its child) means a hidden section leaves no ghost
-            26px band behind. With both off, ProfileEditor runs straight into
-            SiteFooter, which brings its own marginTop:60 + rule — the page still
-            ends on a deliberate divider, not a severed one. */}
-        {FLAGS.NOTIF_PREFS ? (
-          <div style={{ marginTop: 26 }}>
-            <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
-          </div>
-        ) : null}
+        {/* Notification preferences. The "Bot notifications" master mute is
+            always visible (so a user can go quiet without blocking the bot); the
+            8 per-category rows inside stay hidden until FLAGS.NOTIF_PREFS. */}
+        <div style={{ marginTop: 26 }}>
+          <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
+        </div>
 
+        {/* Privacy preferences — hidden for V1. The guard sits OUTSIDE the spacer
+            <div> on purpose: the marginTop is the gap that separates the block
+            from what precedes it, so gating the wrapper (not just its child)
+            means a hidden section leaves no ghost 26px band behind. */}
         {FLAGS.PRIVACY_PREFS ? (
           <div style={{ marginTop: 26 }}>
             <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} initialWhoViewed={me?.who_viewed_consent !== false} />

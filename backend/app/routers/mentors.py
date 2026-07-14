@@ -123,7 +123,10 @@ async def create_slot(
     """Mentor publishes a future 15-minute slot."""
     start = body.start_at
     if start.tzinfo is not None:
-        start = start.replace(tzinfo=None)
+        # Convert (not just strip) to naive-UTC so a Z-suffixed / offset input
+        # keeps its true instant before hitting the naive column — same hazard
+        # the admin-event path guards against.
+        start = start.astimezone(dt.timezone.utc).replace(tzinfo=None)
     if start <= dt.datetime.utcnow():
         raise HTTPException(status_code=422, detail="start_at must be in the future")
     slot = MentorSlot(mentor_id=current_user.id, start_at=start, duration_min=15, status="open")

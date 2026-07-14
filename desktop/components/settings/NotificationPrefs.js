@@ -99,12 +99,14 @@ function Row({ label, desc, on, onToggle, disabled, dim }) {
   );
 }
 
-// V1: the whole per-category preferences screen is hidden behind FLAGS.NOTIF_PREFS.
-// The settings page already skips rendering this component (and skips the SSR
-// prefs fetch) while the flag is false — the guards below are the second lock,
-// so that even if some other caller mounts it, it renders nothing AND never
-// fires GET /users/me/notification-prefs. Flip the flag to true and everything
-// below comes back untouched.
+// The single "Bot notifications" master mute is ALWAYS visible — it's the one
+// lever a noisy-bot user needs so they can go quiet without BLOCKING the bot
+// (blocking zeroes can_message permanently; see Telegram reachability). It binds
+// to the `telegram_push` pref, the backend's master switch.
+//
+// The 8 PER-CATEGORY toggles below stay hidden behind FLAGS.NOTIF_PREFS: while
+// the flag is false only the master row renders; flip it to true and the full
+// category block comes back beneath the same master switch, untouched.
 export default function NotificationPrefs({ initialPrefs }) {
   const t = useT();
   // Seed from SSR when available; otherwise show defaults and fetch on mount.
@@ -113,7 +115,6 @@ export default function NotificationPrefs({ initialPrefs }) {
   const { toast, flash } = useToast(3200);
 
   useEffect(() => {
-    if (!FLAGS.NOTIF_PREFS) return; // hidden for V1 — don't fetch prefs we never show
     if (initialPrefs) return; // already hydrated by the server
     let alive = true;
     bfu("/users/me/notification-prefs")
@@ -150,10 +151,6 @@ export default function NotificationPrefs({ initialPrefs }) {
 
   const masterOn = prefs.telegram_push;
 
-  // Render nothing while the section is hidden. Deliberately placed AFTER every
-  // hook above so hook order stays stable regardless of the flag.
-  if (!FLAGS.NOTIF_PREFS) return null;
-
   return (
     <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column" }}>
       {/* Header */}
@@ -187,16 +184,16 @@ export default function NotificationPrefs({ initialPrefs }) {
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{t("settings.notif_master_label")}</div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{t("settings.notif_bot_label")}</div>
             <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-              {t("settings.notif_master_desc")}
+              {t("settings.notif_bot_hint")}
             </div>
           </div>
           <Switch
             on={masterOn}
             onToggle={() => toggle("telegram_push")}
             disabled={!loaded}
-            label={t("settings.notif_master_label")}
+            label={t("settings.notif_bot_label")}
           />
         </div>
         {!masterOn ? (
@@ -215,24 +212,27 @@ export default function NotificationPrefs({ initialPrefs }) {
         ) : null}
       </div>
 
-      {/* Category rows */}
-      <div style={{ marginTop: 6, display: "flex", flexDirection: "column" }}>
-        {CATEGORIES.map((c, i) => (
-          <div
-            key={c.key}
-            style={{ borderTop: i === 0 ? "none" : "1px solid var(--hair)" }}
-          >
-            <Row
-              label={t(`settings.notif_${c.key}_label`)}
-              desc={t(`settings.notif_${c.key}_desc`)}
-              on={prefs[c.key]}
-              onToggle={() => toggle(c.key)}
-              disabled={!loaded}
-              dim={!masterOn}
-            />
-          </div>
-        ))}
-      </div>
+      {/* Per-category rows — hidden for V1 behind FLAGS.NOTIF_PREFS. The master
+          switch above stays visible regardless; only this block is gated. */}
+      {FLAGS.NOTIF_PREFS ? (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column" }}>
+          {CATEGORIES.map((c, i) => (
+            <div
+              key={c.key}
+              style={{ borderTop: i === 0 ? "none" : "1px solid var(--hair)" }}
+            >
+              <Row
+                label={t(`settings.notif_${c.key}_label`)}
+                desc={t(`settings.notif_${c.key}_desc`)}
+                on={prefs[c.key]}
+                onToggle={() => toggle(c.key)}
+                disabled={!loaded}
+                dim={!masterOn}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Toast (revert/failure feedback) */}
       {toast ? (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { fmtDate, toTashkentInput, fromTashkentInput } from "@/lib/datetime";
 import EventFormBuilder from "@/components/dashboard/EventFormBuilder";
 import EventResponses from "@/components/dashboard/EventResponses";
 
@@ -39,21 +40,11 @@ import EventResponses from "@/components/dashboard/EventResponses";
 // list; the form also accepts anything typed.
 const TYPES = ["hackathon", "scholarship", "internship", "workshop", "competition", "conference", "grant", "other"];
 
-// Convert an ISO datetime string (or null) to the value a datetime-local input
-// wants ("YYYY-MM-DDTHH:mm"), in local time. Returns "" when absent.
-function toLocalInput(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
+// Event datetimes arrive as NAIVE UTC; the edit form's datetime-local inputs must
+// show the Tashkent wall-clock (not the browser's), and the list must render in
+// Tashkent — both go through lib/datetime so a re-save can't drift the instant.
 function fmtDeadline(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+  return fmtDate(iso) || null;
 }
 
 // Does this event carry a registration form? `has_form` is the authoritative
@@ -282,8 +273,8 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
   const [description, setDescription] = useState(event?.description || "");
   const [link, setLink] = useState(event?.link || "");
   const [coverUrl, setCoverUrl] = useState(event?.cover_url || "");
-  const [startsAt, setStartsAt] = useState(toLocalInput(event?.starts_at));
-  const [deadline, setDeadline] = useState(toLocalInput(event?.deadline));
+  const [startsAt, setStartsAt] = useState(toTashkentInput(event?.starts_at));
+  const [deadline, setDeadline] = useState(toTashkentInput(event?.deadline));
   const [regionId, setRegionId] = useState(event?.region_id ? String(event.region_id) : "");
   const [partnerId, setPartnerId] = useState(event?.partner_id ? String(event.partner_id) : "");
   const [saving, setSaving] = useState(false);
@@ -302,9 +293,10 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
       link: link.trim() || null,
       cover_url: coverUrl.trim() || null,
       // Two distinct datetimes: starts_at = when the event happens; deadline =
-      // the signup cutoff. Both convert local-datetime → ISO, null when empty.
-      starts_at: startsAt ? new Date(startsAt).toISOString() : null,
-      deadline: deadline ? new Date(deadline).toISOString() : null,
+      // the signup cutoff. Interpret the input's wall-clock as Tashkent (fixed
+      // +05:00) → UTC ISO, so the stored instant is correct on any browser tz.
+      starts_at: fromTashkentInput(startsAt),
+      deadline: fromTashkentInput(deadline),
       region_id: regionId ? Number(regionId) : null,
       partner_id: partnerId ? Number(partnerId) : null,
     };

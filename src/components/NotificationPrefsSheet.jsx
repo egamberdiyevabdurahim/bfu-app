@@ -36,7 +36,11 @@ const Switch = ({ on, disabled, onClick }) => (
   </button>
 );
 
-export const NotificationPrefsSheet = ({ onClose }) => {
+// `masterOnly` renders JUST the "Bot notifications" master switch (bound to the
+// telegram_push pref) — the always-available mute a user reaches when the full
+// 8-category screen is hidden behind FLAGS.NOTIF_PREFS. Without the prop, the
+// full sheet (categories + privacy) renders as before.
+export const NotificationPrefsSheet = ({ onClose, masterOnly = false }) => {
   const { t } = useT();
   const [prefs, setPrefs] = useState(null);
   const [dmPrivacy, setDmPrivacy] = useState("everyone");
@@ -108,7 +112,7 @@ export const NotificationPrefsSheet = ({ onClose }) => {
           display: "flex", alignItems: "center", justifyContent: "center",
         }}><Icon name="x" size={18} /></button>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, color: "var(--text)" }}>
-          {t("notif.title")}
+          {masterOnly ? t("notif.botRow") : t("notif.title")}
         </div>
       </div>
 
@@ -129,38 +133,44 @@ export const NotificationPrefsSheet = ({ onClose }) => {
               <span style={{ fontSize: 22 }} aria-hidden>🔔</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
-                  {t("notif.master")}
+                  {masterOnly ? t("notif.botRow") : t("notif.master")}
                 </div>
                 <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>
-                  {t("notif.masterHint")}
+                  {masterOnly ? t("notif.botHint") : t("notif.masterHint")}
                 </div>
               </div>
               <Switch on={master} onClick={() => toggle("telegram_push")} />
             </div>
 
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "var(--muted)", margin: "22px 4px 10px" }}>
-              {t("notif.categories")}
-            </div>
+            {/* Per-category toggles — hidden for V1 behind FLAGS.NOTIF_PREFS. In
+                masterOnly mode only the master switch above renders. */}
+            {!masterOnly && (
+              <>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: "var(--muted)", margin: "22px 4px 10px" }}>
+                  {t("notif.categories")}
+                </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {VISIBLE_CATEGORIES.map((c) => {
-                const on = prefs[c.key] !== false;
-                return (
-                  <div key={c.key} style={{
-                    display: "flex", alignItems: "center", gap: 13, padding: "13px 15px",
-                    background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
-                    opacity: master ? 1 : 0.5,
-                  }}>
-                    <span style={{ fontSize: 17, width: 22, textAlign: "center" }} aria-hidden>{c.glyph}</span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>
-                      {t(`notif.cat.${c.key}`)}
-                    </span>
-                    <Switch on={on && master} disabled={!master} onClick={() => toggle(c.key)} />
-                  </div>
-                );
-              })}
-            </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {VISIBLE_CATEGORIES.map((c) => {
+                    const on = prefs[c.key] !== false;
+                    return (
+                      <div key={c.key} style={{
+                        display: "flex", alignItems: "center", gap: 13, padding: "13px 15px",
+                        background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
+                        opacity: master ? 1 : 0.5,
+                      }}>
+                        <span style={{ fontSize: 17, width: 22, textAlign: "center" }} aria-hidden>{c.glyph}</span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>
+                          {t(`notif.cat.${c.key}`)}
+                        </span>
+                        <Switch on={on && master} disabled={!master} onClick={() => toggle(c.key)} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {!master && (
               <div style={{ marginTop: 14, fontSize: 12.5, color: "var(--muted-strong)", textAlign: "center", lineHeight: 1.5 }}>
@@ -168,41 +178,46 @@ export const NotificationPrefsSheet = ({ onClose }) => {
               </div>
             )}
 
-            {/* Privacy — who can start a DM with you */}
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "var(--muted)", margin: "26px 4px 10px" }}>
-              {t("privacy.section")}
-            </div>
-            <div style={{ padding: "13px 15px", background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)" }}>
-              <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoCanMessage")}</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoCanMessageHint")}</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
-                {["everyone", "connections"].map((opt) => {
-                  const on = dmPrivacy === opt;
-                  return (
-                    <button key={opt} onClick={() => setPrivacy(opt)} style={{
-                      flex: 1, padding: "9px 10px", borderRadius: "var(--radius-pill)", cursor: "pointer",
-                      fontFamily: "var(--font-mono)", fontSize: 11.5, letterSpacing: "0.04em", textTransform: "uppercase",
-                      background: on ? "var(--amber)" : "var(--surface)", color: on ? "#160E08" : "var(--muted-strong)",
-                      border: on ? "1px solid var(--amber)" : "1px solid var(--hair)", fontWeight: on ? 700 : 500,
-                      transition: "background 0.15s ease, color 0.15s ease",
-                    }}>{t(`privacy.dm.${opt}`)}</button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Privacy (dm_privacy / who_viewed_consent) — full sheet only. */}
+            {!masterOnly && (
+              <>
+                {/* Privacy — who can start a DM with you */}
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: "var(--muted)", margin: "26px 4px 10px" }}>
+                  {t("privacy.section")}
+                </div>
+                <div style={{ padding: "13px 15px", background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)" }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoCanMessage")}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoCanMessageHint")}</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+                    {["everyone", "connections"].map((opt) => {
+                      const on = dmPrivacy === opt;
+                      return (
+                        <button key={opt} onClick={() => setPrivacy(opt)} style={{
+                          flex: 1, padding: "9px 10px", borderRadius: "var(--radius-pill)", cursor: "pointer",
+                          fontFamily: "var(--font-mono)", fontSize: 11.5, letterSpacing: "0.04em", textTransform: "uppercase",
+                          background: on ? "var(--amber)" : "var(--surface)", color: on ? "#160E08" : "var(--muted-strong)",
+                          border: on ? "1px solid var(--amber)" : "1px solid var(--hair)", fontWeight: on ? 700 : 500,
+                          transition: "background 0.15s ease, color 0.15s ease",
+                        }}>{t(`privacy.dm.${opt}`)}</button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Who-viewed-me consent (incognito) */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 13, padding: "13px 15px", marginTop: 8,
-              background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoViewed")}</div>
-                <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoViewedHint")}</div>
-              </div>
-              <Switch on={whoViewed} onClick={toggleWhoViewed} />
-            </div>
+                {/* Who-viewed-me consent (incognito) */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 13, padding: "13px 15px", marginTop: 8,
+                  background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{t("privacy.whoViewed")}</div>
+                    <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>{t("privacy.whoViewedHint")}</div>
+                  </div>
+                  <Switch on={whoViewed} onClick={toggleWhoViewed} />
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

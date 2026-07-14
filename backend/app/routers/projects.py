@@ -205,7 +205,7 @@ def user_fits_project(project: Project, user: User | None) -> bool:
     if project.age_from or project.age_to:
         if not user.birth_year:
             return False
-        age = dt.datetime.now().year - user.birth_year
+        age = dt.datetime.utcnow().year - user.birth_year
         if project.age_from and age < project.age_from:
             return False
         if project.age_to and age > project.age_to:

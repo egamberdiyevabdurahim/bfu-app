@@ -158,6 +158,7 @@ export const ProfileScreen = () => {
   const [bookingsOpen, setBookingsOpen] = useState(false);
   const [savingLang, setSavingLang] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [botNotifOpen, setBotNotifOpen] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -625,6 +626,10 @@ export const ProfileScreen = () => {
                   display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
               ) : null} />
           )}
+          {/* Always-visible master mute — lets a noisy-bot user go quiet without
+              BLOCKING the bot (which zeroes can_message). Opens a minimal sheet
+              with just the telegram_push switch. NOT gated by NOTIF_PREFS. */}
+          <ActionRow glyph="🔔" label={t("notif.botRow")} onClick={() => setBotNotifOpen(true)} />
           {FLAGS.NOTIF_PREFS && (
             <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
           )}
@@ -687,10 +692,13 @@ export const ProfileScreen = () => {
 
       {FLAGS.MENTORING && slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
       {FLAGS.MENTORING && bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
+      {/* Master mute — always reachable. masterOnly renders just the telegram_push
+          switch, so it never surfaces the gated categories or privacy controls. */}
+      {botNotifOpen && <NotificationPrefsSheet masterOnly onClose={() => setBotNotifOpen(false)} />}
       {/* Gated on mount, not just on the row: the sheet fetches prefs on open, so an
-          unmounted sheet also means no prefs request. NOTE — this sheet is where the
-          privacy controls (dm_privacy / who_viewed_consent, FLAGS.PRIVACY_PREFS) live;
-          they are unreachable from the Mini App while NOTIF_PREFS is off. */}
+          unmounted sheet also means no prefs request. NOTE — this full sheet is where
+          the privacy controls (dm_privacy / who_viewed_consent, FLAGS.PRIVACY_PREFS)
+          live; they are unreachable from the Mini App while NOTIF_PREFS is off. */}
       {FLAGS.NOTIF_PREFS && notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
       {FLAGS.SAVED && savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
       {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}

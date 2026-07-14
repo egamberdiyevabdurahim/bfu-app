@@ -110,7 +110,7 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
                    User.created_at.desc()).limit(300)
     pool = (await db.execute(q)).scalars().all()
     if not pool:
-        return [], now.strftime("%A")
+        return [], (now + timedelta(hours=5)).strftime("%A")
 
     ids = [u.id for u in pool]
 
@@ -195,7 +195,10 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
         c["people"] = c["people"][:limit]
         out.append(c)
     out.sort(key=lambda c: c["lit"], reverse=True)
-    return out, now.strftime("%A")
+    # Weekday label for the desktop "Toshkent · {weekday} night" — compute it in
+    # Tashkent (UTC+5) so it doesn't name the previous day during 00:00–04:59 local
+    # (UTC 19:00–23:59). `now` itself stays naive-UTC for all comparisons above.
+    return out, (now + timedelta(hours=5)).strftime("%A")
 
 
 def _initials(name: str) -> str:

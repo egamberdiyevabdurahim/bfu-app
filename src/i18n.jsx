@@ -127,6 +127,10 @@ const STRINGS = {
   "notif.settingsRow": { en: "Notification settings", uz: "Bildirishnoma sozlamalari", ru: "Настройки уведомлений" },
   "notif.master": { en: "Telegram notifications", uz: "Telegram bildirishnomalari", ru: "Уведомления Telegram" },
   "notif.masterHint": { en: "Push alerts from the bot. Turn off to go quiet — everything still waits in your inbox.", uz: "Botdan push xabarlar. O‘chirsangiz — hammasi baribir inboxda qoladi.", ru: "Push от бота. Выключите — всё останется во входящих." },
+  // Always-visible master mute (shown regardless of FLAGS.NOTIF_PREFS) — lets a
+  // user go quiet without BLOCKING the bot. Binds to the `telegram_push` pref.
+  "notif.botRow": { en: "Bot notifications", uz: "Bot bildirishnomalari", ru: "Уведомления бота" },
+  "notif.botHint": { en: "Turn off to stop all Telegram messages from the bot.", uz: "Botdan keladigan barcha Telegram xabarlarni to‘xtatish uchun o‘chiring.", ru: "Выключите, чтобы бот перестал писать в Telegram." },
   "notif.categories": { en: "Categories", uz: "Turkumlar", ru: "Категории" },
   "notif.cat.messages": { en: "Messages", uz: "Xabarlar", ru: "Сообщения" },
   "notif.cat.interest": { en: "Interest & intros", uz: "Qiziqish va tanishtirish", ru: "Интерес и знакомства" },

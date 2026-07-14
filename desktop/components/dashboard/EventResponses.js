@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { fmtTashkent } from "@/lib/datetime";
 import { normalizeSchema, groupBySection } from "@/components/dashboard/EventFormBuilder";
 
 // The RESPONSES viewer for one event's registration form (/dashboard/events).
@@ -30,13 +31,10 @@ function answerText(value) {
   return String(value);
 }
 
+// submitted_at / generated_at are NAIVE-UTC — render in Tashkent (a bare
+// new Date would show them 5h early). "—" when absent.
 function fmtWhen(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
-    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-  });
+  return fmtTashkent(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) || "—";
 }
 
 // The partner lead pipeline: where each registrant is on the way from "signed

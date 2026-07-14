@@ -38,7 +38,7 @@ try:
 except ImportError:  # pragma: no cover - only until the service agent lands it
     async def generate_event_report(event_id: int) -> dict:  # type: ignore[misc]
         return {"summary": "", "response_count": 0, "generated_at": None}
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.schemas.event import FormResponseOut
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
@@ -228,7 +228,10 @@ async def analytics_retention(
     # month "YYYY-MM" -> [total, active]
     buckets: dict[str, list[int]] = {}
     for created_at, last_seen_at in rows:
-        key = created_at.strftime("%Y-%m")
+        # Bucket by the Tashkent (UTC+5) calendar month: a signup in the last ~5h
+        # of a Tashkent month is stored in naive-UTC as the previous month and
+        # would otherwise land in the wrong cohort.
+        key = (created_at + timedelta(hours=5)).strftime("%Y-%m")
         b = buckets.setdefault(key, [0, 0])
         b[0] += 1
         if last_seen_at is not None and last_seen_at >= cutoff:
@@ -782,6 +785,20 @@ def _checked_schema(raw: Any) -> list[dict] | None:
     return normalize_schema(raw)
 
 
+def _to_naive_utc(dt: datetime | None) -> datetime | None:
+    """Normalize an incoming datetime for storage in a timezone-NAIVE column.
+
+    The desktop sends Z-suffixed ISO (``.toISOString()``), which Pydantic parses
+    to a tz-AWARE datetime. Assigning an aware value to a "timestamp without time
+    zone" column raises asyncpg ``DataError`` → HTTP 500 on Postgres (SQLite in
+    tests silently accepts it, hiding the bug). So: convert an aware value to UTC
+    and strip the tzinfo (keeping the SAME wall-clock instant); pass a naive value
+    through unchanged (already treated as naive-UTC everywhere in this app)."""
+    if dt is not None and dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 @router.get("/events", response_model=list[EventOut])
 async def admin_list_events(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     # Pending (partner-submitted) events float to the top for the queue.
@@ -824,8 +841,9 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         raise HTTPException(400, "Type required")
     e = Event(
         type=body.type, title=body.title.strip(), description=body.description,
-        link=body.link, cover_url=body.cover_url, deadline=body.deadline,
-        starts_at=body.starts_at,
+        link=body.link, cover_url=body.cover_url,
+        deadline=_to_naive_utc(body.deadline),
+        starts_at=_to_naive_utc(body.starts_at),
         region_id=body.region_id, created_by=admin.id,
         partner_id=body.partner_id, is_approved=True,
         form_schema=_checked_schema(body.form_schema),
@@ -924,6 +942,12 @@ async def admin_update_event(event_id: int, body: EventBody,
     # a PATCH, never a deploy. Validated by the same rulebook the RSVP path uses.
     if "form_schema" in patch:
         patch["form_schema"] = _checked_schema(patch["form_schema"])
+    # Same aware→naive-UTC normalization as create: a Z-suffixed edit must not
+    # 500 on Postgres when written to the naive timestamp columns.
+    if "deadline" in patch:
+        patch["deadline"] = _to_naive_utc(patch["deadline"])
+    if "starts_at" in patch:
+        patch["starts_at"] = _to_naive_utc(patch["starts_at"])
     for k, v in patch.items():
         setattr(e, k, v)
     await db.commit(); await db.refresh(e)

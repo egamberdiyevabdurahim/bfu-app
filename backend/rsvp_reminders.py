@@ -124,7 +124,7 @@ async def _run_pass(s, now, *, lo, hi, stamp_col, headers,
         text = (
             f"{headers[lang]}\n"
             f"📅 <b>{esc(title)}</b> ({esc(ev_type)})\n"
-            f"{STARTS_LINE[lang]} {start_at:%d %b %H:%M}."
+            f"{STARTS_LINE[lang]} {start_at + timedelta(hours=5):%d %b %H:%M}."
         )
         markup = {"inline_keyboard": [[{"text": OPEN_BTN[lang], "url": url}]]}
         if await send_telegram(tg_id, text, reply_markup=markup):

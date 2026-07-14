@@ -5,6 +5,7 @@ import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
 import { Toast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { fmtDate, fmtDateTime } from "@/lib/datetime";
 import EventFormModal from "@/components/events/EventFormModal";
 
 // Events (Batch 4). Two feeds:
@@ -32,27 +33,19 @@ const TYPE_STYLE = {
 };
 const DEFAULT_TYPE = { color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" };
 
+// DEADLINE = the sign-up cutoff (date-only). Rendered in Tashkent via the shared
+// helper: a bare new Date on a naive-UTC "…T00:00:00" could print the PREVIOUS
+// day for a 00:00–04:59 Tashkent deadline.
 function fmtDeadline(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return fmtDate(iso) || null;
 }
 
-// START time = when the event actually happens (distinct from `deadline`, the
-// sign-up cutoff). The backend serializes NAIVE-UTC timestamps (no tz suffix),
-// so append "Z" to force UTC parsing, then render date + time in Tashkent —
-// matching the Mini App's fmtDateTime so both apps agree on the wall-clock start.
+// START time = when the event actually happens (distinct from `deadline`). The
+// backend serializes NAIVE-UTC timestamps, so this renders date + time in
+// Tashkent via the shared helper — matching the Mini App so both apps agree on
+// the wall-clock start.
 function fmtStart(iso) {
-  if (!iso) return null;
-  let s = String(iso);
-  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += "Z";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  const tz = { timeZone: "Asia/Tashkent" };
-  const date = d.toLocaleDateString("en-GB", { ...tz, day: "numeric", month: "short", year: "numeric" });
-  const time = d.toLocaleTimeString("en-GB", { ...tz, hour: "2-digit", minute: "2-digit" });
-  return `${date} · ${time}`;
+  return fmtDateTime(iso) || null;
 }
 
 // RSVP / Interested toggles + "N going" — a sibling BELOW the card's outbound

@@ -29,6 +29,7 @@ import { login } from "./dicts/login";
 import { onboarding } from "./dicts/onboarding";
 import { register } from "./dicts/register";
 import { misc } from "./dicts/misc";
+import { dashboard } from "./dicts/dashboard";
 
 // Every registered namespace module. Namespaces are disjoint by key prefix, so
 // order only matters if two modules define the same key (they shouldn't).
@@ -47,6 +48,7 @@ const NAMESPACES = [
   onboarding,
   register,
   misc,
+  dashboard,
 ];
 
 const CORE = {

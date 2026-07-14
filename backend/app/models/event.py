@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -27,3 +27,14 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     # partner-submitted opportunities start unapproved (admin queue).
     partner_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Optional REGISTRATION FORM: a JSON list of question objects
+    # ({"key","label","type","required","options"?,"section"?}) authored by an
+    # admin in the panel — the questions are data, so changing them needs no
+    # deploy. NULL / [] = no form, i.e. a plain one-click RSVP. Every rule about
+    # this blob lives in app.services.event_forms (validate_schema).
+    form_schema: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+    @property
+    def has_form(self) -> bool:
+        """Does this event ask registration questions? (read by EventOut)"""
+        return bool(self.form_schema)

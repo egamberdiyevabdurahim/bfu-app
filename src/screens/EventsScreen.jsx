@@ -3,6 +3,7 @@ import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { events } from "../api";
 import { PartnersModal } from "../components/PartnersModal";
+import { EventFormSheet, useEventFormT } from "../components/EventFormSheet";
 import { FLAGS } from "../flags";
 import { useT } from "../i18n";
 import { fmtDate } from "../timefmt";
@@ -23,10 +24,21 @@ const KNOWN_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
 // RSVP / Interested toggles + "N going" social proof. Lives OUTSIDE the card's
 // outbound <a>, so a tap never triggers the external nav. Optimistic; the server
 // response (rsvp_count/my_rsvp) reconciles.
-const RsvpRow = ({ ev, t, onRsvp }) => {
+//
+// Events that carry a registration form (`ev.has_form`) divert the FIRST "Going"
+// tap into EventFormSheet — the RSVP only lands once the form is submitted and
+// the server accepts the answers. Everything else (no-form events, "Interested",
+// un-RSVPing by tapping an active pill) is untouched 1-click behaviour.
+const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
   const [busy, setBusy] = useState(false);
   const set = async (status) => {
     if (busy) return;
+    // Form event, not going yet → fill it in first. No optimistic flip: they are
+    // not "going" until the answers are in.
+    if (status === "going" && ev.has_form && ev.my_rsvp !== "going") {
+      onOpenForm(ev);
+      return;
+    }
     setBusy(true);
     const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
     const toggleOff = ev.my_rsvp === status;
@@ -51,17 +63,39 @@ const RsvpRow = ({ ev, t, onRsvp }) => {
     ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 700, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
     : { background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--hair)", fontWeight: 500 };
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14 }}>
-      <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
-        {ev.my_rsvp === "going" ? "✓ " : ""}{t("events.rsvp.going")}
-      </button>
-      <button disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
-        {ev.my_rsvp === "interested" ? "✓ " : ""}{t("events.rsvp.interested")}
-      </button>
-      {ev.rsvp_count > 0 && (
-        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
-          {t("events.rsvp.count", { n: ev.rsvp_count })}
-        </span>
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
+          {ev.my_rsvp === "going" ? "✓ " : ""}{t("events.rsvp.going")}
+        </button>
+        <button disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
+          {ev.my_rsvp === "interested" ? "✓ " : ""}{t("events.rsvp.interested")}
+        </button>
+        {ev.rsvp_count > 0 && (
+          <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
+            {t("events.rsvp.count", { n: ev.rsvp_count })}
+          </span>
+        )}
+      </div>
+
+      {/* Form events say so up front — and, once registered, offer a way back in
+          to fix a typo (re-submitting overwrites the previous answers). */}
+      {ev.has_form && (
+        ev.my_rsvp === "going" ? (
+          <button onClick={() => onOpenForm(ev)} style={{
+            ...base, marginTop: 8, background: "transparent", color: "var(--amber)",
+            border: "1px solid rgba(232,161,92,0.34)", fontWeight: 600,
+          }}>
+            {tf("card.editAnsw")}
+          </button>
+        ) : (
+          <div style={{
+            marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10.5,
+            letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)",
+          }}>
+            ◇ {tf("card.hasForm")}
+          </div>
+        )
       )}
     </div>
   );
@@ -70,7 +104,7 @@ const RsvpRow = ({ ev, t, onRsvp }) => {
 // Firelit event card — the tappable content is the outbound link when `ev.link`
 // exists (mirrors desktop); the RSVP row is a sibling below it, always live.
 // Deep-linked card glows.
-const EventCard = ({ ev, i, highlighted, t, fmt, onRsvp }) => {
+const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = ev.deadline ? fmt(ev.deadline) : null;
   const typeLabel = KNOWN_TYPES.includes(ev.type)
@@ -152,19 +186,21 @@ const EventCard = ({ ev, i, highlighted, t, fmt, onRsvp }) => {
           {inner}
         </a>
       ) : inner}
-      <RsvpRow ev={ev} t={t} onRsvp={onRsvp} />
+      <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />
     </div>
   );
 };
 
 export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null }) => {
   const { t } = useT();
+  const tf = useEventFormT();   // registration-form strings (local map, see EventFormSheet)
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   // A deep-linked event (from a notification) opens on "all" so the target card
   // is actually in the loaded list — the "For you" radar rarely contains your own event.
   const [type, setType] = useState(deepLinkEventId ? "all" : "foryou");
   const [partnersOpen, setPartnersOpen] = useState(false);
+  const [formEvent, setFormEvent] = useState(null);  // event whose registration form is open
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
   useEffect(() => { if (deepLinkEventId) setType("all"); }, [deepLinkEventId]);
@@ -184,6 +220,15 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   // Update rsvp_count / my_rsvp for one card in place after an RSVP toggle.
   const onRsvp = (id, patch) =>
     setList((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  // The form sheet submitted successfully → the server response carries the
+  // authoritative rsvp_count/my_rsvp. Fall back to "going" if the backend ever
+  // answers with a bare 200.
+  const onFormDone = (id, r = {}) => {
+    const patch = { my_rsvp: r.my_rsvp ?? "going" };
+    if (typeof r.rsvp_count === "number") patch.rsvp_count = r.rsvp_count;
+    onRsvp(id, patch);
+  };
 
   const fmt = (iso) => fmtDate(iso) || "—"; // Tashkent-time, UTC-safe
 
@@ -264,8 +309,10 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
                   i={i}
                   highlighted={deepLinkEventId === ev.id}
                   t={t}
+                  tf={tf}
                   fmt={fmt}
                   onRsvp={onRsvp}
+                  onOpenForm={setFormEvent}
                 />
               ))}
             </div>
@@ -274,6 +321,16 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
       </div>
 
       {FLAGS.PARTNERS && partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
+
+      {/* Registration form — closing it is safe: every keystroke is already in
+          localStorage, so reopening restores the half-filled form. */}
+      {formEvent && (
+        <EventFormSheet
+          event={formEvent}
+          onClose={() => setFormEvent(null)}
+          onDone={(r) => onFormDone(formEvent.id, r)}
+        />
+      )}
     </Page>
   );
 };

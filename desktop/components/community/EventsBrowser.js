@@ -2,14 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useToast } from "@/lib/useToast";
+import { Toast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import EventFormModal from "@/components/events/EventFormModal";
 
 // Events (Batch 4). Two feeds:
 //   GET /events         → EventOut[] { id, type, title, description, link,
-//                                      cover_url, deadline, region_id, created_at }
+//                                      cover_url, deadline, region_id, created_at,
+//                                      has_form }
 //   GET /events/for-me  → same fields + { matched:[tag], score } (relevance-ranked
 //                         against the user's AI tags + region — the "For you" tab)
 // Rendered as Chorsu event cards; each card links out to `link` when present.
+//
+// REGISTRATION FORMS. An event may carry a `form_schema` (questions authored by an
+// admin, so they're data — changing them needs no deploy). The feed only carries the
+// boolean `has_form`; the questions themselves come from GET /events/{id} inside the
+// modal. Behaviour mirrors the Mini App exactly:
+//   • has_form false → the 1-click RSVP below is UNCHANGED,
+//   • has_form true  → "Going" opens EventFormModal and you are only going once
+//                      POST /events/{id}/rsvp {status:"going", answers} succeeds,
+//   • "Interested"   → never opens the form, in either case.
 
 const TYPE_STYLE = {
   hackathon: { color: "var(--amber)", bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
@@ -28,11 +41,23 @@ function fmtDeadline(iso) {
 
 // RSVP / Interested toggles + "N going" — a sibling BELOW the card's outbound
 // <a>, so a tap never triggers the external nav. Optimistic; server reconciles.
-function RsvpRow({ ev, onRsvp }) {
+//
+// The one exception to "optimistic" is a form event's "Going": nothing is patched
+// until the form comes back accepted, because the server may reject the answers.
+function RsvpRow({ ev, onRsvp, onOpenForm }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const set = async (status) => {
     if (busy) return;
+    // Form gate. "Going" on a form event hands off to the modal — both when
+    // registering and when already going (reopen → prefilled → re-submit
+    // overwrites). Un-RSVP for those events lives inside the modal, so the pill
+    // never silently throws away someone's submitted answers.
+    // "Interested" is never gated.
+    if (status === "going" && ev.has_form) {
+      onOpenForm?.(ev);
+      return;
+    }
     setBusy(true);
     const prev = { rsvp_count: ev.rsvp_count, my_rsvp: ev.my_rsvp };
     const toggleOff = ev.my_rsvp === status;
@@ -59,23 +84,69 @@ function RsvpRow({ ev, onRsvp }) {
     ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 800, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
     : { background: "var(--surface-2)", color: "var(--muted-strong)", border: "1px solid var(--hair)", fontWeight: 500 };
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "14px 28px 24px" }}>
-      <button type="button" disabled={busy} onClick={() => set("going")} style={{ ...base, ...pill(ev.my_rsvp === "going") }}>
-        {ev.my_rsvp === "going" ? "✓ " : ""}{t("community.events.rsvpGoing")}
-      </button>
-      <button type="button" disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
-        {ev.my_rsvp === "interested" ? "✓ " : ""}{t("community.events.rsvpInterested")}
-      </button>
-      {ev.rsvp_count > 0 ? (
-        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)" }}>
-          {t("community.events.goingCount", { n: ev.rsvp_count })}
-        </span>
+    <div style={{ padding: "14px 28px 24px" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => set("going")}
+          style={{ ...base, ...pill(ev.my_rsvp === "going") }}
+        >
+          {ev.my_rsvp === "going" ? "✓ " : ""}
+          {ev.has_form && ev.my_rsvp !== "going"
+            ? t("community.events.rsvpRegister")
+            : t("community.events.rsvpGoing")}
+        </button>
+        <button type="button" disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
+          {ev.my_rsvp === "interested" ? "✓ " : ""}{t("community.events.rsvpInterested")}
+        </button>
+        {ev.rsvp_count > 0 ? (
+          <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)" }}>
+            {t("community.events.goingCount", { n: ev.rsvp_count })}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Say out loud that this one asks questions — and, once registered, that the
+          answers are still editable. Otherwise "Going" looks like a 1-click pill
+          that unexpectedly opens a 30-question dialog. */}
+      {ev.has_form ? (
+        <div
+          style={{
+            marginTop: 10,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            letterSpacing: "0.04em",
+            color: "var(--muted)",
+          }}
+        >
+          {ev.my_rsvp === "going" ? (
+            <button
+              type="button"
+              onClick={() => onOpenForm?.(ev)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                font: "inherit",
+                color: "var(--amber)",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+              }}
+            >
+              {t("community.events.editAnswers")}
+            </button>
+          ) : (
+            <span>◇ {t("community.events.hasForm")}</span>
+          )}
+        </div>
       ) : null}
     </div>
   );
 }
 
-function EventCard({ ev, onRsvp, highlighted }) {
+function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
   const t = useT();
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = fmtDeadline(ev.deadline);
@@ -194,13 +265,18 @@ function EventCard({ ev, onRsvp, highlighted }) {
       }}
     >
       {body}
-      <RsvpRow ev={ev} onRsvp={onRsvp} />
+      <RsvpRow ev={ev} onRsvp={onRsvp} onOpenForm={onOpenForm} />
     </div>
   );
 }
 
-export default function EventsBrowser({ highlightEventId = null }) {
+export default function EventsBrowser({ highlightEventId = null, meId = null }) {
   const t = useT();
+  const { toast, flash } = useToast(3200);
+  // The event whose registration form is open. Mounting the modal IS opening it —
+  // the schema fetch lives in its mount effect, so no event's questions are
+  // requested on page load.
+  const [formEvent, setFormEvent] = useState(null);
   const [tab, setTab] = useState("all"); // all | forme | mine
   const [state, setState] = useState("loading"); // loading | ready | error
   const [all, setAll] = useState(null);
@@ -344,11 +420,36 @@ export default function EventsBrowser({ highlightEventId = null }) {
         ) : (
           <div className="ch-grid" style={{ marginTop: 24 }}>
             {list.map((ev) => (
-              <EventCard key={ev.id} ev={ev} onRsvp={onRsvp} highlighted={highlightEventId === ev.id} />
+              <EventCard
+                key={ev.id}
+                ev={ev}
+                onRsvp={onRsvp}
+                onOpenForm={setFormEvent}
+                highlighted={highlightEventId === ev.id}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Registration form. Mounted only while open (lazy by construction). It owns
+          the whole "going" transition for form events: the feed is patched via
+          onRsvp only after the SERVER accepts the answers. */}
+      {formEvent ? (
+        <EventFormModal
+          event={formEvent}
+          meId={meId}
+          onRsvp={onRsvp}
+          onClose={(reason) => {
+            setFormEvent(null);
+            if (reason === "registered") flash(t("community.events.form.toastRegistered"), "ok");
+            else if (reason === "updated") flash(t("community.events.form.toastUpdated"), "ok");
+            else if (reason === "withdrawn") flash(t("community.events.form.toastWithdrawn"), "ok");
+          }}
+        />
+      ) : null}
+
+      <Toast toast={toast} />
     </div>
   );
 }

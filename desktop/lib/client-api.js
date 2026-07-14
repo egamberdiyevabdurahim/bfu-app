@@ -49,12 +49,36 @@ export async function bfu(path, { method = "GET", body, params } = {}) {
   }
 
   if (!res.ok) {
-    const err = new Error(json?.detail || `HTTP ${res.status}`);
+    const detail = json?.detail ?? null;
+    const err = new Error(errorMessage(detail, res.status));
     err.status = res.status;
+    // Keep the RAW body too. A 422 from a form endpoint is a structured object
+    // (per-question errors keyed by question key), and `new Error(obj)` would
+    // flatten it to "[object Object]" — callers that can render field-level
+    // errors read `err.detail`; everyone else keeps using `err.message`.
+    err.detail = detail;
     throw err;
   }
 
   return json;
+}
+
+// Best-effort human message from a FastAPI error body. `detail` is usually a
+// plain string (HTTPException), sometimes a list of {loc,msg} (Pydantic 422),
+// sometimes a custom object. Never returns an object — that's what err.detail is
+// for.
+function errorMessage(detail, status) {
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail)) {
+    const first = detail.find((d) => d && typeof d.msg === "string");
+    if (first) return first.msg;
+  }
+  if (detail && typeof detail === "object") {
+    for (const k of ["message", "error", "detail"]) {
+      if (typeof detail[k] === "string" && detail[k]) return detail[k];
+    }
+  }
+  return `HTTP ${status}`;
 }
 
 // Tiny convenience wrappers.

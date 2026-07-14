@@ -9,6 +9,12 @@ import SiteFooter from "@/components/ui/SiteFooter";
 // you" feed needs the session); the server wrapper gates on the session
 // (unauth → /login). The client browser loads GET /events (and GET
 // /events/for-me on the "For you" tab) on mount.
+//
+// `meId` is handed down for one reason: an event may carry a registration form
+// (EventFormModal), and a member's half-typed answers are persisted to
+// localStorage so an accidental close can't destroy them. That draft is keyed by
+// (user, event) — a shared browser must never restore one member's answers into
+// another member's form.
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -75,7 +81,7 @@ export default async function EventsPage({ searchParams }) {
           </p>
         </div>
 
-        <EventsBrowser highlightEventId={highlightEventId} />
+        <EventsBrowser highlightEventId={highlightEventId} meId={me.id} />
 
         <SiteFooter tagline={t("community.events.footer")} />
     </AppTopBar>

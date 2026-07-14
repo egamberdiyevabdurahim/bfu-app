@@ -53,9 +53,17 @@ async function req(path, opts = {}, _retry = true) {
   if (!res.ok) {
     // Attach the HTTP status so callers (e.g. the messenger) can distinguish
     // 429 rate-limit / 403 blocked from a generic failure. Existing callers
-    // only read err.message, so this extra property is backwards-compatible.
-    const err = new Error(body.detail ?? `HTTP ${res.status}`);
+    // only read err.message, so these extra properties are backwards-compatible.
+    //
+    // `detail` is usually a string, but a structured 422 (e.g. the event
+    // registration form's per-question errors) sends an object/list — passing
+    // that straight to Error() would stringify it to "[object Object]". Keep the
+    // message a string and hand the raw payload to callers via err.detail/err.body.
+    const detail = body?.detail;
+    const err = new Error(typeof detail === "string" ? detail : `HTTP ${res.status}`);
     err.status = res.status;
+    err.detail = detail;
+    err.body = body;
     throw err;
   }
   return body;
@@ -236,10 +244,20 @@ export const bookings = {
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────
+// An event may carry a registration form (`has_form` in the list payload; the
+// question list itself only comes back from GET /events/{id} as `form_schema`).
+// `rsvp(id, "going", answers)` submits it — the answers arg is omitted entirely
+// for plain 1-click events, so their request body is byte-for-byte what it was.
 export const events = {
   list: (p = {}) => req(`/events${qs(p)}`),
   forMe: () => req("/events/for-me"),
-  rsvp: (id, status) => req(`/events/${id}/rsvp`, { method: "POST", body: JSON.stringify({ status }) }),
+  get: (id) => req(`/events/${id}`),
+  rsvp: (id, status, answers) =>
+    req(`/events/${id}/rsvp`, {
+      method: "POST",
+      body: JSON.stringify(answers ? { status, answers } : { status }),
+    }),
+  myResponse: (id) => req(`/events/${id}/my-response`),
   unrsvp: (id) => req(`/events/${id}/rsvp`, { method: "DELETE" }),
   myRsvps: () => req("/events/mine/rsvps"),
   attendees: (id, limit) => req(`/events/${id}/attendees${qs({ limit })}`),

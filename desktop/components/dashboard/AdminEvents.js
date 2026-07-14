@@ -3,22 +3,37 @@
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
+import { useT } from "@/components/i18n/LocaleProvider";
+import EventFormBuilder from "@/components/dashboard/EventFormBuilder";
+import EventResponses from "@/components/dashboard/EventResponses";
 
 // Events content management for /dashboard/events.
 //
 // Loads GET /admin/events (EventOut[]) — the backend floats pending
 // (unapproved, partner-submitted) events to the top, then newest first, up to
 // 200. EventOut = { id, type, title, description, link, cover_url, deadline,
-// region_id, partner_id, is_approved, is_deleted }. Actions (all get_admin_user):
+// region_id, partner_id, is_approved, is_deleted, has_form }. Actions (all
+// get_admin_user):
 //   - create   POST   /admin/events   {EventBody}   (is_approved:true on admin create)
 //   - edit     PATCH  /admin/events/{id} {EventBody}
 //   - approve  PATCH  /admin/events/{id}/approve    (for pending ones)
 //   - delete   DELETE /admin/events/{id}            (soft; sets is_deleted)
 //
 // EventBody = { type (required), title (required), description?, link?,
-// cover_url?, deadline? (ISO datetime), region_id?, partner_id? }.
+// cover_url?, deadline? (ISO datetime), region_id?, partner_id?, form_schema? }.
 // Regions for the dropdown come from GET /admin/regions; partners from
 // GET /admin/partners (id+name). Optimistic + toast; confirm on delete.
+//
+// REGISTRATION FORM. An event can carry one (Event.form_schema): the questions a
+// member answers when they say "I'm going". Two surfaces hang off each row:
+//   - "Form"      → EventFormBuilder  (write the questions; PATCH form_schema)
+//   - "Responses" → EventResponses    (read the answers; CSV export)
+// The question list is DATA, so changing it never needs a deploy. `has_form` on
+// EventOut is what the pill and the Responses button key off.
+//
+// NOTE for anyone editing EventDialog below: it deliberately does NOT send
+// `form_schema`. The backend PATCH applies model_dump(exclude_unset=True), so an
+// absent key is left alone — editing an event's title can't wipe its questions.
 
 // Common event "types" — free-form on the backend, so this is just a convenience
 // list; the form also accepts anything typed.
@@ -41,14 +56,25 @@ function fmtDeadline(iso) {
   return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Does this event carry a registration form? `has_form` is the authoritative
+// flag from EventOut; form_schema is only present on rows we've just written, so
+// it's a same-session shortcut, not a fallback.
+function hasForm(e) {
+  if (Array.isArray(e.form_schema)) return e.form_schema.length > 0;
+  return e.has_form === true;
+}
+
 export default function AdminEvents() {
+  const t = useT();
   const { showToast, Toast } = useToast();
   const [rows, setRows] = useState([]);
   const [regions, setRegions] = useState([]);
   const [partners, setPartners] = useState([]);
   const [state, setState] = useState("loading"); // loading | ready | error
   const [busyId, setBusyId] = useState(null);
-  const [editing, setEditing] = useState(null); // event object | "new" | null
+  const [editing, setEditing] = useState(null);   // event object | "new" | null
+  const [formFor, setFormFor] = useState(null);   // event whose questions we're editing
+  const [respFor, setRespFor] = useState(null);   // event whose answers we're reading
 
   useEffect(() => {
     let alive = true;
@@ -170,6 +196,12 @@ export default function AdminEvents() {
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>#{e.id}</span>
               <Pill tone="ember">{e.type}</Pill>
               {e.is_approved ? <Pill tone="green">Approved</Pill> : <Pill tone="amber">Pending</Pill>}
+              {hasForm(e) && (
+                <Pill tone="ember">
+                  ▤ {t("dash.events.has_form")}
+                  {Array.isArray(e.form_schema) ? ` · ${e.form_schema.length}` : ""}
+                </Pill>
+              )}
               {e.region_id && regionName(e.region_id) && <Pill tone="muted">{regionName(e.region_id)}</Pill>}
               {e.partner_id && partnerName(e.partner_id) && <Pill tone="muted">◆ {partnerName(e.partner_id)}</Pill>}
             </div>
@@ -197,6 +229,14 @@ export default function AdminEvents() {
             {!e.is_approved && (
               <ActionBtn onClick={() => doApprove(e)} busy={busyId === e.id} title="Approve + announce">✓ Approve</ActionBtn>
             )}
+            <ActionBtn onClick={() => setFormFor(e)} busy={busyId === e.id} title={t("dash.events.form_title")}>
+              ▤ {t("dash.events.form_btn")}
+            </ActionBtn>
+            {hasForm(e) && (
+              <ActionBtn onClick={() => setRespFor(e)} busy={busyId === e.id} title={t("dash.events.responses_title")}>
+                {t("dash.events.responses_btn")}
+              </ActionBtn>
+            )}
             <ActionBtn onClick={() => setEditing(e)} busy={busyId === e.id} title="Edit this event">Edit</ActionBtn>
             <ActionBtn onClick={() => doDelete(e)} busy={busyId === e.id} tone="terra" title="Delete this event">Delete</ActionBtn>
           </div>
@@ -211,6 +251,23 @@ export default function AdminEvents() {
           onCancel={() => setEditing(null)}
           onSubmit={submitForm}
         />
+      )}
+
+      {formFor && (
+        <EventFormBuilder
+          event={formFor}
+          showToast={showToast}
+          onClose={() => setFormFor(null)}
+          // The builder hands back the saved row (+ has_form/form_schema) so the
+          // pill and the Responses button update without a reload.
+          onSaved={(saved) =>
+            setRows((rs) => rs.map((x) => (x.id === formFor.id ? { ...x, ...saved } : x)))
+          }
+        />
+      )}
+
+      {respFor && (
+        <EventResponses event={respFor} showToast={showToast} onClose={() => setRespFor(null)} />
       )}
 
       <Toast />

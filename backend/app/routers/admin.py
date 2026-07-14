@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,16 +8,24 @@ from app.config import settings
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db, AsyncSessionLocal
 import asyncio
+import csv
+import io
 import json
+from typing import Any
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
 from app.services.notify import esc, send_telegram, send_telegram_result
 from app.services.audit import log_action
+from app.services.event_forms import (
+    answer_to_text, has_form, normalize_schema, validate_schema,
+)
 from app.models.project import Project, ProjectMember, ProjectReqSkill
 from app.models.user_analysis import UserAnalysis
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
+from app.models.event_rsvp import EventRsvp
 from app.models.partner import Partner
 from datetime import datetime, timedelta
+from app.schemas.event import FormResponseOut
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
 from pydantic import BaseModel
@@ -689,14 +698,19 @@ async def hard_delete_user(
     return {"detail": "User hard deleted"}
 
 class EventBody(BaseModel):
-    type: str
-    title: str
+    # type/title are optional at the schema level so a PATCH can send *only*
+    # form_schema; POST /admin/events enforces both below (400 otherwise).
+    type: str | None = None
+    title: str | None = None
     description: str | None = None
     link: str | None = None
     cover_url: str | None = None
     deadline: datetime | None = None
     region_id: int | None = None
     partner_id: int | None = None
+    # The registration form's question list (see app.services.event_forms).
+    # null/[] = no form → plain one-click RSVP.
+    form_schema: list[dict] | None = None
 
 
 class EventOut(BaseModel):
@@ -711,7 +725,22 @@ class EventOut(BaseModel):
     partner_id: int | None = None
     is_approved: bool = True
     is_deleted: bool
+    form_schema: list[dict] | None = None
+    has_form: bool = False
     model_config = {"from_attributes": True}
+
+
+def _checked_schema(raw: Any) -> list[dict] | None:
+    """Validate an admin-supplied question list with the ONE rulebook
+    (app.services.event_forms) and return the normalized blob to store.
+    422s with {question_key: reason} so the panel can point at the bad row."""
+    errors = validate_schema(raw)
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Invalid form_schema", "errors": errors},
+        )
+    return normalize_schema(raw)
 
 
 @router.get("/events", response_model=list[EventOut])
@@ -747,13 +776,16 @@ async def admin_approve_event(event_id: int, admin: User = Depends(get_admin_use
 
 @router.post("/events", response_model=EventOut, status_code=status.HTTP_201_CREATED)
 async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
-    if not body.title.strip():
+    if not body.title or not body.title.strip():
         raise HTTPException(400, "Title required")
+    if not body.type or not body.type.strip():
+        raise HTTPException(400, "Type required")
     e = Event(
         type=body.type, title=body.title.strip(), description=body.description,
         link=body.link, cover_url=body.cover_url, deadline=body.deadline,
         region_id=body.region_id, created_by=admin.id,
         partner_id=body.partner_id, is_approved=True,
+        form_schema=_checked_schema(body.form_schema),
     )
     db.add(e); await db.commit(); await db.refresh(e)
     # Announce the new event to the global group with a deep link.
@@ -842,10 +874,88 @@ async def admin_update_event(event_id: int, body: EventBody,
                               admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     e = await db.get(Event, event_id)
     if not e: raise HTTPException(404, "Event not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    patch = body.model_dump(exclude_unset=True)
+    # The founder edits the questions here — they are data, so a form change is
+    # a PATCH, never a deploy. Validated by the same rulebook the RSVP path uses.
+    if "form_schema" in patch:
+        patch["form_schema"] = _checked_schema(patch["form_schema"])
+    for k, v in patch.items():
         setattr(e, k, v)
     await db.commit(); await db.refresh(e)
     return e
+
+
+@router.get("/events/{event_id}/responses", response_model=list[FormResponseOut])
+async def admin_event_responses(
+    event_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Everyone who registered for this event, with their form answers."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    rows = await _event_responses(db, event_id)
+    return [
+        FormResponseOut(
+            user_id=u.id, display_name=u.display_name, tg_username=u.tg_username,
+            phone_number=u.phone_number, submitted_at=r.created_at, answers=r.answers,
+        )
+        for r, u in rows
+    ]
+
+
+async def _event_responses(db: AsyncSession, event_id: int) -> list[tuple[EventRsvp, User]]:
+    """(rsvp, user) pairs for the 'going' registrations, oldest first."""
+    return list((await db.execute(
+        select(EventRsvp, User)
+        .join(User, User.id == EventRsvp.user_id)
+        .where(EventRsvp.event_id == event_id, EventRsvp.status == "going")
+        .order_by(EventRsvp.created_at.asc(), EventRsvp.id.asc())
+    )).all())
+
+
+@router.get("/events/{event_id}/responses.csv")
+async def admin_event_responses_csv(
+    event_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The same table as a spreadsheet: one column per question (header = the
+    question's LABEL, in schema order). UTF-8 **with BOM** so Excel renders
+    Uzbek/Cyrillic text instead of mojibake."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    schema = e.form_schema if has_form(e.form_schema) else []
+    rows = await _event_responses(db, event_id)
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(
+        ["user_id", "name", "username", "phone", "submitted_at"]
+        + [q.get("label", q.get("key", "")) for q in schema]
+    )
+    for r, u in rows:
+        answers = r.answers or {}
+        w.writerow(
+            [
+                u.id,
+                u.display_name,
+                f"@{u.tg_username}" if u.tg_username else "",
+                u.phone_number or "",
+                r.created_at.isoformat(sep=" ", timespec="seconds") if r.created_at else "",
+            ]
+            + [answer_to_text(answers.get(q.get("key"))) for q in schema]
+        )
+
+    body = "﻿" + buf.getvalue()   # BOM first -> Excel-safe UTF-8
+    filename = f"event-{event_id}-responses.csv"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/events/{event_id}")

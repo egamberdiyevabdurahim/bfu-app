@@ -196,6 +196,11 @@ async def lifespan(app: FastAPI):
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_event_rsvp_event_user ON event_rsvps (event_id, user_id);",
         "CREATE INDEX IF NOT EXISTS ix_event_rsvps_reminder ON event_rsvps (reminded_at, status);",
         "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS event_id BIGINT;",
+        # --- Event registration forms: admin-authored questions + a member's
+        #     answers. Both are JSON blobs (JSONB, like users.notification_prefs).
+        #     NULL = no form / plain one-click RSVP. See app.services.event_forms.
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS form_schema JSONB;",
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS answers JSONB;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

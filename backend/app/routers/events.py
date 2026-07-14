@@ -14,6 +14,8 @@ from app.database import get_db
 from app.models.event import Event
 from app.models.event_rsvp import EventRsvp
 from app.models.user import User
+from app.schemas.event import EventDetailOut, EventOut, MyResponseOut, RsvpIn
+from app.services.event_forms import has_form, parse_answers
 from app.services.notifications import add_notification, should_push_telegram
 from app.services.notify import esc, notify_background
 from app.services.ratelimit import rate_limit
@@ -37,21 +39,6 @@ def _user_tags(analysis) -> list[str]:
         for c in _CATS:
             out.extend(t for t in (getattr(analysis, c, None) or []))
     return out
-
-
-class EventOut(BaseModel):
-    id: int
-    type: str
-    title: str
-    description: str | None = None
-    link: str | None = None
-    cover_url: str | None = None
-    deadline: datetime | None = None
-    region_id: int | None = None
-    created_at: datetime
-    rsvp_count: int = 0          # number of "going" RSVPs
-    my_rsvp: str | None = None   # this user's status ("going"/"interested") or None
-    model_config = {"from_attributes": True}
 
 
 async def _attach_rsvp(db: AsyncSession, rows: list[Event], me_id: int) -> None:
@@ -154,12 +141,9 @@ async def opportunities_for_me(
             "region_id": e.region_id,
             "matched": matched[:5], "score": score,
             "rsvp_count": counts.get(e.id, 0), "my_rsvp": mine.get(e.id),
+            "has_form": e.has_form,
         })
     return out
-
-
-class RsvpIn(BaseModel):
-    status: str = "going"   # "going" | "interested"
 
 
 class AttendeeOut(BaseModel):
@@ -203,6 +187,21 @@ async def rsvp_event(
     if not e:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    # ── registration form ────────────────────────────────────────────────────
+    # If the event asks questions, a "going" RSVP must answer them — validated
+    # HERE, server-side (app.services.event_forms is the single rulebook; the
+    # client is never the only gate). "interested" never requires the form, and
+    # an event with no form ignores `answers` entirely. A 422 writes nothing:
+    # this runs before any db.add / row mutation.
+    answers: dict | None = None
+    if has_form(e.form_schema) and status == "going":
+        answers, errors = parse_answers(e.form_schema, body.answers)
+        if errors:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Please fix the form", "errors": errors},
+            )
+
     row = (await db.execute(select(EventRsvp).where(
         EventRsvp.event_id == event_id, EventRsvp.user_id == me.id,
     ))).scalar_one_or_none()
@@ -218,9 +217,13 @@ async def rsvp_event(
             # Anti-flood only on a genuinely NEW RSVP (each first 'going' pings the
             # creator). Toggling/status-changing an existing row is exempt.
             await rate_limit(db, me.id, "event_rsvp", 60, 3600)  # 60 new RSVPs / hour
-            db.add(EventRsvp(event_id=event_id, user_id=me.id, status=status))
+            db.add(EventRsvp(
+                event_id=event_id, user_id=me.id, status=status, answers=answers,
+            ))
         else:
             row.status = status  # switch going<->interested (reuses the row)
+            if answers is not None:
+                row.answers = answers  # re-RSVP overwrites (people fix typos)
         if notify_creator:
             add_notification(db, e.created_by, "event_rsvp", actor_id=me.id, event_id=event_id)
         await db.commit()
@@ -233,6 +236,8 @@ async def rsvp_event(
         ))).scalar_one_or_none()
         if row is not None:
             row.status = status
+            if answers is not None:
+                row.answers = answers
         notify_creator = False  # the request that won the insert owns the notify
         await db.commit()
 
@@ -286,3 +291,35 @@ async def event_attendees(
         "attendees": [{"user_id": u.id, "display_name": u.display_name, "status": s}
                       for u, s in rows],
     }
+
+
+@router.get("/{event_id}/my-response", response_model=MyResponseOut)
+async def my_form_response(
+    event_id: int,
+    me: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The caller's own saved answers (so the client can review/edit them).
+    `answers` is null when they haven't RSVP'd or the event has no form."""
+    row = (await db.execute(select(EventRsvp).where(
+        EventRsvp.event_id == event_id, EventRsvp.user_id == me.id,
+    ))).scalar_one_or_none()
+    return {"answers": row.answers if row else None}
+
+
+# Declared LAST: a bare "/{event_id}" would otherwise shadow the literal routes
+# above ("/for-me", "/mine/rsvps") — FastAPI matches in declaration order.
+@router.get("/{event_id}", response_model=EventDetailOut)
+async def get_event(
+    event_id: int,
+    me: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """One event + its registration form (`form_schema`, null when there's none)."""
+    e = (await db.execute(select(Event).where(
+        Event.id == event_id, Event.is_deleted == False, Event.is_approved == True,
+    ))).scalar_one_or_none()
+    if not e:
+        raise HTTPException(status_code=404, detail="Event not found")
+    await _attach_rsvp(db, [e], me.id)
+    return e

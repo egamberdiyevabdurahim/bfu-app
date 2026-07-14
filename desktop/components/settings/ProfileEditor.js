@@ -7,6 +7,7 @@ import { useToast } from "@/lib/useToast";
 import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 import AchievementsCell from "@/components/AchievementsCell";
+import { FLAGS } from "@/lib/flags";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -631,12 +632,17 @@ export default function ProfileEditor({ initial, regions }) {
 
         {/* ── RIGHT: secondary rail ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Achievements — reuse the public-profile look. */}
-          {Array.isArray(me.achievements) && me.achievements.length ? (
-            <AchievementsCell achievements={me.achievements} />
-          ) : (
-            <AchievementsLoader />
-          )}
+          {/* Achievements — reuse the public-profile look.
+              V1: hidden behind FLAGS.TRUST. With the flag off this renders
+              nothing and AchievementsLoader never mounts, so the client-side
+              GET /users/me/achievements fetch never fires either. Flip
+              FLAGS.TRUST to true and the cell comes back exactly as before. */}
+          {FLAGS.TRUST &&
+            (Array.isArray(me.achievements) && me.achievements.length ? (
+              <AchievementsCell achievements={me.achievements} />
+            ) : (
+              <AchievementsLoader />
+            ))}
 
           {/* Invite */}
           <Section label={t("settings.invite_section_label")} hint={t("settings.invite_section_hint")}>

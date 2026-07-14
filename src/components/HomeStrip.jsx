@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { users, projects, bookings } from "../api";
 import { useT } from "../i18n";
+import { FLAGS } from "../flags";
 
 // ── Home "command center" strip (top of the Profile tab) ──────────────────────
 // Mirrors the desktop HomeDashboard's highest-value modules, reusing existing
@@ -37,17 +38,19 @@ export const HomeStrip = ({ refreshKey, onOpenRequests, onOpenInbox, onOpenBooki
   useEffect(() => {
     projects.funnel().then((f) => setPending(f?.totals?.pending || 0)).catch(() => {});
     users.unreadCount().then((r) => setUnread(r?.unread || 0)).catch(() => {});
-    bookings.mine().then((r) => {
-      const reqs = (r?.as_mentor || []).filter((b) => b.status === "requested").length;
-      setSessionReqs(reqs);
-    }).catch(() => {});
+    if (FLAGS.MENTORING) {
+      bookings.mine().then((r) => {
+        const reqs = (r?.as_mentor || []).filter((b) => b.status === "requested").length;
+        setSessionReqs(reqs);
+      }).catch(() => {});
+    }
     users.profileViewers().then((r) => setViewers({ count: r?.count || 0, recent: r?.recent || [] })).catch(() => {});
   }, [refreshKey]);
 
   const needs = [
     pending > 0 && { key: "pending", glyph: "✒", n: pending, label: t("home.pendingApps"), onClick: onOpenRequests },
     unread > 0 && { key: "unread", glyph: "🔔", n: unread, label: t("home.unread"), onClick: onOpenInbox },
-    sessionReqs > 0 && { key: "sessions", glyph: "◷", n: sessionReqs, label: t("home.sessionReqs"), onClick: onOpenBookings },
+    FLAGS.MENTORING && sessionReqs > 0 && { key: "sessions", glyph: "◷", n: sessionReqs, label: t("home.sessionReqs"), onClick: onOpenBookings },
   ].filter(Boolean);
 
   const hasNeeds = needs.length > 0;

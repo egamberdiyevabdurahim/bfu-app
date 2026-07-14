@@ -6,6 +6,7 @@ import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
 import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { FLAGS } from "@/lib/flags";
 
 // CommandPalette — the app-wide ⌘K / Ctrl-K search overlay.
 //
@@ -27,15 +28,21 @@ const DEBOUNCE_MS = 200;
 // Static quick-actions shown when the query is empty (command-palette feel).
 // Every href is a real, existing route in this app. Labels are i18n keys,
 // resolved to the current language where the rows are built.
-const QUICK_ACTIONS = [
+//
+// V1 launch scope: an action carrying a `flag` only appears while that flag is
+// true in lib/flags.js — the palette must never jump to a surface that's hidden
+// from the sidebar. Flip the flag and the row is back; nothing here is deleted.
+const ALL_QUICK_ACTIONS = [
   { id: "new", href: "/projects/new", titleKey: "misc.qa_new_title", subtitleKey: "misc.qa_new_sub", icon: "＋" },
   { id: "city", href: "/city", titleKey: "misc.qa_city_title", subtitleKey: "misc.qa_city_sub", icon: "✦" },
   { id: "projects", href: "/projects", titleKey: "misc.qa_projects_title", subtitleKey: "misc.qa_projects_sub", icon: "◆" },
-  { id: "mentors", href: "/mentors", titleKey: "misc.qa_mentors_title", subtitleKey: "misc.qa_mentors_sub", icon: "◈" },
+  { id: "mentors", href: "/mentors", titleKey: "misc.qa_mentors_title", subtitleKey: "misc.qa_mentors_sub", icon: "◈", flag: "MENTORING" },
   { id: "events", href: "/events", titleKey: "misc.qa_events_title", subtitleKey: "misc.qa_events_sub", icon: "✧" },
   { id: "mine", href: "/projects/mine", titleKey: "misc.qa_mine_title", subtitleKey: "misc.qa_mine_sub", icon: "❖" },
-  { id: "connections", href: "/connections", titleKey: "misc.qa_connections_title", subtitleKey: "misc.qa_connections_sub", icon: "❋" },
+  { id: "connections", href: "/connections", titleKey: "misc.qa_connections_title", subtitleKey: "misc.qa_connections_sub", icon: "❋", flag: "CONNECTIONS" },
 ];
+
+const QUICK_ACTIONS = ALL_QUICK_ACTIONS.filter((a) => !a.flag || FLAGS[a.flag] === true);
 
 function ProjectIcon({ type }) {
   return (

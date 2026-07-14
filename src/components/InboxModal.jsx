@@ -6,6 +6,13 @@ import { useT } from "../i18n";
 import { UserProfileModal } from "./UserProfileModal";
 import { RateSheet } from "./RateSheet";
 import { relTime } from "../timefmt";
+import { FLAGS } from "../flags";
+
+// Mentoring is hidden for V1: a stale booking notification would render a row
+// the user can do nothing with, so we drop those types from the list entirely.
+// The label/icon entries below stay in place — flip FLAGS.MENTORING to restore.
+const BOOKING_TYPES = ["booking_request", "booking_confirmed", "booking_declined"];
+const isVisibleNotif = (n) => FLAGS.MENTORING || !BOOKING_TYPES.includes(n.type);
 
 // Localized one-liner per notification type, rendered from structured fields.
 function notifText(t, n) {
@@ -64,6 +71,7 @@ export const InboxModal = ({ onClose }) => {
   }, [tab, connections, following]);
 
   const fmt = (iso) => relTime(iso); // Tashkent-aware, UTC-safe relative time
+  const visibleItems = items === null ? null : items.filter(isVisibleNotif);
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column" }}>
@@ -97,11 +105,11 @@ export const InboxModal = ({ onClose }) => {
 
         <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 32px" }}>
           {tab === "activity" ? (
-            items === null ? (
+            visibleItems === null ? (
               <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("common.loading")}</div>
-            ) : items.length === 0 ? (
+            ) : visibleItems.length === 0 ? (
               <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("inbox.empty")}</div>
-            ) : items.map(n => {
+            ) : visibleItems.map(n => {
               const isRatePrompt = n.type === "rate_prompt" && !!n.project?.id;
               const isEvent = n.type === "event_rsvp" && !!n.event_id;
               const clickable = !!n.actor || isRatePrompt || isEvent;

@@ -29,8 +29,8 @@
       // hero
       'hero.kicker': 'Bright Futures Uzbekistan',
       'hero.headline': 'Where young Uzbekistan builds the future.',
-      'hero.subhead.a': 'Find your co-founders, your team, your next opportunity —',
-      'hero.subhead.b': 'inside Telegram, in your language.',
+      'hero.subhead.a': 'Find a team for your project.',
+      'hero.subhead.b': 'Find a project to join.',
       'cta.telegram': 'Open in Telegram',
       'cta.inside': "See what's inside",
       'chip.regions': '14 regions',
@@ -166,8 +166,8 @@
 
       'hero.kicker': 'Bright Futures Uzbekistan',
       'hero.headline': 'Yosh O‘zbekiston kelajagini shu yerda quradi.',
-      'hero.subhead.a': 'Hammuassis, jamoa va yangi imkoniyatingizni toping —',
-      'hero.subhead.b': 'Telegram ichida, o‘z tilingizda.',
+      'hero.subhead.a': 'Loyihangga jamoa top.',
+      'hero.subhead.b': 'Jamoaga loyiha top.',
       'cta.telegram': 'Telegramda ochish',
       'cta.inside': 'Ichida nima borligini ko‘ring',
       'chip.regions': '14 hudud',
@@ -292,8 +292,8 @@
 
       'hero.kicker': 'Bright Futures Uzbekistan',
       'hero.headline': 'Здесь молодой Узбекистан строит будущее.',
-      'hero.subhead.a': 'Найди сооснователей, команду и новую возможность —',
-      'hero.subhead.b': 'прямо в Telegram, на твоём языке.',
+      'hero.subhead.a': 'Найди команду для своего проекта.',
+      'hero.subhead.b': 'Найди проект для себя.',
       'cta.telegram': 'Открыть в Telegram',
       'cta.inside': 'Посмотреть, что внутри',
       'chip.regions': '14 регионов',

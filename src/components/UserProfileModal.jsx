@@ -5,6 +5,7 @@ import { useT } from "../i18n";
 import { tgAlert, tgConfirm, tgChatUrl, openChat } from "../tg";
 import { Page, AvatarEl } from "./Shared";
 import { BookSlotSheet } from "./MentorSheets";
+import { FLAGS } from "../flags";
 
 // Badge presentation — re-themed onto the Chorsu firelit palette (amber / green
 // / teal-bright / ember). Colors are hex so we can derive tint + border.
@@ -77,6 +78,9 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [vouchOpen, setVouchOpen] = useState(false);
   const [vouchText, setVouchText] = useState("");
   const [vouchBusy, setVouchBusy] = useState(false);
+  // Mentoring is behind FLAGS.MENTORING for V1. The state stays (hooks can't be
+  // conditional) but the only setter lives inside the flag-gated mentor cell and
+  // the sheet render is flag-gated too, so BookSlotSheet can never open.
   const [booking, setBooking] = useState(false);
 
   // Follow (rebuilt inline so the toggle can wear .btn-primary / ghost like the
@@ -243,8 +247,13 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const hasStats = (stats.projects_founded || 0) + (stats.projects_joined || 0) + (stats.applications_accepted || 0) > 0;
   const showBuilding = !!user?.currently_building || founded.length > 0;
   const showConnections = followerCount > 0 || mutual.count > 0 || collaborators.count > 0 || !!regionName;
-  const nothing = !user?.about && !hasAnyTags && !hasProjects && !(user?.vouches?.length) &&
-    !(user?.badges?.length) && !user?.currently_building && !hasStats && (!rating || rating.average == null);
+  // Trust surfaces only count as "content" while FLAGS.TRUST is on — otherwise a
+  // profile whose only content is a rating/vouches would render an empty body
+  // with no empty-state message.
+  const showVouches = FLAGS.TRUST && (user?.vouches?.length || 0) > 0;
+  const showRating = FLAGS.TRUST && !!rating && rating.average != null;
+  const nothing = !user?.about && !hasAnyTags && !hasProjects && !showVouches &&
+    !(user?.badges?.length) && !user?.currently_building && !hasStats && !showRating;
 
   // Message now opens a REAL in-app DM (find-or-create), so it works for every
   // builder — including the many with no Telegram username. The Telegram
@@ -424,7 +433,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               </Cell>
 
               {/* ── Mentor ─────────────────────────────────────────────────── */}
-              {user?.mentor?.is_mentor && (
+              {FLAGS.MENTORING && user?.mentor?.is_mentor && (
                 <Cell label={t("mentor.isMentor")} style={{ borderColor: "rgba(94,197,182,0.3)",
                   background: "linear-gradient(150deg, rgba(94,197,182,0.08), var(--surface) 60%)" }}>
                   {user.mentor.bio && (
@@ -492,7 +501,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               )}
 
               {/* ── Reputation ─────────────────────────────────────────────── */}
-              {rating && rating.average != null && (
+              {FLAGS.TRUST && rating && rating.average != null && (
                 <Cell label={t("trust.rating")}>
                   <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
                     <Ring value={rating.average} />
@@ -509,7 +518,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 </Cell>
               )}
 
-              {/* ── Skills / knowledge / interests / goals (skills endorsable) ── */}
+              {/* ── Skills / knowledge / interests / goals (skills endorsable when FLAGS.TRUST) ── */}
               {hasAnyTags && (
                 <Cell>
                   {TAG_ORDER.map(key => {
@@ -521,7 +530,9 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                         <div className="ch-cell-label">{t(`tag.${key}`)}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                           {tags.map(tag => {
-                            if (key !== "skills") {
+                            // With TRUST off, skills render as plain (non-endorsable) chips
+                            // like every other tag group.
+                            if (key !== "skills" || !FLAGS.TRUST) {
                               return (
                                 <span key={tag} style={{ fontFamily: "var(--font-mono)", fontSize: 11, padding: "5px 10px",
                                   borderRadius: "var(--radius-pill)", background: `${color}1a`, color,
@@ -605,40 +616,42 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               )}
 
               {/* ── Vouches ────────────────────────────────────────────────── */}
-              <Cell label={t("trust.vouches")}>
-                {(user.vouches || []).length === 0 ? (
-                  <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("trust.noVouches")}</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {user.vouches.map(v => (
-                      <div key={v.id} style={{ background: "var(--surface-2)", border: "1px solid var(--hair)",
-                        borderLeft: "3px solid var(--amber)", borderRadius: "var(--radius-sm)", padding: "10px 12px" }}>
-                        <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 15,
-                          color: "var(--text)", lineHeight: 1.5 }}>“{v.text}”</div>
-                        <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
-                          — {v.author?.display_name || ""}
+              {FLAGS.TRUST && (
+                <Cell label={t("trust.vouches")}>
+                  {(user.vouches || []).length === 0 ? (
+                    <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("trust.noVouches")}</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {user.vouches.map(v => (
+                        <div key={v.id} style={{ background: "var(--surface-2)", border: "1px solid var(--hair)",
+                          borderLeft: "3px solid var(--amber)", borderRadius: "var(--radius-sm)", padding: "10px 12px" }}>
+                          <div style={{ fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 15,
+                            color: "var(--text)", lineHeight: 1.5 }}>“{v.text}”</div>
+                          <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
+                            — {v.author?.display_name || ""}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!vouchOpen ? (
-                  <button onClick={() => setVouchOpen(true)} className="btn-ghost"
-                    style={{ alignSelf: "flex-start", color: "var(--amber)", borderColor: "var(--hair)" }}>
-                    {t("trust.vouchBtn")}
-                  </button>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <textarea value={vouchText} maxLength={280} onChange={e => setVouchText(e.target.value)}
-                      placeholder={t("trust.vouchPh")} rows={3} className="input-field" style={{ resize: "vertical" }} />
-                    <button onClick={submitVouch} disabled={vouchBusy || !vouchText.trim()} className="btn-primary"
-                      style={{ alignSelf: "flex-start", width: "auto", padding: "10px 20px",
-                        opacity: (vouchBusy || !vouchText.trim()) ? 0.55 : 1 }}>
-                      {t("trust.vouchPost")}
+                      ))}
+                    </div>
+                  )}
+                  {!vouchOpen ? (
+                    <button onClick={() => setVouchOpen(true)} className="btn-ghost"
+                      style={{ alignSelf: "flex-start", color: "var(--amber)", borderColor: "var(--hair)" }}>
+                      {t("trust.vouchBtn")}
                     </button>
-                  </div>
-                )}
-              </Cell>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <textarea value={vouchText} maxLength={280} onChange={e => setVouchText(e.target.value)}
+                        placeholder={t("trust.vouchPh")} rows={3} className="input-field" style={{ resize: "vertical" }} />
+                      <button onClick={submitVouch} disabled={vouchBusy || !vouchText.trim()} className="btn-primary"
+                        style={{ alignSelf: "flex-start", width: "auto", padding: "10px 20px",
+                          opacity: (vouchBusy || !vouchText.trim()) ? 0.55 : 1 }}>
+                        {t("trust.vouchPost")}
+                      </button>
+                    </div>
+                  )}
+                </Cell>
+              )}
 
               {/* ── Projects · stats · links ───────────────────────────────── */}
               {(hasProjects || links.length > 0 || hasStats) && (
@@ -714,7 +727,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
         </div>
       </Page>
 
-      {booking && user && (
+      {FLAGS.MENTORING && booking && user && (
         <BookSlotSheet mentor={user} onClose={() => setBooking(false)} />
       )}
     </div>

@@ -2,18 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { FLAGS } from "@/lib/flags";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // The categories rendered under the master switch, in order. Each maps to a
 // backend preference key (see app.services.notifications.NOTIF_PREF_KEYS). Labels
 // and descriptions are resolved at render via t("settings.notif_<key>_label/_desc").
+//
+// "bookings" belongs to mentoring, which is hidden for the V1 launch, so its row
+// is filtered out while FLAGS.MENTORING is false — there is nothing to be
+// notified about, and no /bookings page to send you to. Flip the flag and the
+// row comes back in place, between project_updates and events. The key stays in
+// DEFAULT_PREFS below (and the backend still stores it), so nothing is lost.
 const CATEGORIES = [
   { key: "messages" },
   { key: "interest" },
   { key: "applications" },
   { key: "project_updates" },
-  { key: "bookings" },
+  ...(FLAGS.MENTORING ? [{ key: "bookings" }] : []),
   { key: "events" },
   { key: "weekly_digest" },
 ];

@@ -14,6 +14,7 @@ import { RegionLandingScreen } from "./RegionLandingScreen";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { MessagesScreen } from "./components/MessagesScreen";
 import { startUpdateCheck } from "./updateCheck";
+import { FLAGS } from "./flags";
 
 function publicRoute() {
   const path = window.location.pathname;
@@ -193,20 +194,27 @@ function MiniApp() {
   // When the profile is locked we force them into the Profile tab (which folds in
   // edit/settings) so they can fix it.
   const forceSettings = deniedFields.length > 0;
-  const effectiveTab = forceSettings ? "profile" : activeTab;
+  const requestedTab = forceSettings ? "profile" : activeTab;
 
   const screens = {
     city:     <CityScreen />,
     projects: <ProjectsScreen
                   deepLinkAppId={deepLink?.tab === "projects" ? deepLink.appId : null}
                   onDeepLinkConsumed={() => setDeepLink(null)} />,
-    mentors:  <MentorsScreen />,
+    // Mentors is hidden for V1 — flip FLAGS.MENTORING to bring the screen back.
+    ...(FLAGS.MENTORING ? { mentors: <MentorsScreen /> } : {}),
     events:   <EventsScreen
                   deepLinkEventId={deepLink?.tab === "events" ? deepLink.eventId : null}
                   embedded
                   onBack={() => setActiveTab("city")} />,
     profile:  <ProfileScreen />,
   };
+
+  // A tab that isn't in the map (e.g. a stale "mentors" while the flag is off)
+  // would render blank — fall back to the default tab instead.
+  const effectiveTab = Object.prototype.hasOwnProperty.call(screens, requestedTab)
+    ? requestedTab
+    : "city";
 
   // Transient boot failure (network / 5xx / cold start): the token is still
   // valid, so offer a retry instead of dropping to the login screen.
@@ -287,7 +295,7 @@ function MiniApp() {
             }}>
               {screens[effectiveTab]}
             </div>
-            {!forceSettings && <BottomNav active={activeTab} onChange={setActiveTab} />}
+            {!forceSettings && <BottomNav active={effectiveTab} onChange={setActiveTab} />}
           </>
         )}
         {deepUserId && (

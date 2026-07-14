@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getT } from "@/lib/i18n/server";
+import { FLAGS } from "@/lib/flags";
 import AppTopBar from "@/components/nav/AppTopBar";
 import FavoritesList from "@/components/projects/FavoritesList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -16,6 +17,10 @@ export const metadata = {
 };
 
 export default async function FavoritesPage() {
+  // V1 scope gate: Saved is built but hidden for launch. Flip FLAGS.SAVED in
+  // lib/flags.js to bring this page back — nothing else below has changed.
+  if (!FLAGS.SAVED) notFound();
+
   const me = await getMe();
   if (!me) redirect("/login");
 

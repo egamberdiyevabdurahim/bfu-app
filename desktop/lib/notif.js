@@ -17,7 +17,40 @@
 // application, accepted, declined, rate_prompt, project_update, booking_request,
 // booking_confirmed, booking_declined.
 
+import { FLAGS } from "@/lib/flags";
 import { handleFor } from "@/lib/handle";
+
+// Notification types belonging to a feature that is hidden for the V1 launch
+// (see lib/flags.js). The feature's pages don't exist while its flag is off —
+// mentoring's /bookings 404s — so an OLD notification of one of these types,
+// still sitting in someone's inbox from before the launch, must not be rendered
+// at all: it would be a row that links to a dead page. They are FILTERED OUT
+// (see isVisibleNotif / visibleNotifs) rather than deleted, and the emoji / text
+// / link tables below are kept fully intact — flipping FLAGS.MENTORING back to
+// true restores these rows exactly as they were, with no other change.
+const HIDDEN_TYPES = {
+  booking_request: "MENTORING",
+  booking_confirmed: "MENTORING",
+  booking_declined: "MENTORING",
+};
+
+/**
+ * Is this notification's feature live? False for items whose flag is off, which
+ * means the row must not be rendered at all. Apply to every notification list
+ * before rendering it — visibleNotifs() does that for a whole array.
+ */
+export function isVisibleNotif(n) {
+  const flag = HIDDEN_TYPES[n?.type];
+  return !flag || FLAGS[flag] === true;
+}
+
+/**
+ * Drop hidden-feature notifications from a freshly-fetched list. Callers that
+ * render GET /users/me/notifications should pass `res.items` through this.
+ */
+export function visibleNotifs(items) {
+  return (Array.isArray(items) ? items : []).filter(isVisibleNotif);
+}
 
 // Type → emoji glyph shown when there is no actor avatar (and as a small badge
 // alongside the actor). Matches the Mini App's TYPE_EMOJI table.
@@ -106,6 +139,11 @@ export function notifText(n, t) {
  * - person items (interest/mutual/intro/new_follower) → the actor /u/{id}
  */
 export function notifHref(n) {
+  // A hidden-feature item has no page to go to (the server still sends
+  // link="/bookings", but that route 404s while FLAGS.MENTORING is false), so it
+  // is never a link. visibleNotifs() should already have dropped it; this is the
+  // backstop that guarantees no dead link if one is rendered anyway.
+  if (!isVisibleNotif(n)) return null;
   // The desktop is basePath-hosted under /web; prefix every internal target
   // (both server-provided n.link and the derived fallbacks) once, here.
   const p = _notifTarget(n);

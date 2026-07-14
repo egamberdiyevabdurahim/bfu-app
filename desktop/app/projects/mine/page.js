@@ -9,6 +9,13 @@ import SiteFooter from "@/components/ui/SiteFooter";
 // gates on the session and passes meId down; the client list loads
 // GET /projects/mine on mount (with a loading state) so the list is always fresh
 // after a create/edit/delete without an ISR window.
+//
+// V1: "Applications" is FOLDED INTO this page — it no longer has its own nav row.
+// The /requests inbox (accept/decline the builders who applied) still exists and
+// still works, so this page carries the only entry point into it: the card below
+// the header. No pending count here on purpose — this is a server component and
+// the count would cost a fresh round-trip; the per-project pending counts already
+// render on each owned card in MyProjectsList.
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -73,6 +80,54 @@ export default async function MyProjectsPage() {
             {t("projects.mine_sub")}
           </p>
         </div>
+
+        {/* Entry point into the applications inbox (/requests). Note the "/web"
+            prefix: a plain <a> does NOT get basePath applied automatically. */}
+        <a
+          href="/web/requests"
+          className="ch-cell"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+            padding: 22,
+            marginBottom: 30,
+            textDecoration: "none",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 220 }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--amber)",
+              }}
+            >
+              {t("projmanage.req_eyebrow")}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: 20,
+                letterSpacing: "-0.01em",
+                color: "var(--text)",
+              }}
+            >
+              {t("nav.requests")}
+            </span>
+            <span style={{ fontSize: 14, color: "var(--muted-strong)" }}>
+              {t("projmanage.req_lede")}
+            </span>
+          </div>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--amber)" }}>
+            {t("projects.open_arrow")} →
+          </span>
+        </a>
 
         <MyProjectsList meId={me.id} />
 

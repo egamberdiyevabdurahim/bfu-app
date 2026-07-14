@@ -5,7 +5,6 @@ import CityHeader from "@/components/CityHeader";
 import FilterBar from "@/components/FilterBar";
 import RegionCluster from "@/components/RegionCluster";
 import ThreadsRail from "@/components/ThreadsRail";
-import PresenceToast from "@/components/PresenceToast";
 import SiteFooter from "@/components/ui/SiteFooter";
 import { getT } from "@/lib/i18n/server";
 
@@ -19,7 +18,12 @@ export const dynamic = "force-dynamic";
 // single batched `getCity()` fetch (ISR revalidate: 60 in the fetch wrapper),
 // then composes the reused Chorsu building blocks. Only the leaf components that
 // need motion/interaction are client ("use client") — FilterBar, CityHeader,
-// AmbientTicker, PresenceToast — so the server/client boundary stays clean.
+// AmbientTicker — so the server/client boundary stays clean.
+//
+// NOTE: components/PresenceToast.js is deliberately NOT mounted here. It cycled a
+// "<name> just came online" toast synthesized from the merely currently-online
+// set — nobody actually "just" came online, so the event was fabricated. The
+// component file is kept (unmounted) in case a real presence-event feed lands.
 //
 // Fidelity reference: docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html.
 
@@ -60,7 +64,7 @@ export async function generateMetadata() {
 // Empty-but-valid payload. If the upstream `/public/city` is unavailable (e.g.
 // the backend hasn't deployed the endpoint yet, or a transient outage during an
 // ISR revalidate), the page still renders a coherent quiet-night city — the
-// header shows the "bazaar is resting" copy, no clusters/threads/toast — instead
+// header shows the "bazaar is resting" copy, no clusters/threads — instead
 // of throwing and 500-ing the whole route. The next successful revalidate
 // (revalidate: 60) swaps in the real data automatically.
 const EMPTY_CITY = { stats: {}, weekday: "", regions: [], threads: [] };
@@ -150,21 +154,6 @@ export default async function CityPage() {
   const regions = data?.regions || [];
   const threads = data?.threads || [];
 
-  // The real online set fed to PresenceToast — flattened across every region
-  // cluster, deduped by id. No fabricated presence: only builders the payload
-  // reports as `online === true` cycle through the toast (empty set → the toast
-  // renders nothing).
-  const onlineBuilders = [];
-  const seen = new Set();
-  for (const region of regions) {
-    for (const builder of region.people || []) {
-      if (builder && builder.online && !seen.has(builder.id)) {
-        seen.add(builder.id);
-        onlineBuilders.push(builder);
-      }
-    }
-  }
-
   // Real ticker lines derived from live stats + threads (no fabricated presence).
   const tickerLines = buildTickerLines(stats, threads, t);
 
@@ -185,8 +174,6 @@ export default async function CityPage() {
         <ThreadsRail threads={threads} />
 
         <SiteFooter tagline={t("city.footer_tagline")} />
-
-      <PresenceToast builders={onlineBuilders} />
     </SiteTopBar>
   );
 }

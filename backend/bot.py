@@ -39,29 +39,36 @@ async def _on_bot_error(event: types.ErrorEvent):
     logging.exception("Bot handler error on update %s: %s", upd, event.exception)
     return True
 
+# /start is where most people meet BFU for the first time — so it leads with the
+# ONE sentence that says what this is, then offers exactly ONE action. (Before, it
+# was a generic welcome that listed features and left people asking "what is this?")
+# Sent with parse_mode=HTML — keep the markup to the <b> headline.
 _START = {
     "en": {
-        "btn": "🚀 Launch BFU",
+        "btn": "🔎 See your city",
         "msg": (
-            "Welcome to Bright Futures Uzbekistan! 🇺🇿\n\n"
-            "Click the button below to launch the app, find co-founders, "
-            "and discover volunteering opportunities."
+            "<b>Find a team for your project. Find a project to join.</b>\n\n"
+            "BFU is where young people across Uzbekistan find each other "
+            "and build together. 🇺🇿\n\n"
+            "See who's building in your city 👇"
         ),
     },
     "uz": {
-        "btn": "🚀 BFU’ni ochish",
+        "btn": "🔎 Shahringni ko‘r",
         "msg": (
-            "Bright Futures Uzbekistan’ga xush kelibsiz! 🇺🇿\n\n"
-            "Ilovani ochish, hammuassis topish va volontyorlik "
-            "imkoniyatlarini kashf etish uchun quyidagi tugmani bosing."
+            "<b>Loyihangga jamoa top. Jamoaga loyiha top.</b>\n\n"
+            "BFU — O‘zbekiston yoshlari bir-birini topib, birga loyiha "
+            "quradigan joy. 🇺🇿\n\n"
+            "Shahringda kim nima qurayotganini ko‘r 👇"
         ),
     },
     "ru": {
-        "btn": "🚀 Открыть BFU",
+        "btn": "🔎 Посмотреть свой город",
         "msg": (
-            "Добро пожаловать в Bright Futures Uzbekistan! 🇺🇿\n\n"
-            "Нажмите кнопку ниже, чтобы открыть приложение, найти "
-            "сооснователей и волонтёрские возможности."
+            "<b>Найди команду для своего проекта. Найди проект для себя.</b>\n\n"
+            "BFU — место, где молодёжь Узбекистана находит друг друга "
+            "и создаёт проекты вместе. 🇺🇿\n\n"
+            "Посмотри, кто и что строит в твоём городе 👇"
         ),
     },
 }
@@ -227,7 +234,7 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
         ]
     )
 
-    await message.answer(tr["msg"], reply_markup=markup)
+    await message.answer(tr["msg"], parse_mode="HTML", reply_markup=markup)
 
 
 @dp.message(Command("me"))

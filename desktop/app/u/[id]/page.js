@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPublicProfile } from "@/lib/bfu-api";
+import { FLAGS } from "@/lib/flags";
 import SiteTopBar from "@/components/nav/SiteTopBar";
-import AmbientTicker from "@/components/AmbientTicker";
 import IdentityStrip from "@/components/IdentityStrip";
 import HeroBuildingCell from "@/components/HeroBuildingCell";
 import ReputationCell from "@/components/ReputationCell";
@@ -58,7 +58,6 @@ export default async function ProfilePage({ params }) {
 
   return (
     <SiteTopBar active="people" maxWidth={1200}>
-        <AmbientTicker />
         <IdentityStrip profile={profile} />
 
         {/* Two-column body: the public bento (left, the main story) and the
@@ -68,17 +67,26 @@ export default async function ProfilePage({ params }) {
             you" on your own profile and a login prompt for anon readers; the
             SSR bento stays fully public. */}
         <div className="u-profile-body" style={{ marginTop: 40 }}>
+          {/* V1: the social-proof cells (rating, badges, vouches) and the
+              collaborator/follower cell are hidden — they render empty on a young
+              user base. Flip FLAGS.TRUST / FLAGS.CONNECTIONS to bring them back;
+              every cell below spans the full grid row, so the bento reads the same
+              with two cells or six. */}
           <div className="ch-grid u-profile-bento" style={{ alignItems: "stretch" }}>
             <HeroBuildingCell profile={profile} />
-            <ReputationCell rating={profile.rating} />
+            {FLAGS.TRUST && <ReputationCell rating={profile.rating} />}
             <LookingForCell lookingFor={profile.looking_for} />
-            <AchievementsCell achievements={profile.achievements} />
-            <VouchesCell vouches={profile.vouches} vouchCount={profile.vouch_count} />
-            <ConnectionsCell
-              collaborators={profile.collaborators}
-              followerCount={profile.follower_count}
-              region={profile.region}
-            />
+            {FLAGS.TRUST && <AchievementsCell achievements={profile.achievements} />}
+            {FLAGS.TRUST && (
+              <VouchesCell vouches={profile.vouches} vouchCount={profile.vouch_count} />
+            )}
+            {FLAGS.CONNECTIONS && (
+              <ConnectionsCell
+                collaborators={profile.collaborators}
+                followerCount={profile.follower_count}
+                region={profile.region}
+              />
+            )}
           </div>
 
           <aside className="u-profile-rail">

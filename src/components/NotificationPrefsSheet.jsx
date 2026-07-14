@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { users } from "../api";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
+import { FLAGS } from "../flags";
 
 // ── Notification preferences (Telegram push opt-out toggles) ──────────────────
 // Full-screen overlay. GET /users/me/notification-prefs → { prefs: {...bools} };
@@ -13,10 +14,14 @@ const CATEGORIES = [
   { key: "interest",        glyph: "💜" },
   { key: "applications",    glyph: "✒" },
   { key: "project_updates", glyph: "◆" },
-  { key: "bookings",        glyph: "◷" },
+  { key: "bookings",        glyph: "◷", flag: "MENTORING" },
   { key: "events",          glyph: "📅" },
   { key: "weekly_digest",   glyph: "📰" },
 ];
+
+// V1: mentoring is hidden, so the "bookings" row would toggle a channel that can
+// never fire. The pref itself is untouched on the backend — flip the flag to show.
+const VISIBLE_CATEGORIES = CATEGORIES.filter((c) => !c.flag || FLAGS[c.flag]);
 
 const Switch = ({ on, disabled, onClick }) => (
   <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={onClick} style={{
@@ -139,7 +144,7 @@ export const NotificationPrefsSheet = ({ onClose }) => {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {CATEGORIES.map((c) => {
+              {VISIBLE_CATEGORIES.map((c) => {
                 const on = prefs[c.key] !== false;
                 return (
                   <div key={c.key} style={{

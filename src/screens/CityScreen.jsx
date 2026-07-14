@@ -8,6 +8,7 @@ import { SearchModal } from "../components/SearchModal";
 import { MapModal } from "../components/MapModal";
 import { OpenRolesScreen } from "./OpenRolesScreen";
 import { useT } from "../i18n";
+import { FLAGS } from "../flags";
 
 // ── Chorsu "Bazaar" City / Discovery ("building tonight") ─────────────────────
 // Mobile port of the desktop City page (desktop/app/city/page.js + CityHeader /
@@ -111,7 +112,7 @@ export const CityScreen = () => {
     { key: "online", label: t("filter.online") },
     { key: "cofounder", label: t("filter.cofounder") },
     { key: "volunteer", label: t("filter.volunteer") },
-    { key: "mentor", label: t("filter.mentor") },
+    ...(FLAGS.MENTORING ? [{ key: "mentor", label: t("filter.mentor") }] : []),
   ];
 
   // Region id → localized name, for the card foot. Best-effort; foot falls back
@@ -278,7 +279,11 @@ export const CityScreen = () => {
               ? t("city.resting")
               : <><span className="amber">{nBuilders}</span> {t("city.litSuffix")}</>}
           </h1>
-          <p className="ch-sub">{quiet ? t("city.subQuiet") : t("city.subActive")}</p>
+          {/* The ONE sentence. This is the first screen a new member lands on, and it
+              used to say only atmospheric copy ("builders lighting their windows"),
+              which never told anyone what BFU actually IS. State the purpose here —
+              same line as the bot's /start and the landing hero. */}
+          <p className="ch-sub">{t("purpose.line")}</p>
 
           <div style={{ display: "flex", gap: 26, marginTop: 18 }}>
             <Stat value={nOnline} label={t("city.stat.online")} online />
@@ -433,7 +438,7 @@ const BuilderCard = ({ p, index, t, region, currentYear, onOpen }) => {
   const age = p.birth_year ? currentYear - p.birth_year : null;
   const footLeft = region || (age ? t("common.yo", { n: age }) : null);
 
-  const look = p.mentor?.is_mentor
+  const look = FLAGS.MENTORING && p.mentor?.is_mentor
     ? t("ach.mentor.name")
     : p.open_to_work
       ? t("pd.cofounder")

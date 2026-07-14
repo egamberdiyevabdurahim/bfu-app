@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { FLAGS } from "@/lib/flags";
 
 // Ports the mockup's `.filters` chip row
 // (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html lines 70-76, 177-189).
@@ -60,7 +61,12 @@ function deriveChips(regions, nameKey, t) {
   }
 
   chips.push({ key: OPEN_TO_WORK, label: t("city.filter.cofounder"), marker: "green" });
-  chips.push({ key: MENTOR, label: t("city.filter.mentors") });
+  // V1: the Mentors chip is hidden. Flip FLAGS.MENTORING to `true` and it comes
+  // back here; cardMatches() below still knows how to match it, and the
+  // data-mentor attribute is still emitted by BuilderCard.
+  if (FLAGS.MENTORING) {
+    chips.push({ key: MENTOR, label: t("city.filter.mentors") });
+  }
 
   // Up to 4 most common skills across the loaded builders.
   const counts = new Map();

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Page, AvatarEl } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { users, storage, regions, bookings } from "../api";
+import { FLAGS } from "../flags";
 import { useT } from "../i18n";
 import { tgAlert, shareUrl } from "../tg";
 import { EditProfileScreen } from "./EditProfileScreen";
@@ -166,6 +167,7 @@ export const ProfileScreen = () => {
   const [homeRefresh, setHomeRefresh] = useState(0);
 
   useEffect(() => {
+    if (!FLAGS.MENTORING) return;
     bookings.mine()
       .then(r => setSessionReqs((r?.as_mentor || []).filter(b => b.status === "requested").length))
       .catch(() => {});
@@ -228,7 +230,7 @@ export const ProfileScreen = () => {
   // ── Overlays (preserve Settings navigation) ─────────────────────────────────
   if (editOpen) return <EditProfileScreen me={user} onBack={() => setEditOpen(false)} onSaved={loadUser} />;
   if (adminOpen) return <AdminScreen user={user} onBack={() => setAdminOpen(false)} />;
-  if (mentorsOpen) return <MentorsScreen onClose={() => setMentorsOpen(false)} />;
+  if (FLAGS.MENTORING && mentorsOpen) return <MentorsScreen onClose={() => setMentorsOpen(false)} />;
 
   if (loading) {
     return (
@@ -252,7 +254,7 @@ export const ProfileScreen = () => {
   const member = user.member_projects || [];
   const stats = user.stats || {};
   const links = user.portfolio_links || [];
-  const isMentor = !!user.mentor?.is_mentor;
+  const isMentor = FLAGS.MENTORING && !!user.mentor?.is_mentor;
   const isAdmin = user.role === "admin" || user.role === "super_admin";
 
   const lookingFor = user.open_to_work && user.open_to_volunteering
@@ -347,7 +349,7 @@ export const ProfileScreen = () => {
           refreshKey={homeRefresh}
           onOpenRequests={() => setManageOpen(true)}
           onOpenInbox={() => setInboxOpen(true)}
-          onOpenBookings={() => setBookingsOpen(true)}
+          onOpenBookings={() => { if (FLAGS.MENTORING) setBookingsOpen(true); }}
           onOpenUser={(id) => setViewingUserId(id)}
         />
 
@@ -412,7 +414,7 @@ export const ProfileScreen = () => {
           )}
 
           {/* Achievements */}
-          {achievements.length > 0 && (
+          {FLAGS.TRUST && achievements.length > 0 && (
             <div className="ch-cell-static">
               <div className="ch-cell-label">{t("ach.title")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
@@ -467,6 +469,7 @@ export const ProfileScreen = () => {
           </div>
 
           {/* Connections */}
+          {FLAGS.CONNECTIONS && (
           <div className="ch-cell-static" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div style={{ display: "flex" }}>
               {collaborators.preview.length > 0 ? (
@@ -506,6 +509,7 @@ export const ProfileScreen = () => {
               )}
             </div>
           </div>
+          )}
 
           {/* Projects, stats & links */}
           <div className="ch-cell-static">
@@ -588,16 +592,22 @@ export const ProfileScreen = () => {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           <ActionRow glyph="🔗" label={t("trust.sharePublic")} onClick={copyPublic} />
           <ActionRow glyph="📄" label={t("resume.download")} onClick={downloadCV} />
-          <ActionRow glyph="❥" label={t("saved.title")} onClick={() => setSavedOpen(true)} />
+          {FLAGS.SAVED && (
+            <ActionRow glyph="❥" label={t("saved.title")} onClick={() => setSavedOpen(true)} />
+          )}
           <ActionRow glyph="🎁" label={t("invite.title")} onClick={() => setInviteOpen(true)} />
-          <ActionRow glyph="🎓" label={t("mentor.browse")} onClick={() => setMentorsOpen(true)} />
-          <ActionRow glyph="📅" label={t("booking.title")} onClick={() => setBookingsOpen(true)}
-            right={sessionReqs > 0 ? (
-              <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99,
-                background: "linear-gradient(135deg, var(--ember), var(--terra))", color: "#160E08",
-                fontFamily: "var(--font-mono)", fontSize: 10.5, fontWeight: 700,
-                display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
-            ) : null} />
+          {FLAGS.MENTORING && (
+            <ActionRow glyph="🎓" label={t("mentor.browse")} onClick={() => setMentorsOpen(true)} />
+          )}
+          {FLAGS.MENTORING && (
+            <ActionRow glyph="📅" label={t("booking.title")} onClick={() => setBookingsOpen(true)}
+              right={sessionReqs > 0 ? (
+                <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99,
+                  background: "linear-gradient(135deg, var(--ember), var(--terra))", color: "#160E08",
+                  fontFamily: "var(--font-mono)", fontSize: 10.5, fontWeight: 700,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
+              ) : null} />
+          )}
           <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
           <ActionRow glyph="🚫" label={t("blocked.title")} onClick={() => setBlockedOpen(true)} />
           {isMentor && (
@@ -647,10 +657,10 @@ export const ProfileScreen = () => {
         </button>
       </div>
 
-      {slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
-      {bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
+      {FLAGS.MENTORING && slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
+      {FLAGS.MENTORING && bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
       {notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
-      {savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
+      {FLAGS.SAVED && savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
       {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}
       {blockedOpen && <BlockedSheet onClose={() => setBlockedOpen(false)} />}
       {inboxOpen && <InboxModal onClose={() => { setInboxOpen(false); setHomeRefresh(k => k + 1); }} />}

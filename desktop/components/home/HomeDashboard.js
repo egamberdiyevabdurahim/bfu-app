@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { FLAGS } from "@/lib/flags";
 import { useCountUp } from "@/lib/useCountUp";
 import { gradientFor, initials } from "@/lib/avatar";
 import { relTime } from "@/lib/notif";
@@ -13,7 +14,8 @@ import { useT } from "@/components/i18n/LocaleProvider";
 //
 //   1. "Needs you now" — action cards, each shown only when its count > 0
 //      (pending applicants → /requests, unread notifications → /notifications,
-//      session requests → /bookings). All-zero → one calm "all caught up" card.
+//      session requests → /bookings, behind FLAGS.MENTORING). All-zero → one calm
+//      "all caught up" card.
 //   2. Profile completeness meter — computed from the server-passed `profile`
 //      slice (no fetch). Hidden entirely at 100%.
 //   3. Your pulse — stat tiles from GET /projects/mine/funnel totals, or a warm
@@ -129,17 +131,22 @@ function NeedsYouNow() {
     // One parallel batch; each result is independent so a single failure never
     // blocks the others (allSettled). Session requests = incoming mentor
     // bookings still awaiting a reply (status "requested").
+    //
+    // FLAGS.MENTORING off (V1 launch): the third slot resolves to null instead of
+    // hitting /bookings/me — no request is issued, but the slot is kept so the
+    // positional destructuring below stays aligned. Flip the flag to true and the
+    // fetch + the sessions card both come back.
     Promise.allSettled([
       bfu("/projects/my-requests"),
       bfu("/users/me/notifications/unread-count"),
-      bfu("/bookings/me"),
+      FLAGS.MENTORING ? bfu("/bookings/me") : Promise.resolve(null),
     ]).then((res) => {
       if (!alive) return;
       const [r1, r2, r3] = res;
       if (r1.status === "fulfilled")
         setPending(Array.isArray(r1.value) ? r1.value.length : 0);
       if (r2.status === "fulfilled") setUnread(Number(r2.value?.unread) || 0);
-      if (r3.status === "fulfilled") {
+      if (r3.status === "fulfilled" && r3.value) {
         const mentor = Array.isArray(r3.value?.as_mentor) ? r3.value.as_mentor : [];
         setSessions(mentor.filter((b) => b && b.status === "requested").length);
       }
@@ -177,7 +184,10 @@ function NeedsYouNow() {
       cta: t("home.needs.unread_cta"),
       accent: "amber",
     },
-    sessions > 0 && {
+    // Mentoring is hidden for V1 — `sessions` stays 0 while the flag is off (the
+    // fetch never runs), and this card never renders. Flip FLAGS.MENTORING to
+    // restore it.
+    FLAGS.MENTORING && sessions > 0 && {
       href: "/bookings",
       count: sessions,
       text: sessions === 1 ? t("home.needs.sessions_one") : t("home.needs.sessions_other"),

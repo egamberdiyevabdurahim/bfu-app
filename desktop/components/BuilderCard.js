@@ -3,6 +3,7 @@
 import { gradientFor, initials } from "../lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
 import { handleFor } from "@/lib/handle";
+import { FLAGS } from "@/lib/flags";
 
 // Ports the mockup's `.card` (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html
 // lines 86-111, 236-250) into a SERVER component. No hooks — the online pulse is
@@ -31,8 +32,12 @@ function slug(s) {
 // `looking_for` ('work'|'volunteering'|'both'|null) and a `mentor` boolean. A
 // mentor reads as the strongest signal, then co-founder (work/both), then
 // volunteer — matching the profile's LookingForCell framing.
+//
+// V1: with FLAGS.MENTORING off the mentor badge is never chosen and the card
+// falls through to its co-founder/volunteer label. Flip the flag back to `true`
+// and the mentor badge wins again, exactly as before.
 function lookingLabel(builder, t) {
-  if (builder.mentor) return t("city.card.mentor");
+  if (FLAGS.MENTORING && builder.mentor) return t("city.card.mentor");
   const lf = builder.looking_for;
   if (lf === "work" || lf === "both") return t("city.card.cofounder");
   if (lf === "volunteering") return t("city.card.volunteer");

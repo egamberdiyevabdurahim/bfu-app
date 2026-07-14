@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getT } from "@/lib/i18n/server";
+import { FLAGS } from "@/lib/flags";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ConnectionsList from "@/components/people/ConnectionsList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -17,6 +18,11 @@ export const metadata = {
 };
 
 export default async function ConnectionsPage() {
+  // V1 scope gate: the network page is built but hidden for launch. Flip
+  // FLAGS.CONNECTIONS in lib/flags.js to bring this page back — nothing else
+  // below has changed.
+  if (!FLAGS.CONNECTIONS) notFound();
+
   const me = await getMe();
   if (!me) redirect("/login");
 

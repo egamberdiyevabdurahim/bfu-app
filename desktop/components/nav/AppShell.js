@@ -97,7 +97,6 @@ export default function AppShell({ active, me: initialMe = null, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [msgUnread, setMsgUnread] = useState(0);
-  const [pendingApps, setPendingApps] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
 
   // Self-fetch `me` only when the server didn't hand it to us.
@@ -191,17 +190,10 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     };
   }, [loadCount]);
 
-  // Pending applications count → the "Applications" row badge. GET
-  // /projects/my-requests returns the pending inbox, so its length is the count.
-  useEffect(() => {
-    let alive = true;
-    bfu("/projects/my-requests")
-      .then((r) => alive && setPendingApps(Array.isArray(r) ? r.length : 0))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // NOTE: we used to poll GET /projects/my-requests here purely to badge the
+  // "Applications" sidebar row. That row is folded into /projects/mine for V1
+  // (see navConfig), so the shell no longer fetches a count nobody can see —
+  // the pending-applications count is owned by the Your-projects page now.
 
   // Close the profile menu on outside-click / Escape. We match by CLASS rather
   // than a ref: the sidebar body is rendered twice (desktop rail + mobile
@@ -468,13 +460,11 @@ export default function AppShell({ active, me: initialMe = null, children }) {
                   on={activeKey === item.key}
                   isCollapsed={isCollapsed}
                   badge={
-                    item.badge === "applications"
-                      ? pendingApps
-                      : item.badge === "notifications"
-                        ? unread
-                        : item.badge === "messages"
-                          ? msgUnread
-                          : 0
+                    item.badge === "notifications"
+                      ? unread
+                      : item.badge === "messages"
+                        ? msgUnread
+                        : 0
                   }
                   onNavigate={closeDrawer}
                 />

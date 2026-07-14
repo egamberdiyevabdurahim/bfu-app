@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { FLAGS } from "@/lib/flags";
 
 // Additive client island mounted on the public /u/[id] profile page. The SSR
 // content (identity strip, bento cells) stays intact and public; this island
@@ -17,6 +18,10 @@ import { useT } from "@/components/i18n/LocaleProvider";
 //   • else                            → Follow toggle, I'm interested, Request
 //                                        intro, per-skill endorse, vouch
 //                                        composer, and the AI trio.
+//
+// V1 launch: the social-proof surfaces (per-skill endorse + vouch composer) are
+// hidden behind FLAGS.TRUST. The handlers and the backend routes below are all
+// intact — flip FLAGS.TRUST to true in lib/flags.js and both cards come back.
 //
 // Verbs/fields confirmed against backend/app/routers/users.py:
 //   authed profile: GET /users/{id}
@@ -116,7 +121,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         setProfile(p);
         setMe(meRes);
         // Detect my own vouch on this person (author.id === me.id).
-        if (meRes && Array.isArray(p?.vouches)) {
+        if (FLAGS.TRUST && meRes && Array.isArray(p?.vouches)) {
           const mine = p.vouches.find((v) => v.author && v.author.id === meRes.id);
           if (mine) setMyVouch({ id: mine.id, text: mine.text });
         }
@@ -641,8 +646,8 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         )}
       </div>
 
-      {/* Endorse skills */}
-      {skills.length > 0 && (
+      {/* Endorse skills — V1: hidden (FLAGS.TRUST) */}
+      {FLAGS.TRUST && skills.length > 0 && (
         <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="ch-cell-label">{t("people.endorseASkill")}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -683,77 +688,79 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         </div>
       )}
 
-      {/* Vouch composer */}
-      <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="ch-cell-label">
-          {myVouch ? t("people.yourVouch") : t("people.vouchFor", { name: personName || t("people.thisBuilder") })}
+      {/* Vouch composer — V1: hidden (FLAGS.TRUST) */}
+      {FLAGS.TRUST && (
+        <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="ch-cell-label">
+            {myVouch ? t("people.yourVouch") : t("people.vouchFor", { name: personName || t("people.thisBuilder") })}
+          </div>
+          {myVouch ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  lineHeight: 1.55,
+                  color: "var(--text)",
+                  fontFamily: "var(--font-accent)",
+                  fontStyle: "italic",
+                  padding: "12px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--hair)",
+                }}
+              >
+                "{myVouch.text}"
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={removeVouch}
+                  disabled={vouchBusy}
+                  style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.3)", opacity: vouchBusy ? 0.6 : 1 }}
+                >
+                  {t("people.remove")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <textarea
+                value={vouchText}
+                onChange={(e) => setVouchText(e.target.value.slice(0, 280))}
+                placeholder={t("people.vouchPlaceholder", { name: personName || t("people.them") })}
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--hair)",
+                  background: "var(--surface-2)",
+                  color: "var(--text)",
+                  padding: "12px 14px",
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  fontFamily: "var(--font-body)",
+                }}
+              />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
+                  {vouchText.length}/280
+                </span>
+                <button
+                  type="button"
+                  className="ch-btn-primary"
+                  onClick={submitVouch}
+                  disabled={vouchBusy || !vouchText.trim()}
+                  style={{ padding: "9px 18px", fontSize: 13, opacity: vouchBusy || !vouchText.trim() ? 0.55 : 1 }}
+                >
+                  {vouchBusy ? t("people.posting") : t("people.postVouch")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        {myVouch ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 14,
-                lineHeight: 1.55,
-                color: "var(--text)",
-                fontFamily: "var(--font-accent)",
-                fontStyle: "italic",
-                padding: "12px 14px",
-                borderRadius: "var(--radius-sm)",
-                background: "var(--surface-2)",
-                border: "1px solid var(--hair)",
-              }}
-            >
-              "{myVouch.text}"
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={removeVouch}
-                disabled={vouchBusy}
-                style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, color: "var(--terra)", borderColor: "rgba(192,86,59,0.3)", opacity: vouchBusy ? 0.6 : 1 }}
-              >
-                {t("people.remove")}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <textarea
-              value={vouchText}
-              onChange={(e) => setVouchText(e.target.value.slice(0, 280))}
-              placeholder={t("people.vouchPlaceholder", { name: personName || t("people.them") })}
-              rows={3}
-              style={{
-                width: "100%",
-                resize: "vertical",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--hair)",
-                background: "var(--surface-2)",
-                color: "var(--text)",
-                padding: "12px 14px",
-                fontSize: 14,
-                lineHeight: 1.5,
-                fontFamily: "var(--font-body)",
-              }}
-            />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
-                {vouchText.length}/280
-              </span>
-              <button
-                type="button"
-                className="ch-btn-primary"
-                onClick={submitVouch}
-                disabled={vouchBusy || !vouchText.trim()}
-                style={{ padding: "9px 18px", fontSize: 13, opacity: vouchBusy || !vouchText.trim() ? 0.55 : 1 }}
-              >
-                {vouchBusy ? t("people.posting") : t("people.postVouch")}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       <Toast toast={toast} />
     </div>

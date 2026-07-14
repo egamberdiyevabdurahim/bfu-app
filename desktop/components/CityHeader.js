@@ -71,7 +71,10 @@ export default function CityHeader({ stats = {}, weekday = "" }) {
             color: "var(--muted)",
           }}
         >
-          {quiet ? t("city.header.sub_quiet") : t("city.header.sub_active")}
+          {/* The ONE sentence. City is the first screen most people land on, and this
+              line used to be pure atmosphere ("someone is always building") — it never
+              said what BFU IS. State the purpose, same wording as /start and the landing. */}
+          {t("city.header.purpose")}
         </div>
       </div>
 

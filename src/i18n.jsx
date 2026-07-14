@@ -4,6 +4,10 @@ const SUPPORTED = ["en", "uz", "ru"];
 
 const STRINGS = {
   // ── Common ────────────────────────────────────────────────────────────────
+  // The ONE sentence. BFU's whole purpose in a line — it must read the same on the
+  // bot's /start, the landing hero and the first screen of the app, because the #1
+  // complaint was "people don't know what this is". Change it in all three or none.
+  "purpose.line": { en: "Find a team for your project. Find a project to join.", uz: "Loyihangga jamoa top. Jamoaga loyiha top.", ru: "Найди команду для своего проекта. Найди проект для себя." },
   "common.loading": { en: "Loading…", uz: "Yuklanmoqda…", ru: "Загрузка…" },
   "common.member": { en: "BFU member", uz: "BFU a'zosi", ru: "участник BFU" },
   "common.connectError": { en: "Couldn't reach the server", uz: "Serverga ulanib bo‘lmadi", ru: "Не удалось подключиться к серверу" },

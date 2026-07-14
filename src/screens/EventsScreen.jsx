@@ -3,6 +3,7 @@ import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { events } from "../api";
 import { PartnersModal } from "../components/PartnersModal";
+import { FLAGS } from "../flags";
 import { useT } from "../i18n";
 import { fmtDate } from "../timefmt";
 
@@ -193,7 +194,10 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   return (
     <Page>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "calc(var(--safe-t) + 16px) 20px 8px" }}>
-        {/* Action row — back (standalone only) + Partners */}
+        {/* Action row — back (standalone only) + Partners (FLAGS.PARTNERS).
+            When embedded AND Partners is off the row holds nothing, so skip it
+            entirely rather than leave an empty 18px spacer. */}
+        {(!embedded || FLAGS.PARTNERS) && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: embedded ? "flex-end" : "space-between", gap: 12, marginBottom: 18 }}>
           {!embedded && (
             <button onClick={onBack} aria-label={t("common.back")} style={{
@@ -204,12 +208,15 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
               <Icon name="arrow_left" size={17} />
             </button>
           )}
-          <button onClick={() => setPartnersOpen(true)} className="btn-ghost" style={{
-            display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", fontSize: 13, flexShrink: 0,
-          }}>
-            <Icon name="briefcase" size={15} /> {t("partners.title")}
-          </button>
+          {FLAGS.PARTNERS && (
+            <button onClick={() => setPartnersOpen(true)} className="btn-ghost" style={{
+              display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", fontSize: 13, flexShrink: 0,
+            }}>
+              <Icon name="briefcase" size={15} /> {t("partners.title")}
+            </button>
+          )}
         </div>
+        )}
 
         {/* Header — mono eyebrow + Bricolage title + italic sub */}
         <div style={{ marginBottom: 18 }}>
@@ -266,7 +273,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
         </div>
       </div>
 
-      {partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
+      {FLAGS.PARTNERS && partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
     </Page>
   );
 };

@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getMe } from "@/lib/session";
 import { getT } from "@/lib/i18n/server";
+import { FLAGS } from "@/lib/flags";
 import AppTopBar from "@/components/nav/AppTopBar";
 import PartnersList from "@/components/community/PartnersList";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -16,6 +17,10 @@ export const metadata = {
 };
 
 export default async function PartnersPage() {
+  // V1 scope gate: partners is built but hidden for launch. Flip FLAGS.PARTNERS
+  // in lib/flags.js to bring this page back — nothing else below has changed.
+  if (!FLAGS.PARTNERS) notFound();
+
   const me = await getMe();
   if (!me) redirect("/login");
   const { t } = await getT();

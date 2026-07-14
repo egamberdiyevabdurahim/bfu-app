@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "./Icons";
 import { useT } from "../i18n";
+import { FLAGS } from "../flags";
 
 // Warm "firelit" gradient per user — replaces the old random-hue avatar bg.
 // Deterministic from the name so a person keeps the same ember/amber/teal tone.
@@ -44,10 +45,11 @@ export const BottomNav = ({ active, onChange }) => {
   const tabs = [
     { id: "city", icon: "compass", label: t("nav.city") },
     { id: "projects", icon: "rocket", label: t("nav.projects") },
-    { id: "mentors", icon: "star", label: t("nav.mentors") },
+    // Mentors is hidden for V1 — flip FLAGS.MENTORING to bring the tab back.
+    { id: "mentors", icon: "star", label: t("nav.mentors"), flag: FLAGS.MENTORING },
     { id: "events", emoji: "◷", label: t("nav.events") },
     { id: "profile", icon: "settings", label: t("nav.profile") },
-  ];
+  ].filter(tab => tab.flag !== false);
   return (
     <nav style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",

@@ -24,6 +24,20 @@ from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
 from app.models.event_rsvp import EventRsvp
 from app.models.partner import Partner
+
+# These two live in sibling service modules written in parallel. Degrade to a
+# no-op if they haven't landed yet so this router (and the whole test suite)
+# imports regardless of build order — the real modules override on deploy.
+try:
+    from app.services.event_distribution import push_new_event
+except ImportError:  # pragma: no cover - only until the service agent lands it
+    async def push_new_event(event_id: int) -> int:  # type: ignore[misc]
+        return 0
+try:
+    from app.services.event_ai import generate_event_report
+except ImportError:  # pragma: no cover - only until the service agent lands it
+    async def generate_event_report(event_id: int) -> dict:  # type: ignore[misc]
+        return {"summary": "", "response_count": 0, "generated_at": None}
 from datetime import datetime, timedelta
 from app.schemas.event import FormResponseOut
 from app.schemas.user import AdminUserOut
@@ -697,6 +711,23 @@ async def hard_delete_user(
         raise HTTPException(409, "User still referenced by other records; ban instead.")
     return {"detail": "User hard deleted"}
 
+# The partner lead-pipeline stages a registrant can be advanced through. The
+# admin PATCH endpoint is the single validation gate (422 on anything else).
+LEAD_STATUSES = {"registered", "showed", "scored", "called", "enrolled", "no_show"}
+
+# Retain fire-and-forget event-push tasks so the loop can't GC them mid-run.
+_event_push_tasks: set = set()
+
+
+def _fire_event_push(event_id: int) -> None:
+    """Bot-DM matching users about a newly live event. Fire-and-forget: the
+    service opens its own session and never raises, so the request never waits
+    on (or fails because of) the fan-out."""
+    t = asyncio.create_task(push_new_event(event_id))
+    _event_push_tasks.add(t)
+    t.add_done_callback(_event_push_tasks.discard)
+
+
 class EventBody(BaseModel):
     # type/title are optional at the schema level so a PATCH can send *only*
     # form_schema; POST /admin/events enforces both below (400 otherwise).
@@ -705,7 +736,8 @@ class EventBody(BaseModel):
     description: str | None = None
     link: str | None = None
     cover_url: str | None = None
-    deadline: datetime | None = None
+    deadline: datetime | None = None       # signup cutoff
+    starts_at: datetime | None = None      # when the event actually happens
     region_id: int | None = None
     partner_id: int | None = None
     # The registration form's question list (see app.services.event_forms).
@@ -721,6 +753,7 @@ class EventOut(BaseModel):
     link: str | None = None
     cover_url: str | None = None
     deadline: datetime | None = None
+    starts_at: datetime | None = None
     region_id: int | None = None
     partner_id: int | None = None
     is_approved: bool = True
@@ -728,6 +761,12 @@ class EventOut(BaseModel):
     form_schema: list[dict] | None = None
     has_form: bool = False
     model_config = {"from_attributes": True}
+
+
+class ResponseUpdateBody(BaseModel):
+    """Admin edit to one registrant's lead pipeline row."""
+    lead_status: str | None = None
+    score: int | None = None
 
 
 def _checked_schema(raw: Any) -> list[dict] | None:
@@ -765,6 +804,9 @@ async def admin_approve_event(event_id: int, admin: User = Depends(get_admin_use
     await log_action(db, admin.id, "event.approve", "event", event_id)
     await db.commit(); await db.refresh(e)
     if not was:
+        # Only the false→true transition: an already-approved event isn't
+        # re-pushed. Targeted DM fan-out + the global-group card fire once here.
+        _fire_event_push(e.id)
         deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
         await _broadcast_to_group(
             f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
@@ -783,11 +825,14 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
     e = Event(
         type=body.type, title=body.title.strip(), description=body.description,
         link=body.link, cover_url=body.cover_url, deadline=body.deadline,
+        starts_at=body.starts_at,
         region_id=body.region_id, created_by=admin.id,
         partner_id=body.partner_id, is_approved=True,
         form_schema=_checked_schema(body.form_schema),
     )
     db.add(e); await db.commit(); await db.refresh(e)
+    # Targeted DM fan-out to matching users (fires exactly once, on create).
+    _fire_event_push(e.id)
     # Announce the new event to the global group with a deep link.
     deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
     await _broadcast_to_group(
@@ -900,6 +945,7 @@ async def admin_event_responses(
         FormResponseOut(
             user_id=u.id, display_name=u.display_name, tg_username=u.tg_username,
             phone_number=u.phone_number, submitted_at=r.created_at, answers=r.answers,
+            lead_status=r.lead_status, score=r.score,
         )
         for r, u in rows
     ]
@@ -933,7 +979,7 @@ async def admin_event_responses_csv(
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow(
-        ["user_id", "name", "username", "phone", "submitted_at"]
+        ["user_id", "name", "username", "phone", "submitted_at", "lead_status", "score"]
         + [q.get("label", q.get("key", "")) for q in schema]
     )
     for r, u in rows:
@@ -945,6 +991,8 @@ async def admin_event_responses_csv(
                 f"@{u.tg_username}" if u.tg_username else "",
                 u.phone_number or "",
                 r.created_at.isoformat(sep=" ", timespec="seconds") if r.created_at else "",
+                r.lead_status,
+                "" if r.score is None else r.score,
             ]
             + [answer_to_text(answers.get(q.get("key"))) for q in schema]
         )
@@ -956,6 +1004,61 @@ async def admin_event_responses_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.patch("/events/{event_id}/responses/{user_id}", response_model=FormResponseOut)
+async def admin_update_event_response(
+    event_id: int,
+    user_id: int,
+    body: ResponseUpdateBody,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Advance one registrant through the partner lead pipeline (lead_status)
+    and/or record a number for them (score). Both fields are optional — a PATCH
+    can set just one. An unknown lead_status is a 422 and writes nothing."""
+    row = (await db.execute(select(EventRsvp).where(
+        EventRsvp.event_id == event_id, EventRsvp.user_id == user_id,
+    ))).scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Registration not found")
+    patch = body.model_dump(exclude_unset=True)
+    if "lead_status" in patch and patch["lead_status"] is not None:
+        if patch["lead_status"] not in LEAD_STATUSES:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Invalid lead_status",
+                        "allowed": sorted(LEAD_STATUSES)},
+            )
+        row.lead_status = patch["lead_status"]
+    if "score" in patch:
+        row.score = patch["score"]
+    await log_action(db, admin.id, "event.response.update", "event", event_id,
+                     {"user_id": user_id, **patch})
+    await db.commit()
+    u = await db.get(User, user_id)
+    return FormResponseOut(
+        user_id=user_id, display_name=u.display_name if u else str(user_id),
+        tg_username=u.tg_username if u else None,
+        phone_number=u.phone_number if u else None,
+        submitted_at=row.created_at, answers=row.answers,
+        lead_status=row.lead_status, score=row.score,
+    )
+
+
+@router.get("/events/{event_id}/ai-report")
+async def admin_event_ai_report(
+    event_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """One-tap AI summary of every registration's answers. The service opens its
+    own session, makes at most one Claude call, and never raises (plain
+    aggregate when there's no key / no responses)."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    return await generate_event_report(event_id)
 
 
 @router.delete("/events/{event_id}")

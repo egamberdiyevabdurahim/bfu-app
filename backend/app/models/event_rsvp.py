@@ -1,6 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -34,3 +42,16 @@ class EventRsvp(Base):
     # Stamped with utcnow() only after the deadline reminder push succeeds, so the
     # hourly cron sends exactly one reminder per RSVP (see rsvp_reminders.py).
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # ── Partner lead pipeline ────────────────────────────────────────────────
+    # The registrant's stage in the partner's funnel, advanced by an admin/partner
+    # in the panel. One of: registered | showed | scored | called | enrolled |
+    # no_show. Defaults to "registered" on RSVP. (Allowed set lives in the admin
+    # router — the single validation gate.)
+    lead_status: Mapped[str] = mapped_column(
+        String(20), default="registered", server_default="registered"
+    )
+    # A number the partner records for this registrant (e.g. a SAT mock score).
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Idempotency stamp for the T-1h (starts_at) reminder, mirroring `reminded_at`
+    # (the T-24h deadline reminder) so each window fires exactly once per RSVP.
+    reminded_1h_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

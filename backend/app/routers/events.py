@@ -138,6 +138,7 @@ async def opportunities_for_me(
             "id": e.id, "type": e.type, "title": e.title, "description": e.description,
             "link": e.link, "cover_url": e.cover_url,
             "deadline": e.deadline.isoformat() if e.deadline else None,
+            "starts_at": e.starts_at.isoformat() if e.starts_at else None,
             "region_id": e.region_id,
             "matched": matched[:5], "score": score,
             "rsvp_count": counts.get(e.id, 0), "my_rsvp": mine.get(e.id),

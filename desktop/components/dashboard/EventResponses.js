@@ -39,6 +39,26 @@ function fmtWhen(iso) {
   });
 }
 
+// The partner lead pipeline: where each registrant is on the way from "signed
+// up" to "enrolled". Mirrors EventRsvp.lead_status on the backend. Order here is
+// the funnel order the select offers.
+const LEAD_STATUSES = ["registered", "showed", "scored", "called", "enrolled", "no_show"];
+
+// Colour each stage so the pipeline is scannable in the table: the win state
+// (enrolled) reads green, the drop-out (no_show) reads terra/red, the working
+// stages warm up through ember/amber, and the untouched default stays muted.
+function leadTone(status) {
+  switch (status) {
+    case "enrolled": return "var(--green)";
+    case "no_show": return "var(--terra)";
+    case "scored": return "var(--amber)";
+    case "called": return "var(--amber)";
+    case "showed": return "var(--ember)";
+    case "registered":
+    default: return "var(--muted)";
+  }
+}
+
 export default function EventResponses({ event, onClose, showToast }) {
   const t = useT();
   const [rows, setRows] = useState([]);
@@ -46,6 +66,9 @@ export default function EventResponses({ event, onClose, showToast }) {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [csvBusy, setCsvBusy] = useState(false);
   const [openRow, setOpenRow] = useState(null); // one response, expanded
+  const [aiOpen, setAiOpen] = useState(false);  // AI summary modal
+  const [aiState, setAiState] = useState("idle"); // idle | loading | ready | error
+  const [aiReport, setAiReport] = useState(null); // { summary, response_count, generated_at }
 
   useEffect(() => {
     let alive = true;
@@ -122,15 +145,82 @@ export default function EventResponses({ event, onClose, showToast }) {
     }
   }, [event.id, event.title, showToast, t]);
 
+  // Patch one response row in place (optimistic), keyed by user_id.
+  const patchRespRow = useCallback((userId, patch) => {
+    setRows((rs) => rs.map((r) => (r.user_id === userId ? { ...r, ...patch } : r)));
+  }, []);
+
+  // Lead-status change: PATCH /admin/events/{id}/responses/{user_id} { lead_status }.
+  // Optimistic — flip the cell immediately, roll back on failure.
+  const setLeadStatus = useCallback(async (r, next) => {
+    const prev = r.lead_status || "registered";
+    if (next === prev) return;
+    patchRespRow(r.user_id, { lead_status: next });
+    try {
+      const res = await bfu(`/admin/events/${event.id}/responses/${r.user_id}`, {
+        method: "PATCH",
+        body: { lead_status: next },
+      });
+      if (res && typeof res.lead_status === "string") patchRespRow(r.user_id, { lead_status: res.lead_status });
+      showToast?.(t("dash.resp.lead_saved"));
+    } catch (err) {
+      patchRespRow(r.user_id, { lead_status: prev });
+      showToast?.(err.message || t("dash.resp.lead_failed"), "err");
+    }
+  }, [event.id, patchRespRow, showToast, t]);
+
+  // Score commit (on blur, not per keystroke): PATCH { score }. Empty clears to
+  // null; otherwise a whole number. No-ops when unchanged.
+  const setScore = useCallback(async (r, raw) => {
+    const prev = r.score ?? null;
+    const trimmed = String(raw).trim();
+    let next;
+    if (trimmed === "") next = null;
+    else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return; // garbage input — leave the stored value alone
+      next = Math.trunc(n);
+    }
+    if (next === prev) return;
+    patchRespRow(r.user_id, { score: next });
+    try {
+      const res = await bfu(`/admin/events/${event.id}/responses/${r.user_id}`, {
+        method: "PATCH",
+        body: { score: next },
+      });
+      if (res && Object.prototype.hasOwnProperty.call(res, "score")) patchRespRow(r.user_id, { score: res.score });
+      showToast?.(t("dash.resp.score_saved"));
+    } catch (err) {
+      patchRespRow(r.user_id, { score: prev });
+      showToast?.(err.message || t("dash.resp.score_failed"), "err");
+    }
+  }, [event.id, patchRespRow, showToast, t]);
+
+  // Ask the backend for a one-shot AI summary of every answer. The service is
+  // robust to 0 responses (returns a "no responses yet" summary), so this is
+  // always allowed once the responses have loaded.
+  const openAiReport = useCallback(async () => {
+    setAiOpen(true);
+    setAiState("loading");
+    try {
+      const rep = await bfu(`/admin/events/${event.id}/ai-report`);
+      setAiReport(rep || {});
+      setAiState("ready");
+    } catch {
+      setAiState("error");
+    }
+  }, [event.id]);
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
-      if (openRow) setOpenRow(null);
+      if (aiOpen) setAiOpen(false);
+      else if (openRow) setOpenRow(null);
       else onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, openRow]);
+  }, [onClose, openRow, aiOpen]);
 
   const count = rows.length;
 
@@ -175,7 +265,17 @@ export default function EventResponses({ event, onClose, showToast }) {
               )}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
+          <div style={{ display: "flex", gap: 8, flex: "0 0 auto", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="ch-btn-ghost"
+              onClick={openAiReport}
+              disabled={state !== "ready"}
+              title={t("dash.resp.ai_title")}
+              style={{ padding: "7px 13px", fontSize: 12.5, borderColor: "var(--ember)", color: "var(--ember)" }}
+            >
+              ✦ {t("dash.resp.ai_btn")}
+            </button>
             <button
               type="button"
               className="ch-btn-ghost"
@@ -221,6 +321,8 @@ export default function EventResponses({ event, onClose, showToast }) {
                 <thead>
                   <tr>
                     <Th sticky>{t("dash.resp.person")}</Th>
+                    <Th>{t("dash.resp.stage")}</Th>
+                    <Th>{t("dash.resp.score")}</Th>
                     <Th>{t("dash.resp.submitted")}</Th>
                     <Th>{t("dash.resp.phone")}</Th>
                     {columns.map((c) => (
@@ -238,6 +340,20 @@ export default function EventResponses({ event, onClose, showToast }) {
                       <tr key={r.user_id ?? i}>
                         <Td sticky zebra={zebra}>
                           <Person r={r} />
+                        </Td>
+                        <Td zebra={zebra}>
+                          <LeadStatusSelect
+                            value={r.lead_status || "registered"}
+                            onChange={(next) => setLeadStatus(r, next)}
+                            t={t}
+                          />
+                        </Td>
+                        <Td zebra={zebra}>
+                          <ScoreCell
+                            value={r.score}
+                            onCommit={(raw) => setScore(r, raw)}
+                            t={t}
+                          />
                         </Td>
                         <Td zebra={zebra}>
                           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>
@@ -282,6 +398,159 @@ export default function EventResponses({ event, onClose, showToast }) {
           onClose={() => setOpenRow(null)}
         />
       )}
+
+      {aiOpen && (
+        <AiReportModal
+          event={event}
+          state={aiState}
+          report={aiReport}
+          onRetry={openAiReport}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── lead pipeline: a colour-coded status select per registrant ────────────────
+
+function LeadStatusSelect({ value, onChange, t }) {
+  const tone = leadTone(value);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={t("dash.resp.stage")}
+      style={{
+        fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.04em",
+        textTransform: "uppercase", color: tone,
+        background: "var(--surface-2)",
+        border: `1px solid ${tone === "var(--muted)" ? "var(--hair)" : tone}`,
+        borderRadius: 99, padding: "5px 9px", cursor: "pointer", outline: "none",
+        maxWidth: 150,
+      }}
+    >
+      {LEAD_STATUSES.map((s) => (
+        <option key={s} value={s} style={{ color: "var(--text)", textTransform: "none" }}>
+          {t(`dash.resp.lead.${s}`)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// ── score cell: number input that only commits (PATCH) on blur / Enter ────────
+
+function ScoreCell({ value, onCommit, t }) {
+  const [draft, setDraft] = useState(value == null ? "" : String(value));
+  // Re-sync when the stored value changes underneath us (optimistic rollback,
+  // or a fresh server value replacing the optimistic one).
+  useEffect(() => {
+    setDraft(value == null ? "" : String(value));
+  }, [value]);
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft)}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+      placeholder={t("dash.resp.score_ph")}
+      aria-label={t("dash.resp.score")}
+      style={{
+        fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text)",
+        background: "var(--surface-2)", border: "1px solid var(--hair)",
+        borderRadius: 9, padding: "6px 8px", width: 74, outline: "none",
+      }}
+    />
+  );
+}
+
+// ── AI summary modal: one Claude pass over every answer ───────────────────────
+
+function AiReportModal({ event, state, report, onRetry, onClose }) {
+  const t = useT();
+  const count = report?.response_count;
+  const summary = (report?.summary || "").trim();
+  const generatedAt = report?.generated_at;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("dash.resp.ai_title")}
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 95,
+        background: "rgba(6,5,4,0.72)", backdropFilter: "blur(3px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="ch-cell"
+        style={{
+          width: "100%", maxWidth: 620, maxHeight: "84vh",
+          display: "flex", flexDirection: "column", padding: 0,
+          background: "var(--surface)", overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            flex: "0 0 auto", padding: "22px 24px 16px", borderBottom: "1px solid var(--hair)",
+            display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div className="ch-cell-label" style={{ marginBottom: 6 }}>{t("dash.resp.ai_kicker")}</div>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "var(--text)" }}>
+              {t("dash.resp.ai_title")}
+            </h2>
+            <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+              #{event.id} · {event.title}
+              {state === "ready" && typeof count === "number" && (
+                <> · {count === 1 ? t("dash.resp.one") : t("dash.resp.count", { n: count })}</>
+              )}
+            </div>
+          </div>
+          <button type="button" className="ch-btn-ghost" onClick={onClose} style={{ padding: "6px 12px", fontSize: 12.5, flex: "0 0 auto" }}>
+            {t("dash.resp.close")}
+          </button>
+        </div>
+
+        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "20px 24px 24px" }}>
+          {state === "loading" && (
+            <div style={{ color: "var(--muted)", fontSize: 14, padding: "16px 0" }}>
+              <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
+              {t("dash.resp.ai_loading")}
+            </div>
+          )}
+
+          {state === "error" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
+              <div style={{ color: "var(--terra)", fontSize: 14 }}>{t("dash.resp.ai_error")}</div>
+              <button type="button" className="ch-btn-ghost" onClick={onRetry} style={{ padding: "7px 13px", fontSize: 12.5 }}>
+                {t("dash.resp.ai_retry")}
+              </button>
+            </div>
+          )}
+
+          {state === "ready" && (
+            <>
+              <div style={{ fontSize: 14.5, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                {summary || t("dash.resp.ai_empty")}
+              </div>
+              {generatedAt && (
+                <div style={{ marginTop: 18, fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--muted)" }}>
+                  {t("dash.resp.ai_generated", { when: fmtWhen(generatedAt) })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

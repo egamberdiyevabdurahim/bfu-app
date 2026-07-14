@@ -1,8 +1,12 @@
-"""Event deadline reminders — one-shot script for a Railway Cron service.
+"""Event start reminders — one-shot script for a Railway Cron service.
 
-Posts a "deadline tomorrow" reminder to the global Telegram group (and the
+Posts a "starts tomorrow" reminder to the global Telegram group (and the
 relevant region's school/LC groups, if the event is region-specific) for every
-event whose deadline falls ~24h out. Run daily so each event is reminded once.
+event whose START falls ~24h out. The reminder targets the event START time,
+computed as COALESCE(Event.starts_at, Event.deadline): events with a real start
+time remind relative to it; legacy events that only carry a signup ``deadline``
+fall back to it unchanged. Run daily so each event is reminded once — the daily
+cadence + the 24h-wide window give one post per event without a stamp column.
 
 Schedule on Railway:
   Schedule (UTC):  0 6 * * *   (11:00 Tashkent)
@@ -15,7 +19,7 @@ import html
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import settings
 from app.database import AsyncSessionLocal, engine
@@ -29,27 +33,30 @@ log = logging.getLogger("event_reminders")
 
 async def main() -> int:
     now = datetime.utcnow()
-    # Events whose deadline is between 12h and 36h away → "tomorrow" window.
+    # Events whose START is between 12h and 36h away → "tomorrow" window.
     # A daily run hits each event's T-1 exactly once.
     lo, hi = now + timedelta(hours=12), now + timedelta(hours=36)
+    # Remind on the real start when set, else fall back to the signup deadline.
+    remind_at = func.coalesce(Event.starts_at, Event.deadline)
 
     sent = 0
     async with AsyncSessionLocal() as s:
         events = (await s.execute(
             select(Event).where(
                 Event.is_deleted == False,
-                Event.deadline.is_not(None),
-                Event.deadline >= lo,
-                Event.deadline <= hi,
+                remind_at.is_not(None),
+                remind_at >= lo,
+                remind_at <= hi,
             )
         )).scalars().all()
 
         for e in events:
+            start_at = e.starts_at or e.deadline
             url = f"https://t.me/{settings.BOT_USERNAME}?startapp=event_{e.id}"
             text = (
-                f"⏰ <b>Deadline tomorrow</b>\n"
+                f"⏰ <b>Starts tomorrow</b>\n"
                 f"📅 {html.escape(e.title)} ({html.escape(e.type)})\n"
-                f"Closes {e.deadline:%d %b %H:%M}."
+                f"Starts {start_at:%d %b %H:%M}."
             )
             markup = {"inline_keyboard": [[{"text": "🚀 Open in BFU", "url": url}]]}
 

@@ -16,7 +16,8 @@ class EventOut(BaseModel):
     description: str | None = None
     link: str | None = None
     cover_url: str | None = None
-    deadline: datetime | None = None
+    deadline: datetime | None = None   # signup cutoff
+    starts_at: datetime | None = None  # when the event actually happens
     region_id: int | None = None
     created_at: datetime
     rsvp_count: int = 0          # number of "going" RSVPs
@@ -52,3 +53,6 @@ class FormResponseOut(BaseModel):
     phone_number: str | None = None
     submitted_at: datetime | None = None
     answers: dict[str, Any] | None = None
+    # Partner lead pipeline (advanced by an admin via PATCH .../responses/{uid}).
+    lead_status: str = "registered"
+    score: int | None = None

@@ -9,8 +9,8 @@ import EventFormModal from "@/components/events/EventFormModal";
 
 // Events (Batch 4). Two feeds:
 //   GET /events         → EventOut[] { id, type, title, description, link,
-//                                      cover_url, deadline, region_id, created_at,
-//                                      has_form }
+//                                      cover_url, deadline, starts_at, region_id,
+//                                      created_at, has_form }
 //   GET /events/for-me  → same fields + { matched:[tag], score } (relevance-ranked
 //                         against the user's AI tags + region — the "For you" tab)
 // Rendered as Chorsu event cards; each card links out to `link` when present.
@@ -37,6 +37,22 @@ function fmtDeadline(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+// START time = when the event actually happens (distinct from `deadline`, the
+// sign-up cutoff). The backend serializes NAIVE-UTC timestamps (no tz suffix),
+// so append "Z" to force UTC parsing, then render date + time in Tashkent —
+// matching the Mini App's fmtDateTime so both apps agree on the wall-clock start.
+function fmtStart(iso) {
+  if (!iso) return null;
+  let s = String(iso);
+  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += "Z";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  const tz = { timeZone: "Asia/Tashkent" };
+  const date = d.toLocaleDateString("en-GB", { ...tz, day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { ...tz, hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
 }
 
 // RSVP / Interested toggles + "N going" — a sibling BELOW the card's outbound
@@ -150,6 +166,7 @@ function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
   const t = useT();
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = fmtDeadline(ev.deadline);
+  const start = fmtStart(ev.starts_at);
   const ref = useRef(null);
   useEffect(() => {
     if (highlighted && ref.current) ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -194,6 +211,20 @@ function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
       >
         {ev.title}
       </h3>
+
+      {start ? (
+        <div
+          style={{
+            marginTop: 10,
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            letterSpacing: "0.04em",
+            color: "var(--teal-bright)",
+          }}
+        >
+          ◷ {t("community.events.starts", { date: start })}
+        </div>
+      ) : null}
 
       {ev.description ? (
         <p

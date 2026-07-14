@@ -201,6 +201,15 @@ async def lifespan(app: FastAPI):
         #     NULL = no form / plain one-click RSVP. See app.services.event_forms.
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS form_schema JSONB;",
         "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS answers JSONB;",
+        # --- Marstiff events: real start time + partner lead pipeline ---
+        # starts_at = when the event happens (distinct from `deadline`, the signup
+        # cutoff). lead_status/score = the partner's funnel + a recorded number
+        # (e.g. SAT mock score). reminded_1h_at = idempotency stamp for the T-1h
+        # (starts_at) reminder, mirroring reminded_at (the T-24h deadline one).
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS starts_at TIMESTAMP;",
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS lead_status VARCHAR(20) NOT NULL DEFAULT 'registered';",
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS score INTEGER;",
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS reminded_1h_at TIMESTAMP;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

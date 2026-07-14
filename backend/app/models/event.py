@@ -17,6 +17,10 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     link: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # When the event ACTUALLY happens (distinct from `deadline`, the signup
+    # cutoff). Nullable — many opportunities have only a deadline. Drives the
+    # T-1h reminder (see EventRsvp.reminded_1h_at) + "starts in …" UI copy.
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     region_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("regions.id"), nullable=True
     )

@@ -6,7 +6,7 @@ import { PartnersModal } from "../components/PartnersModal";
 import { EventFormSheet, useEventFormT } from "../components/EventFormSheet";
 import { FLAGS } from "../flags";
 import { useT } from "../i18n";
-import { fmtDate } from "../timefmt";
+import { fmtDate, fmtDateTime } from "../timefmt";
 
 const TYPES = ["foryou", "myrsvps", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
 
@@ -107,6 +107,9 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
 const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = ev.deadline ? fmt(ev.deadline) : null;
+  // START time = when to actually show up (distinct from `deadline`, the sign-up
+  // cutoff). Date + time in Tashkent; only rendered when the backend supplies it.
+  const start = ev.starts_at ? fmtDateTime(ev.starts_at) : null;
   const typeLabel = KNOWN_TYPES.includes(ev.type)
     ? t(`events.type.${ev.type}`)
     : (ev.type || t("events.type.other"));
@@ -151,6 +154,15 @@ const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
       }}>
         {ev.title}
       </h3>
+
+      {start && (
+        <div style={{
+          marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11.5,
+          letterSpacing: "0.02em", color: "var(--teal-bright)",
+        }}>
+          ◷ {t("events.starts", { d: start })}
+        </div>
+      )}
 
       {ev.matched?.length > 0 && (
         <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", color: "var(--green)" }}>

@@ -660,6 +660,7 @@ const STRINGS = {
   "events.empty": { en: "No upcoming events yet.", uz: "Hozircha tadbirlar yo‘q.", ru: "Пока нет мероприятий." },
   "events.open": { en: "Open ↗", uz: "Ochish ↗", ru: "Открыть ↗" },
   "events.deadline": { en: "Deadline: {d}", uz: "Muddat: {d}", ru: "Срок: {d}" },
+  "events.starts": { en: "Starts: {d}", uz: "Boshlanadi: {d}", ru: "Начало: {d}" },
   "events.type.hackathon": { en: "Hackathon", uz: "Hakaton", ru: "Хакатон" },
   "events.type.grant": { en: "Grant", uz: "Grant", ru: "Грант" },
   "events.type.scholarship": { en: "Scholarship", uz: "Stipendiya", ru: "Стипендия" },

@@ -282,6 +282,7 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
   const [description, setDescription] = useState(event?.description || "");
   const [link, setLink] = useState(event?.link || "");
   const [coverUrl, setCoverUrl] = useState(event?.cover_url || "");
+  const [startsAt, setStartsAt] = useState(toLocalInput(event?.starts_at));
   const [deadline, setDeadline] = useState(toLocalInput(event?.deadline));
   const [regionId, setRegionId] = useState(event?.region_id ? String(event.region_id) : "");
   const [partnerId, setPartnerId] = useState(event?.partner_id ? String(event.partner_id) : "");
@@ -300,6 +301,9 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
       description: description.trim() || null,
       link: link.trim() || null,
       cover_url: coverUrl.trim() || null,
+      // Two distinct datetimes: starts_at = when the event happens; deadline =
+      // the signup cutoff. Both convert local-datetime → ISO, null when empty.
+      starts_at: startsAt ? new Date(startsAt).toISOString() : null,
       deadline: deadline ? new Date(deadline).toISOString() : null,
       region_id: regionId ? Number(regionId) : null,
       partner_id: partnerId ? Number(partnerId) : null,
@@ -319,18 +323,25 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" style={{ ...inputStyle, width: "100%" }} />
       </Field>
 
+      <Field label="Type *">
+        <input
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          list="event-types"
+          placeholder="e.g. hackathon"
+          style={{ ...inputStyle, width: "100%" }}
+        />
+        <datalist id="event-types">
+          {TYPES.map((t) => <option key={t} value={t} />)}
+        </datalist>
+      </Field>
+
+      {/* The two datetimes side by side so their distinct roles are obvious:
+          "Starts at" is when the event actually happens; "Deadline" is the
+          signup cutoff. */}
       <Row>
-        <Field label="Type *">
-          <input
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            list="event-types"
-            placeholder="e.g. hackathon"
-            style={{ ...inputStyle, width: "100%" }}
-          />
-          <datalist id="event-types">
-            {TYPES.map((t) => <option key={t} value={t} />)}
-          </datalist>
+        <Field label="Starts at">
+          <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
         </Field>
         <Field label="Deadline">
           <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...inputStyle, width: "100%" }} />

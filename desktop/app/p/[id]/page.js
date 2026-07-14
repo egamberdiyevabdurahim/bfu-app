@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { asset } from "@/lib/asset";
 import { getProject } from "@/lib/bfu-api";
 import { getT } from "@/lib/i18n/server";
 import SiteTopBar from "@/components/nav/SiteTopBar";
@@ -36,7 +37,9 @@ export async function generateMetadata({ params }) {
   // Generic, viewer-agnostic OG — the project endpoint ships no per-project PIL
   // render, so reuse the brand mark the app already serves (same pattern as the
   // city surface). No new backend work.
-  const ogImage = "/bfu-mark.png";
+  // asset() adds the "/web" basePath — metadataBase resolves this against the root
+  // domain, which is the Mini App, not us. See lib/asset.js.
+  const ogImage = asset("/bfu-mark.png");
 
   return {
     metadataBase: new URL("https://brightfuturesuzbekistan.uz"),

@@ -2,6 +2,7 @@ import Atmosphere from "@/components/Atmosphere";
 import SiteFooter from "@/components/ui/SiteFooter";
 import AppTopBar from "@/components/nav/AppTopBar";
 import AdminSubNav from "@/components/dashboard/AdminSubNav";
+import { asset } from "@/lib/asset";
 
 // The admin console pages (Users, Projects, Reports, …) render inside the
 // left-sidebar AppShell (via AppTopBar), with the AdminSubNav as a secondary tab
@@ -119,7 +120,7 @@ function AdminsOnly() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 0 8px" }}>
           <img
-            src="/bfu-mark.png"
+            src={asset("/bfu-mark.png")}
             alt="BFU"
             style={{ height: 38, width: "auto", display: "block", filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))" }}
           />

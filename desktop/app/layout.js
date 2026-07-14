@@ -2,11 +2,20 @@ import "./globals.css";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import { LocaleProvider } from "@/components/i18n/LocaleProvider";
 import { getServerLang } from "@/lib/i18n/server";
+import { asset } from "@/lib/asset";
 
 export const metadata = {
   title: "Bright Futures Uzbekistan",
   description: "A city of builders, lit up at dusk.",
-  icons: { icon: "/bfu-mark.png", shortcut: "/bfu-mark.png", apple: "/bfu-mark.png" },
+  // Next's Metadata API does NOT apply basePath to string icon paths, so a bare
+  // "/bfu-mark.png" is fetched from the ROOT domain — which is the Mini App, a
+  // different app that answers unknown paths with its index.html and a 200. Route
+  // it through asset() like every other public file. (See lib/asset.js.)
+  icons: {
+    icon: asset("/bfu-mark.png"),
+    shortcut: asset("/bfu-mark.png"),
+    apple: asset("/bfu-mark.png"),
+  },
 };
 
 export default async function RootLayout({ children }) {

@@ -90,6 +90,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   const [followBusy, setFollowBusy] = useState(false);
 
   const doWhyMatch = async () => {
+    if (!FLAGS.AI_ASSIST) return;
     if (!user || loadingMatch) return;
     if (matchReason) { setMatchReason(null); return; }
     setLoadingMatch(true);
@@ -103,6 +104,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   };
 
   const doIcebreakers = async () => {
+    if (!FLAGS.AI_ASSIST) return;
     if (!user || loadingOpeners) return;
     if (openers) { setOpeners(null); return; }
     setLoadingOpeners(true);
@@ -119,6 +121,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   };
 
   const doInterest = async () => {
+    if (!FLAGS.INTEREST_INTRO) return;
     if (!user) return;
     try {
       const r = await users.interest(user.id);
@@ -127,6 +130,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   };
 
   const doTranslate = async () => {
+    if (!FLAGS.AI_ASSIST) return;
     if (!user || translating) return;
     if (translated) { setTranslated(null); return; }
     setTranslating(true);
@@ -140,6 +144,7 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
   };
 
   const doIntro = async () => {
+    if (!FLAGS.INTEREST_INTRO) return;
     if (!user) return;
     setIntroSending(true);
     try {
@@ -374,15 +379,19 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                   </button>
                 )}
 
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button className="btn-ghost" onClick={doInterest} style={{ flex: 1, textAlign: "center" }}>
-                    {t("interest.btn")}
-                  </button>
-                  <button className="btn-ghost" onClick={doIntro} disabled={introSending}
-                    style={{ flex: 1, textAlign: "center", opacity: introSending ? 0.6 : 1 }}>
-                    {introSending ? t("intro.sending") : t("intro.btn")}
-                  </button>
-                </div>
+                {/* "I'm interested" + "Request intro" — a second way to say hello on
+                    top of Follow/Message. Hidden for V1 behind FLAGS.INTEREST_INTRO. */}
+                {FLAGS.INTEREST_INTRO && (
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="btn-ghost" onClick={doInterest} style={{ flex: 1, textAlign: "center" }}>
+                      {t("interest.btn")}
+                    </button>
+                    <button className="btn-ghost" onClick={doIntro} disabled={introSending}
+                      style={{ flex: 1, textAlign: "center", opacity: introSending ? 0.6 : 1 }}>
+                      {introSending ? t("intro.sending") : t("intro.btn")}
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
                   {followerCount > 0 ? (
@@ -398,39 +407,44 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
               </Cell>
 
               {/* ── A little AI help ───────────────────────────────────────── */}
-              <Cell>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button className="btn-ghost" onClick={doWhyMatch} disabled={loadingMatch}
-                    style={{ flex: "1 1 auto", textAlign: "center", opacity: loadingMatch ? 0.6 : 1 }}>
-                    {loadingMatch ? t("match.thinking") : matchReason ? t("match.hide") : t("match.btn")}
-                  </button>
-                  <button className="btn-ghost" onClick={doIcebreakers} disabled={loadingOpeners}
-                    style={{ flex: "1 1 auto", textAlign: "center", opacity: loadingOpeners ? 0.6 : 1 }}>
-                    {loadingOpeners ? t("ice.thinking") : openers ? t("ice.hide") : t("ice.btn")}
-                  </button>
-                </div>
-                {matchReason && (
-                  <div style={{ padding: "12px 14px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid rgba(232,161,92,0.24)",
-                    background: "linear-gradient(150deg, rgba(232,161,92,0.08), rgba(192,86,59,0.05) 60%, var(--surface))",
-                    fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 16, lineHeight: 1.5, color: "var(--text)" }}>
-                    {matchReason}
+              {/* "Why you match" + "Break the ice". Hidden for V1 behind FLAGS.AI_ASSIST:
+                  the whole cell is gated, so neither the buttons nor the panels they
+                  open render, and users.whyMatch / users.icebreakers are never called. */}
+              {FLAGS.AI_ASSIST && (
+                <Cell>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn-ghost" onClick={doWhyMatch} disabled={loadingMatch}
+                      style={{ flex: "1 1 auto", textAlign: "center", opacity: loadingMatch ? 0.6 : 1 }}>
+                      {loadingMatch ? t("match.thinking") : matchReason ? t("match.hide") : t("match.btn")}
+                    </button>
+                    <button className="btn-ghost" onClick={doIcebreakers} disabled={loadingOpeners}
+                      style={{ flex: "1 1 auto", textAlign: "center", opacity: loadingOpeners ? 0.6 : 1 }}>
+                      {loadingOpeners ? t("ice.thinking") : openers ? t("ice.hide") : t("ice.btn")}
+                    </button>
                   </div>
-                )}
-                {openers && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {openers.length === 0 ? (
-                      <div style={{ fontSize: 12, color: "var(--text-3)", textAlign: "center" }}>{t("ice.none")}</div>
-                    ) : openers.map((o, i) => (
-                      <button key={i} onClick={() => copyOpener(o)} style={{ textAlign: "left", padding: "10px 12px",
-                        background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
-                        color: "var(--text)", fontSize: 14, lineHeight: 1.5, cursor: "pointer", fontFamily: "var(--font-body)" }}>
-                        {o} <span style={{ color: "var(--amber)", fontSize: 11 }}>· {t("ice.tapCopy")}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Cell>
+                  {matchReason && (
+                    <div style={{ padding: "12px 14px", borderRadius: "var(--radius-sm)",
+                      border: "1px solid rgba(232,161,92,0.24)",
+                      background: "linear-gradient(150deg, rgba(232,161,92,0.08), rgba(192,86,59,0.05) 60%, var(--surface))",
+                      fontFamily: "var(--font-accent)", fontStyle: "italic", fontSize: 16, lineHeight: 1.5, color: "var(--text)" }}>
+                      {matchReason}
+                    </div>
+                  )}
+                  {openers && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {openers.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--text-3)", textAlign: "center" }}>{t("ice.none")}</div>
+                      ) : openers.map((o, i) => (
+                        <button key={i} onClick={() => copyOpener(o)} style={{ textAlign: "left", padding: "10px 12px",
+                          background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: "var(--radius-sm)",
+                          color: "var(--text)", fontSize: 14, lineHeight: 1.5, cursor: "pointer", fontFamily: "var(--font-body)" }}>
+                          {o} <span style={{ color: "var(--amber)", fontSize: 11 }}>· {t("ice.tapCopy")}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Cell>
+              )}
 
               {/* ── Mentor ─────────────────────────────────────────────────── */}
               {FLAGS.MENTORING && user?.mentor?.is_mentor && (
@@ -490,11 +504,16 @@ export const UserProfileModal = ({ userId, user: propUser, onClose }) => {
                 <Cell>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div className="ch-cell-label">{t("um.about")}</div>
-                    <button onClick={doTranslate} disabled={translating} style={{ background: "none", border: "none",
-                      color: "var(--amber)", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0,
-                      fontFamily: "var(--font-body)" }}>
-                      {translating ? t("bio.translating") : translated ? t("bio.original") : t("bio.translate")}
-                    </button>
+                    {/* "Translate bio" — hidden for V1 behind FLAGS.AI_ASSIST. The bio
+                        itself always renders; only the AI translate toggle is gated, so
+                        users.translateBio is never called and `translated` stays null. */}
+                    {FLAGS.AI_ASSIST && (
+                      <button onClick={doTranslate} disabled={translating} style={{ background: "none", border: "none",
+                        color: "var(--amber)", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0,
+                        fontFamily: "var(--font-body)" }}>
+                        {translating ? t("bio.translating") : translated ? t("bio.original") : t("bio.translate")}
+                      </button>
+                    )}
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7, margin: 0 }}>{translated || user.about}</p>
                 </Cell>

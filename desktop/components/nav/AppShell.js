@@ -12,6 +12,7 @@ import { useT } from "@/components/i18n/LocaleProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import NavIcon from "@/components/nav/NavIcon";
 import { handleFor } from "@/lib/handle";
+import { asset } from "@/lib/asset";
 
 // AppShell — the ONE premium left-sidebar shell for the whole logged-in app
 // (the "Hybrid" design). It owns the page chrome so pages only supply content:
@@ -366,7 +367,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               onClick={closeDrawer}
               title={isCollapsed ? "Bright Futures" : undefined}
             >
-              <img src="/bfu-mark.png" alt="BFU" className="ash-brand-mark" />
+              <img src={asset("/bfu-mark.png")} alt="BFU" className="ash-brand-mark" />
               <span className="ash-wordmark">Bright Futures</span>
             </a>
             {!isDrawer && (
@@ -550,7 +551,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           >
             <span className="ash-credit-by">{t("common.powered_by")}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/marstiff-mark.png" alt="" className="ash-credit-mark" />
+            <img src={asset("/marstiff-mark.png")} alt="" className="ash-credit-mark" />
             <span className="ash-credit-nm">Marstiff</span>
           </a>
         </div>
@@ -613,7 +614,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           </button>
           <a href="/web/home" className="ash-topbar-brand">
             <img
-              src="/bfu-mark.png"
+              src={asset("/bfu-mark.png")}
               alt="BFU"
               style={{ height: 26, width: "auto", display: "block", filter: "drop-shadow(0 2px 8px rgba(232,161,92,0.25))" }}
             />

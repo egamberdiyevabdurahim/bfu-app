@@ -3,10 +3,10 @@ export const projects = {
   en: {
     // — /projects browse page —
     "projects.footer_tagline": "Every great thing started as someone's project.",
-    "projects.empty_quiet_k": "The workshop is quiet",
-    "projects.empty_quiet_t": "Post the first project.",
+    "projects.empty_quiet_k": "Light the first window",
+    "projects.empty_quiet_t": "No projects yet",
     "projects.empty_quiet_s":
-      "The city grows around whoever shows up. Light the first window — a startup or a volunteering effort — and others will gather.",
+      "Be the one who posts the first. People join projects — give them one to join.",
 
     // — /projects/mine page —
     "projects.mine_overline": "Your corner of the bazaar",
@@ -154,10 +154,10 @@ export const projects = {
 
   uz: {
     "projects.footer_tagline": "Har bir buyuk narsa kimningdir loyihasi sifatida boshlangan.",
-    "projects.empty_quiet_k": "Ustaxona sokin",
-    "projects.empty_quiet_t": "Birinchi loyihani joylang.",
+    "projects.empty_quiet_k": "Birinchi derazani yoqing",
+    "projects.empty_quiet_t": "Hali loyiha yo‘q",
     "projects.empty_quiet_s":
-      "Shahar kim kelsa, o‘sha atrofida o‘sadi. Birinchi derazani yoqing — startap yoki ko‘ngillilik tashabbusi — va boshqalar to‘planadi.",
+      "Birinchi loyihani siz e’lon qiling. Odamlar loyihalarga qo‘shiladi — ularga qo‘shiladigan narsa bering.",
 
     "projects.mine_overline": "Bozordagi o‘z burchagingiz",
     "projects.mine_your": "Sizning",
@@ -293,10 +293,10 @@ export const projects = {
 
   ru: {
     "projects.footer_tagline": "Всё великое начиналось как чей-то проект.",
-    "projects.empty_quiet_k": "В мастерской тихо",
-    "projects.empty_quiet_t": "Опубликуйте первый проект.",
+    "projects.empty_quiet_k": "Зажгите первое окно",
+    "projects.empty_quiet_t": "Проектов пока нет",
     "projects.empty_quiet_s":
-      "Город растёт вокруг тех, кто приходит. Зажгите первое окно — стартап или волонтёрскую инициативу — и вокруг соберутся другие.",
+      "Станьте тем, кто опубликует первый. Люди присоединяются к проектам — дайте им проект, к которому можно присоединиться.",
 
     "projects.mine_overline": "Ваш уголок базара",
     "projects.mine_your": "Ваши",

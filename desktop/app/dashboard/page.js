@@ -9,6 +9,7 @@ import StatCards from "@/components/dashboard/StatCards";
 import RegionHeatmap from "@/components/dashboard/RegionHeatmap";
 import RetentionPanel from "@/components/dashboard/RetentionPanel";
 import SkillGapPanel from "@/components/dashboard/SkillGapPanel";
+import { asset } from "@/lib/asset";
 
 // The admin "command center" — screen 6, the finale. SERVER component: it reads
 // the httpOnly session cookie and calls the four Bearer-gated /admin endpoints,
@@ -207,7 +208,7 @@ function AdminsOnly() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 0 8px" }}>
           <img
-            src="/bfu-mark.png"
+            src={asset("/bfu-mark.png")}
             alt="BFU"
             style={{
               height: 38,

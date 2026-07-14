@@ -1,4 +1,5 @@
 import { getCity } from "@/lib/bfu-api";
+import { asset } from "@/lib/asset";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
 import CityHeader from "@/components/CityHeader";
@@ -38,7 +39,9 @@ export async function generateMetadata() {
   const url = "https://brightfuturesuzbekistan.uz/city";
   // Generic, viewer-agnostic OG — no per-user PIL render needed for the city
   // surface. Reuses the brand mark the app already ships.
-  const ogImage = "/bfu-mark.png";
+  // asset() adds the "/web" basePath — metadataBase resolves this against the root
+  // domain, which is the Mini App, not us. See lib/asset.js.
+  const ogImage = asset("/bfu-mark.png");
 
   return {
     metadataBase: new URL("https://brightfuturesuzbekistan.uz"),

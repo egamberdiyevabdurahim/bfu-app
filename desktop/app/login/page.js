@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import Atmosphere from "@/components/Atmosphere";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { asset } from "@/lib/asset";
 
 const BOT_USERNAME =
   process.env.NEXT_PUBLIC_BOT_USERNAME || "BrightFuturesUzbekistan_bot";
@@ -185,7 +186,7 @@ function LoginInner() {
       >
         {/* brand mark */}
         <img
-          src="/bfu-mark.png"
+          src={asset("/bfu-mark.png")}
           alt="Bright Futures Uzbekistan"
           style={{
             height: 52,

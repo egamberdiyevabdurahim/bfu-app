@@ -8,6 +8,31 @@ const STRINGS = {
   // bot's /start, the landing hero and the first screen of the app, because the #1
   // complaint was "people don't know what this is". Change it in all three or none.
   "purpose.line": { en: "Find a team for your project. Find a project to join.", uz: "Loyihangga jamoa top. Jamoaga loyiha top.", ru: "Найди команду для своего проекта. Найди проект для себя." },
+
+  // ── First-run walkthrough (3 steps, skippable at every one) ─────────────────
+  // A new member used to finish sign-up and land on a screen with no idea what
+  // BFU was for. Three cards, then drop them straight into City — one action.
+  "onb.skip":  { en: "Skip", uz: "O‘tkazib yuborish", ru: "Пропустить" },
+  "onb.next":  { en: "Next", uz: "Keyingisi", ru: "Далее" },
+  "onb.start": { en: "See your city", uz: "Shahringni ko‘r", ru: "Посмотреть город" },
+  "onb.s1.title": { en: "Find a team for your project. Find a project to join.", uz: "Loyihangga jamoa top. Jamoaga loyiha top.", ru: "Найди команду для своего проекта. Найди проект для себя." },
+  "onb.s1.body":  { en: "That's BFU — where young people across Uzbekistan find each other and build together.", uz: "BFU shu — O‘zbekiston yoshlari bir-birini topib, birga loyiha quradigan joy.", ru: "Это BFU — место, где молодёжь Узбекистана находит друг друга и создаёт проекты вместе." },
+  "onb.s2.title": { en: "See your city", uz: "Shahringni ko‘r", ru: "Посмотри свой город" },
+  "onb.s2.body":  { en: "In City you see who is building near you, and what they're working on. Like someone? Write to them.", uz: "City’da yoningda kim nima qurayotganini ko‘rasan. Yoqqan odamga yozasan.", ru: "В разделе «Город» видно, кто и что строит рядом. Понравился человек — напиши ему." },
+  "onb.s3.title": { en: "Join a project — or start yours", uz: "Loyihaga qo‘shil — yoki o‘zingnikini boshla", ru: "Присоединись к проекту — или начни свой" },
+  "onb.s3.body":  { en: "In Projects you can join someone's team, or post your own idea and let people come to you.", uz: "Projects’da birovning jamoasiga qo‘shilasan, yoki o‘z g‘oyangni e’lon qilasan — odamlar o‘zi keladi.", ru: "В «Проектах» можно вступить в чью-то команду или опубликовать свою идею — и люди придут сами." },
+
+  // ── Honest empty states ────────────────────────────────────────────────────
+  // The person reading this is ALREADY registered, so "be the first" is not
+  // enough — give them something to DO (invite) and a way out (other cities),
+  // or an empty region becomes a dead end they leave from.
+  "empty.city.title":  { en: "Nobody in {region} yet", uz: "{region}da hali hech kim yo‘q", ru: "В регионе {region} пока никого" },
+  "empty.city.body":   { en: "BFU is only just starting in your city. Invite a friend — a team starts with one.", uz: "Shahringda BFU endi boshlanmoqda. Do‘stingni chaqir — jamoa shundan boshlanadi.", ru: "BFU только начинается в вашем городе. Позовите друга — команда начинается с одного." },
+  "empty.city.invite": { en: "👋 Invite a friend", uz: "👋 Do‘stni taklif qil", ru: "👋 Пригласить друга" },
+  "empty.city.other":  { en: "🏙 See other cities", uz: "🏙 Boshqa shaharlarni ko‘r", ru: "🏙 Посмотреть другие города" },
+  "empty.projects.title": { en: "No projects yet", uz: "Hali loyiha yo‘q", ru: "Проектов пока нет" },
+  "empty.projects.body":  { en: "Be the one who posts the first. People join projects — give them one to join.", uz: "Birinchi loyihani sen e’lon qil. Odamlar loyihaga qo‘shiladi — ularga qo‘shiladigan narsa ber.", ru: "Опубликуйте первый. Люди присоединяются к проектам — дайте им проект." },
+  "empty.projects.cta":   { en: "🚀 Start a project", uz: "🚀 Loyiha boshlash", ru: "🚀 Начать проект" },
   "common.loading": { en: "Loading…", uz: "Yuklanmoqda…", ru: "Загрузка…" },
   "common.member": { en: "BFU member", uz: "BFU a'zosi", ru: "участник BFU" },
   "common.connectError": { en: "Couldn't reach the server", uz: "Serverga ulanib bo‘lmadi", ru: "Не удалось подключиться к серверу" },
@@ -372,6 +397,7 @@ const STRINGS = {
   "settings.title": { en: "Profile", uz: "Profil", ru: "Профиль" },
   "settings.editProfile": { en: "Edit Profile", uz: "Profilni tahrirlash", ru: "Редактировать профиль" },
   "settings.adminDashboard": { en: "🛠️ Admin Dashboard", uz: "🛠️ Admin panel", ru: "🛠️ Панель администратора" },
+  "settings.adminWeb": { en: "Admin console (opens on web)", uz: "Admin paneli (webda ochiladi)", ru: "Админ-панель (откроется в вебе)" },
   "settings.signOut": { en: "Sign Out", uz: "Chiqish", ru: "Выйти" },
   "settings.openStartups": { en: "⚡ Open to Startups", uz: "⚡ Startaplarga ochiq", ru: "⚡ Открыт к стартапам" },
   "settings.openVolunteer": { en: "🤝 Open to Volunteer", uz: "🤝 Volontyorlikka ochiq", ru: "🤝 Открыт к волонтёрству" },

@@ -19,9 +19,21 @@ import { FLAGS } from "@/lib/flags";
 //                                        intro, per-skill endorse, vouch
 //                                        composer, and the AI trio.
 //
-// V1 launch: the social-proof surfaces (per-skill endorse + vouch composer) are
-// hidden behind FLAGS.TRUST. The handlers and the backend routes below are all
-// intact — flip FLAGS.TRUST to true in lib/flags.js and both cards come back.
+// V1 launch — the founder cut this panel down to Follow / Message / Report.
+// Everything else is behind a flag; nothing was deleted, so flipping the flag in
+// lib/flags.js brings the surface (and its handler + backend route) straight back:
+//
+//   FLAGS.INTEREST_INTRO → "💜 I'm interested" + "👋 Request intro" button row
+//                          (handlers: express(), requestIntro())
+//   FLAGS.AI_ASSIST      → the whole "A LITTLE HELP" card: Why you match,
+//                          Break the ice, Translate bio (handlers: runAi(),
+//                          copyLine(); result surfaces: <AiPanel/>)
+//   FLAGS.TRUST          → per-skill endorse + vouch composer (pre-existing)
+//
+// The AI calls are all on-demand (click → runAi), so with FLAGS.AI_ASSIST off no
+// why-match/icebreaker/translate request is ever issued. The mount-time fetch
+// below stays: it powers Follow (is_following / follower_count) and self/anon
+// detection, which all survive the cut.
 //
 // Verbs/fields confirmed against backend/app/routers/users.py:
 //   authed profile: GET /users/{id}
@@ -179,9 +191,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     }
   }
 
-  // ── Interest (soft ping) ──────────────────────────────────────────────────
+  // ── Interest (soft ping) — V1: hidden (FLAGS.INTEREST_INTRO) ──────────────
   async function express() {
-    if (busy) return;
+    if (!FLAGS.INTEREST_INTRO || busy) return;
     setBusy(true);
     try {
       const r = await bfu(`/users/${userId}/interest`, { method: "POST" });
@@ -216,9 +228,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     }
   }
 
-  // ── Request intro ─────────────────────────────────────────────────────────
+  // ── Request intro — V1: hidden (FLAGS.INTEREST_INTRO) ─────────────────────
   async function requestIntro() {
-    if (busy) return;
+    if (!FLAGS.INTEREST_INTRO || busy) return;
     setBusy(true);
     try {
       await bfu(`/users/${userId}/intro`, { method: "POST" });
@@ -341,8 +353,11 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     }
   }
 
-  // ── AI trio ───────────────────────────────────────────────────────────────
+  // ── AI trio — V1: hidden (FLAGS.AI_ASSIST) ────────────────────────────────
+  // Guarded so no why-match / icebreakers / bio-translate request can be issued
+  // while the buttons that trigger them are not rendered.
   async function runAi(kind) {
+    if (!FLAGS.AI_ASSIST) return;
     setAi((s) => ({ ...s, [kind]: { loading: true, error: null, data: null } }));
     try {
       let path;
@@ -357,7 +372,9 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
     }
   }
 
+  // Copy an icebreaker line — only reachable from the FLAGS.AI_ASSIST card.
   async function copyLine(text, idx) {
+    if (!FLAGS.AI_ASSIST) return;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(idx);
@@ -483,24 +500,27 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           <span aria-hidden>✉</span> {msgBusy ? t("people.opening") : t("people.message")}
         </button>
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            type="button"
-            onClick={express}
-            disabled={busy}
-            style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
-          >
-            <span aria-hidden>💜</span> {t("people.imInterested")}
-          </button>
-          <button
-            type="button"
-            onClick={requestIntro}
-            disabled={busy}
-            style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
-          >
-            <span aria-hidden>👋</span> {t("people.requestIntro")}
-          </button>
-        </div>
+        {/* I'm interested / Request intro — V1: hidden (FLAGS.INTEREST_INTRO) */}
+        {FLAGS.INTEREST_INTRO && (
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={express}
+              disabled={busy}
+              style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
+            >
+              <span aria-hidden>💜</span> {t("people.imInterested")}
+            </button>
+            <button
+              type="button"
+              onClick={requestIntro}
+              disabled={busy}
+              style={{ ...ghostBtn, flex: 1, textAlign: "center", opacity: busy ? 0.6 : 1 }}
+            >
+              <span aria-hidden>👋</span> {t("people.requestIntro")}
+            </button>
+          </div>
+        )}
 
         {/* Report affordance */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -559,7 +579,10 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
         )}
       </div>
 
-      {/* AI trio */}
+      {/* AI trio ("A LITTLE HELP") — V1: hidden (FLAGS.AI_ASSIST).
+          The gate wraps the WHOLE card, heading included, so nothing renders as
+          an empty titled shell. */}
+      {FLAGS.AI_ASSIST && (
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="ch-cell-label">{t("people.aLittleHelp")}</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -645,6 +668,7 @@ export default function PersonActions({ userId, personName, aboutText, lang = "e
           </AiPanel>
         )}
       </div>
+      )}
 
       {/* Endorse skills — V1: hidden (FLAGS.TRUST) */}
       {FLAGS.TRUST && skills.length > 0 && (

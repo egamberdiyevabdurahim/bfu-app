@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/components/i18n/LocaleProvider";
+import { asset } from "@/lib/asset";
 
 // Shared page footer — the "brightfuturesuzbekistan.uz · <tagline>" strip that
 // was copy-pasted inline across ~12 pages (and missing entirely on /requests &
@@ -75,7 +76,7 @@ export default function SiteFooter({
           {t("misc.powered_by")}
         </span>
         <img
-          src="/marstiff-mark.png"
+          src={asset("/marstiff-mark.png")}
           alt="Marstiff"
           width={16}
           height={16}

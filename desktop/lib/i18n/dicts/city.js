@@ -48,6 +48,10 @@ export const city = {
     "city.cluster.grace_title": "The bazaar is small tonight.",
     "city.cluster.grace_sub":
       "Be one of the first to light up {name} — the city grows around whoever shows up.",
+    // Two exits out of the grace tile: invite (Settings holds the invite link)
+    // and an in-page jump to the other region clusters.
+    "city.cluster.grace_invite": "👋 Invite a friend",
+    "city.cluster.grace_other": "🏙 See other cities",
     "city.cluster.this_city": "This city",
 
     // — Builder card (BuilderCard.js) —
@@ -68,6 +72,16 @@ export const city = {
     // — Presence toast (PresenceToast.js) —
     "city.toast.someone": "Someone",
     "city.toast.just_online": "just came online",
+
+    // — Serendipity rail (ThreadsRail.js) —
+    // The four `kind.*` keys mirror the backend's machine `kind` values; a kind
+    // with no key here falls back to a title-case of the raw value.
+    "city.threads.kicker": "Serendipity",
+    "city.threads.title": "Threads from here",
+    "city.threads.kind.rising": "Rising tonight",
+    "city.threads.kind.new_in_city": "New in your city",
+    "city.threads.kind.skill_cluster": "Same problem",
+    "city.threads.kind.open_roles": "They need what you have",
   },
 
   uz: {
@@ -113,6 +127,8 @@ export const city = {
     "city.cluster.grace_title": "Bugun tunda bozor kichik.",
     "city.cluster.grace_sub":
       "{name}ni yoritgan birinchilardan bo‘ling — shahar kim kelsa, o‘sha odam atrofida o‘sadi.",
+    "city.cluster.grace_invite": "👋 Do‘stni taklif qil",
+    "city.cluster.grace_other": "🏙 Boshqa shaharlarni ko‘r",
     "city.cluster.this_city": "Bu shahar",
 
     "city.card.mentor": "Mentor",
@@ -130,6 +146,13 @@ export const city = {
 
     "city.toast.someone": "Kimdir",
     "city.toast.just_online": "hozirgina onlaynga chiqdi",
+
+    "city.threads.kicker": "Tasodif",
+    "city.threads.title": "Shu yerdan boshlangan iplar",
+    "city.threads.kind.rising": "Bugun tunda ko‘tarilmoqda",
+    "city.threads.kind.new_in_city": "Shahringizdagi yangilar",
+    "city.threads.kind.skill_cluster": "Bir xil muammo",
+    "city.threads.kind.open_roles": "Sizda bor narsa ularga kerak",
   },
 
   ru: {
@@ -175,6 +198,8 @@ export const city = {
     "city.cluster.grace_title": "Сегодня базар небольшой.",
     "city.cluster.grace_sub":
       "Станьте одним из первых, кто зажжёт {name} — город растёт вокруг тех, кто приходит.",
+    "city.cluster.grace_invite": "👋 Пригласить друга",
+    "city.cluster.grace_other": "🏙 Посмотреть другие города",
     "city.cluster.this_city": "Этот город",
 
     "city.card.mentor": "Ментор",
@@ -192,5 +217,12 @@ export const city = {
 
     "city.toast.someone": "Кто-то",
     "city.toast.just_online": "только что появился в сети",
+
+    "city.threads.kicker": "Счастливая случайность",
+    "city.threads.title": "Нити отсюда",
+    "city.threads.kind.rising": "Набирает силу сегодня ночью",
+    "city.threads.kind.new_in_city": "Новые в вашем городе",
+    "city.threads.kind.skill_cluster": "Та же задача",
+    "city.threads.kind.open_roles": "Им нужно то, что есть у вас",
   },
 };

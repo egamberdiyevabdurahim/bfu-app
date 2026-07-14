@@ -30,6 +30,14 @@ export const FLAGS = {
   // Social proof: endorse, vouch, rate + the achievement badges. Gamification
   // needs a community to be about; with a young user base these render empty.
   TRUST: false,
+
+  // AI assists on someone else's profile: "Why you match", "Break the ice",
+  // "Translate bio". Clever, but they crowd the one action that matters (Message).
+  AI_ASSIST: false,
+
+  // "I'm interested" + "Request intro" — a second, parallel way to reach someone
+  // on top of Follow/Message. Two ways to say hello is one too many for V1.
+  INTEREST_INTRO: false,
 };
 
 export default FLAGS;

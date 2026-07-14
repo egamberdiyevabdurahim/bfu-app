@@ -13,6 +13,7 @@ import { Landing } from "./Landing";
 import { RegionLandingScreen } from "./RegionLandingScreen";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { MessagesScreen } from "./components/MessagesScreen";
+import { Onboarding } from "./components/Onboarding";
 import { startUpdateCheck } from "./updateCheck";
 import { FLAGS } from "./flags";
 
@@ -51,6 +52,10 @@ function MiniApp() {
   const [msgConv, setMsgConv] = useState(null);
   const [updateReady, setUpdateReady] = useState(false);
   const [bootError, setBootError] = useState(false); // transient failure verifying the session
+  // First-run walkthrough. Server-side truth is me.onboarding_completed; this
+  // flag only lets us hide the overlay OPTIMISTICALLY on skip/finish so a failed
+  // POST can never trap a new member inside it.
+  const [onbDismissed, setOnbDismissed] = useState(false);
 
   useEffect(() => {
     const stop = startUpdateCheck();
@@ -63,6 +68,7 @@ function MiniApp() {
     const handleSignout = () => {
       setAuthed(false); setMe(null); setActiveTab("city");
       setDeepLink(null); setDeepUserId(null); setMsgOpen(false);
+      setOnbDismissed(false); // next account on this device gets its own walkthrough
     };
     window.addEventListener("bfu:signout", handleSignout);
     return () => window.removeEventListener("bfu:signout", handleSignout);
@@ -184,6 +190,23 @@ function MiniApp() {
     // link was silently dropped.
     _parseDeepLink(true);
     if (!isNewRegistration && !_hasStartParam()) setActiveTab("city");
+  };
+
+  // First-run walkthrough — only for a member the SERVER says hasn't seen it.
+  // Strict `=== false`: if the field is ever missing (older backend) we show
+  // nothing rather than replaying the cards for every existing member.
+  const showOnboarding =
+    authed === true && me?.onboarding_completed === false && !onbDismissed;
+
+  const handleOnboardingDone = () => {
+    setOnbDismissed(true);
+    // Keep the loaded `me` consistent — the `bfu:me-updated` listener refetches
+    // it, and without this a slow POST could briefly re-arm the overlay.
+    setMe((u) => (u ? { ...u, onboarding_completed: true } : u));
+    // The last card promises City, and City is the default tab. A pending deep
+    // link (event / project / application) still wins — dropping it would strip
+    // the bot's re-engagement links of their target.
+    if (!deepLink && !deepUserId && !deepProject) setActiveTab("city");
   };
 
   const deniedFields = (() => {
@@ -316,6 +339,10 @@ function MiniApp() {
             onClose={() => setMsgOpen(false)}
           />
         )}
+        {/* Above everything (z-450): a brand-new member reads the three cards
+            first, then lands on City. Rendered last so it also covers a modal a
+            deep link may have opened underneath. */}
+        {showOnboarding && <Onboarding onDone={handleOnboardingDone} />}
       </div>
     </>
   );

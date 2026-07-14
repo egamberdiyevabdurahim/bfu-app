@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { getProjects } from "@/lib/bfu-api";
+import { asset } from "@/lib/asset";
 import { getT } from "@/lib/i18n/server";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import ProjectsHeader from "@/components/ProjectsHeader";
@@ -31,7 +33,9 @@ export async function generateMetadata() {
   const url = "https://brightfuturesuzbekistan.uz/projects";
   // Generic, viewer-agnostic OG — reuses the brand mark the app already ships
   // (same pattern as /city and /p/[id]). No per-project PIL render.
-  const ogImage = "/bfu-mark.png";
+  // asset() adds the "/web" basePath — metadataBase resolves this against the root
+  // domain, which is the Mini App, not us. See lib/asset.js.
+  const ogImage = asset("/bfu-mark.png");
 
   return {
     metadataBase: new URL("https://brightfuturesuzbekistan.uz"),
@@ -101,6 +105,26 @@ export default async function ProjectsPage() {
               <span className="ch-empty-k">{t("projects.empty_quiet_k")}</span>
               <div className="ch-empty-t">{t("projects.empty_quiet_t")}</div>
               <div className="ch-empty-s">{t("projects.empty_quiet_s")}</div>
+              {/* An empty screen with no action is a dead end, and with few users
+                  the app NEEDS projects — so this is the one place that must ASK
+                  for one. Deliberately NOT reusing <StartProjectCTA> here: it's a
+                  client island that probes GET /users/me and returns null on anon
+                  OR on any transient error, so the single CTA that must always be
+                  present could silently vanish. It also ships a second "Your
+                  projects" ghost button, which is meaningless when you have none.
+                  /projects is auth-gated in middleware.js, so every reader of this
+                  state is already logged in — an unconditional link is simpler and
+                  strictly safer.
+                  next/link applies the "/web" basePath automatically; a plain <a>
+                  would have to spell out "/web/projects/new". */}
+              <Link
+                href="/projects/new"
+                className="ch-btn-primary"
+                style={{ marginTop: 8 }}
+              >
+                <span aria-hidden>🚀</span>
+                {t("projects.start_project")}
+              </Link>
             </div>
           </div>
         )}

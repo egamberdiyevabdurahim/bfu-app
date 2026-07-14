@@ -5,6 +5,7 @@ import Atmosphere from "@/components/Atmosphere";
 import { bfu } from "@/lib/client-api";
 import { useT, useLang } from "@/components/i18n/LocaleProvider";
 import { nearestRegionId } from "@/lib/regionCentroids";
+import { asset } from "@/lib/asset";
 
 // Mirrors the Telegram Mini App's 6-step registration (src/screens/AuthScreen.jsx):
 // language → basic info → location/school/centers → about → intentions → groups.
@@ -248,7 +249,7 @@ export default function RegisterFlow({ me, preview = false }) {
       <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 540 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/bfu-mark.png"
+          src={asset("/bfu-mark.png")}
           alt="Bright Futures Uzbekistan"
           style={{ height: 44, width: "auto", display: "block", margin: "0 auto 20px", filter: "drop-shadow(0 2px 16px rgba(232,161,92,0.3))" }}
         />

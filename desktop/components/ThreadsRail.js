@@ -1,9 +1,15 @@
+"use client";
+
 import { gradientFor } from "../lib/avatar";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's `.rail` / `.thread` block
 // (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html lines 114-123,
-// 196-197, 254-264) into a SERVER component. Pure markup — the hover-lift is CSS
-// `:hover`, so no client boundary is crossed.
+// 196-197, 254-264). A CLIENT component: every string here is user-visible copy
+// on the public trilingual /city page, so it reads the language through `useT()`
+// exactly like its siblings (CityHeader, RegionCluster, BuilderCard). The markup
+// itself is still inert — the hover-lift stays pure CSS `:hover` — and the props
+// it receives from the server page are plain data, so the boundary is cheap.
 //
 // A "Serendipity" slab header + a horizontal-scroll rail of thread cards. Each
 // thread carries: kicker (teal), title, subtitle, and a stack of overlapping
@@ -15,19 +21,21 @@ import { gradientFor } from "../lib/avatar";
 // section rather than showing an empty rail.
 
 export default function ThreadsRail({ threads = [] }) {
+  const t = useT();
+
   if (!threads || threads.length === 0) return null;
 
   return (
     <>
       <div className="ch-slab">
-        <span className="ch-slab-k">Serendipity</span>
-        <h2>Threads from here</h2>
+        <span className="ch-slab-k">{t("city.threads.kicker")}</span>
+        <h2>{t("city.threads.title")}</h2>
         <div className="ch-slab-line" />
       </div>
 
       <div className="ch-rail">
         {threads.map((thread, i) => (
-          <Thread key={thread.kind || i} thread={thread} index={i} />
+          <Thread key={thread.kind || i} thread={thread} index={i} t={t} />
         ))}
       </div>
     </>
@@ -53,11 +61,11 @@ function threadFilterKey(kind) {
   }
 }
 
-function Thread({ thread = {}, index = 0 }) {
+function Thread({ thread = {}, index = 0, t }) {
   const { title, subtitle, faces = [] } = thread;
   const body = (
     <>
-      {thread.kind && <div className="ch-thread-k">{kindLabel(thread.kind)}</div>}
+      {thread.kind && <div className="ch-thread-k">{kindLabel(thread.kind, t)}</div>}
       <h3>{title}</h3>
       {subtitle && <p>{subtitle}</p>}
       {faces.length > 0 && (
@@ -87,21 +95,22 @@ function Thread({ thread = {}, index = 0 }) {
 }
 
 // The backend emits a machine `kind` ("rising" | "new_in_city" | "skill_cluster"
-// | "open_roles"); the mockup shows a warm human kicker. Map to that voice, with
-// a graceful title-case fallback for any future kind.
-function kindLabel(kind) {
-  switch (kind) {
-    case "rising":
-      return "Rising tonight";
-    case "new_in_city":
-      return "New in your city";
-    case "skill_cluster":
-      return "Same problem";
-    case "open_roles":
-      return "They need what you have";
-    default:
-      return String(kind || "")
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
+// | "open_roles"); the mockup shows a warm human kicker. Only these four kinds
+// have translated copy, so we look up an EXPLICIT key rather than building one
+// from `kind` — an unknown kind would otherwise miss the catalog and render its
+// raw dotted key ("city.threads.kind.whatever") straight onto a public page.
+// Any future kind therefore degrades to the old title-case of the machine value.
+const THREAD_KIND_KEYS = {
+  rising: "city.threads.kind.rising",
+  new_in_city: "city.threads.kind.new_in_city",
+  skill_cluster: "city.threads.kind.skill_cluster",
+  open_roles: "city.threads.kind.open_roles",
+};
+
+function kindLabel(kind, t) {
+  const key = THREAD_KIND_KEYS[kind];
+  if (key) return t(key);
+  return String(kind || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

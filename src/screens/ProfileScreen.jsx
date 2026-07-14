@@ -6,7 +6,6 @@ import { FLAGS } from "../flags";
 import { useT } from "../i18n";
 import { tgAlert, shareUrl } from "../tg";
 import { EditProfileScreen } from "./EditProfileScreen";
-import { AdminScreen } from "./AdminScreen";
 import { MentorsScreen } from "./MentorsScreen";
 import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
 import { HomeStrip } from "../components/HomeStrip";
@@ -151,7 +150,6 @@ export const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [mentorsOpen, setMentorsOpen] = useState(false);
   const [slotsOpen, setSlotsOpen] = useState(false);
   const [bookingsOpen, setBookingsOpen] = useState(false);
@@ -227,9 +225,20 @@ export const ProfileScreen = () => {
     catch { tgAlert(t("resume.failed")); }
   };
 
+  // Admin work lives on the desktop console now — the Mini App only points at it.
+  // Telegram's openLink hands the URL to the system browser; window.open is the
+  // plain-web fallback (same pattern as the external links in SearchModal).
+  const openAdminConsole = () => {
+    const url = "https://brightfuturesuzbekistan.uz/web/dashboard";
+    const w = window.Telegram?.WebApp;
+    if (w && typeof w.openLink === "function") {
+      try { w.openLink(url); return; } catch { /* fall through */ }
+    }
+    window.open(url, "_blank", "noopener");
+  };
+
   // ── Overlays (preserve Settings navigation) ─────────────────────────────────
   if (editOpen) return <EditProfileScreen me={user} onBack={() => setEditOpen(false)} onSaved={loadUser} />;
-  if (adminOpen) return <AdminScreen user={user} onBack={() => setAdminOpen(false)} />;
   if (FLAGS.MENTORING && mentorsOpen) return <MentorsScreen onClose={() => setMentorsOpen(false)} />;
 
   if (loading) {
@@ -614,7 +623,7 @@ export const ProfileScreen = () => {
             <ActionRow glyph="🗓️" label={t("mentor.mySlots")} onClick={() => setSlotsOpen(true)} />
           )}
           {isAdmin && (
-            <ActionRow icon="settings" label={t("settings.adminDashboard")} onClick={() => setAdminOpen(true)} />
+            <ActionRow icon="settings" label={t("settings.adminWeb")} onClick={openAdminConsole} />
           )}
         </div>
 

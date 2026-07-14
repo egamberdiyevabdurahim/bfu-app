@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/components/i18n/LocaleProvider";
+import { asset } from "@/lib/asset";
 
 // The logged-OUT site nav, rendered by SiteTopBar when getMe() returns null.
 // Deliberately minimal, NOT the old wrapping-pill bar: brand left, two calm
@@ -20,7 +21,7 @@ function Brand() {
       style={{ display: "flex", alignItems: "center", gap: 13, textDecoration: "none", flex: "0 0 auto" }}
     >
       <img
-        src="/bfu-mark.png"
+        src={asset("/bfu-mark.png")}
         alt="BFU"
         style={{ height: 32, width: "auto", display: "block", filter: "drop-shadow(0 2px 10px rgba(232,161,92,0.25))" }}
       />

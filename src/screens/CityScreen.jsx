@@ -6,6 +6,7 @@ import { UserProfileModal } from "../components/UserProfileModal";
 import { InboxModal } from "../components/InboxModal";
 import { SearchModal } from "../components/SearchModal";
 import { MapModal } from "../components/MapModal";
+import { InviteSheet } from "../components/InviteSheet";
 import { OpenRolesScreen } from "./OpenRolesScreen";
 import { useT } from "../i18n";
 import { FLAGS } from "../flags";
@@ -93,7 +94,9 @@ export const CityScreen = () => {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
+  const [myRegionId, setMyRegionId] = useState(null);
   const [unread, setUnread] = useState(0);
   const [msgUnread, setMsgUnread] = useState(0);
   const [stats, setStats] = useState(null);
@@ -126,6 +129,12 @@ export const CityScreen = () => {
       setRegionMap(m);
     }).catch(() => {});
   }, [lang]);
+
+  // My own region — only used to name the empty state ("Nobody in {region} yet")
+  // when the feed is empty and no region filter is picked. Fetched once.
+  useEffect(() => {
+    users.me().then((m) => setMyRegionId(m?.region_id ?? null)).catch(() => {});
+  }, []);
 
   // True community scale for the header (refreshes on focus).
   useEffect(() => {
@@ -216,6 +225,26 @@ export const CityScreen = () => {
 
   const quiet = !loading && listCount === 0;
   const currentYear = new Date().getFullYear();
+
+  // ── Empty-region state (spec: an empty region is never a dead end) ───────────
+  // Which city is "theirs" right now: the region they filtered to, else the one
+  // on their own profile. Null only if neither resolves (region is required at
+  // sign-up, so this is rare) — then we fall back to the old GraceTile.
+  const emptyRegionName = regionMap[regionFilter || myRegionId] || null;
+  // Is the feed currently narrowed by anything the user can undo?
+  const narrowed = !!regionFilter || verifiedOnly || activeFilter !== "all";
+  // "See other cities" must never be a no-op:
+  //  • narrowed  → drop the narrowing (region first) so the feed goes nationwide;
+  //  • already nationwide → open the real region map (member counts per region).
+  const seeOtherCities = () => {
+    if (narrowed) {
+      setRegionFilter("");
+      setVerifiedOnly(false);
+      setActiveFilter("all");
+    } else {
+      setMapOpen(true);
+    }
+  };
 
   const actions = [
     ["search", () => setSearchOpen(true), "search"],
@@ -367,7 +396,16 @@ export const CityScreen = () => {
               <button onClick={() => loadUsers()} className="btn-ghost" style={{ width: "auto" }}>{t("common.retry")}</button>
             </div>
           ) : listCount === 0 ? (
-            <GraceTile t={t} />
+            emptyRegionName ? (
+              <EmptyCity
+                t={t}
+                region={emptyRegionName}
+                onInvite={() => setInviteOpen(true)}
+                onOther={seeOtherCities}
+              />
+            ) : (
+              <GraceTile t={t} />
+            )
           ) : (
             <div className="ch-grid">
               {people.map((p, i) => (
@@ -406,6 +444,9 @@ export const CityScreen = () => {
       {inboxOpen && <InboxModal onClose={() => setInboxOpen(false)} />}
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       {mapOpen && <MapModal onClose={() => setMapOpen(false)} />}
+      {/* The EXISTING invite sheet (link + Telegram Story share) — same component
+          the Profile screen mounts. Opened from the empty-region CTA. */}
+      {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}
       {rolesOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--bg)" }}>
           <OpenRolesScreen onBack={() => setRolesOpen(false)} />
@@ -512,6 +553,26 @@ const BuilderCard = ({ p, index, t, region, currentYear, onOpen }) => {
     </div>
   );
 };
+
+// Truly-empty region: the reader is ALREADY registered, so "be the first" is not
+// enough. Give them something to DO (invite — opens the existing InviteSheet) and
+// a way OUT (see other cities — clears the region narrowing, or opens the map).
+// Same ch-grace slab language as the low-count tile, plus the two CTAs.
+const EmptyCity = ({ t, region, onInvite, onOther }) => (
+  <div className="ch-grace" style={{ minHeight: 0, gap: 10, textAlign: "left" }}>
+    <span className="ch-grace-k">{t("city.grace.kicker")}</span>
+    <div className="ch-grace-t">{t("empty.city.title", { region })}</div>
+    <div className="ch-grace-s">{t("empty.city.body")}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+      <button onClick={onInvite} className="btn-primary" style={{ padding: 12, fontSize: 14 }}>
+        {t("empty.city.invite")}
+      </button>
+      <button onClick={onOther} className="btn-ghost" style={{ padding: 12, fontSize: 14 }}>
+        {t("empty.city.other")}
+      </button>
+    </div>
+  </div>
+);
 
 // Warm low-count / empty tile — an opening, not a dead end (spec §6).
 const GraceTile = ({ t }) => (

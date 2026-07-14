@@ -14,25 +14,45 @@
 // are clickable); we fall back to the nested actor/project when they're absent
 // (e.g. an older backend). The backend notification model documents the type
 // set; the live types emitted are: interest, mutual, intro, new_follower,
-// application, accepted, declined, rate_prompt, project_update, booking_request,
-// booking_confirmed, booking_declined.
+// application, accepted, declined, rate_prompt, session_rate_prompt,
+// project_update, removed_from_project, message, booking_request,
+// booking_confirmed, booking_declined, event_rsvp, event_reminder
+// (see backend/app/services/notifications.py TYPE_TO_PREF for the full set).
 
 import { FLAGS } from "@/lib/flags";
 import { handleFor } from "@/lib/handle";
 
 // Notification types belonging to a feature that is hidden for the V1 launch
-// (see lib/flags.js). The feature's pages don't exist while its flag is off —
-// mentoring's /bookings 404s — so an OLD notification of one of these types,
-// still sitting in someone's inbox from before the launch, must not be rendered
-// at all: it would be a row that links to a dead page. They are FILTERED OUT
-// (see isVisibleNotif / visibleNotifs) rather than deleted, and the emoji / text
-// / link tables below are kept fully intact — flipping FLAGS.MENTORING back to
-// true restores these rows exactly as they were, with no other change.
-const HIDDEN_TYPES = {
-  booking_request: "MENTORING",
-  booking_confirmed: "MENTORING",
-  booking_declined: "MENTORING",
+// (see lib/flags.js). A hidden feature's UI is gone while its flag is off —
+// mentoring's /bookings 404s, the endorse/vouch/rate controls are unmounted, the
+// "I'm interested" / "Request intro" buttons are unmounted — so an OLD
+// notification of one of these types, still sitting in someone's inbox from
+// before the launch, must not be rendered at all: it is a row for a feature the
+// user can neither reach nor act on. They are FILTERED OUT (see isVisibleNotif /
+// visibleNotifs) rather than deleted, and the emoji / text / link tables below
+// are kept fully intact.
+//
+// Each type is listed under the ONE flag that owns it — the flag whose feature
+// is the only thing that can produce it — so flipping a flag back to true
+// restores exactly that feature's rows and nothing else:
+//   MENTORING      → mentors/slots/bookings   (backend: routers/mentors.py)
+//   TRUST          → endorse / vouch / rate   (backend: routers/projects.py close → rate_prompt)
+//   INTEREST_INTRO → "I'm interested" ping + "Request intro"
+//                    (backend: routers/users.py soft_interest → interest|mutual,
+//                     request_intro → intro; both are unreachable in V1 because
+//                     PersonActions renders those buttons only under the flag)
+// Mirrors the Mini App's InboxModal BOOKING_TYPES / RATING_TYPES split.
+const FEATURE_TYPES = {
+  MENTORING: ["booking_request", "booking_confirmed", "booking_declined"],
+  TRUST: ["rate_prompt", "session_rate_prompt"],
+  INTEREST_INTRO: ["interest", "mutual", "intro"],
 };
+
+// type → the flag that owns it. Inverted from FEATURE_TYPES once, at module
+// load, so the two can never drift apart.
+const TYPE_FLAG = Object.fromEntries(
+  Object.entries(FEATURE_TYPES).flatMap(([flag, types]) => types.map((type) => [type, flag]))
+);
 
 /**
  * Is this notification's feature live? False for items whose flag is off, which
@@ -40,7 +60,7 @@ const HIDDEN_TYPES = {
  * before rendering it — visibleNotifs() does that for a whole array.
  */
 export function isVisibleNotif(n) {
-  const flag = HIDDEN_TYPES[n?.type];
+  const flag = TYPE_FLAG[n?.type];
   return !flag || FLAGS[flag] === true;
 }
 
@@ -63,6 +83,7 @@ export const NOTIF_EMOJI = {
   accepted: "✅",
   declined: "📭",
   rate_prompt: "⭐",
+  session_rate_prompt: "⭐",
   project_update: "📣",
   booking_request: "📅",
   booking_confirmed: "✅",
@@ -139,7 +160,7 @@ export function notifText(n, t) {
  * - person items (interest/mutual/intro/new_follower) → the actor /u/{id}
  */
 export function notifHref(n) {
-  // A hidden-feature item has no page to go to (the server still sends
+  // A hidden-feature item has nowhere to go (the server still sends
   // link="/bookings", but that route 404s while FLAGS.MENTORING is false), so it
   // is never a link. visibleNotifs() should already have dropped it; this is the
   // backstop that guarantees no dead link if one is rendered anyway.

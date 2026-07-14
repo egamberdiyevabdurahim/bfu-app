@@ -166,6 +166,59 @@ async def _set_requirements(
         db.add(ProjectReqKnowledge(project_id=project.id, knowledge_name=k))
 
 
+def user_fits_project(project: Project, user: User | None) -> bool:
+    """THE fit rule — single source of truth for a project's requirements.
+
+    Called by BOTH the payload builders (which ship `is_fit` to the clients so
+    they can grey out the Apply button) and the server-side guard in
+    POST /projects/{id}/apply. Keeping one function means the advisory flag and
+    the enforced gate can never drift apart: previously the rule lived inline in
+    two payload builders and NOWHERE in the apply path, so any client that
+    ignored `is_fit` (the desktop app did) could walk straight past a founder's
+    requirements.
+
+    Rules — a requirement only bites when the founder actually set it:
+      * gender_req unset / "Any"      → nobody is blocked on gender.
+      * age_from and age_to both unset → nobody is blocked on age.
+      * no req_regions rows            → nobody is blocked on region.
+
+    Missing USER field vs a requirement that IS set → NOT a fit (blocked).
+    A project that demands 18-25 cannot verify an applicant with no birth_year,
+    and letting unknowns through would make every requirement opt-out-able by
+    just clearing your profile. This is exactly what the payload's `is_fit` has
+    always computed (`if not current_user.birth_year: is_fit = False`; a NULL
+    gender/region_id likewise never equals a required value), so the enforced
+    gate agrees with the greyed-out button the Mini App already shows.
+
+    `project.req_regions` must be loaded (selectinload) before calling — this is
+    sync code, a lazy load under asyncio would raise MissingGreenlet.
+    """
+    if user is None:
+        return True
+
+    # Gender fit
+    if project.gender_req and project.gender_req != "Any":
+        if user.gender != project.gender_req:
+            return False
+
+    # Age fit
+    if project.age_from or project.age_to:
+        if not user.birth_year:
+            return False
+        age = dt.datetime.now().year - user.birth_year
+        if project.age_from and age < project.age_from:
+            return False
+        if project.age_to and age > project.age_to:
+            return False
+
+    # Region fit
+    if project.req_regions:
+        if user.region_id not in [r.region_id for r in project.req_regions]:
+            return False
+
+    return True
+
+
 def _project_response(project: Project, current_user: User | None = None, fav_set: set | None = None) -> ProjectResponse:
     is_member = False
     is_fit = True
@@ -181,26 +234,7 @@ def _project_response(project: Project, current_user: User | None = None, fav_se
         if my_app:
             my_application_status = my_app.status
 
-        # Check Gender Fit
-        if project.gender_req and project.gender_req != "Any":
-            if current_user.gender != project.gender_req:
-                is_fit = False
-
-        # Check Age Fit
-        if project.age_from or project.age_to:
-            if not current_user.birth_year:
-                is_fit = False
-            else:
-                age = dt.datetime.now().year - current_user.birth_year
-                if project.age_from and age < project.age_from:
-                    is_fit = False
-                if project.age_to and age > project.age_to:
-                    is_fit = False
-
-        # Check Region Fit
-        if project.req_regions:
-            if current_user.region_id not in [r.region_id for r in project.req_regions]:
-                is_fit = False
+        is_fit = user_fits_project(project, current_user)
 
     computed_fields = {"is_member", "is_fit", "member_count",
                        "my_application_status", "members",
@@ -261,23 +295,7 @@ def _project_list_response(
     `goal || about` fallback keeps showing something on cards with no goal.
     `is_member` is passed in (from a membership query) because the creator is
     a member without any application row."""
-    is_fit = True
-    if current_user:
-        if project.gender_req and project.gender_req != "Any":
-            if current_user.gender != project.gender_req:
-                is_fit = False
-        if project.age_from or project.age_to:
-            if not current_user.birth_year:
-                is_fit = False
-            else:
-                age = dt.datetime.now().year - current_user.birth_year
-                if project.age_from and age < project.age_from:
-                    is_fit = False
-                if project.age_to and age > project.age_to:
-                    is_fit = False
-        if project.req_regions:
-            if current_user.region_id not in [r.region_id for r in project.req_regions]:
-                is_fit = False
+    is_fit = user_fits_project(project, current_user)
 
     computed_fields = {"is_member", "is_fit", "member_count",
                        "my_application_status", "members",
@@ -795,7 +813,13 @@ async def apply_to_project(
     """Submit a pending application. Does NOT instantly join."""
     result = await db.execute(
         select(Project)
-        .options(selectinload(Project.members), selectinload(Project.applications))
+        .options(
+            selectinload(Project.members),
+            selectinload(Project.applications),
+            # Needed by user_fits_project() — sync code, so a lazy load here
+            # would blow up with MissingGreenlet under asyncio.
+            selectinload(Project.req_regions),
+        )
         .where(Project.id == project_id, Project.is_deleted == False, Project.is_hiring == True)
     )
     project = result.scalar_one_or_none()
@@ -810,6 +834,19 @@ async def apply_to_project(
 
     if any(a.applicant_id == current_user.id for a in project.applications):
         raise HTTPException(status_code=409, detail="Application already submitted")
+
+    # Requirements gate. The Mini App greys out Apply when the payload's
+    # `is_fit` is false, but the desktop app never checked and the server never
+    # enforced — so a founder's age/gender/region requirements could be walked
+    # around by applying from the web (or with a raw HTTP call). Enforce the
+    # SAME rule server-side, via the same helper that computes `is_fit`.
+    # Placed after the creator / member / duplicate guards on purpose: the
+    # founder and existing teammates never reach it, so a founder who doesn't
+    # meet their own requirements still keeps their project.
+    if not user_fits_project(project, current_user):
+        raise HTTPException(
+            status_code=403, detail="You don't meet this project's requirements"
+        )
 
     # Anti-flood: unique-per-project already caps re-apply; this caps blasting
     # applications across MANY projects (each pings that founder).

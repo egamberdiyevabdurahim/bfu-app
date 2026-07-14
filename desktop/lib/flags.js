@@ -52,6 +52,13 @@ export const FLAGS = {
 
   // CV / resume PDF export.
   CV_EXPORT: false,
+
+  // The desktop's old 4-step SETUP wizard (region -> bio+AI -> follow 5 builders
+  // -> start a project). Replaced by the same 3-card walkthrough the Mini App
+  // shows, so both apps teach the same thing and share one onboarding flag.
+  // (They previously BOTH consumed `onboarding_completed`, so whichever app you
+  // opened first burned it and the other's first-run never ran again — ever.)
+  SETUP_WIZARD: false,
 };
 
 export default FLAGS;

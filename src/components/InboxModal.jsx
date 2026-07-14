@@ -8,11 +8,29 @@ import { RateSheet } from "./RateSheet";
 import { relTime } from "../timefmt";
 import { FLAGS } from "../flags";
 
-// Mentoring is hidden for V1: a stale booking notification would render a row
-// the user can do nothing with, so we drop those types from the list entirely.
-// The label/icon entries below stay in place — flip FLAGS.MENTORING to restore.
-const BOOKING_TYPES = ["booking_request", "booking_confirmed", "booking_declined"];
-const isVisibleNotif = (n) => FLAGS.MENTORING || !BOOKING_TYPES.includes(n.type);
+// Some notification types point at surfaces that are hidden for V1: a stale row
+// would take the user to a screen that no longer exists, so we drop those types
+// from the list entirely. Each group is tied to the flag that OWNS it, so
+// flipping one flag back restores exactly its own rows and nothing else.
+// The label/icon entries below stay in place — nothing here is deleted.
+const BOOKING_TYPES = ["booking_request", "booking_confirmed", "booking_declined"]; // FLAGS.MENTORING
+const RATING_TYPES = ["rate_prompt", "session_rate_prompt"];                        // FLAGS.TRUST
+
+const HIDDEN_TYPES = [
+  ...(FLAGS.MENTORING ? [] : BOOKING_TYPES),
+  ...(FLAGS.TRUST ? [] : RATING_TYPES),
+];
+const isVisibleNotif = (n) => !HIDDEN_TYPES.includes(n.type);
+
+// Connections + Following are the same surface the desktop removed for V1 (nav
+// row filtered out, route notFound()s). With FLAGS.CONNECTIONS off only
+// "activity" remains — and a tab bar with a single tab is noise, so it's hidden.
+const TABS = [
+  ["activity", "inbox.tab.activity"],
+  ...(FLAGS.CONNECTIONS
+    ? [["connections", "inbox.tab.connections"], ["following", "inbox.tab.following"]]
+    : []),
+];
 
 // Localized one-liner per notification type, rendered from structured fields.
 function notifText(t, n) {
@@ -60,6 +78,9 @@ export const InboxModal = ({ onClose }) => {
   }, []);
 
   useEffect(() => {
+    // With FLAGS.CONNECTIONS off neither tab can be reached, so neither list is
+    // ever fetched — the endpoints stay live, we just don't call them.
+    if (!FLAGS.CONNECTIONS) return;
     if (tab === "connections" && connections === null) {
       users.connections().then(r => setConnections(Array.isArray(r) ? r : [])).catch(() => setConnections([]));
     }
@@ -91,26 +112,32 @@ export const InboxModal = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 8, padding: "8px 20px 12px" }}>
-          {[["activity", "inbox.tab.activity"], ["connections", "inbox.tab.connections"], ["following", "inbox.tab.following"]].map(([id, key]) => (
-            <button key={id} onClick={() => setTab(id)} style={{
-              padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 600,
-              background: tab === id ? "var(--accent)" : "var(--surface-2)",
-              color: tab === id ? "#fff" : "var(--text-2)",
-              border: tab === id ? "none" : "1px solid var(--border)", cursor: "pointer",
-            }}>{t(key)}</button>
-          ))}
-        </div>
+        {/* Tabs — only worth a bar when there's more than one to switch between. */}
+        {TABS.length > 1 && (
+          <div style={{ display: "flex", gap: 8, padding: "8px 20px 12px" }}>
+            {TABS.map(([id, key]) => (
+              <button key={id} onClick={() => setTab(id)} style={{
+                padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 600,
+                background: tab === id ? "var(--accent)" : "var(--surface-2)",
+                color: tab === id ? "#fff" : "var(--text-2)",
+                border: tab === id ? "none" : "1px solid var(--border)", cursor: "pointer",
+              }}>{t(key)}</button>
+            ))}
+          </div>
+        )}
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 32px" }}>
-          {tab === "activity" ? (
+        <div style={{ flex: 1, overflowY: "auto", padding: TABS.length > 1 ? "0 16px 32px" : "8px 16px 32px" }}>
+          {/* Activity is the fallback branch: with FLAGS.CONNECTIONS off, no tab
+              value can route away from it. */}
+          {!(FLAGS.CONNECTIONS && (tab === "connections" || tab === "following")) ? (
             visibleItems === null ? (
               <div style={{ textAlign: "center", padding: 30, color: "var(--text-3)" }}>{t("common.loading")}</div>
             ) : visibleItems.length === 0 ? (
               <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)" }}>{t("inbox.empty")}</div>
             ) : visibleItems.map(n => {
-              const isRatePrompt = n.type === "rate_prompt" && !!n.project?.id;
+              // Rating rows are filtered out entirely while FLAGS.TRUST is off;
+              // the flag is re-checked here so no row can ever open the RateSheet.
+              const isRatePrompt = FLAGS.TRUST && RATING_TYPES.includes(n.type) && !!n.project?.id;
               const isEvent = n.type === "event_rsvp" && !!n.event_id;
               const clickable = !!n.actor || isRatePrompt || isEvent;
               const onTap = () => {
@@ -203,7 +230,9 @@ export const InboxModal = ({ onClose }) => {
       {viewingUserId && (
         <UserProfileModal userId={viewingUserId} onClose={() => setViewingUserId(null)} />
       )}
-      {rateProjectId && (
+      {/* Rating is hidden for V1 (FLAGS.TRUST) — the sheet stays imported and
+          intact, it just has no way to mount. Flip the flag to restore it. */}
+      {FLAGS.TRUST && rateProjectId && (
         <RateSheet projectId={rateProjectId} onClose={() => setRateProjectId(null)} />
       )}
       <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>

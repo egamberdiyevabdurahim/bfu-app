@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
 import { downloadResume } from "@/lib/resume";
 import { useToast } from "@/lib/useToast";
@@ -10,6 +11,41 @@ import AchievementsCell from "@/components/AchievementsCell";
 import { FLAGS } from "@/lib/flags";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+// Identity validation — kept IDENTICAL to the two other places that collect
+// these fields (src/screens/EditProfileScreen.jsx and components/register/
+// RegisterFlow.js) so a value accepted at sign-up is still accepted on edit.
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_BIRTH_YEAR = CURRENT_YEAR - 60;
+const MAX_BIRTH_YEAR = CURRENT_YEAR - 10;
+const PHONE_RE = /^\+?[0-9]{7,15}$/;
+
+// The fields an admin may flag for correction — mirrors DENIABLE_FIELDS in
+// backend/app/routers/admin.py (and the DENIABLE list in dashboard/AdminUsers.js).
+// Each maps to the i18n key of the label the user sees on the input, so the
+// banner names the field exactly as the form does.
+const DENIED_FIELD_LABEL = {
+  name: "settings.name_label",
+  surname: "settings.surname_label",
+  phone_number: "settings.phone_label",
+  about: "settings.about_label",
+  birth_year: "settings.birth_year_label",
+  gender: "settings.gender_label",
+  tg_username: "settings.tg_username_label",
+};
+
+// `denied_fields` is stored as a JSON-encoded list of field names (or null).
+// Anything unparseable is treated as "nothing flagged" — a corrupt value must
+// never lock the user out of their own settings.
+function parseDenied(raw) {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((f) => typeof f === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 // The set of skill tags for chips: analysis.skills is the AI-derived list.
 function skillsFrom(me) {
@@ -133,10 +169,29 @@ function Toggle({ on, onChange, label, sub }) {
 
 export default function ProfileEditor({ initial, regions }) {
   const t = useT();
+  const router = useRouter();
   const me = initial || {};
   const regionOptions = Array.isArray(regions) ? regions : [];
 
+  // Fields an admin asked this user to correct. Derived from the `me` PROP (not
+  // state) on purpose: after a save we call router.refresh(), the server re-reads
+  // /users/me, and a cleared flag makes the banner disappear without a reload —
+  // the desktop equivalent of the Mini App's `bfu:me-updated` event.
+  const deniedFields = parseDenied(me.denied_fields);
+  const isDenied = (field) => deniedFields.includes(field);
+
   // Form state, seeded from the SSR-fetched `me`.
+  const [name, setName] = useState(me.name || "");
+  const [surname, setSurname] = useState(me.surname || "");
+  const [birthYear, setBirthYear] = useState(me.birth_year ? String(me.birth_year) : "");
+  const [gender, setGender] = useState(me.gender || "");
+  const [phone, setPhone] = useState(me.phone_number || "");
+  const [lat, setLat] = useState(me.latitude ?? null);
+  const [lng, setLng] = useState(me.longitude ?? null);
+  const [locStatus, setLocStatus] = useState(
+    me.latitude != null && me.longitude != null ? "shared" : ""
+  );
+  const [errors, setErrors] = useState({});
   const [about, setAbout] = useState(me.about || "");
   const [currentlyBuilding, setCurrentlyBuilding] = useState(
     // Only prefill the manual value — an auto-derived value (source==="auto")
@@ -153,6 +208,13 @@ export default function ProfileEditor({ initial, regions }) {
 
   // Baseline used to compute the changed-fields diff on save.
   const baseline = useRef({
+    name: me.name || "",
+    surname: me.surname || "",
+    birth_year: me.birth_year ? String(me.birth_year) : "",
+    gender: me.gender || "",
+    phone_number: me.phone_number || "",
+    latitude: me.latitude ?? null,
+    longitude: me.longitude ?? null,
     about: me.about || "",
     currently_building:
       me.currently_building_source === "manual" ? me.currently_building || "" : "",
@@ -190,9 +252,28 @@ export default function ProfileEditor({ initial, regions }) {
   );
 
   // Which fields differ from the SSR baseline → the PATCH body.
+  //
+  // Strictly diff-based, and that is what closes the admin-corrections loop
+  // correctly: PATCH /users/me clears a flagged field from `denied_fields` only
+  // when that field's KEY is present in the body, so a flag lifts exactly when
+  // the user actually re-edits the field it was raised on — never as a side
+  // effect of saving something else.
   function changedFields() {
     const b = baseline.current;
     const body = {};
+    // Identity. Compare trimmed-vs-trimmed so stray whitespace in the stored
+    // value can't make the form permanently "dirty".
+    if (name.trim() !== b.name.trim()) body.name = name.trim();
+    if (surname.trim() !== b.surname.trim()) body.surname = surname.trim();
+    if (birthYear !== b.birth_year) body.birth_year = birthYear ? Number(birthYear) : null;
+    if (gender !== b.gender) body.gender = gender || null;
+    if (phone.trim() !== b.phone_number.trim()) body.phone_number = phone.trim() || null;
+    // Location travels as a pair — sending one without the other would leave a
+    // half-set coordinate on the record.
+    if (lat !== b.latitude || lng !== b.longitude) {
+      body.latitude = lat;
+      body.longitude = lng;
+    }
     if (about !== b.about) body.about = about;
     if (currentlyBuilding !== b.currently_building)
       body.currently_building = currentlyBuilding;
@@ -213,7 +294,74 @@ export default function ProfileEditor({ initial, regions }) {
 
   const dirty = Object.keys(changedFields()).length > 0;
 
+  // Same rules as the Mini App / RegisterFlow: name + surname required; birth
+  // year (when given) inside the allowed window; phone (when given) a plausible
+  // number. Extra rule the other two don't need: a value the user ALREADY has
+  // can't be blanked. PATCH /users/me drops null keys (`exclude_none=True`), so
+  // a "cleared" phone or birth year would be a silent no-op reported as saved —
+  // we ask for a real value instead of lying about the result.
+  function validate() {
+    const b = baseline.current;
+    const errs = {};
+    if (!name.trim()) errs.name = t("settings.err_name_required");
+    if (!surname.trim()) errs.surname = t("settings.err_surname_required");
+    if (birthYear) {
+      const by = parseInt(birthYear, 10);
+      if (!by || by < MIN_BIRTH_YEAR || by > MAX_BIRTH_YEAR) {
+        errs.birth_year = t("settings.err_birth_year", {
+          min: MIN_BIRTH_YEAR,
+          max: MAX_BIRTH_YEAR,
+        });
+      }
+    } else if (b.birth_year) {
+      errs.birth_year = t("settings.err_birth_year_required");
+    }
+    if (phone.trim()) {
+      if (!PHONE_RE.test(phone.trim())) errs.phone_number = t("settings.err_phone");
+    } else if (b.phone_number.trim()) {
+      errs.phone_number = t("settings.err_phone_required");
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
   // ── actions ─────────────────────────────────────────────────────────────────
+
+  // The Mini App reads coordinates from Telegram; on the web the equivalent is
+  // navigator.geolocation. Different mechanism, same resulting PATCH body
+  // ({latitude, longitude}). Nothing is sent until the user hits Save.
+  function shareLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      // No geolocation API at all (old browser, or a non-secure origin).
+      setLocStatus("unsupported");
+      return;
+    }
+    setLocStatus("sharing");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+        setLocStatus("shared");
+      },
+      // Denied / unavailable / timed out — all land here. The profile stays
+      // exactly as it was; location is optional and the user can move on.
+      () => setLocStatus("failed"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // Clearing sends {latitude: null, longitude: null} — the exact body the Mini
+  // App sends for the same action.
+  // ⚠️ BACKEND GAP (not fixable from this file): PATCH /users/me does
+  // `body.model_dump(exclude_none=True)`, so those nulls are dropped and the
+  // stored coordinates survive. Both apps have this; a real "forget my location"
+  // needs the endpoint to distinguish "omitted" from "explicitly null"
+  // (exclude_unset, or an explicit clear_location flag).
+  function clearLocation() {
+    setLat(null);
+    setLng(null);
+    setLocStatus("");
+  }
 
   async function runCoach() {
     setCoachError("");
@@ -278,6 +426,12 @@ export default function ProfileEditor({ initial, regions }) {
   }
 
   async function save() {
+    if (!validate()) {
+      setSaveState("error");
+      setSaveError(t("settings.fix_fields"));
+      return;
+    }
+    setErrors({});
     const body = changedFields();
     if (!Object.keys(body).length) {
       showToast(t("settings.nothing_to_save"), "ok");
@@ -297,6 +451,13 @@ export default function ProfileEditor({ initial, regions }) {
       const updated = await bfu("/users/me", { method: "PATCH", body });
       // Re-seed the baseline from what we sent (server echoes it back too).
       baseline.current = {
+        name: name.trim(),
+        surname: surname.trim(),
+        birth_year: birthYear,
+        gender,
+        phone_number: phone.trim(),
+        latitude: lat,
+        longitude: lng,
         about,
         currently_building: currentlyBuilding,
         open_to_work: openToWork,
@@ -304,6 +465,14 @@ export default function ProfileEditor({ initial, regions }) {
         region_id: regionId,
         portfolio_links: cleanLinks.map((l) => ({ ...l })),
       };
+      // A renamed user is still tagged under the OLD name in every Telegram
+      // group BFU manages (the global group/channel, their school, their
+      // learning centers). POST /users/me/update-tags rewrites those tags — the
+      // Mini App fires it on the same condition. Best-effort: the profile is
+      // already saved, so a Telegram hiccup must not report a failed save.
+      if ("name" in body || "surname" in body) {
+        await bfu("/users/me/update-tags", { method: "POST" }).catch(() => {});
+      }
       // The PATCH auto-reanalyzes when the bio changes — reflect fresh skills.
       if (updated?.analysis?.skills) setSkills(updated.analysis.skills.filter(Boolean));
       setSaveState("saved");
@@ -311,6 +480,13 @@ export default function ProfileEditor({ initial, regions }) {
         showToast(t("settings.saved_links_skipped"), "err");
       }
       savedTimer.current = setTimeout(() => setSaveState("idle"), 2600);
+      // Re-run the server components so the corrections banner lifts (the server
+      // re-reads `denied_fields`) and the top bar picks up a new display name.
+      // Only when something the server renders actually changed — an every-save
+      // refresh would re-fetch me/regions/achievements/invite for nothing.
+      if (deniedFields.length || "name" in body || "surname" in body) {
+        router.refresh();
+      }
     } catch (err) {
       setSaveState("error");
       setSaveError(err.message || t("settings.save_failed"));
@@ -348,8 +524,102 @@ export default function ProfileEditor({ initial, regions }) {
 
   // ── render ────────────────────────────────────────────────────────────────
 
+  // Inline field error text + the "needs fixing" marker on a flagged input.
+  const errText = { marginTop: 6, fontSize: 12.5, color: "var(--terra)" };
+  const fieldStyle = (field) =>
+    errors[field] || isDenied(field)
+      ? { ...inputBase, borderColor: "rgba(192,86,59,0.55)" }
+      : inputBase;
+  const DenyChip = ({ field }) =>
+    isDenied(field) ? (
+      <span
+        style={{
+          marginLeft: 8,
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--terra)",
+          border: "1px solid rgba(192,86,59,0.45)",
+          borderRadius: "var(--radius-pill)",
+          padding: "2px 7px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {t("settings.deny_chip")}
+      </span>
+    ) : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: SECTION_GAP }}>
+      {/* ── Admin corrections banner ──
+          An admin flagged one or more fields on this account (`denied_fields` +
+          `denied_note`). The Mini App force-routes the user to their profile and
+          shows this; on the desktop /settings IS the profile editor, so the
+          banner sits at the top of it and every flagged field is marked below.
+          Clearing is server-side: PATCH /users/me drops a field from
+          `denied_fields` as soon as the user re-saves that field. */}
+      {deniedFields.length ? (
+        <div
+          role="alert"
+          style={{
+            display: "flex",
+            gap: 14,
+            alignItems: "flex-start",
+            padding: "18px 20px",
+            borderRadius: "var(--radius)",
+            border: "1px solid rgba(192,86,59,0.5)",
+            background: "rgba(192,86,59,0.08)",
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 20, lineHeight: 1.2 }}>⚠️</span>
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: 17,
+                color: "var(--terra)",
+              }}
+            >
+              {t("settings.deny_title")}
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text)" }}>
+              {t("settings.deny_body", {
+                fields: deniedFields
+                  .map((f) => (DENIED_FIELD_LABEL[f] ? t(DENIED_FIELD_LABEL[f]) : f))
+                  .join(", "),
+              })}
+            </div>
+            {me.denied_note ? (
+              <div
+                style={{
+                  fontFamily: "var(--font-accent)",
+                  fontStyle: "italic",
+                  fontSize: 14.5,
+                  lineHeight: 1.55,
+                  color: "var(--text)",
+                  borderLeft: "2px solid rgba(192,86,59,0.5)",
+                  paddingLeft: 12,
+                }}
+              >
+                {me.denied_note}
+              </div>
+            ) : null}
+            <div style={{ fontSize: 13, color: "var(--muted-strong)" }}>
+              {t("settings.deny_fix_hint")}
+            </div>
+            {/* tg_username is set from Telegram itself (verified initData /
+                getChat), never typed here — so say where to fix it. */}
+            {deniedFields.includes("tg_username") ? (
+              <div style={{ fontSize: 13, color: "var(--muted-strong)" }}>
+                {t("settings.deny_tg_hint")}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* Two-column layout: editor (wide) + secondary rail. */}
       <div
         className="settings-grid"
@@ -357,11 +627,124 @@ export default function ProfileEditor({ initial, regions }) {
       >
         {/* ── LEFT: the editor ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Your details — name, surname, birth year, gender, phone.
+              Collected once at registration and, until now, uneditable on the
+              web: a typo in your own name was permanent, and an admin's
+              correction request (usually on exactly these fields) could not be
+              acted on from the desktop at all. */}
+          <Section label={t("settings.basics_label")} hint={t("settings.basics_hint")}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <label style={{ display: "block", minWidth: 0 }}>
+                <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                  {t("settings.name_label")} *<DenyChip field="name" />
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={100}
+                  placeholder={t("settings.name_ph")}
+                  aria-invalid={errors.name ? true : undefined}
+                  style={fieldStyle("name")}
+                />
+                {errors.name ? <div style={errText}>{errors.name}</div> : null}
+              </label>
+              <label style={{ display: "block", minWidth: 0 }}>
+                <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                  {t("settings.surname_label")} *<DenyChip field="surname" />
+                </span>
+                <input
+                  type="text"
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value)}
+                  maxLength={100}
+                  placeholder={t("settings.surname_ph")}
+                  aria-invalid={errors.surname ? true : undefined}
+                  style={fieldStyle("surname")}
+                />
+                {errors.surname ? <div style={errText}>{errors.surname}</div> : null}
+              </label>
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                {t("settings.gender_label")}
+                <DenyChip field="gender" />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[
+                  { v: "Male", label: `♂ ${t("settings.gender_male")}` },
+                  { v: "Female", label: `♀ ${t("settings.gender_female")}` },
+                ].map((g) => {
+                  const on = gender === g.v;
+                  return (
+                    <button
+                      key={g.v}
+                      type="button"
+                      onClick={() => setGender(g.v)}
+                      aria-pressed={on}
+                      style={{
+                        flex: 1,
+                        padding: "12px 8px",
+                        borderRadius: "var(--radius-sm)",
+                        border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
+                        background: on ? "rgba(232,161,92,0.14)" : "var(--surface-2)",
+                        color: on ? "var(--amber)" : "var(--muted-strong)",
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 600,
+                        fontSize: 14.5,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {g.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14 }}>
+              <label style={{ display: "block", minWidth: 0 }}>
+                <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                  {t("settings.birth_year_label")}
+                  <DenyChip field="birth_year" />
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={birthYear}
+                  onChange={(e) => setBirthYear(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+                  placeholder={`${MIN_BIRTH_YEAR}–${MAX_BIRTH_YEAR}`}
+                  aria-invalid={errors.birth_year ? true : undefined}
+                  style={{ ...fieldStyle("birth_year"), textAlign: "center" }}
+                />
+                {errors.birth_year ? <div style={errText}>{errors.birth_year}</div> : null}
+              </label>
+              <label style={{ display: "block", minWidth: 0 }}>
+                <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                  {t("settings.phone_label")}
+                  <DenyChip field="phone_number" />
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  maxLength={25}
+                  placeholder="+998911853616"
+                  aria-invalid={errors.phone_number ? true : undefined}
+                  style={fieldStyle("phone_number")}
+                />
+                {errors.phone_number ? <div style={errText}>{errors.phone_number}</div> : null}
+              </label>
+            </div>
+          </Section>
+
           {/* Identity */}
           <Section label={t("settings.identity_label")} hint={t("settings.identity_hint")}>
             <label style={{ display: "block" }}>
               <span style={{ display: "block", marginBottom: 8, fontSize: 13, color: "var(--muted-strong)" }}>
                 {t("settings.about_label")}
+                <DenyChip field="about" />
               </span>
               <textarea
                 value={about}
@@ -369,7 +752,12 @@ export default function ProfileEditor({ initial, regions }) {
                 rows={6}
                 maxLength={600}
                 placeholder={t("settings.about_ph")}
-                style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
+                style={{
+                  ...fieldStyle("about"),
+                  resize: "vertical",
+                  lineHeight: 1.55,
+                  minHeight: 130,
+                }}
               />
               <span
                 style={{
@@ -631,6 +1019,58 @@ export default function ProfileEditor({ initial, regions }) {
                 </option>
               ))}
             </select>
+          </Section>
+
+          {/* Location — the browser's geolocation, the web counterpart of the
+              Mini App's Telegram location request. Optional, and a denied
+              permission is a normal outcome: we say so and change nothing. */}
+          <Section label={t("settings.location_label")} hint={t("settings.location_hint")}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                type="button"
+                className="ch-btn-ghost"
+                onClick={shareLocation}
+                disabled={locStatus === "sharing"}
+                style={{ opacity: locStatus === "sharing" ? 0.6 : 1 }}
+              >
+                <span style={{ color: "var(--amber)" }} aria-hidden>◎</span>
+                {locStatus === "sharing"
+                  ? t("settings.location_sharing")
+                  : lat != null && lng != null
+                  ? t("settings.location_update")
+                  : t("settings.location_share")}
+              </button>
+              {lat != null && lng != null ? (
+                <button type="button" className="ch-btn-ghost" onClick={clearLocation}>
+                  <span style={{ color: "var(--terra)" }} aria-hidden>×</span>
+                  {t("settings.location_remove")}
+                </button>
+              ) : null}
+            </div>
+            {lat != null && lng != null ? (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  color: "var(--green)",
+                }}
+              >
+                {t("settings.location_shared", {
+                  lat: Number(lat).toFixed(4),
+                  lng: Number(lng).toFixed(4),
+                })}
+              </div>
+            ) : null}
+            {locStatus === "failed" ? (
+              <div style={{ fontSize: 13, color: "var(--amber)" }}>
+                {t("settings.location_failed")}
+              </div>
+            ) : null}
+            {locStatus === "unsupported" ? (
+              <div style={{ fontSize: 13, color: "var(--amber)" }}>
+                {t("settings.location_unsupported")}
+              </div>
+            ) : null}
           </Section>
         </div>
 

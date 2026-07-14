@@ -31,6 +31,45 @@ export const settings = {
     "settings.cv_downloading": "Your CV is downloading",
     "settings.cv_failed": "Could not build your CV",
 
+    // ── ProfileEditor (admin corrections banner) ──
+    "settings.deny_title": "An admin asked you to fix a few things",
+    "settings.deny_body": "Please correct these fields and save: {fields}.",
+    "settings.deny_fix_hint": "Fix them below and hit Save — the flag lifts as soon as you do, and your profile goes back for review.",
+    "settings.deny_chip": "Needs fixing",
+    "settings.deny_tg_hint": "Your Telegram username isn't typed here — it's read from Telegram itself. Update it in Telegram, then reopen the app.",
+    "settings.fix_fields": "Check the highlighted fields.",
+
+    // ── ProfileEditor (your details) ──
+    "settings.basics_label": "Your details",
+    "settings.basics_hint": "The facts on your account. You can correct them any time — a typo here isn't for life.",
+    "settings.name_label": "First name",
+    "settings.name_ph": "Abdurahim",
+    "settings.surname_label": "Last name",
+    "settings.surname_ph": "Egamberdiyev",
+    "settings.gender_label": "Gender",
+    "settings.gender_male": "Male",
+    "settings.gender_female": "Female",
+    "settings.birth_year_label": "Birth year",
+    "settings.phone_label": "Phone number",
+    "settings.tg_username_label": "Telegram username",
+    "settings.err_name_required": "Your first name can't be empty.",
+    "settings.err_surname_required": "Your last name can't be empty.",
+    "settings.err_birth_year": "Birth year must be between {min} and {max}.",
+    "settings.err_birth_year_required": "Enter your birth year — it can't be removed.",
+    "settings.err_phone": "Enter a valid phone number (e.g. +998911853616).",
+    "settings.err_phone_required": "Enter your phone number — it can't be removed.",
+
+    // ── ProfileEditor (location) ──
+    "settings.location_label": "Your location",
+    "settings.location_hint": "Optional. Puts you on the city map and helps us match you with builders and events nearby.",
+    "settings.location_share": "Share my location",
+    "settings.location_update": "Update my location",
+    "settings.location_sharing": "Getting your location…",
+    "settings.location_shared": "Location: {lat}, {lng}",
+    "settings.location_remove": "Remove location",
+    "settings.location_failed": "Couldn't get your location — your browser blocked it or it timed out. You can skip this; nothing else changes.",
+    "settings.location_unsupported": "Your browser doesn't offer location here. You can skip this.",
+
     // ── ProfileEditor (sections / controls) ──
     "settings.identity_label": "Identity",
     "settings.identity_hint": "Your bio is what the city reads first — and what the AI reads to place you.",
@@ -152,6 +191,45 @@ export const settings = {
     "settings.cv_downloading": "CV yuklab olinmoqda",
     "settings.cv_failed": "CV tuzib bo‘lmadi",
 
+    // ── ProfileEditor (admin corrections banner) ──
+    "settings.deny_title": "Admin bir nechta narsani tuzatishingizni so‘radi",
+    "settings.deny_body": "Iltimos, quyidagi maydonlarni to‘g‘rilang va saqlang: {fields}.",
+    "settings.deny_fix_hint": "Quyida tuzating va «Saqlash»ni bosing — shu zahoti belgi olib tashlanadi va profilingiz qayta ko‘rikka qaytadi.",
+    "settings.deny_chip": "Tuzatish kerak",
+    "settings.deny_tg_hint": "Telegram username bu yerda yozilmaydi — u Telegramdan o‘qiladi. Uni Telegramda o‘zgartiring va ilovani qayta oching.",
+    "settings.fix_fields": "Belgilangan maydonlarni tekshiring.",
+
+    // ── ProfileEditor (your details) ──
+    "settings.basics_label": "Ma'lumotlaringiz",
+    "settings.basics_hint": "Hisobingizdagi asosiy ma'lumotlar. Ularni istalgan vaqtda tuzatishingiz mumkin — xatolik abadiy qolmaydi.",
+    "settings.name_label": "Ism",
+    "settings.name_ph": "Abdurahim",
+    "settings.surname_label": "Familiya",
+    "settings.surname_ph": "Egamberdiyev",
+    "settings.gender_label": "Jins",
+    "settings.gender_male": "Erkak",
+    "settings.gender_female": "Ayol",
+    "settings.birth_year_label": "Tug‘ilgan yil",
+    "settings.phone_label": "Telefon raqami",
+    "settings.tg_username_label": "Telegram username",
+    "settings.err_name_required": "Ism bo‘sh bo‘lishi mumkin emas.",
+    "settings.err_surname_required": "Familiya bo‘sh bo‘lishi mumkin emas.",
+    "settings.err_birth_year": "Tug‘ilgan yil {min}–{max} oralig‘ida bo‘lishi kerak.",
+    "settings.err_birth_year_required": "Tug‘ilgan yilingizni kiriting — uni olib tashlab bo‘lmaydi.",
+    "settings.err_phone": "To‘g‘ri telefon raqamini kiriting (masalan, +998911853616).",
+    "settings.err_phone_required": "Telefon raqamingizni kiriting — uni olib tashlab bo‘lmaydi.",
+
+    // ── ProfileEditor (location) ──
+    "settings.location_label": "Joylashuvingiz",
+    "settings.location_hint": "Ixtiyoriy. Sizni shahar xaritasiga joylashtiradi va yaqin atrofdagi quruvchilar hamda tadbirlar bilan bog‘lashga yordam beradi.",
+    "settings.location_share": "Joylashuvni ulashish",
+    "settings.location_update": "Joylashuvni yangilash",
+    "settings.location_sharing": "Joylashuv olinmoqda…",
+    "settings.location_shared": "Joylashuv: {lat}, {lng}",
+    "settings.location_remove": "Joylashuvni olib tashlash",
+    "settings.location_failed": "Joylashuvni olib bo‘lmadi — brauzer bloklaganga yoki vaqt tugaganga o‘xshaydi. Buni o‘tkazib yuborsangiz ham bo‘ladi; boshqa hech nima o‘zgarmaydi.",
+    "settings.location_unsupported": "Brauzeringiz bu yerda joylashuvni taklif qilmaydi. Buni o‘tkazib yuborishingiz mumkin.",
+
     // ── ProfileEditor (sections / controls) ──
     "settings.identity_label": "Kimligingiz",
     "settings.identity_hint": "Bio — shahar birinchi bo‘lib o‘qiydigan narsa, va sun'iy intellekt sizni joylashtirish uchun o‘qiydigan matn.",
@@ -272,6 +350,45 @@ export const settings = {
     "settings.invite_retry": "Попробовать снова",
     "settings.cv_downloading": "Ваше резюме загружается",
     "settings.cv_failed": "Не удалось создать резюме",
+
+    // ── ProfileEditor (admin corrections banner) ──
+    "settings.deny_title": "Админ попросил кое-что исправить",
+    "settings.deny_body": "Пожалуйста, исправьте эти поля и сохраните: {fields}.",
+    "settings.deny_fix_hint": "Исправьте их ниже и нажмите «Сохранить» — пометка снимется сразу, и профиль вернётся на проверку.",
+    "settings.deny_chip": "Нужно исправить",
+    "settings.deny_tg_hint": "Имя пользователя Telegram здесь не вводится — оно читается из самого Telegram. Измените его в Telegram и откройте приложение заново.",
+    "settings.fix_fields": "Проверьте выделенные поля.",
+
+    // ── ProfileEditor (your details) ──
+    "settings.basics_label": "Ваши данные",
+    "settings.basics_hint": "Основные данные вашего аккаунта. Их можно исправить в любой момент — опечатка здесь не навсегда.",
+    "settings.name_label": "Имя",
+    "settings.name_ph": "Абдурахим",
+    "settings.surname_label": "Фамилия",
+    "settings.surname_ph": "Эгамбердиев",
+    "settings.gender_label": "Пол",
+    "settings.gender_male": "Мужской",
+    "settings.gender_female": "Женский",
+    "settings.birth_year_label": "Год рождения",
+    "settings.phone_label": "Номер телефона",
+    "settings.tg_username_label": "Имя пользователя Telegram",
+    "settings.err_name_required": "Имя не может быть пустым.",
+    "settings.err_surname_required": "Фамилия не может быть пустой.",
+    "settings.err_birth_year": "Год рождения должен быть между {min} и {max}.",
+    "settings.err_birth_year_required": "Укажите год рождения — его нельзя удалить.",
+    "settings.err_phone": "Введите корректный номер (например, +998911853616).",
+    "settings.err_phone_required": "Укажите номер телефона — его нельзя удалить.",
+
+    // ── ProfileEditor (location) ──
+    "settings.location_label": "Ваша локация",
+    "settings.location_hint": "Необязательно. Помещает вас на карту города и помогает подобрать участников и события поблизости.",
+    "settings.location_share": "Поделиться локацией",
+    "settings.location_update": "Обновить локацию",
+    "settings.location_sharing": "Определяем локацию…",
+    "settings.location_shared": "Локация: {lat}, {lng}",
+    "settings.location_remove": "Удалить локацию",
+    "settings.location_failed": "Не удалось определить локацию — браузер её заблокировал или истекло время. Можно пропустить; больше ничего не меняется.",
+    "settings.location_unsupported": "Ваш браузер здесь не предлагает локацию. Можно пропустить.",
 
     // ── ProfileEditor (sections / controls) ──
     "settings.identity_label": "Кто вы",

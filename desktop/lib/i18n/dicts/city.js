@@ -55,6 +55,15 @@ export const city = {
     "city.cluster.grace_other": "🏙 See other cities",
     "city.cluster.this_city": "This city",
 
+    // — Whole-city empty state (FilterBar.js → CityEmpty, rendered by page.js when
+    //   the payload carries zero builders anywhere). The invite button reuses
+    //   city.cluster.grace_invite above — one invite label for the surface. —
+    "city.empty.kicker": "The bazaar is dark",
+    "city.empty.title": "No windows are lit tonight",
+    "city.empty.sub":
+      "BFU is only just starting here. Invite a friend — a city grows around whoever shows up first.",
+    "city.empty.projects": "🚀 Browse projects",
+
     // — Builder card (BuilderCard.js) —
     "city.card.mentor": "Mentor",
     // Key name kept for stability; the badge is driven by `open_to_work`, so the
@@ -72,6 +81,13 @@ export const city = {
     "city.filter.cofounder": "Open to work",
     "city.filter.mentors": "Mentors",
     "city.filter.aria": "Filter builders",
+    // No chip matched anything — shown WITH a working "Clear filter" button, so
+    // the reader is never stranded on an empty body.
+    "city.filter.empty_k": "Nothing under this chip",
+    "city.filter.empty_t": "No builders match this filter",
+    "city.filter.empty_s":
+      "Nobody lit tonight fits what you picked. Clear the filter to see the whole city again.",
+    "city.filter.clear": "✕ Clear filter",
 
     // — Presence toast (PresenceToast.js) —
     "city.toast.someone": "Someone",
@@ -135,6 +151,12 @@ export const city = {
     "city.cluster.grace_other": "🏙 Boshqa shaharlarni ko‘r",
     "city.cluster.this_city": "Bu shahar",
 
+    "city.empty.kicker": "Bozor qorong‘i",
+    "city.empty.title": "Bugun tunda birorta deraza yonmayapti",
+    "city.empty.sub":
+      "BFU bu yerda endigina boshlanmoqda. Do‘stingizni taklif qiling — shahar birinchi bo‘lib kelganlar atrofida o‘sadi.",
+    "city.empty.projects": "🚀 Loyihalarni ko‘rish",
+
     "city.card.mentor": "Mentor",
     "city.card.cofounder": "Ishga ochiq",
     "city.card.volunteer": "Ko‘ngilli",
@@ -147,6 +169,11 @@ export const city = {
     "city.filter.cofounder": "Ishga ochiq",
     "city.filter.mentors": "Mentorlar",
     "city.filter.aria": "Bunyodkorlarni filtrlash",
+    "city.filter.empty_k": "Bu filtr bo‘yicha hech narsa yo‘q",
+    "city.filter.empty_t": "Bu filtrga mos bunyodkor topilmadi",
+    "city.filter.empty_s":
+      "Bugun tunda yonganlar orasida siz tanlaganiga mos keladigani yo‘q. Butun shaharni qayta ko‘rish uchun filtrni tozalang.",
+    "city.filter.clear": "✕ Filtrni tozalash",
 
     "city.toast.someone": "Kimdir",
     "city.toast.just_online": "hozirgina onlaynga chiqdi",
@@ -206,6 +233,12 @@ export const city = {
     "city.cluster.grace_other": "🏙 Посмотреть другие города",
     "city.cluster.this_city": "Этот город",
 
+    "city.empty.kicker": "Базар тёмный",
+    "city.empty.title": "Сегодня ночью не светится ни одно окно",
+    "city.empty.sub":
+      "BFU здесь только начинается. Позовите друга — город растёт вокруг тех, кто приходит первым.",
+    "city.empty.projects": "🚀 Смотреть проекты",
+
     "city.card.mentor": "Ментор",
     "city.card.cofounder": "Открыт к работе",
     "city.card.volunteer": "Волонтёр",
@@ -218,6 +251,11 @@ export const city = {
     "city.filter.cofounder": "Открыт к работе",
     "city.filter.mentors": "Менторы",
     "city.filter.aria": "Фильтровать строителей",
+    "city.filter.empty_k": "По этому фильтру пусто",
+    "city.filter.empty_t": "Под этот фильтр не подходит ни один строитель",
+    "city.filter.empty_s":
+      "Среди зажжённых сегодня нет никого, кто подходит под выбранное. Сбросьте фильтр, чтобы снова увидеть весь город.",
+    "city.filter.clear": "✕ Сбросить фильтр",
 
     "city.toast.someone": "Кто-то",
     "city.toast.just_online": "только что появился в сети",

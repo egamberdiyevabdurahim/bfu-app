@@ -3,7 +3,7 @@ import { asset } from "@/lib/asset";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
 import CityHeader from "@/components/CityHeader";
-import FilterBar from "@/components/FilterBar";
+import FilterBar, { CityEmpty } from "@/components/FilterBar";
 import RegionCluster from "@/components/RegionCluster";
 import ThreadsRail from "@/components/ThreadsRail";
 import SiteFooter from "@/components/ui/SiteFooter";
@@ -160,19 +160,42 @@ export default async function CityPage() {
   // Real ticker lines derived from live stats + threads (no fabricated presence).
   const tickerLines = buildTickerLines(stats, threads, t);
 
+  // Is there a single builder anywhere in the city? `regions: []` (a genuinely
+  // dark city, or the EMPTY_CITY fallback when the backend is down) used to map
+  // to nothing at all — no cluster, so no content and no message: a blank body
+  // with no way out. RegionCluster's low-count grace tile cannot cover this; it
+  // renders INSIDE a cluster, and here there is no cluster to render it in.
+  // Counting people (not regions) also covers a payload that carries regions
+  // whose `people` arrays are all empty — that would otherwise paint a row of
+  // "0 lit" headers and nothing else.
+  const builderCount = regions.reduce(
+    (n, r) => n + (Array.isArray(r?.people) ? r.people.length : 0),
+    0
+  );
+  const hasBuilders = builderCount > 0;
+
   return (
     <SiteTopBar active="city" maxWidth={1280}>
         <AmbientTicker lines={tickerLines} />
         <CityHeader stats={stats} weekday={weekday} />
 
-        {/* FilterBar wraps the region clusters as its children so its
-            client-side filter (walking [data-cluster] / [data-builder]) can
-            show/hide the server-rendered cards without a refetch. */}
-        <FilterBar regions={regions}>
-          {regions.map((region) => (
-            <RegionCluster key={region.id ?? region.name_en} region={region} />
-          ))}
-        </FilterBar>
+        {hasBuilders ? (
+          // FilterBar wraps the region clusters as its children so its
+          // client-side filter (walking [data-cluster] / [data-builder]) can
+          // show/hide the server-rendered cards without a refetch. It also owns
+          // the "no builders match this filter" state, since it is the only thing
+          // that can see how many cards its own filter left standing.
+          <FilterBar regions={regions}>
+            {regions.map((region) => (
+              <RegionCluster key={region.id ?? region.name_en} region={region} />
+            ))}
+          </FilterBar>
+        ) : (
+          // Nobody is lit anywhere. Skip the chip row entirely — filtering an
+          // empty set is a row of no-op affordances — and give the reader the
+          // empty state with two real exits (invite / browse projects) instead.
+          <CityEmpty />
+        )}
 
         <ThreadsRail threads={threads} />
 

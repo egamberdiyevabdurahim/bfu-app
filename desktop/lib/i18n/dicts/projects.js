@@ -116,6 +116,9 @@ export const projects = {
     "projects.actions_join": "Join this project",
 
     // — my projects list —
+    // status_draft outranks status_pending/hiring on a card: a draft was never
+    // submitted, so it is neither in review nor live.
+    "projects.status_draft": "Draft",
     "projects.status_pending": "Pending approval",
     "projects.pending_count": "{n} pending",
     "projects.no_new_applicants": "No new applicants",
@@ -256,6 +259,7 @@ export const projects = {
     "projects.actions_your_team": "Sizning jamoangiz",
     "projects.actions_join": "Ushbu loyihaga qo‘shiling",
 
+    "projects.status_draft": "Qoralama",
     "projects.status_pending": "Tasdiq kutilmoqda",
     "projects.pending_count": "{n} ta ko‘rib chiqilmoqda",
     "projects.no_new_applicants": "Yangi arizachilar yo‘q",
@@ -395,6 +399,7 @@ export const projects = {
     "projects.actions_your_team": "Ваша команда",
     "projects.actions_join": "Присоединиться к проекту",
 
+    "projects.status_draft": "Черновик",
     "projects.status_pending": "Ожидает одобрения",
     "projects.pending_count": "{n} на рассмотрении",
     "projects.no_new_applicants": "Новых заявок нет",

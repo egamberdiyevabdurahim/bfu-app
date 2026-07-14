@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useT } from "@/components/i18n/LocaleProvider";
+import InviteModal from "./InviteModal";
 import { FLAGS } from "@/lib/flags";
 
 // Ports the mockup's `.filters` chip row
@@ -113,6 +115,12 @@ function cardMatches(el, chip) {
 export default function FilterBar({ regions = [], nameKey = "name_en", children }) {
   const t = useT();
   const [active, setActive] = useState(ALL);
+  // TRUE once a real (non-"All") chip has hidden every builder card on the page.
+  // FilterBar is the only component that can know this: it is the thing doing the
+  // hiding, and it hides by walking the DOM, so no server-rendered ancestor can
+  // see the outcome. Before this existed, that state painted a blank body —
+  // every [data-cluster] hidden, nothing left to say so.
+  const [noMatch, setNoMatch] = useState(false);
   const rootRef = useRef(null);
   const searchParams = useSearchParams();
 
@@ -136,6 +144,10 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
     if (!root) return;
     const chip = chips.find((c) => c.key === key) || { key: ALL };
 
+    // Builder cards left standing across the WHOLE page after this filter — the
+    // number the no-results state below is gated on.
+    let totalVisible = 0;
+
     // Show/hide each builder card, then collapse empty clusters.
     const clusters = root.querySelectorAll("[data-cluster]");
     if (clusters.length) {
@@ -147,16 +159,30 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
           card.hidden = !ok;
           if (ok) visible += 1;
         });
+        totalVisible += visible;
         // If the cluster carries no cards at all (e.g. a small-count grace
-        // tile only), never hide it on the "All" view.
-        cluster.hidden = cards.length > 0 && visible === 0;
+        // tile only), never hide it on the "All" view — the grace tile IS the
+        // content there. Under a real filter it has nothing to say about the
+        // chip the reader picked, so it collapses with everything else and the
+        // no-results tile below speaks for the page instead.
+        cluster.hidden = visible === 0 && (cards.length > 0 || chip.key !== ALL);
       });
     } else {
       // No cluster wrappers — filter loose builder cards directly.
       root.querySelectorAll("[data-builder]").forEach((card) => {
-        card.hidden = !cardMatches(card, chip);
+        const ok = cardMatches(card, chip);
+        card.hidden = !ok;
+        if (ok) totalVisible += 1;
       });
     }
+
+    // Only a REAL chip can raise the no-results state. On "All" every card is
+    // shown, so totalVisible === 0 there would mean the city holds no builders at
+    // all — and that payload never reaches FilterBar (app/city/page.js renders
+    // <CityEmpty /> instead of us). Gating on `key !== ALL` is exactly what keeps
+    // the "Clear filter" button below honest: it can only ever be offered while a
+    // non-All chip is selected, so pressing it always changes something.
+    setNoMatch(key !== ALL && totalVisible === 0);
   }
 
   return (
@@ -209,6 +235,98 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
         })}
       </div>
       {children}
+
+      {/* PATH (a): the active chip matched nothing, so every [data-cluster] above
+          is now hidden and the body would otherwise be BLANK — no message, no way
+          back. Reuses the app's `ch-empty` treatment (app/projects/page.js), sized
+          down since it sits under a live chip row rather than owning the page.
+          Never rendered on "All" (see applyFilter), so "Clear filter" is always a
+          real action: it resets the chips to All, which always brings cards back. */}
+      {noMatch && (
+        <div
+          className="ch-empty"
+          role="status"
+          style={{ minHeight: 220, padding: "36px 28px", marginTop: 26 }}
+        >
+          <span className="ch-empty-k">{t("city.filter.empty_k")}</span>
+          <div className="ch-empty-t" style={{ fontSize: 22 }}>
+            {t("city.filter.empty_t")}
+          </div>
+          <div className="ch-empty-s">{t("city.filter.empty_s")}</div>
+          <button
+            type="button"
+            className="ch-btn-primary"
+            onClick={() => applyFilter(ALL)}
+            style={{ marginTop: 8 }}
+          >
+            {t("city.filter.clear")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PATH (b): the city holds NO builders at all ──────────────────────────────
+// Rendered by app/city/page.js INSTEAD of <FilterBar> + clusters when the payload
+// carries zero people across every region (`regions: []` — including the
+// EMPTY_CITY backend-outage fallback — or regions whose `people` are all empty).
+// Until now that mapped an empty array and shipped a blank body: RegionCluster's
+// low-count grace tile can't rescue it, because that tile lives INSIDE a cluster
+// and with no builders there is no cluster to put it in.
+//
+// It lives in THIS file rather than its own because it is the city page's other
+// client island: the tile needs state (the invite dialog) and app/city/page.js is
+// a server component that can't hold any.
+//
+// Two real exits — the same pair the Mini App's EmptyCity (src/screens/CityScreen.jsx)
+// and the grace tile (RegionCluster.js) give:
+//   • primary — "Invite a friend" opens <InviteModal /> IN PLACE (link + Copy),
+//     mounted only while open so GET /users/me/invite fires on the click, never on
+//     page load. Same component the grace tile uses; invite is not rebuilt here.
+//   • secondary — "Browse projects" → /projects, the populated neighbour surface.
+//     If /projects is empty too it renders its OWN empty state with a "Start a
+//     project" CTA, so the escape can never chain into another dead end.
+// Both work for every reader of this state: /city is auth-gated in middleware.js,
+// so nobody sees this screen logged-out — the invite fetch and the /projects link
+// are live, not no-ops.
+export function CityEmpty() {
+  const t = useT();
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  return (
+    <div style={{ marginTop: 40 }}>
+      <div className="ch-empty">
+        <span className="ch-empty-k">{t("city.empty.kicker")}</span>
+        <div className="ch-empty-t">{t("city.empty.title")}</div>
+        <div className="ch-empty-s">{t("city.empty.sub")}</div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            marginTop: 8,
+          }}
+        >
+          <button
+            type="button"
+            className="ch-btn-primary"
+            onClick={() => setInviteOpen(true)}
+          >
+            {/* Same string the grace tile uses — one invite label for the surface. */}
+            {t("city.cluster.grace_invite")}
+          </button>
+          {/* next/link applies the "/web" basePath automatically; a plain <a>
+              would have to spell out "/web/projects". */}
+          <Link href="/projects" className="ch-btn-ghost">
+            {t("city.empty.projects")}
+          </Link>
+        </div>
+      </div>
+
+      {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
     </div>
   );
 }

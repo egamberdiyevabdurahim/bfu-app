@@ -1,6 +1,33 @@
 // "onboarding" surface translations.
+//
+// TWO first-run experiences live here, and only one of them runs at a time:
+//
+//   • onb.*        — the 3-card WALKTHROUGH ("what BFU is"). The V1 default, and
+//                    the founder-approved design. These strings are copied
+//                    VERBATIM from the Mini App (src/i18n.jsx, same key names) so
+//                    a member meets the exact same three cards whether they open
+//                    the desktop app or the Mini App first. If you edit one side,
+//                    edit the other.
+//   • onboarding.* — the old 4-step SETUP WIZARD (region → bio+AI → follow →
+//                    start a project). Now behind FLAGS.SETUP_WIZARD (false).
+//                    Kept intact so flipping the flag brings it straight back.
 export const onboarding = {
   en: {
+    // ── 3-card walkthrough (mirrors the Mini App) ──
+    "onb.skip": "Skip",
+    "onb.next": "Next",
+    "onb.start": "See your city",
+    "onb.s1.title": "Find a team for your project. Find a project to join.",
+    "onb.s1.body":
+      "That's BFU — where young people across Uzbekistan find each other and build together.",
+    "onb.s2.title": "See your city",
+    "onb.s2.body":
+      "In City you see who is building near you, and what they're working on. Like someone? Write to them.",
+    "onb.s3.title": "Join a project — or start yours",
+    "onb.s3.body":
+      "In Projects you can join someone's team, or post your own idea and let people come to you.",
+
+    // ── 4-step setup wizard (FLAGS.SETUP_WIZARD) ──
     "onboarding.skip": "Skip for now",
 
     "onboarding.step1.eyebrow": "Welcome to the city",
@@ -62,6 +89,21 @@ export const onboarding = {
   },
 
   uz: {
+    // ── 3-card walkthrough (mirrors the Mini App) ──
+    "onb.skip": "O‘tkazib yuborish",
+    "onb.next": "Keyingisi",
+    "onb.start": "Shahringni ko‘r",
+    "onb.s1.title": "Loyihangga jamoa top. Jamoaga loyiha top.",
+    "onb.s1.body":
+      "BFU shu — O‘zbekiston yoshlari bir-birini topib, birga loyiha quradigan joy.",
+    "onb.s2.title": "Shahringni ko‘r",
+    "onb.s2.body":
+      "City’da yoningda kim nima qurayotganini ko‘rasan. Yoqqan odamga yozasan.",
+    "onb.s3.title": "Loyihaga qo‘shil — yoki o‘zingnikini boshla",
+    "onb.s3.body":
+      "Projects’da birovning jamoasiga qo‘shilasan, yoki o‘z g‘oyangni e’lon qilasan — odamlar o‘zi keladi.",
+
+    // ── 4-step setup wizard (FLAGS.SETUP_WIZARD) ──
     "onboarding.skip": "Hozircha o‘tkazib yuborish",
 
     "onboarding.step1.eyebrow": "Shaharga xush kelibsiz",
@@ -125,6 +167,21 @@ export const onboarding = {
   },
 
   ru: {
+    // ── 3-card walkthrough (mirrors the Mini App) ──
+    "onb.skip": "Пропустить",
+    "onb.next": "Далее",
+    "onb.start": "Посмотреть город",
+    "onb.s1.title": "Найди команду для своего проекта. Найди проект для себя.",
+    "onb.s1.body":
+      "Это BFU — место, где молодёжь Узбекистана находит друг друга и создаёт проекты вместе.",
+    "onb.s2.title": "Посмотри свой город",
+    "onb.s2.body":
+      "В разделе «Город» видно, кто и что строит рядом. Понравился человек — напиши ему.",
+    "onb.s3.title": "Присоединись к проекту — или начни свой",
+    "onb.s3.body":
+      "В «Проектах» можно вступить в чью-то команду или опубликовать свою идею — и люди придут сами.",
+
+    // ── 4-step setup wizard (FLAGS.SETUP_WIZARD) ──
     "onboarding.skip": "Пропустить пока",
 
     "onboarding.step1.eyebrow": "Добро пожаловать в город",

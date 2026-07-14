@@ -24,7 +24,36 @@ function typeMeta(type) {
 
 function StatusBadge({ project }) {
   const t = useT();
-  // Approval / hiring status marker in the top-right of a card.
+  // Draft / approval / hiring status marker in the top-right of a card.
+  //
+  // DRAFT WINS over every other status. A draft (saved but never submitted in the
+  // Mini App) is not public: /p/{id} notFound()s for it, it's excluded from every
+  // browse/search query, and nobody but the owner can see it. Saying "Hiring" or
+  // even "Pending approval" about it would be a lie — a draft isn't in the queue,
+  // it hasn't been sent anywhere. So we check is_draft first and return early.
+  //
+  // Deliberately NEUTRAL (muted grey, no accent colour): amber = pending review,
+  // green = live and hiring. A draft is neither — it's inert, and the badge should
+  // read that way at a glance.
+  if (project.is_draft) {
+    return (
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--muted-strong)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--hair)",
+          borderRadius: "var(--radius-pill)",
+          padding: "4px 10px",
+        }}
+      >
+        {t("projects.status_draft")}
+      </span>
+    );
+  }
   if (project.is_approved === false) {
     return (
       <span
@@ -63,7 +92,17 @@ function OwnedCard({ project }) {
   const meta = typeMeta(project.type);
   const pending = project.pending_applications_count || 0;
   const members = project.member_count || 0;
-  const open = () => router.push(`/p/${project.id}`);
+
+  // MISLEADING AFFORDANCE, FIXED: the whole card is a link, and it used to open
+  // the PUBLIC project page (/p/{id}) for every project — including drafts. A
+  // draft has no public page: app/p/[id]/page.js notFound()s on it (getProject
+  // returns nothing for draft/unapproved/deleted), so clicking your own draft
+  // dead-ended on "This ember has gone out". Drafts now open the one place where
+  // a draft is real and actionable — the manage/edit cockpit. Everything else
+  // keeps opening the public page as before.
+  const isDraft = !!project.is_draft;
+  const open = () =>
+    router.push(isDraft ? `/projects/${project.id}/manage` : `/p/${project.id}`);
   return (
     <div
       className="ch-pcard"
@@ -355,10 +394,13 @@ export default function MyProjectsList({ meId }) {
   const joined = projects.filter((p) => meId && p.creator_id != null && p.creator_id !== meId);
 
   // Client-side stat fallback so the header strip always has something to show.
+  // Drafts are excluded from "Hiring now": a draft carries is_hiring (it's a form
+  // default) but nobody can see or apply to it, so counting it would inflate the
+  // tile with a project that isn't actually recruiting anyone.
   const derived = {
     projects: projects.length,
     views: projects.reduce((a, p) => a + (p.view_count || 0), 0),
-    hiring: projects.filter((p) => p.is_hiring).length,
+    hiring: projects.filter((p) => p.is_hiring && !p.is_draft).length,
   };
 
   return (

@@ -3,13 +3,30 @@
 import { useCallback, useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
 import { gradientFor, initials } from "@/lib/avatar";
-import { notifEmoji, notifText, notifHref, relTime } from "@/lib/notif";
+import { notifEmoji, notifText, notifHref, relTime, visibleNotifs } from "@/lib/notif";
 import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // The full /notifications inbox list. Loads GET /users/me/notifications on
 // mount (newest-first from the backend), renders each with icon / text / time /
 // link, distinguishes unread, and offers "Mark all read" (POST …/read).
+//
+// Every list the backend hands us goes through visibleNotifs() FIRST: rows whose
+// feature is hidden for V1 (bookings, rating prompts, interest/intro — see
+// lib/notif.js) must never reach the render, or they'd show as a full row for a
+// feature that no longer exists anywhere else in the app.
+//
+// Two unread numbers, deliberately:
+//   `unread`       — unread among the VISIBLE rows. Drives the "N items, X unread"
+//                    summary, so the count always agrees with what's on screen.
+//   `serverUnread` — the backend's COUNT(*) over ALL of this user's rows. It is
+//                    flag-blind (and not capped to this page), so it can be > 0
+//                    while nothing unread is visible — e.g. a user whose only
+//                    unread items are stale booking rows. It is NOT displayed;
+//                    it only keeps "Mark all read" actionable, because the POST
+//                    is the sole way to clear that hidden backlog — and the
+//                    AppShell bell dot polls the same flag-blind count, so
+//                    without this the dot could never be turned off.
 
 function ActorIcon({ n }) {
   const actor = n.actor;
@@ -149,14 +166,19 @@ export default function NotificationsInbox() {
   const t = useT();
   const [state, setState] = useState("loading"); // loading | ready | error
   const [items, setItems] = useState([]);
-  const [unread, setUnread] = useState(0);
+  const [unread, setUnread] = useState(0); // unread among the VISIBLE rows (displayed)
+  const [serverUnread, setServerUnread] = useState(0); // flag-blind total (not displayed)
   const { showToast, Toast } = useToast();
 
   const load = useCallback(async () => {
     try {
       const r = await bfu("/users/me/notifications", { params: { limit: 100 } });
-      setItems(Array.isArray(r?.items) ? r.items : []);
-      setUnread(Number(r?.unread) || 0);
+      // Drop hidden-feature rows BEFORE they touch state, so nothing downstream
+      // (render, count, mark-all-read) can ever see them.
+      const visible = visibleNotifs(r?.items);
+      setItems(visible);
+      setUnread(visible.filter((n) => !n.is_read).length);
+      setServerUnread(Number(r?.unread) || 0);
       setState("ready");
     } catch {
       setState("error");
@@ -167,9 +189,16 @@ export default function NotificationsInbox() {
     load();
   }, [load]);
 
+  // Gate on the SERVER count, not the visible one: the POST clears every unread
+  // row this user has, including the hidden ones we never rendered. If we gated
+  // on `unread` instead, a user whose only unread items are hidden would see a
+  // permanently-disabled button and a bell dot they could never clear.
+  const canMarkAllRead = serverUnread > 0;
+
   const markAllRead = useCallback(async () => {
-    if (unread === 0) return;
+    if (!canMarkAllRead) return;
     setUnread(0);
+    setServerUnread(0);
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
     try {
       await bfu("/users/me/notifications/read", { method: "POST" });
@@ -178,7 +207,7 @@ export default function NotificationsInbox() {
       showToast(t("inbox.server_unreachable"), "err");
       load();
     }
-  }, [unread, showToast, load, t]);
+  }, [canMarkAllRead, showToast, load, t]);
 
   return (
     <div style={{ marginTop: 34 }}>
@@ -191,9 +220,9 @@ export default function NotificationsInbox() {
         <button
           type="button"
           onClick={markAllRead}
-          disabled={unread === 0}
+          disabled={!canMarkAllRead}
           className="ch-btn-ghost"
-          style={{ opacity: unread === 0 ? 0.5 : 1, cursor: unread === 0 ? "default" : "pointer" }}
+          style={{ opacity: canMarkAllRead ? 1 : 0.5, cursor: canMarkAllRead ? "pointer" : "default" }}
         >
           <span style={{ color: "var(--amber)" }} aria-hidden>
             ✓

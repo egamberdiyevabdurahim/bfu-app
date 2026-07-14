@@ -4,11 +4,341 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { bfu } from "@/lib/client-api";
+import { asset } from "@/lib/asset";
 import { gradientFor, initials } from "@/lib/avatar";
 import { useT } from "@/components/i18n/LocaleProvider";
+import { FLAGS } from "@/lib/flags";
 
-// First-login welcome flow for a brand-new builder. Mounted by OnboardingGate on
-// /home only while me.onboarding_completed === false. Four skippable steps:
+// ─────────────────────────────────────────────────────────────────────────────
+// First-run experience for a brand-new builder. Mounted by OnboardingGate on
+// /home only while me.onboarding_completed === false.
+//
+// THE COLLISION THIS FILE FIXES
+// The desktop app and the Mini App used to run DIFFERENT first-runs off the SAME
+// server flag (onboarding_completed) and the same idempotent
+// POST /users/me/onboarding-complete. So whichever app a new member opened first
+// burned the flag — and the other app's first-run never ran for them, ever.
+//
+// The fix: both apps now show the SAME 3-card walkthrough (the founder-approved
+// design, already shipped in the Mini App as src/components/Onboarding.jsx). One
+// experience, one flag, no race. The desktop's old 4-step SETUP wizard is NOT
+// deleted — it lives on below, behind FLAGS.SETUP_WIZARD (false in V1). Flip the
+// flag to true and the wizard comes back exactly as it was.
+//
+//   FLAGS.SETUP_WIZARD = false (V1) → <Walkthrough/>  — 3 cards, ends on /city
+//   FLAGS.SETUP_WIZARD = true       → <SetupWizard/>  — the original 4 steps
+//
+// Both branches POST /users/me/onboarding-complete on finish OR skip, and both
+// dismiss OPTIMISTICALLY: the overlay is hidden before the request settles, so a
+// network failure can never trap a new member inside their own welcome screen.
+// Worst case the flag stays false and they see the cards once more.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function OnboardingFlow(props) {
+  return FLAGS.SETUP_WIZARD ? <SetupWizard {...props} /> : <Walkthrough {...props} />;
+}
+
+// Fire-and-forget. NEVER awaited by a dismiss path — see the note above. The
+// endpoint is idempotent, so a retry on the next load costs nothing.
+function completeOnboarding() {
+  bfu("/users/me/onboarding-complete", { method: "POST" }).catch(() => {});
+}
+
+// Tab focus-trap shared by both overlays: keeps keyboard users inside the dialog.
+function trapTab(e, root) {
+  if (e.key !== "Tab" || !root) return;
+  const focusables = Array.from(
+    root.querySelectorAll(
+      'button, [href], select, textarea, input, [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+// Hide the page behind the overlay from scroll + screen readers' reach.
+function useLockedScroll() {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+}
+
+// ═══ V1: the 3-card walkthrough ══════════════════════════════════════════════
+// Same three cards, same copy keys (onb.*), same order and same skip-anywhere
+// behaviour as the Mini App — restyled for a 1440px screen instead of a 430px
+// phone (centred dialog on a dimmed scrim, ch-* design-system buttons, roomier
+// type) rather than copying the Mini App's full-bleed mobile sheet verbatim.
+const CARDS = ["s1", "s2", "s3"];
+
+function Walkthrough({ onClose }) {
+  const router = useRouter();
+  const t = useT();
+
+  const [mounted, setMounted] = useState(false);
+  const [step, setStep] = useState(0);
+  const cardRef = useRef(null);
+  const doneRef = useRef(false); // guards a double-click / Esc-then-click race
+
+  // Portal only after mount (needs document; also avoids any SSR mismatch).
+  useEffect(() => setMounted(true), []);
+  useLockedScroll();
+
+  // Move focus into the dialog so keyboard + screen-reader users land here.
+  useEffect(() => {
+    if (mounted && cardRef.current) cardRef.current.focus();
+  }, [mounted]);
+
+  // The single exit. `toCity` is the promise the last card makes ("See your
+  // city"); Skip / Esc / scrim just get out of the way and leave you on /home.
+  //
+  // Order matters: hide FIRST, then fire the request, and never await it.
+  function dismiss(toCity) {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onClose?.();            // optimistic — the overlay is gone this tick
+    completeOnboarding();   // fire-and-forget; a failure changes nothing here
+    // next/router IS basePath-aware, so "/city" resolves to /web/city. (A plain
+    // <a href> would NOT be — that one has to be written "/web/city" by hand.)
+    if (toCity) router.push("/city");
+  }
+
+  const skip = () => dismiss(false);
+
+  const next = () => {
+    if (step >= CARDS.length - 1) {
+      dismiss(true);
+      return;
+    }
+    setStep((s) => s + 1);
+  };
+
+  if (!mounted) return null;
+
+  const key = CARDS[step];
+  const last = step === CARDS.length - 1;
+  const headingId = "onboarding-heading";
+
+  const overlay = (
+    <div
+      role="presentation"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          skip();
+          return;
+        }
+        trapTab(e, cardRef.current);
+      }}
+      onMouseDown={(e) => {
+        // Click on the dim scrim (outside the card) = skip.
+        if (e.target === e.currentTarget) skip();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 90,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        overflowY: "auto",
+        background: "rgba(11,10,8,0.86)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+      }}
+    >
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          width: "100%",
+          maxWidth: 620,
+          margin: "auto",
+          background: "linear-gradient(168deg, rgba(255,106,61,0.09), var(--surface) 46%)",
+          border: "1px solid var(--hair)",
+          borderRadius: "var(--radius)",
+          boxShadow: "0 30px 90px rgba(0,0,0,0.6)",
+          outline: "none",
+        }}
+      >
+        {/* The same firelit glow the login screen and the Mini App welcome use. */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -120,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 460,
+            height: 460,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(circle, rgba(255,106,61,0.20) 0%, rgba(232,161,92,0.09) 42%, transparent 72%)",
+          }}
+        />
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            padding: "clamp(24px, 3.6vw, 36px) clamp(26px, 4vw, 44px) 0",
+          }}
+        >
+          {/* Mark + a persistent Skip: every step has a way out. */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: "clamp(26px, 3.4vw, 40px)",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={asset("/bfu-mark.png")}
+              alt="BFU"
+              width={30}
+              height={30}
+              style={{
+                width: 30,
+                height: 30,
+                objectFit: "contain",
+                filter: "drop-shadow(0 8px 24px rgba(232,161,92,0.35))",
+              }}
+            />
+            <button
+              type="button"
+              onClick={skip}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "6px 2px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11.5,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--muted-strong)",
+              }}
+            >
+              {t("onb.skip")}
+            </button>
+          </div>
+
+          {/* The card. `key` re-runs the rise on every step change. It animates
+              TRANSFORM only (ch-rise ends at opacity:1, and we start at 1) — the
+              copy is never invisible, even for a frame. */}
+          <div
+            key={key}
+            style={{
+              minHeight: 210,
+              transform: "translateY(10px)",
+              animation: "ch-rise 0.45s forwards",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--amber)",
+              }}
+            >
+              {`0${step + 1} / 0${CARDS.length}`}
+            </div>
+            <h2
+              id={headingId}
+              style={{
+                margin: "16px 0 0",
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                fontSize: "clamp(27px, 3.4vw, 38px)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                color: "var(--text)",
+                maxWidth: 520,
+              }}
+            >
+              {t(`onb.${key}.title`)}
+            </h2>
+            <p
+              style={{
+                margin: "18px 0 0",
+                fontSize: 16.5,
+                lineHeight: 1.62,
+                color: "var(--muted-strong)",
+                maxWidth: 480,
+              }}
+            >
+              {t(`onb.${key}.body`)}
+            </p>
+          </div>
+        </div>
+
+        {/* Dots + the one action. Skip stays reachable in the header. */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
+            marginTop: "clamp(24px, 3vw, 34px)",
+            padding: "20px clamp(26px, 4vw, 44px) clamp(22px, 3vw, 30px)",
+            borderTop: "1px solid var(--hair)",
+          }}
+        >
+          <div style={{ display: "flex", gap: 7 }} aria-hidden>
+            {CARDS.map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: i === step ? 26 : 8,
+                  height: 8,
+                  borderRadius: 99,
+                  background:
+                    i === step
+                      ? "linear-gradient(90deg, var(--amber), var(--ember))"
+                      : "var(--hair)",
+                  transition: "width 0.28s ease, background 0.28s ease",
+                }}
+              />
+            ))}
+          </div>
+          <button type="button" className="ch-btn-primary" onClick={next}>
+            {last ? t("onb.start") : t("onb.next")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
+// ═══ Behind FLAGS.SETUP_WIZARD: the original 4-step setup wizard ══════════════
+// UNCHANGED and fully working — hidden, not removed. Four skippable steps:
 //   1. Welcome + region  → PATCH /users/me { region_id }
 //   2. Your bio          → POST /users/me/coach (same as ProfileEditor) + PATCH /users/me { about }
 //   3. Discover builders → GET /users/discover + POST/DELETE /follow
@@ -54,7 +384,7 @@ const labelHint = {
   color: "var(--muted-strong)",
 };
 
-export default function OnboardingFlow({ me = {}, firstName = "builder", onClose }) {
+function SetupWizard({ me = {}, firstName = "builder", onClose }) {
   const router = useRouter();
   const t = useT();
 
@@ -87,13 +417,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
   useEffect(() => setMounted(true), []);
 
   // Lock background scroll while the overlay is open.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  useLockedScroll();
 
   // Fetch regions once (authed — same list the profile editor uses).
   useEffect(() => {
@@ -261,24 +585,7 @@ export default function OnboardingFlow({ me = {}, firstName = "builder", onClose
       finish();
       return;
     }
-    if (e.key !== "Tab") return;
-    const root = cardRef.current;
-    if (!root) return;
-    const focusables = Array.from(
-      root.querySelectorAll(
-        'button, [href], select, textarea, input, [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((el) => !el.disabled && el.offsetParent !== null);
-    if (!focusables.length) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
+    trapTab(e, cardRef.current);
   }
 
   if (!mounted) return null;

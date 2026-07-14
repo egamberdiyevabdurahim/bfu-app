@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getT } from "@/lib/i18n/server";
 import { getMe, getToken } from "@/lib/session";
 import { getRegions } from "@/lib/bfu-api";
+import { FLAGS } from "@/lib/flags";
 import AppTopBar from "@/components/nav/AppTopBar";
 import ProfileEditor from "@/components/settings/ProfileEditor";
 import NotificationPrefs from "@/components/settings/NotificationPrefs";
@@ -15,7 +16,9 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Edit your profile — Bright Futures Uzbekistan",
-  description: "Your firelit workshop bench — bio, skills, links and CV.",
+  // Was "…bio, skills, links and CV." — the CV export is hidden for V1
+  // (FLAGS.CV_EXPORT), so the description no longer promises it.
+  description: "Your firelit workshop bench — bio, skills and links.",
 };
 
 // Authed server-side GET (Bearer token from the session cookie). Returns null
@@ -50,11 +53,16 @@ export default async function SettingsPage() {
 
   // Fetch region options (public) + achievements/invite (authed) in parallel so
   // the editor paints fully-hydrated on first load.
+  //
+  // The notification-prefs GET is skipped entirely while FLAGS.NOTIF_PREFS is
+  // false: with the section hidden there is nothing to hydrate, so paying for a
+  // round-trip on every /settings render would be pure waste. Flip the flag and
+  // the fetch (and the section it feeds) comes back.
   const [regions, achievements, invite, notifPrefs] = await Promise.all([
     getRegions(),
     authedGet("/users/me/achievements", token),
     authedGet("/users/me/invite", token),
-    authedGet("/users/me/notification-prefs", token),
+    FLAGS.NOTIF_PREFS ? authedGet("/users/me/notification-prefs", token) : null,
   ]);
 
   const initial = {
@@ -119,13 +127,24 @@ export default async function SettingsPage() {
 
         <ProfileEditor initial={initial} regions={regions} />
 
-        <div style={{ marginTop: 26 }}>
-          <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
-        </div>
+        {/* Notification + privacy preferences — both hidden for V1.
+            The guard sits OUTSIDE each spacer <div> on purpose: the marginTop is
+            the gap that separates the block from what precedes it, so gating the
+            wrapper (not just its child) means a hidden section leaves no ghost
+            26px band behind. With both off, ProfileEditor runs straight into
+            SiteFooter, which brings its own marginTop:60 + rule — the page still
+            ends on a deliberate divider, not a severed one. */}
+        {FLAGS.NOTIF_PREFS ? (
+          <div style={{ marginTop: 26 }}>
+            <NotificationPrefs initialPrefs={notifPrefs?.prefs || null} />
+          </div>
+        ) : null}
 
-        <div style={{ marginTop: 26 }}>
-          <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} initialWhoViewed={me?.who_viewed_consent !== false} />
-        </div>
+        {FLAGS.PRIVACY_PREFS ? (
+          <div style={{ marginTop: 26 }}>
+            <PrivacyPrefs initialDmPrivacy={me?.dm_privacy || "everyone"} initialWhoViewed={me?.who_viewed_consent !== false} />
+          </div>
+        ) : null}
 
         <SiteFooter tagline={t("settings.footer_tagline")} />
     </AppTopBar>

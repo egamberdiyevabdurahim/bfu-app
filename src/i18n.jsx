@@ -302,9 +302,13 @@ const STRINGS = {
   "discover.noUsers": { en: "No users found", uz: "Foydalanuvchilar topilmadi", ru: "Никого не найдено" },
   "discover.badge.startup": { en: "Startup", uz: "Startap", ru: "Стартап" },
   "discover.badge.volunteer": { en: "Volunteer", uz: "Volontyor", ru: "Волонтёр" },
+  // Builder-card badge for `open_to_work`. Its own key on purpose: `pd.cofounder`
+  // means the project-team ROLE (co-founder), which is a different thing.
+  "discover.badge.openToWork": { en: "Open to work", uz: "Ishga ochiq", ru: "Открыт к работе" },
   "filter.all": { en: "All", uz: "Hammasi", ru: "Все" },
   "filter.online": { en: "● Online", uz: "● Onlayn", ru: "● Онлайн" },
-  "filter.cofounder": { en: "Co-founder", uz: "Hammuassis", ru: "Сооснователь" },
+  // Key name kept (chip key + `open_to_work` query param unchanged); label only.
+  "filter.cofounder": { en: "Open to work", uz: "Ishga ochiq", ru: "Открыт к работе" },
   "filter.volunteer": { en: "Volunteer", uz: "Ko‘ngilli", ru: "Волонтёр" },
   "filter.mentor": { en: "Mentors", uz: "Mentorlar", ru: "Менторы" },
   "filter.allRegions": { en: "All regions", uz: "Barcha hududlar", ru: "Все регионы" },

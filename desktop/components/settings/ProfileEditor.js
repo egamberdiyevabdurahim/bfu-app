@@ -329,8 +329,12 @@ export default function ProfileEditor({ initial, regions }) {
     }
   }
 
+  // CV / resume PDF export — hidden for V1 behind FLAGS.CV_EXPORT. The button
+  // below is flag-gated, and this handler hard-stops too, so the /users/me/resume
+  // download can't be fired while the feature is hidden. Flip the flag to restore.
   const [cvBusy, setCvBusy] = useState(false);
   async function getCv() {
+    if (!FLAGS.CV_EXPORT) return;
     setCvBusy(true);
     try {
       await downloadResume();
@@ -679,21 +683,27 @@ export default function ProfileEditor({ initial, regions }) {
             </div>
           </Section>
 
-          {/* Download CV */}
-          <Section label={t("settings.cv_label")} hint={t("settings.cv_hint")}>
-            <div>
-              <button
-                type="button"
-                className="ch-btn-ghost"
-                onClick={getCv}
-                disabled={cvBusy}
-                style={{ opacity: cvBusy ? 0.6 : 1 }}
-              >
-                <span style={{ color: "var(--amber)" }} aria-hidden>↓</span>
-                {cvBusy ? t("settings.cv_building") : t("settings.cv_download")}
-              </button>
-            </div>
-          </Section>
+          {/* Download CV — V1: hidden behind FLAGS.CV_EXPORT. The whole Section
+              (heading + hint + button) is inside the guard, so nothing is left
+              behind: the rail is a flex column, and a falsy child emits no DOM
+              node, so no empty card and no stray 20px gap. The /resume endpoint
+              and lib/resume.js stay put — flip the flag and the card returns. */}
+          {FLAGS.CV_EXPORT ? (
+            <Section label={t("settings.cv_label")} hint={t("settings.cv_hint")}>
+              <div>
+                <button
+                  type="button"
+                  className="ch-btn-ghost"
+                  onClick={getCv}
+                  disabled={cvBusy}
+                  style={{ opacity: cvBusy ? 0.6 : 1 }}
+                >
+                  <span style={{ color: "var(--amber)" }} aria-hidden>↓</span>
+                  {cvBusy ? t("settings.cv_building") : t("settings.cv_download")}
+                </button>
+              </div>
+            </Section>
+          ) : null}
 
           {/* View public profile */}
           <a

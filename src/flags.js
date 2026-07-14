@@ -34,6 +34,20 @@ export const FLAGS = {
   // "I'm interested" + "Request intro" — a second, parallel way to reach someone
   // on top of Follow/Message. Two ways to say hello is one too many for V1.
   INTEREST_INTRO: false,
+
+  // Privacy preferences (who-can-DM-me, incognito profile views). Sensible
+  // defaults ship already; the settings screen doesn't need to explain them yet.
+  PRIVACY_PREFS: false,
+
+  // Per-category notification preferences.
+  // ⚠️ RISK: with this off, a user who finds the bot noisy has no in-app way to
+  // turn it down — their only lever is to BLOCK the bot, which sets can_message
+  // false permanently (see Telegram reachability). If bot notifications ever feel
+  // heavy, turn this back on before people start blocking.
+  NOTIF_PREFS: false,
+
+  // CV / resume PDF export.
+  CV_EXPORT: false,
 };
 
 export default FLAGS;

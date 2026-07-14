@@ -99,6 +99,12 @@ function Row({ label, desc, on, onToggle, disabled, dim }) {
   );
 }
 
+// V1: the whole per-category preferences screen is hidden behind FLAGS.NOTIF_PREFS.
+// The settings page already skips rendering this component (and skips the SSR
+// prefs fetch) while the flag is false — the guards below are the second lock,
+// so that even if some other caller mounts it, it renders nothing AND never
+// fires GET /users/me/notification-prefs. Flip the flag to true and everything
+// below comes back untouched.
 export default function NotificationPrefs({ initialPrefs }) {
   const t = useT();
   // Seed from SSR when available; otherwise show defaults and fetch on mount.
@@ -107,6 +113,7 @@ export default function NotificationPrefs({ initialPrefs }) {
   const { toast, flash } = useToast(3200);
 
   useEffect(() => {
+    if (!FLAGS.NOTIF_PREFS) return; // hidden for V1 — don't fetch prefs we never show
     if (initialPrefs) return; // already hydrated by the server
     let alive = true;
     bfu("/users/me/notification-prefs")
@@ -142,6 +149,10 @@ export default function NotificationPrefs({ initialPrefs }) {
   }
 
   const masterOn = prefs.telegram_push;
+
+  // Render nothing while the section is hidden. Deliberately placed AFTER every
+  // hook above so hook order stays stable regardless of the flag.
+  if (!FLAGS.NOTIF_PREFS) return null;
 
   return (
     <div className="ch-cell-static" style={{ display: "flex", flexDirection: "column" }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import BuilderCard from "./BuilderCard";
+import InviteModal from "./InviteModal";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // Ports the mockup's region section: the `.slab` header (REGION kicker /
@@ -21,10 +22,12 @@ import { useT } from "@/components/i18n/LocaleProvider";
 //
 // The reader is ALREADY REGISTERED by the time they see this, so "be the first"
 // on its own is a dead end. The tile therefore carries two real exits:
-//   • primary — "Invite a friend" → /web/settings, where the invite link + count
-//     already live (components/settings/ProfileEditor.js). Plain <a href> is NOT
-//     auto-prefixed by basePath, so the "/web" prefix is written out explicitly,
-//     matching every other <a> in the app (EventsBrowser, PersonActions, …).
+//   • primary — "Invite a friend" opens <InviteModal /> IN PLACE (link + Copy).
+//     It used to be an <a href="/web/settings">, which navigated the reader off
+//     the city page into the settings bench just to reach the invite link — the
+//     Mini App shows a sheet instead (src/components/InviteSheet.jsx), and the
+//     founder flagged the desktop hop as jarring. The modal is mounted only while
+//     open, so GET /users/me/invite fires on the click, not on page load.
 //   • secondary — "See other cities" → smooth-scrolls to the next region cluster
 //     on this same page. Rendered ONLY when another [data-cluster] exists, so it
 //     can never be a no-op.
@@ -42,6 +45,8 @@ export default function RegionCluster({ region = {}, nameKey = "name_en" }) {
   // Starts false on the server AND on first client paint (no hydration mismatch),
   // then flips on once we can see whether the page has any sibling cluster.
   const [hasOtherClusters, setHasOtherClusters] = useState(false);
+  // Mount-on-open: keeps the invite fetch off the page-load path.
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (!small) return;
@@ -105,9 +110,13 @@ export default function RegionCluster({ region = {}, nameKey = "name_en" }) {
                 marginTop: 6,
               }}
             >
-              <a href="/web/settings" className="ch-btn-primary">
+              <button
+                type="button"
+                className="ch-btn-primary"
+                onClick={() => setInviteOpen(true)}
+              >
                 {t("city.cluster.grace_invite")}
-              </a>
+              </button>
               {hasOtherClusters && (
                 <button type="button" className="ch-btn-ghost" onClick={seeOtherCities}>
                   {t("city.cluster.grace_other")}
@@ -117,6 +126,8 @@ export default function RegionCluster({ region = {}, nameKey = "name_en" }) {
           </div>
         )}
       </div>
+
+      {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
     </>
   );
 }

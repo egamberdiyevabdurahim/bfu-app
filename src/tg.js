@@ -182,6 +182,20 @@ export function requestWriteAccess() {
 }
 
 // Open a project's Telegram group chat (deep link). Bots can't create groups —
+// Open a NON-Telegram URL (a website) from inside the Mini App. A bare <a href>
+// would navigate the webview away from the app and strand the user with no way
+// back; Telegram's openLink hands it to the system browser instead. Falls back to
+// window.open outside Telegram (dev / browser testing).
+export function openExternal(url) {
+  if (!url) return false;
+  const w = wa();
+  if (w && typeof w.openLink === "function") {
+    try { w.openLink(url); return true; } catch { /* fall through */ }
+  }
+  window.open(url, "_blank", "noopener");
+  return true;
+}
+
 // the link is the founder-pasted t.me invite, validated by the backend on save.
 // No-op when unset.
 export function projectChatLink(project) {

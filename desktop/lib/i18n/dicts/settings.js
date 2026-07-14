@@ -24,6 +24,10 @@ export const settings = {
     "settings.invite_none": "No invite link yet",
     "settings.invite_copied": "Invite link copied",
     "settings.invite_copy_failed": "Could not copy the link",
+    // InviteModal (components/InviteModal.js) — the in-place invite dialog the
+    // City grace tile opens. Reuses every other settings.invite_* string above.
+    "settings.invite_load_failed": "Could not load your invite link",
+    "settings.invite_retry": "Try again",
     "settings.cv_downloading": "Your CV is downloading",
     "settings.cv_failed": "Could not build your CV",
 
@@ -143,6 +147,8 @@ export const settings = {
     "settings.invite_none": "Hozircha taklif havolasi yo‘q",
     "settings.invite_copied": "Taklif havolasi nusxalandi",
     "settings.invite_copy_failed": "Havolani nusxalab bo‘lmadi",
+    "settings.invite_load_failed": "Taklif havolangizni yuklab bo‘lmadi",
+    "settings.invite_retry": "Qayta urinish",
     "settings.cv_downloading": "CV yuklab olinmoqda",
     "settings.cv_failed": "CV tuzib bo‘lmadi",
 
@@ -262,6 +268,8 @@ export const settings = {
     "settings.invite_none": "Ссылки-приглашения пока нет",
     "settings.invite_copied": "Ссылка-приглашение скопирована",
     "settings.invite_copy_failed": "Не удалось скопировать ссылку",
+    "settings.invite_load_failed": "Не удалось загрузить ссылку-приглашение",
+    "settings.invite_retry": "Попробовать снова",
     "settings.cv_downloading": "Ваше резюме загружается",
     "settings.cv_failed": "Не удалось создать резюме",
 

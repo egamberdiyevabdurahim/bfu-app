@@ -48,15 +48,18 @@ export const city = {
     "city.cluster.grace_title": "The bazaar is small tonight.",
     "city.cluster.grace_sub":
       "Be one of the first to light up {name} — the city grows around whoever shows up.",
-    // Two exits out of the grace tile: invite (Settings holds the invite link)
-    // and an in-page jump to the other region clusters.
+    // Two exits out of the grace tile: invite (opens InviteModal in place — the
+    // link + Copy live in the dialog, settings.invite_* strings) and an in-page
+    // jump to the other region clusters.
     "city.cluster.grace_invite": "👋 Invite a friend",
     "city.cluster.grace_other": "🏙 See other cities",
     "city.cluster.this_city": "This city",
 
     // — Builder card (BuilderCard.js) —
     "city.card.mentor": "Mentor",
-    "city.card.cofounder": "Co-founder",
+    // Key name kept for stability; the badge is driven by `open_to_work`, so the
+    // label says what the data actually means ("Co-founder" read as ambiguous).
+    "city.card.cofounder": "Open to work",
     "city.card.volunteer": "Volunteer",
     "city.card.verified": "Verified",
     "city.card.is_building": "is building",
@@ -65,7 +68,8 @@ export const city = {
     // — Filter chips (FilterBar.js) —
     "city.filter.all": "All",
     "city.filter.online": "Online now",
-    "city.filter.cofounder": "Looking for co-founder",
+    // Same key, same `open_to_work` query param — label only.
+    "city.filter.cofounder": "Open to work",
     "city.filter.mentors": "Mentors",
     "city.filter.aria": "Filter builders",
 
@@ -132,7 +136,7 @@ export const city = {
     "city.cluster.this_city": "Bu shahar",
 
     "city.card.mentor": "Mentor",
-    "city.card.cofounder": "Hammuassis",
+    "city.card.cofounder": "Ishga ochiq",
     "city.card.volunteer": "Ko‘ngilli",
     "city.card.verified": "Tasdiqlangan",
     "city.card.is_building": "quryapti:",
@@ -140,7 +144,7 @@ export const city = {
 
     "city.filter.all": "Barchasi",
     "city.filter.online": "Hozir onlayn",
-    "city.filter.cofounder": "Hammuassis izlayapti",
+    "city.filter.cofounder": "Ishga ochiq",
     "city.filter.mentors": "Mentorlar",
     "city.filter.aria": "Bunyodkorlarni filtrlash",
 
@@ -203,7 +207,7 @@ export const city = {
     "city.cluster.this_city": "Этот город",
 
     "city.card.mentor": "Ментор",
-    "city.card.cofounder": "Сооснователь",
+    "city.card.cofounder": "Открыт к работе",
     "city.card.volunteer": "Волонтёр",
     "city.card.verified": "Подтверждён",
     "city.card.is_building": "строит:",
@@ -211,7 +215,7 @@ export const city = {
 
     "city.filter.all": "Все",
     "city.filter.online": "Сейчас в сети",
-    "city.filter.cofounder": "Ищет сооснователя",
+    "city.filter.cofounder": "Открыт к работе",
     "city.filter.mentors": "Менторы",
     "city.filter.aria": "Фильтровать строителей",
 

@@ -51,7 +51,7 @@ export default function SiteFooter({
 
       {/* Powered-by-Marstiff credit — shown on every page via the shared footer. */}
       <a
-        href="https://marstiff.uz"
+        href="https://www.instagram.com/marstiff_uz"
         target="_blank"
         rel="noopener noreferrer"
         style={{

@@ -14,6 +14,7 @@ import { RegionLandingScreen } from "./RegionLandingScreen";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { MessagesScreen } from "./components/MessagesScreen";
 import { Onboarding } from "./components/Onboarding";
+import { WebBridge } from "./components/WebBridge";
 import { startUpdateCheck } from "./updateCheck";
 import { FLAGS } from "./flags";
 
@@ -319,6 +320,11 @@ function MiniApp() {
               {screens[effectiveTab]}
             </div>
             {!forceSettings && <BottomNav active={effectiveTab} onChange={setActiveTab} />}
+            {/* Quiet pointer to the fuller desktop app — self-hides on phones,
+                and on the walkthrough (which owns the screen for a new member).
+                Same !forceSettings gate as the nav: a locked profile is the one
+                thing we want them fixing, not a second screen to go read it on. */}
+            {!forceSettings && !showOnboarding && <WebBridge />}
           </>
         )}
         {deepUserId && (

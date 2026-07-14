@@ -118,11 +118,16 @@ function Footer() {
               <span className="font-display font-bold text-text-1">{BFU_T('footer.made')}</span>
               <span>🇺🇿</span>
             </div>
-            <div className="mt-4 flex items-center gap-2.5 text-text-3">
+            <a
+              href="https://www.instagram.com/marstiff_uz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex items-center gap-2.5 text-text-3 hover:opacity-80 transition-opacity"
+            >
               <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">{BFU_T('footer.poweredBy')}</span>
               <span className="font-display font-bold text-[15px] text-text-1 tracking-[-0.01em]">Marstiff</span>
               <img src="/marstiff-logo.png" alt="Marstiff" className="h-5 w-auto object-contain" />
-            </div>
+            </a>
           </div>
 
           <div>

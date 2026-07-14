@@ -543,7 +543,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           )}
 
           <a
-            href="https://marstiff.uz"
+            href="https://www.instagram.com/marstiff_uz"
             target="_blank"
             rel="noopener noreferrer"
             className="ash-credit"

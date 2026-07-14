@@ -4,7 +4,10 @@ import { Icon } from "../components/Icons";
 import { users, storage, regions, bookings } from "../api";
 import { FLAGS } from "../flags";
 import { useT } from "../i18n";
-import { tgAlert, shareUrl } from "../tg";
+import { tgAlert, shareUrl, openExternal } from "../tg";
+
+// Marstiff is BFU's sanctioned partner; the credit links to their Instagram.
+const MARSTIFF_URL = "https://www.instagram.com/marstiff_uz";
 import { EditProfileScreen } from "./EditProfileScreen";
 import { MentorsScreen } from "./MentorsScreen";
 import { MentorSlotsSheet, BookingsSheet } from "../components/MentorSheets";
@@ -220,7 +223,10 @@ export const ProfileScreen = () => {
     catch { tgAlert(url); }
   };
 
+  // CV/resume PDF export — flagged off. The guard keeps the network call dead
+  // even if a stale ref somehow reaches the handler; flip FLAGS.CV_EXPORT to restore.
   const downloadCV = async () => {
+    if (!FLAGS.CV_EXPORT) return;
     try { await users.resume(); }
     catch { tgAlert(t("resume.failed")); }
   };
@@ -600,7 +606,9 @@ export const ProfileScreen = () => {
         {/* ── Folded-in Settings menu ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           <ActionRow glyph="🔗" label={t("trust.sharePublic")} onClick={copyPublic} />
-          <ActionRow glyph="📄" label={t("resume.download")} onClick={downloadCV} />
+          {FLAGS.CV_EXPORT && (
+            <ActionRow glyph="📄" label={t("resume.download")} onClick={downloadCV} />
+          )}
           {FLAGS.SAVED && (
             <ActionRow glyph="❥" label={t("saved.title")} onClick={() => setSavedOpen(true)} />
           )}
@@ -617,7 +625,9 @@ export const ProfileScreen = () => {
                   display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{sessionReqs}</span>
               ) : null} />
           )}
-          <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
+          {FLAGS.NOTIF_PREFS && (
+            <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
+          )}
           <ActionRow glyph="🚫" label={t("blocked.title")} onClick={() => setBlockedOpen(true)} />
           {isMentor && (
             <ActionRow glyph="🗓️" label={t("mentor.mySlots")} onClick={() => setSlotsOpen(true)} />
@@ -648,8 +658,17 @@ export const ProfileScreen = () => {
           </div>
         </div>
 
-        {/* ── Powered by Marstiff (sanctioned partner credit) ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "26px 0 14px", opacity: 0.7 }}>
+        {/* ── Powered by Marstiff (sanctioned partner credit) ──
+            Opens Marstiff's Instagram. openExternal() hands the URL to the system
+            browser via Telegram's openLink — a bare <a> would navigate the webview
+            away from the Mini App and strand the user with no way back. */}
+        <div
+          role="link"
+          tabIndex={0}
+          onClick={() => openExternal(MARSTIFF_URL)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openExternal(MARSTIFF_URL); }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "26px 0 14px", opacity: 0.7, cursor: "pointer" }}
+        >
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--text-3)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
             powered by
           </span>
@@ -668,7 +687,11 @@ export const ProfileScreen = () => {
 
       {FLAGS.MENTORING && slotsOpen && <MentorSlotsSheet onClose={() => setSlotsOpen(false)} />}
       {FLAGS.MENTORING && bookingsOpen && <BookingsSheet onClose={() => { setBookingsOpen(false); setHomeRefresh(k => k + 1); }} />}
-      {notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
+      {/* Gated on mount, not just on the row: the sheet fetches prefs on open, so an
+          unmounted sheet also means no prefs request. NOTE — this sheet is where the
+          privacy controls (dm_privacy / who_viewed_consent, FLAGS.PRIVACY_PREFS) live;
+          they are unreachable from the Mini App while NOTIF_PREFS is off. */}
+      {FLAGS.NOTIF_PREFS && notifPrefsOpen && <NotificationPrefsSheet onClose={() => setNotifPrefsOpen(false)} />}
       {FLAGS.SAVED && savedOpen && <SavedSheet onClose={() => setSavedOpen(false)} />}
       {inviteOpen && <InviteSheet onClose={() => setInviteOpen(false)} />}
       {blockedOpen && <BlockedSheet onClose={() => setBlockedOpen(false)} />}

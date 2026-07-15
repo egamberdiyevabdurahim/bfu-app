@@ -21,6 +21,7 @@ from app.services.event_admin import (
     build_responses,
     build_responses_csv,
     checked_schema as _checked_schema,
+    normalize_region_ids as _norm_region_ids,
     to_naive_utc as _to_naive_utc,
     update_event_response,
 )
@@ -738,7 +739,11 @@ class EventBody(BaseModel):
     cover_url: str | None = None
     deadline: datetime | None = None       # signup cutoff
     starts_at: datetime | None = None      # when the event actually happens
-    region_id: int | None = None
+    region_id: int | None = None           # legacy single region (derived from region_ids)
+    # Multi-region targeting. null/[] = unlimited (everyone). A non-empty list
+    # restricts the targeted announce DM to users in those regions.
+    region_ids: list[int] | None = None
+    location: str | None = None            # free-text venue / place
     partner_id: int | None = None
     # Max "going" attendees; null = unlimited. Overflow "going" RSVPs are
     # waitlisted (see app.routers.events). Accepted on create + edit.
@@ -758,6 +763,8 @@ class EventOut(BaseModel):
     deadline: datetime | None = None
     starts_at: datetime | None = None
     region_id: int | None = None
+    region_ids: list[int] | None = None
+    location: str | None = None
     partner_id: int | None = None
     capacity: int | None = None
     is_approved: bool = True
@@ -849,12 +856,17 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         raise HTTPException(400, "Title required")
     if not body.type or not body.type.strip():
         raise HTTPException(400, "Type required")
+    # region_ids is the source of truth; keep the legacy single region_id in sync
+    # (= first targeted region, or the explicit region_id when no list is given).
+    rids = _norm_region_ids(body.region_ids)
     e = Event(
         type=body.type, title=body.title.strip(), description=body.description,
         link=body.link, cover_url=body.cover_url,
         deadline=_to_naive_utc(body.deadline),
         starts_at=_to_naive_utc(body.starts_at),
-        region_id=body.region_id, created_by=admin.id,
+        region_ids=rids, region_id=(rids[0] if rids else body.region_id),
+        location=(body.location.strip() if body.location else None),
+        created_by=admin.id,
         partner_id=body.partner_id, is_approved=True,
         capacity=body.capacity,
         form_schema=_checked_schema(body.form_schema),
@@ -1012,6 +1024,13 @@ async def admin_update_event(event_id: int, body: EventBody,
         patch["deadline"] = _to_naive_utc(patch["deadline"])
     if "starts_at" in patch:
         patch["starts_at"] = _to_naive_utc(patch["starts_at"])
+    # region_ids is authoritative; normalize it and keep legacy region_id in sync.
+    if "region_ids" in patch:
+        rids = _norm_region_ids(patch["region_ids"])
+        patch["region_ids"] = rids
+        patch["region_id"] = rids[0] if rids else None
+    if "location" in patch and patch["location"] is not None:
+        patch["location"] = patch["location"].strip() or None
     for k, v in patch.items():
         setattr(e, k, v)
     await db.commit(); await db.refresh(e)

@@ -43,6 +43,17 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     # OLDEST waitlisted registrant. Seat accounting excludes no-shows — see
     # app.routers.events._seats_taken.
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Where the event physically (or virtually) happens — free text, e.g.
+    # "Tashkent, Marstiff HQ" or a Zoom link. Shown on the card + detail page +
+    # in the registration form header + reminder text. NULL = not specified.
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Targeting regions (a JSON list of region ids). NULL or [] = UNLIMITED →
+    # everyone, regardless of region. A non-empty list restricts the targeted
+    # announce DM (and the detail's "for these regions" label) to users whose
+    # region is in it. Supersedes the legacy single `region_id` (kept in sync:
+    # region_id = region_ids[0] on write, and back-filled into region_ids on
+    # migration) so old single-region consumers keep working.
+    region_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # When an admin EXPLICITLY announced this event to members' chats (the
     # targeted DM fan-out + the global-group card). NULL = never announced.
     # Creating or approving an event no longer sends anything to chats on its

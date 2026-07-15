@@ -219,6 +219,14 @@ async def lifespan(app: FastAPI):
         #     "Announce" (POST /admin/events/{id}/announce), which fires the DM
         #     fan-out + the global-group card. NULL = not yet announced.
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS announced_at TIMESTAMP;",
+        # --- Event location + multi-region targeting. location = free-text venue;
+        #     region_ids = JSON list of targeted regions (NULL/[] = unlimited).
+        #     Back-fill region_ids from the legacy single region_id so existing
+        #     events keep their current targeting (runs once: guarded on IS NULL).
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS location VARCHAR(255);",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS region_ids JSONB;",
+        "UPDATE events SET region_ids = jsonb_build_array(region_id) "
+        "WHERE region_id IS NOT NULL AND region_ids IS NULL;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

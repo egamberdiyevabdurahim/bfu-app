@@ -18,7 +18,12 @@ class EventOut(BaseModel):
     cover_url: str | None = None
     deadline: datetime | None = None   # signup cutoff
     starts_at: datetime | None = None  # when the event actually happens
-    region_id: int | None = None
+    region_id: int | None = None       # legacy single region (kept = region_ids[0])
+    # Multi-region targeting. null/[] = unlimited (everyone). A non-empty list
+    # names the regions this event is aimed at (drives the targeted announce +
+    # the detail's "for these regions" label).
+    region_ids: list[int] | None = None
+    location: str | None = None        # free-text venue / place
     created_at: datetime
     rsvp_count: int = 0          # number of "going" RSVPs (== going_count; kept for back-compat)
     my_rsvp: str | None = None   # this user's status ("going"/"interested"/"waitlisted") or None

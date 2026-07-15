@@ -72,10 +72,16 @@ async def push_new_event(event_id: int) -> int:
                 # never granted write access can't be messaged — see can_message).
                 User.can_message == True,
             )
-            # region_id NULL → global event → everyone; otherwise only users
-            # whose region matches. (Region-less users are excluded from a
-            # region-specific event, which is the intended targeting.)
-            if event.region_id is not None:
+            # Targeting: region_ids (a list) is the source of truth. A non-empty
+            # list → only users whose region is in it; NULL/[] → UNLIMITED, i.e.
+            # everyone (region-less users included). Fall back to the legacy single
+            # region_id only when region_ids is unset (pre-migration rows, though
+            # the migration back-fills them). Region-less users are excluded from a
+            # region-restricted event, which is the intended targeting.
+            rids = event.region_ids if isinstance(event.region_ids, list) else None
+            if rids:
+                q = q.where(User.region_id.in_(rids))
+            elif event.region_id is not None:
                 q = q.where(User.region_id == event.region_id)
 
             users = (await s.execute(q)).scalars().all()

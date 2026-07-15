@@ -34,6 +34,7 @@ from app.services.event_admin import (
     build_responses,
     build_responses_csv,
     checked_schema,
+    normalize_region_ids,
     to_naive_utc,
     update_event_response,
 )
@@ -60,7 +61,10 @@ class PartnerEventBody(BaseModel):
     cover_url: str | None = None
     deadline: datetime | None = None       # signup cutoff
     starts_at: datetime | None = None      # when the event actually happens
-    region_id: int | None = None
+    region_id: int | None = None           # ignored on write (derived from region_ids)
+    # Multi-region targeting. null/[] = unlimited (everyone).
+    region_ids: list[int] | None = None
+    location: str | None = None            # free-text venue / place
     capacity: int | None = None
     # The registration form's question list (see app.services.event_forms).
     # null/[] = no form → plain one-click RSVP.
@@ -77,6 +81,8 @@ class PartnerEventOut(BaseModel):
     deadline: datetime | None = None
     starts_at: datetime | None = None
     region_id: int | None = None
+    region_ids: list[int] | None = None
+    location: str | None = None
     partner_id: int | None = None
     capacity: int | None = None
     is_approved: bool = False
@@ -88,8 +94,11 @@ class PartnerEventOut(BaseModel):
 
 # Fields a partner may set on POST/PATCH. partner_id is FORCED to the caller's
 # org and is_approved is admin-only (moderation) — neither is settable here.
+# region_id is NOT here: it's derived from region_ids server-side (kept in sync),
+# so a partner sets targeting via region_ids only.
 _EDITABLE = ("type", "title", "description", "link", "cover_url",
-             "deadline", "starts_at", "region_id", "capacity", "form_schema")
+             "deadline", "starts_at", "region_ids", "location", "capacity",
+             "form_schema")
 
 
 async def _load_my_event(db: AsyncSession, partner: Partner, event_id: int) -> Event:
@@ -166,11 +175,14 @@ async def partner_create_event(
         raise HTTPException(400, "Title required")
     if not body.type or not body.type.strip():
         raise HTTPException(400, "Type required")
+    rids = normalize_region_ids(body.region_ids)
     e = Event(
         type=body.type.strip(), title=body.title.strip(),
         description=body.description, link=body.link, cover_url=body.cover_url,
         deadline=to_naive_utc(body.deadline), starts_at=to_naive_utc(body.starts_at),
-        region_id=body.region_id, created_by=current_user.id,
+        region_ids=rids, region_id=(rids[0] if rids else None),
+        location=(body.location.strip() if body.location else None),
+        created_by=current_user.id,
         partner_id=partner.id, is_approved=False, capacity=body.capacity,
         form_schema=checked_schema(body.form_schema),
     )
@@ -200,6 +212,13 @@ async def partner_update_event(
         patch["deadline"] = to_naive_utc(patch["deadline"])
     if "starts_at" in patch:
         patch["starts_at"] = to_naive_utc(patch["starts_at"])
+    # region_ids is authoritative; normalize + keep legacy region_id in sync.
+    if "region_ids" in patch:
+        rids = normalize_region_ids(patch["region_ids"])
+        patch["region_ids"] = rids
+        e.region_id = rids[0] if rids else None
+    if "location" in patch and patch["location"] is not None:
+        patch["location"] = patch["location"].strip() or None
     for k, v in patch.items():
         if k in _EDITABLE:
             setattr(e, k, v)

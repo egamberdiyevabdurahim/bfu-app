@@ -176,21 +176,24 @@ async def test_rsvp_bad_choice_422(db, make_user, as_user):
 
 
 @pytest.mark.asyncio
-async def test_re_rsvp_overwrites_answers(db, make_user, as_user):
+async def test_answers_are_final_once_registered(db, make_user, as_user):
+    # Founder rule (v1): answers are FINAL after submit — a re-submit is refused
+    # (409), not silently overwritten. The only way to change anything is to
+    # withdraw and register again (covered in test_event_v2).
     u = await make_user()
     e = await _make_event(db, form_schema=SCHEMA)
     client = as_user(u)
 
-    await client.post(f"/events/{e.id}/rsvp", json={"status": "going", "answers": VALID_ANSWERS})
+    r = await client.post(f"/events/{e.id}/rsvp", json={"status": "going", "answers": VALID_ANSWERS})
+    assert r.status_code == 200
     fixed = {**VALID_ANSWERS, "q1": "Ali Valiyev, 11-sinf", "q3": "Yakshanba 14:00"}
     r = await client.post(f"/events/{e.id}/rsvp", json={"status": "going", "answers": fixed})
-    assert r.status_code == 200
+    assert r.status_code == 409                             # locked — no edit after submit
 
     rows = (await db.execute(select(EventRsvp).where(EventRsvp.event_id == e.id))).scalars().all()
-    assert len(rows) == 1                                   # same row, reused
+    assert len(rows) == 1                                   # same row, unchanged
     await db.refresh(rows[0])
-    assert rows[0].answers["q1"] == "Ali Valiyev, 11-sinf"
-    assert rows[0].answers["q3"] == "Yakshanba 14:00"
+    assert rows[0].answers["q1"] == VALID_ANSWERS["q1"]     # original answer preserved
 
 
 @pytest.mark.asyncio

@@ -298,6 +298,21 @@ async def rsvp_event(
     ))).scalar_one_or_none()
     prev_status = row.status if row else None
 
+    # ── answers are FINAL once submitted ──────────────────────────────────────
+    # For a form event, once you've registered ("going"/"waitlisted" with saved
+    # answers) the answers can't be edited — a re-submit is refused (409). This is
+    # the server-side gate behind the read-only "You're registered" UI; the only
+    # way to change anything is to withdraw (DELETE) and register again. (An
+    # "interested" row never filled the form, so it can still upgrade to going.)
+    if (
+        has_form(e.form_schema) and requested == "going"
+        and row is not None and row.status in ("going", "waitlisted") and row.answers
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="You're already registered for this event — your answers can't be changed.",
+        )
+
     # ── capacity / waitlist ───────────────────────────────────────────────────
     # A "going" request when the event is at capacity is stored "waitlisted"
     # instead. A user already "going" re-RSVPing is never demoted; "interested"

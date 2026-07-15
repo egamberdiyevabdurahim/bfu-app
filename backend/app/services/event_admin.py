@@ -65,6 +65,48 @@ def to_naive_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+def normalize_region_ids(raw: Any) -> list[int] | None:
+    """Targeting regions for an event. ``None``/``[]`` → ``None`` = UNLIMITED
+    (everyone). Otherwise a de-duped list of positive ints (order preserved).
+    The ONE place create/edit (admin + partner) normalize the field, so the
+    stored shape is always list[int] | None."""
+    if not isinstance(raw, (list, tuple)):
+        return None
+    out: list[int] = []
+    for x in raw:
+        try:
+            n = int(x)
+        except (TypeError, ValueError):
+            continue
+        if n > 0 and n not in out:
+            out.append(n)
+    return out or None
+
+
+def _csv_phone(u: User, answers: dict, schema: list) -> str:
+    """The registrant's phone for the CSV, made spreadsheet-safe.
+
+    Two fixes for "the phone column is wrong":
+      1. VALUE — prefer the profile phone; if it's blank (common for members who
+         opened via a story link and never shared their contact), fall back to a
+         phone the form itself captured (a question tagged prefill="phone" or of
+         type "phone"). So the column is populated whenever a number exists.
+      2. FORMAT — wrap it as ``="+998…"``. Excel/Sheets/LibreOffice all honour the
+         ``="…"`` text-formula, so a long number is never shown as ``9.98E+11`` and
+         a leading ``+``/``0`` is never dropped. Blank stays blank (no wrapper)."""
+    p = (u.phone_number or "").strip()
+    if not p and schema:
+        for q in schema:
+            if not isinstance(q, dict):
+                continue
+            if q.get("prefill") == "phone" or q.get("type") == "phone":
+                v = answers.get(q.get("key"))
+                if v:
+                    p = answer_to_text(v).strip()
+                    break
+    return f'="{p}"' if p else ""
+
+
 def checked_schema(raw: Any) -> list[dict] | None:
     """Validate an admin/partner-supplied question list against the ONE rulebook
     (app.services.event_forms) and return the normalized blob to store. 422s with
@@ -146,7 +188,7 @@ async def build_responses_csv(db: AsyncSession, event: Event) -> Response:
                 u.id,
                 u.display_name,
                 f"@{u.tg_username}" if u.tg_username else "",
-                u.phone_number or "",
+                _csv_phone(u, answers, schema),
                 r.created_at.isoformat(sep=" ", timespec="seconds") if r.created_at else "",
                 r.lead_status,
                 "" if r.score is None else r.score,

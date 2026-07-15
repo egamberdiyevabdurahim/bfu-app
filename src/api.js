@@ -268,6 +268,19 @@ export const events = {
   unrsvp: (id) => req(`/events/${id}/rsvp`, { method: "DELETE" }),
   myRsvps: () => req("/events/mine/rsvps"),
   attendees: (id, limit) => req(`/events/${id}/attendees${qs({ limit })}`),
+
+  // ── Check-in (QR ticket + door scanner) ────────────────────────────────────
+  // Attendee side: my personal ticket for a going registration.
+  //   { event_id, event_title, code (6 chars), qr ("{event_id}.{code}"), checked_in }
+  // 404 if the caller isn't a going registrant.
+  myTicket: (id) => req(`/events/${id}/my-ticket`),
+  // Staff side (`base` is "admin" for admin/boss/super_admin, "partner" for the
+  // owning partner — both routers expose the same shape):
+  //   POST …/checkin { code } → { ok, already_checked_in, user_id, name, checked_in_at }
+  //   GET  …/checkin-roster    → [ { user_id, code, name, checked_in } ]
+  checkin: (id, code, base = "admin") =>
+    req(`/${base}/events/${id}/checkin`, { method: "POST", body: JSON.stringify({ code }) }),
+  checkinRoster: (id, base = "admin") => req(`/${base}/events/${id}/checkin-roster`),
 };
 
 export const partners = {

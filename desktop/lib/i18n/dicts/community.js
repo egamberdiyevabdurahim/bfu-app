@@ -185,6 +185,18 @@ export const community = {
     "community.events.form.inviteFriend": "Invite a friend",
     "community.events.form.registeredDone": "Done",
 
+    // — attendee ticket (MyTicketModal): the QR + code a going member shows at the door —
+    "community.events.ticket.button": "My ticket",
+    "community.events.ticket.aria": "Your ticket for {title}",
+    "community.events.ticket.kicker": "Your ticket",
+    "community.events.ticket.loading": "Loading your ticket…",
+    "community.events.ticket.error": "Couldn't load your ticket. Please try again.",
+    "community.events.ticket.none": "You need to be going to this event to get a ticket.",
+    "community.events.ticket.qrAlt": "Your check-in QR code",
+    "community.events.ticket.codeLabel": "Check-in code",
+    "community.events.ticket.checkedIn": "Checked in",
+    "community.events.ticket.hint": "Show this QR or code at the door to check in.",
+
     // — partners page + list —
     "community.partners.kicker": "The people in your corner",
     "community.partners.titleLead": "The",
@@ -454,6 +466,18 @@ export const community = {
     "community.events.form.inviteFriend": "Do‘stni taklif qilish",
     "community.events.form.registeredDone": "Tayyor",
 
+    // — attendee ticket (MyTicketModal) —
+    "community.events.ticket.button": "Chiptam",
+    "community.events.ticket.aria": "{title} uchun chiptangiz",
+    "community.events.ticket.kicker": "Chiptangiz",
+    "community.events.ticket.loading": "Chiptangiz yuklanmoqda…",
+    "community.events.ticket.error": "Chiptani yuklab bo‘lmadi. Qaytadan urinib ko‘ring.",
+    "community.events.ticket.none": "Chipta olish uchun ushbu tadbirga borishingiz kerak.",
+    "community.events.ticket.qrAlt": "Ro‘yxatdan o‘tish QR kodingiz",
+    "community.events.ticket.codeLabel": "Ro‘yxat kodi",
+    "community.events.ticket.checkedIn": "Ro‘yxatdan o‘tildi",
+    "community.events.ticket.hint": "Eshik oldida ushbu QR yoki kodni ko‘rsating.",
+
     // — partners page + list —
     "community.partners.kicker": "Yoningizdagi odamlar",
     "community.partners.titleLead": "Bizning",
@@ -722,6 +746,18 @@ export const community = {
     "community.events.form.registeredBody": "Знаете строителя, кому это понравится? Пригласите друга.",
     "community.events.form.inviteFriend": "Пригласить друга",
     "community.events.form.registeredDone": "Готово",
+
+    // — attendee ticket (MyTicketModal) —
+    "community.events.ticket.button": "Мой билет",
+    "community.events.ticket.aria": "Ваш билет на {title}",
+    "community.events.ticket.kicker": "Ваш билет",
+    "community.events.ticket.loading": "Загрузка билета…",
+    "community.events.ticket.error": "Не удалось загрузить билет. Попробуйте ещё раз.",
+    "community.events.ticket.none": "Чтобы получить билет, нужно идти на это мероприятие.",
+    "community.events.ticket.qrAlt": "Ваш QR-код для регистрации",
+    "community.events.ticket.codeLabel": "Код регистрации",
+    "community.events.ticket.checkedIn": "Отмечен",
+    "community.events.ticket.hint": "Покажите этот QR или код на входе, чтобы отметиться.",
 
     // — partners page + list —
     "community.partners.kicker": "Люди на вашей стороне",

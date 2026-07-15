@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
 import { events, regions } from "../api";
 import { PartnersModal } from "../components/PartnersModal";
 import { EventFormSheet, useEventFormT } from "../components/EventFormSheet";
+import { TicketModal, ScannerModal } from "../components/EventCheckin";
 import { FLAGS } from "../flags";
 import { useT } from "../i18n";
 import { openExternal } from "../tg";
@@ -323,15 +324,38 @@ const MapBlock = ({ lat, lng, t }) => {
 // via GET /events/{id}, resolves targeted region ids to localized names, and hosts
 // the register / read-only action by reusing RsvpRow. `seed` is the live list item
 // (authoritative for my_rsvp / rsvp_count after a toggle) painted immediately.
-const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
+const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm, me }) => {
   const { lang } = useT();
   const [full, setFull] = useState(null);      // fetched content fields
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [regionNames, setRegionNames] = useState(null); // null = still resolving
   const [copied, setCopied] = useState(false); // browser-fallback share confirmation
+  const [ticketOpen, setTicketOpen] = useState(false); // attendee QR ticket overlay
+  const [scanOpen, setScanOpen] = useState(false);     // staff scanner overlay
+  // Staff check-in gate. admin/boss/super_admin use the /admin router; the owning
+  // partner uses /partner. Ownership is proved by successfully PRE-LOADING the
+  // roster: null=probing, false=not authorised (hide), array=authorised (show).
+  const role = me?.role;
+  const isAdminish = role === "admin" || role === "boss" || role === "super_admin";
+  const isPartner = role === "partner";
+  const canStaff = isAdminish || isPartner;
+  const checkinBase = isPartner ? "partner" : "admin";
+  const [roster, setRoster] = useState(null);
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [seed?.id]);
+
+  // Pre-load the check-in roster for staff — doubles as the ownership gate (a
+  // non-owning partner 403/404s here, so the scan button never appears for them).
+  useEffect(() => {
+    const id = seed?.id;
+    if (!canStaff || !id) { setRoster(null); return; }
+    let alive = true;
+    events.checkinRoster(id, checkinBase)
+      .then((r) => { if (alive) setRoster(Array.isArray(r) ? r : []); })
+      .catch(() => { if (alive) setRoster(false); });
+    return () => { alive = false; };
+  }, [seed?.id, canStaff, checkinBase]);
 
   const load = async () => {
     setLoading(true); setErr(false);
@@ -394,6 +418,7 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
   };
 
   return (
+    <>
     <div style={{
       position: "fixed", inset: 0, zIndex: 320, background: "var(--bg)",
       maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column",
@@ -494,13 +519,44 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
 
           {/* Register / read-only action — same component as the card. */}
           <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />
+
+          {/* 🎫 Attendee ticket — the QR + code door staff scan. Only for a
+              member who is actually going (going OR waitlisted). */}
+          {(ev.my_rsvp === "going" || ev.my_rsvp === "waitlisted") && (
+            <button onClick={() => setTicketOpen(true)} className="btn-primary" style={{
+              marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+              🎫 {t("events.ticket.openBtn")}
+            </button>
+          )}
+
+          {/* 📷 Staff check-in — shown once the roster pre-load proves the viewer
+              owns/manages this event (admin/boss/super_admin, or owning partner). */}
+          {canStaff && Array.isArray(roster) && (
+            <button onClick={() => setScanOpen(true)} className="btn-ghost" style={{
+              marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+            }}>
+              📷 {t("events.scan.openBtn")}
+            </button>
+          )}
         </div>
       </div>
     </div>
+
+    {ticketOpen && <TicketModal event={ev} onClose={() => setTicketOpen(false)} />}
+    {scanOpen && (
+      <ScannerModal
+        event={ev}
+        base={checkinBase}
+        initialRoster={Array.isArray(roster) ? roster : null}
+        onClose={() => setScanOpen(false)}
+      />
+    )}
+    </>
   );
 };
 
-export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null }) => {
+export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null, me = null }) => {
   const { t } = useT();
   const tf = useEventFormT();   // registration-form strings (local map, see EventFormSheet)
   const [list, setList] = useState([]);
@@ -511,9 +567,25 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [formEvent, setFormEvent] = useState(null);  // event whose registration form is open
   const [detailId, setDetailId] = useState(null);    // event whose full detail view is open
+  const autoOpened = useRef(null);                   // deep-link event we've already auto-opened
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
   useEffect(() => { if (deepLinkEventId) setType("all"); }, [deepLinkEventId]);
+
+  // Deep link → open the event's detail AND its registration straight away (the
+  // form sheet if it carries one; otherwise the detail's RSVP row is the focus).
+  // Registered users land on their read-only registration recap. Guarded by a ref
+  // so closing it doesn't re-trigger, and survives auth/onboarding because the
+  // pending id lives in App state until we're mounted here.
+  useEffect(() => {
+    if (!deepLinkEventId || loading) return;
+    if (autoOpened.current === deepLinkEventId) return;
+    const ev = list.find((e) => e.id === deepLinkEventId);
+    if (!ev) return;
+    autoOpened.current = deepLinkEventId;
+    setDetailId(ev.id);
+    if (ev.has_form) setFormEvent(ev);
+  }, [deepLinkEventId, loading, list]);
 
   const load = async () => {
     setLoading(true);
@@ -643,6 +715,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
             seed={seed}
             t={t}
             tf={tf}
+            me={me}
             onClose={() => setDetailId(null)}
             onRsvp={onRsvp}
             onOpenForm={setFormEvent}

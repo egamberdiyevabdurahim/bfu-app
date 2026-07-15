@@ -6,6 +6,7 @@ import { useToast } from "@/lib/useToast";
 import { Toast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
 import EventFormModal from "@/components/events/EventFormModal";
+import MyTicketModal from "@/components/events/MyTicketModal";
 
 // The one interactive control on the event detail page (the rest is SSR). Mirrors
 // EventsBrowser's RsvpRow wiring so both surfaces behave identically:
@@ -19,6 +20,7 @@ export default function EventDetailRegister({ event, meId = null }) {
   const { toast, flash } = useToast(3200);
   const [ev, setEv] = useState(event);
   const [formOpen, setFormOpen] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Reconcile — shared with the modal via onRsvp(id, patch).
@@ -101,6 +103,21 @@ export default function EventDetailRegister({ event, meId = null }) {
           {glyph}
           {label}
         </button>
+        {going ? (
+          <button
+            type="button"
+            onClick={() => setTicketOpen(true)}
+            style={{
+              ...base,
+              background: "transparent",
+              color: "var(--amber)",
+              border: "1px solid var(--amber)",
+              fontWeight: 700,
+            }}
+          >
+            🎫 {t("community.events.ticket.button")}
+          </button>
+        ) : null}
         {ev.rsvp_count > 0 ? (
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--muted)" }}>
             {t("community.events.goingCount", { n: ev.rsvp_count })}
@@ -143,6 +160,10 @@ export default function EventDetailRegister({ event, meId = null }) {
             else if (reason === "withdrawn") flash(t("community.events.form.toastWithdrawn"), "ok");
           }}
         />
+      ) : null}
+
+      {ticketOpen ? (
+        <MyTicketModal event={ev} onClose={() => setTicketOpen(false)} />
       ) : null}
 
       <Toast toast={toast} />

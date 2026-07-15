@@ -230,6 +230,7 @@ function MiniApp() {
     ...(FLAGS.MENTORING ? { mentors: <MentorsScreen /> } : {}),
     events:   <EventsScreen
                   deepLinkEventId={deepLink?.tab === "events" ? deepLink.eventId : null}
+                  me={me}
                   embedded
                   onBack={() => setActiveTab("city")} />,
     profile:  <ProfileScreen />,

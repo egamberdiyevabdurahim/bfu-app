@@ -8,6 +8,7 @@ import { useT } from "@/components/i18n/LocaleProvider";
 import { fmtDate, toTashkentInput, fromTashkentInput } from "@/lib/datetime";
 import EventFormBuilder from "@/components/dashboard/EventFormBuilder";
 import EventResponses from "@/components/dashboard/EventResponses";
+import EventCheckin from "@/components/dashboard/EventCheckin";
 
 // Events content management. Powers BOTH the admin console (/dashboard/events)
 // and the partner panel (/partner) — the ONLY difference is the props.
@@ -119,6 +120,7 @@ export default function AdminEvents({
   const [editing, setEditing] = useState(null);   // event object | "new" | null
   const [formFor, setFormFor] = useState(null);   // event whose questions we're editing
   const [respFor, setRespFor] = useState(null);   // event whose answers we're reading
+  const [checkinFor, setCheckinFor] = useState(null); // event whose door check-in we're running
 
   useEffect(() => {
     let alive = true;
@@ -383,6 +385,11 @@ export default function AdminEvents({
                 {t("dash.events.responses_btn")}
               </ActionBtn>
             )}
+            {/* Desktop door check-in — the backup to the phone scanner. Available
+                for any event (a going registrant has a ticket regardless of form). */}
+            <ActionBtn onClick={() => setCheckinFor(e)} busy={busyId === e.id} title="Check attendees in at the door">
+              🎫 Check-in
+            </ActionBtn>
             <ActionBtn onClick={() => setEditing(e)} busy={busyId === e.id} title="Edit this event">
               {isPartner ? t("partner.events.edit") : "Edit"}
             </ActionBtn>
@@ -427,6 +434,14 @@ export default function AdminEvents({
           apiBase={apiBase}
           readEventPath={readEventPath}
           onClose={() => setRespFor(null)}
+        />
+      )}
+
+      {checkinFor && (
+        <EventCheckin
+          event={checkinFor}
+          apiBase={apiBase}
+          onClose={() => setCheckinFor(null)}
         />
       )}
 
@@ -876,7 +891,7 @@ export function Row({ children }) {
   return <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>{children}</div>;
 }
 
-function ActionBtn({ children, onClick, busy, tone, title }) {
+export function ActionBtn({ children, onClick, busy, tone, title }) {
   const toneStyle =
     tone === "terra" ? { borderColor: "rgba(192,86,59,0.5)", color: "var(--terra)" } :
     tone === "ember" ? { borderColor: "var(--ember)", color: "var(--ember)" } :
@@ -899,7 +914,7 @@ function ActionBtn({ children, onClick, busy, tone, title }) {
   );
 }
 
-function Pill({ children, tone }) {
+export function Pill({ children, tone }) {
   const color =
     tone === "amber" ? "var(--amber)" :
     tone === "ember" ? "var(--ember)" :

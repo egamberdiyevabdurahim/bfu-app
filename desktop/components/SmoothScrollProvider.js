@@ -24,8 +24,26 @@ export default function SmoothScrollProvider({ children }) {
   }
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.1 }}>
+    <ReactLenis root options={{ lerp: 0.1, duration: 1.1, prevent: shouldPreventLenis }}>
       {children}
     </ReactLenis>
+  );
+}
+
+// Lenis (root) hijacks EVERY wheel/touch and scrolls the PAGE. That means a
+// scrollable region inside a modal — the 30-question registration form, a long
+// responses table, any sheet — never receives the wheel: Lenis scrolls the page
+// behind instead ("scroll only works outside"). `prevent(node)` returning true
+// tells Lenis to leave that event alone so the element's own overflow scroll
+// runs natively.
+//
+// We prevent for anything inside a modal/dialog (role="dialog" / aria-modal) or
+// an explicit opt-out (data-lenis-prevent, e.g. the nav drawer). This is the ONE
+// place the whole app's modals get correct inner scrolling — no per-modal wiring,
+// and new modals are covered automatically as long as they carry role="dialog".
+function shouldPreventLenis(node) {
+  return (
+    typeof node?.closest === "function" &&
+    node.closest('[data-lenis-prevent], [role="dialog"], [aria-modal="true"]') != null
   );
 }

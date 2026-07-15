@@ -939,6 +939,37 @@ const STRINGS = {
   "funnel.empty": { en: "Create a project to see your funnel", uz: "Voronkani ko‘rish uchun loyiha boshlang", ru: "Создайте проект, чтобы увидеть воронку" },
   "funnel.draft": { en: "Draft", uz: "Qoralama", ru: "Черновик" },
   "funnel.closed": { en: "Closed", uz: "Yopiq", ru: "Закрыт" },
+
+  // ── Founder project management (edit / delete / team) ───────────────────────
+  "manage.edit":          { en: "Edit", uz: "Tahrirlash", ru: "Изменить" },
+  "manage.teamBtn":       { en: "Team", uz: "Jamoa", ru: "Команда" },
+  "manage.delete":        { en: "Delete", uz: "O‘chirish", ru: "Удалить" },
+  "manage.editTitle":     { en: "Edit project", uz: "Loyihani tahrirlash", ru: "Редактировать проект" },
+  "manage.deleteConfirm": { en: "Delete “{name}”? This can’t be undone.", uz: "“{name}” o‘chirilsinmi? Buni ortga qaytarib bo‘lmaydi.", ru: "Удалить «{name}»? Это действие необратимо." },
+  "manage.deleted":       { en: "Project deleted", uz: "Loyiha o‘chirildi", ru: "Проект удалён" },
+  "manage.deleteFailed":  { en: "Couldn’t delete the project", uz: "Loyihani o‘chirib bo‘lmadi", ru: "Не удалось удалить проект" },
+  "manage.updated":       { en: "Project updated", uz: "Loyiha yangilandi", ru: "Проект обновлён" },
+
+  // ── Team management ─────────────────────────────────────────────────────────
+  "team.title":         { en: "Manage team", uz: "Jamoani boshqarish", ru: "Управление командой" },
+  "team.intro":         { en: "Set each teammate’s role, or remove them from the project.", uz: "Har bir a’zoga rol bering yoki loyihadan chiqaring.", ru: "Задайте роль каждому участнику или удалите его из проекта." },
+  "team.loading":       { en: "Loading team…", uz: "Jamoa yuklanmoqda…", ru: "Загрузка команды…" },
+  "team.loadFailed":    { en: "Couldn’t load the team.", uz: "Jamoani yuklab bo‘lmadi.", ru: "Не удалось загрузить команду." },
+  "team.empty":         { en: "No teammates yet.", uz: "Hozircha a’zolar yo‘q.", ru: "Пока нет участников." },
+  "team.founderYou":    { en: "Founder (you)", uz: "Asoschi (siz)", ru: "Основатель (вы)" },
+  "team.online":        { en: "online", uz: "onlayn", ru: "онлайн" },
+  "team.rolePh":        { en: "Role (e.g. Designer)", uz: "Rol (masalan, Dizayner)", ru: "Роль (напр. Дизайнер)" },
+  "team.roleSaved":     { en: "Role updated", uz: "Rol yangilandi", ru: "Роль обновлена" },
+  "team.roleFailed":    { en: "Couldn’t update role", uz: "Rolni yangilab bo‘lmadi", ru: "Не удалось обновить роль" },
+  "team.remove":        { en: "Remove", uz: "Chiqarish", ru: "Убрать" },
+  "team.removeConfirm": { en: "Remove {name} from the team?", uz: "{name} jamoadan chiqarilsinmi?", ru: "Убрать {name} из команды?" },
+  "team.removed":       { en: "{name} removed", uz: "{name} chiqarildi", ru: "{name} убран(а)" },
+  "team.removeFailed":  { en: "Couldn’t remove member", uz: "A’zoni chiqarib bo‘lmadi", ru: "Не удалось убрать участника" },
+
+  // ── Edit form ───────────────────────────────────────────────────────────────
+  "pf.editProject":  { en: "Edit project", uz: "Loyihani tahrirlash", ru: "Редактировать проект" },
+  "pf.saveChanges":  { en: "Save changes", uz: "O‘zgarishlarni saqlash", ru: "Сохранить изменения" },
+  "pf.updateFailed": { en: "Couldn’t save changes", uz: "O‘zgarishlarni saqlab bo‘lmadi", ru: "Не удалось сохранить изменения" },
 };
 
 function translate(lang, key, vars) {

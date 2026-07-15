@@ -198,6 +198,13 @@ export const projects = {
   addRole:           (id, name) => req(`/projects/${id}/roles`, { method: "POST", body: JSON.stringify({ name }) }),
   setRoleFilled:     (id, rid, is_filled) => req(`/projects/${id}/roles/${rid}`, { method: "PATCH", body: JSON.stringify({ is_filled }) }),
   deleteRole:        (id, rid)  => req(`/projects/${id}/roles/${rid}`, { method: "DELETE" }),
+  // Team roster + founder-only management (mirror the desktop ProjectManager):
+  //   GET    /projects/{id}/team           → [{user:{id,display_name,photo_url,is_online}, role, is_founder, joined_at}]
+  //   PATCH  /projects/{id}/team/{uid}      { role } → {ok,user_id,role}
+  //   DELETE /projects/{id}/team/{uid}      → 204 (founder can't be removed)
+  team:              (id)       => req(`/projects/${id}/team`),
+  setMemberRole:     (id, uid, role) => req(`/projects/${id}/team/${uid}`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  removeMember:      (id, uid)  => req(`/projects/${id}/team/${uid}`, { method: "DELETE" }),
 };
 
 // ── Open roles (discovery) ──────────────────────────────────────────────────

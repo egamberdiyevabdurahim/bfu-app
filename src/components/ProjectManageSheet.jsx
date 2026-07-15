@@ -6,7 +6,7 @@ import { ProjectForm } from "./ProjectForm";
 import { ProjectDetail } from "./ProjectDetail";
 import { UserProfileModal } from "./UserProfileModal";
 import { useT } from "../i18n";
-import { tgAlert } from "../tg";
+import { tgAlert, tgConfirm } from "../tg";
 
 // ── Founder management sheet for the unified Projects tab ─────────────────────
 // A full-screen firelit overlay (mirrors ProjectDetail's shell) that restores
@@ -69,6 +69,249 @@ const TypeBadge = ({ type }) => {
   );
 };
 
+// ── Shared full-screen overlay shell (matches this sheet's own shell) ─────────
+// Used by the Edit and Team overlays so they read as the same surface family.
+const OverlayShell = ({ title, onClose, children }) => {
+  const { t } = useT();
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 210, display: "flex", justifyContent: "center",
+      background: "var(--bg)", animation: "fadeIn 0.22s ease",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 430, height: "100%", position: "relative",
+        display: "flex", flexDirection: "column", background: "var(--bg)",
+        animation: "fadeUp 0.32s cubic-bezier(0.2,0.9,0.3,1)",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "calc(10px + var(--safe-t)) 16px 10px",
+          borderBottom: "1px solid var(--hair)",
+          background: "rgba(11,10,8,0.86)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+          position: "sticky", top: 0, zIndex: 5,
+        }}>
+          <button onClick={onClose} className="btn-ghost" style={{
+            width: 38, height: 38, padding: 0, display: "flex", alignItems: "center",
+            justifyContent: "center", borderRadius: "50%",
+          }} aria-label={t("common.back")}>
+            <Icon name="x" size={17} />
+          </button>
+          <span style={{
+            fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.16em",
+            textTransform: "uppercase", color: MUTED,
+          }}>{title}</span>
+          <span style={{ width: 38, height: 38 }} />
+        </div>
+        <div style={{
+          flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
+          padding: "16px 18px calc(28px + var(--safe-b))",
+        }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Small toast (mirrors MessagesScreen's pattern) used across this sheet.
+const Toast = ({ toast }) => {
+  if (!toast?.text) return null;
+  return (
+    <div role="status" aria-live="polite" style={{
+      position: "fixed", left: "50%", bottom: 84, transform: "translateX(-50%)", zIndex: 420,
+      background: "var(--surface)", border: `1px solid ${toast.tone === "error" ? "rgba(192,86,59,0.5)" : "rgba(255,106,61,0.4)"}`,
+      borderRadius: 12, padding: "10px 16px", maxWidth: 320, boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
+    }}>
+      <b style={{ color: toast.tone === "error" ? "var(--terra)" : "var(--ember)", fontSize: 13.5 }}>{toast.text}</b>
+    </div>
+  );
+};
+
+// Owner action button on a "my projects" card (Edit / Team / Delete).
+const CardAction = ({ icon, label, onClick, danger, busy }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={busy}
+    style={{
+      flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+      padding: "9px 8px", borderRadius: "var(--radius-pill)", cursor: busy ? "default" : "pointer",
+      fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
+      background: danger ? "rgba(192,86,59,0.1)" : "var(--surface-2)",
+      border: `1px solid ${danger ? "rgba(192,86,59,0.3)" : "var(--hair)"}`,
+      color: danger ? "var(--terra)" : MUTED_STRONG,
+      opacity: busy ? 0.6 : 1,
+    }}
+  >
+    <Icon name={icon} size={14} /> {label}
+  </button>
+);
+
+// ── One member row inside the Team manager ───────────────────────────────────
+// Founder-set member-role (PATCH /projects/{id}/team/{uid} {role}) + Remove
+// (DELETE /projects/{id}/team/{uid}, confirmed). Mirrors desktop TeamRow.
+const TeamMemberRow = ({ project, member, onRoleSaved, onRemoved, flash }) => {
+  const { t } = useT();
+  const u = member.user || {};
+  const name = u.display_name || t("common.member");
+  const isFounder = !!member.is_founder;
+  const [role, setRole] = useState(member.role || "");
+  const [savedRole, setSavedRole] = useState(member.role || "");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const dirty = role.trim() !== (savedRole || "").trim();
+
+  const save = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try {
+      const res = await projects.setMemberRole(project.id, u.id, role.trim() || null);
+      const next = res?.role || "";
+      setSavedRole(next);
+      setRole(next);
+      onRoleSaved(u.id, next);
+      flash(t("team.roleSaved"));
+    } catch (e) {
+      flash(e.message || t("team.roleFailed"), "error");
+    }
+    setSaving(false);
+  };
+
+  const remove = async () => {
+    if (!await tgConfirm(t("team.removeConfirm", { name }))) return;
+    setRemoving(true);
+    try {
+      await projects.removeMember(project.id, u.id);
+      flash(t("team.removed", { name }));
+      onRemoved(u.id);
+    } catch (e) {
+      flash(e.message || t("team.removeFailed"), "error");
+      setRemoving(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <AvatarEl name={name} size={40} photoUrl={u.photo_url} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {name}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
+            {isFounder && (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.06em", color: "var(--amber)" }}>
+                {t("team.founderYou")}
+              </span>
+            )}
+            {u.is_online && (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--green)" }}>● {t("team.online")}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }}
+          placeholder={t("team.rolePh")}
+          maxLength={80}
+          className="input-field"
+          style={{ flex: 1, fontSize: 14 }}
+        />
+        <button
+          onClick={save}
+          disabled={!dirty || saving}
+          className="btn-ghost"
+          style={{ width: "auto", padding: "0 16px", fontSize: 13, whiteSpace: "nowrap", opacity: !dirty || saving ? 0.5 : 1 }}
+        >
+          {saving ? t("common.saving") : t("common.save")}
+        </button>
+      </div>
+
+      {!isFounder && (
+        <button
+          onClick={remove}
+          disabled={removing}
+          style={{
+            alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
+            background: "rgba(192,86,59,0.1)", border: "1px solid rgba(192,86,59,0.3)",
+            borderRadius: "var(--radius-pill)", padding: "8px 14px", cursor: removing ? "default" : "pointer",
+            color: "var(--terra)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
+            opacity: removing ? 0.6 : 1,
+          }}
+        >
+          <Icon name="x" size={13} /> {t("team.remove")}
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ── Founder team manager (full-screen overlay) ───────────────────────────────
+const TeamManager = ({ project, onClose, onMembersChanged }) => {
+  const { t } = useT();
+  const [roster, setRoster] = useState(null); // null = loading
+  const [error, setError] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(0);
+  const flash = (text, tone = "ok") => {
+    setToast({ text, tone });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  useEffect(() => {
+    let alive = true;
+    projects.team(project.id)
+      .then((list) => { if (alive) setRoster(Array.isArray(list) ? list : []); })
+      .catch(() => { if (alive) { setError(true); setRoster([]); } });
+    return () => { alive = false; };
+  }, [project.id]);
+
+  const onRoleSaved = (uid, role) =>
+    setRoster((r) => (r || []).map((m) => (m.user?.id === uid ? { ...m, role } : m)));
+  const onRemoved = (uid) => {
+    setRoster((r) => (r || []).filter((m) => m.user?.id !== uid));
+    onMembersChanged?.();
+  };
+
+  return (
+    <OverlayShell title={t("team.title")} onClose={onClose}>
+      <p style={{ margin: "0 0 16px", fontSize: 13.5, color: MUTED_STRONG, lineHeight: 1.55 }}>
+        {t("team.intro")}
+      </p>
+      {roster === null ? (
+        <div style={{ fontSize: 13, color: MUTED }}>{t("team.loading")}</div>
+      ) : error ? (
+        <div style={{ fontSize: 13, color: "var(--terra)" }}>{t("team.loadFailed")}</div>
+      ) : roster.length === 0 ? (
+        <div className="ch-grace">
+          <span className="ch-grace-k">{t("team.title")}</span>
+          <div className="ch-grace-t">{t("team.empty")}</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {roster.map((m) => (
+            <TeamMemberRow
+              key={m.user?.id}
+              project={project}
+              member={m}
+              onRoleSaved={onRoleSaved}
+              onRemoved={onRemoved}
+              flash={flash}
+            />
+          ))}
+        </div>
+      )}
+      <Toast toast={toast} />
+    </OverlayShell>
+  );
+};
+
 export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post" }) => {
   const { t } = useT();
 
@@ -81,6 +324,21 @@ export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post"
 
   const [selected, setSelected] = useState(null);        // project → ProjectDetail
   const [selectedApplicant, setSelectedApplicant] = useState(null); // → profile modal
+
+  const [editing, setEditing] = useState(null);   // full project → ProjectForm (edit)
+  const [teamFor, setTeamFor] = useState(null);   // project → TeamManager
+  const [editBusyId, setEditBusyId] = useState(null);   // fetching full project for edit
+  const [deleteBusyId, setDeleteBusyId] = useState(null);
+
+  // Local toast (mirrors MessagesScreen) for delete / edit feedback.
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(0);
+  const showToast = (text, tone = "ok") => {
+    setToast({ text, tone });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   // Ignore a slow response if a newer load started (fast tab switches).
   const loadSeq = useRef(0);
@@ -130,6 +388,34 @@ export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post"
     setMine(prev => (prev ? prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p)) : prev));
     setSelected(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     onChanged?.();
+  };
+
+  // Edit: fetch the FULL project (the slim /mine card drops `about`, regions,
+  // skills…) then open the pre-filled ProjectForm in edit mode.
+  const openEdit = async (p) => {
+    setEditBusyId(p.id);
+    try {
+      const full = await projects.get(p.id);
+      setEditing(full);
+    } catch (e) {
+      tgAlert(e.message || t("common.loadError"));
+    }
+    setEditBusyId(null);
+  };
+
+  // Delete: confirm → DELETE /projects/{id} → drop from the list + toast.
+  const doDelete = async (p) => {
+    if (!await tgConfirm(t("manage.deleteConfirm", { name: p.name }))) return;
+    setDeleteBusyId(p.id);
+    try {
+      await projects.delete(p.id);
+      setMine(prev => (prev ? prev.filter(x => x.id !== p.id) : prev));
+      showToast(t("manage.deleted"));
+      onChanged?.();
+    } catch (e) {
+      showToast(e.message || t("manage.deleteFailed"), "error");
+    }
+    setDeleteBusyId(null);
   };
 
   return (
@@ -258,6 +544,16 @@ export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post"
                         <span>{t("board.membersN", { n: p.member_count ?? 0 })}</span>
                         <span>{t("myproj.stats", { views: p.view_count || 0, pending: p.pending_applications_count || 0 })}</span>
                       </div>
+
+                      {/* Owner-only: edit every field, manage the team, or delete.
+                          stopPropagation so these never open the detail sheet. */}
+                      {me?.id === p.creator_id && (
+                        <div style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--hair)" }}>
+                          <CardAction icon="edit"  label={t("manage.edit")}    busy={editBusyId === p.id}   onClick={(e) => { e.stopPropagation(); openEdit(p); }} />
+                          <CardAction icon="users" label={t("manage.teamBtn")}                              onClick={(e) => { e.stopPropagation(); setTeamFor(p); }} />
+                          <CardAction icon="x"     label={t("manage.delete")}  danger busy={deleteBusyId === p.id} onClick={(e) => { e.stopPropagation(); doDelete(p); }} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -368,6 +664,32 @@ export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post"
       {selectedApplicant && (
         <UserProfileModal user={selectedApplicant} onClose={() => setSelectedApplicant(null)} />
       )}
+
+      {/* Edit a project — pre-filled ProjectForm in PATCH mode */}
+      {editing && (
+        <OverlayShell title={t("manage.editTitle")} onClose={() => setEditing(null)}>
+          <ProjectForm
+            project={editing}
+            onSuccess={() => {
+              setEditing(null);
+              showToast(t("manage.updated"));
+              loadMine();
+              onChanged?.();
+            }}
+          />
+        </OverlayShell>
+      )}
+
+      {/* Manage team — set member roles + remove members */}
+      {teamFor && (
+        <TeamManager
+          project={teamFor}
+          onClose={() => setTeamFor(null)}
+          onMembersChanged={() => loadMine()}
+        />
+      )}
+
+      <Toast toast={toast} />
     </>
   );
 };

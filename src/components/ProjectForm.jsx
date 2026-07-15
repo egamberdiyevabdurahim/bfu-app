@@ -12,20 +12,36 @@ const PREDEFINED_SKILLS = [
   "Mobile Dev", "Flutter", "iOS", "Android", "DevOps", "Cybersecurity"
 ];
 
-export const ProjectForm = ({ type, onSuccess }) => {
+// `project` (optional) switches the form into EDIT mode: every field is
+// pre-filled from the existing project and submit PATCHes /projects/{id}
+// instead of POSTing. Pass the FULL project (from projects.get) so `about`,
+// req_regions/req_skills/req_knowledges, age, gender and channel are present —
+// the slim /projects/mine card drops `about`. In edit mode `type` is derived
+// from the project (the backend PATCH can't change type) and `req_knowledges`
+// is round-tripped untouched (the mobile form has no knowledges editor, so we
+// preserve whatever the project already has instead of wiping it).
+export const ProjectForm = ({ type, project = null, onSuccess }) => {
   const { t } = useT();
+  const isEdit = !!project;
+  const effectiveType = project ? project.type : type;
+
+  const clampAge = (n) => Math.max(10, Math.min(60, n));
   const [form, setForm] = useState({
-    name: "",
-    goal: "",
-    about: "",
-    channel: "",
-    gender_req: "Any",
-    req_region_ids: [],
+    name: project?.name || "",
+    goal: project?.goal || "",
+    about: project?.about || "",
+    channel: project?.channel || "",
+    gender_req: project?.gender_req || "Any",
+    req_region_ids: (project?.req_regions || []).map((r) => r.region_id),
   });
-  
-  const [ageRange, setAgeRange] = useState([16, 35]);
-  const [ageEnabled, setAgeEnabled] = useState(false); // off by default = no age requirement
-  const [selectedSkills, setSelectedSkills] = useState([]);
+
+  const [ageRange, setAgeRange] = useState([
+    project?.age_from != null ? clampAge(project.age_from) : 16,
+    project?.age_to != null ? clampAge(project.age_to) : 35,
+  ]);
+  // off by default (create) = no age requirement; on in edit iff the project has one
+  const [ageEnabled, setAgeEnabled] = useState(project?.age_from != null || project?.age_to != null);
+  const [selectedSkills, setSelectedSkills] = useState((project?.req_skills || []).map((s) => s.skill_name));
   const [skillSearch, setSkillSearch] = useState("");
 
   const [dbRegions, setDbRegions] = useState([]);
@@ -57,26 +73,46 @@ export const ProjectForm = ({ type, onSuccess }) => {
 
     setLoading(true);
     try {
-      const payload = {
-        type: type,
-        name: form.name,
-        goal: form.goal,
-        about: form.about,
-        channel: form.channel || null,
-        age_from: ageEnabled ? ageRange[0] : null,
-        age_to: ageEnabled ? ageRange[1] : null,
-        gender_req: form.gender_req === "Any" ? null : form.gender_req,
-        req_region_ids: form.req_region_ids,
-        req_skills: selectedSkills,
-        req_knowledges: [], // Removed from UI as requested
-        is_draft: asDraft,
-      };
+      if (isEdit) {
+        // PATCH /projects/{id}. No `type` (immutable on the backend PATCH),
+        // no `is_draft`/`is_active`/`is_hiring` (those stay as they are).
+        // `req_knowledges` is preserved from the existing project because this
+        // form has no knowledges editor — sending [] would wipe them, since the
+        // backend replaces ALL requirements whenever any list is provided.
+        const payload = {
+          name: form.name,
+          goal: form.goal,
+          about: form.about,
+          channel: form.channel || null,
+          age_from: ageEnabled ? ageRange[0] : null,
+          age_to: ageEnabled ? ageRange[1] : null,
+          gender_req: form.gender_req === "Any" ? null : form.gender_req,
+          req_region_ids: form.req_region_ids,
+          req_skills: selectedSkills,
+          req_knowledges: (project?.req_knowledges || []).map((k) => k.knowledge_name),
+        };
+        await projects.update(project.id, payload);
+      } else {
+        const payload = {
+          type: effectiveType,
+          name: form.name,
+          goal: form.goal,
+          about: form.about,
+          channel: form.channel || null,
+          age_from: ageEnabled ? ageRange[0] : null,
+          age_to: ageEnabled ? ageRange[1] : null,
+          gender_req: form.gender_req === "Any" ? null : form.gender_req,
+          req_region_ids: form.req_region_ids,
+          req_skills: selectedSkills,
+          req_knowledges: [], // Removed from UI as requested
+          is_draft: asDraft,
+        };
+        await projects.create(payload);
+      }
 
-      await projects.create(payload);
-      
       if (onSuccess) onSuccess();
     } catch (e) {
-      tgAlert(e.message || t("pf.createFailed"));
+      tgAlert(e.message || (isEdit ? t("pf.updateFailed") : t("pf.createFailed")));
     }
     setLoading(false);
   };
@@ -106,7 +142,7 @@ export const ProjectForm = ({ type, onSuccess }) => {
   return (
     <div className="card" style={{ animation: "fadeUp 0.3s ease", marginBottom: 20 }}>
       <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 20 }}>
-        {type === "startup" ? t("pf.postStartup") : t("pf.postProject")}
+        {isEdit ? t("pf.editProject") : (effectiveType === "startup" ? t("pf.postStartup") : t("pf.postProject"))}
       </h3>
       
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -266,14 +302,22 @@ export const ProjectForm = ({ type, onSuccess }) => {
         </div>
         
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button onClick={() => handleSubmit(true)} disabled={loading} style={{
-            flex: 1, padding: "14px", background: "var(--surface-3)", color: "var(--text-2)",
-            border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-            fontWeight: 600, fontSize: 14, cursor: "pointer",
-          }}>{t("pf.saveDraft")}</button>
-          <button className="btn-primary" style={{ flex: 2 }} onClick={() => handleSubmit(false)} disabled={loading}>
-            {loading ? t("common.saving") : (type === "startup" ? t("pf.publishStartup") : t("pf.publishProject"))}
-          </button>
+          {isEdit ? (
+            <button className="btn-primary" style={{ flex: 1 }} onClick={() => handleSubmit(false)} disabled={loading}>
+              {loading ? t("common.saving") : t("pf.saveChanges")}
+            </button>
+          ) : (
+            <>
+              <button onClick={() => handleSubmit(true)} disabled={loading} style={{
+                flex: 1, padding: "14px", background: "var(--surface-3)", color: "var(--text-2)",
+                border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                fontWeight: 600, fontSize: 14, cursor: "pointer",
+              }}>{t("pf.saveDraft")}</button>
+              <button className="btn-primary" style={{ flex: 2 }} onClick={() => handleSubmit(false)} disabled={loading}>
+                {loading ? t("common.saving") : (effectiveType === "startup" ? t("pf.publishStartup") : t("pf.publishProject"))}
+              </button>
+            </>
+          )}
         </div>
 
       </div>

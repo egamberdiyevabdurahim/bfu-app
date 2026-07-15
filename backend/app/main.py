@@ -227,6 +227,13 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS region_ids JSONB;",
         "UPDATE events SET region_ids = jsonb_build_array(region_id) "
         "WHERE region_id IS NOT NULL AND region_ids IS NULL;",
+        # --- Event map pin (lat/lng) + organizer-set custom reminder times.
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS reminder_times JSONB;",
+        # Per-RSVP record of which custom reminder times have already been sent
+        # (exactly-once for organizer-set reminders).
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS reminders_sent JSONB;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

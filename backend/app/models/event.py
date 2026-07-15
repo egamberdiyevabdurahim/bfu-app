@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -47,6 +47,17 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     # "Tashkent, Marstiff HQ" or a Zoom link. Shown on the card + detail page +
     # in the registration form header + reminder text. NULL = not specified.
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Precise map point for the venue (WGS84). Both null = no pin (only the free-
+    # text `location`). When set, the detail page shows a map + "Open in Yandex" /
+    # "Open in 2GIS" deep-links built from these. Picked on a map in the editor.
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Organizer-set reminder moments: a JSON list of naive-UTC ISO timestamps at
+    # which every 'going' attendee gets a DM. NULL/[] → the cron falls back to the
+    # legacy auto T-24h/T-1h derived from starts_at, so existing events are
+    # unchanged. Each fired timestamp is recorded per-RSVP (see EventRsvp) so a
+    # reminder is sent exactly once. Fully editable in the event editor.
+    reminder_times: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Targeting regions (a JSON list of region ids). NULL or [] = UNLIMITED →
     # everyone, regardless of region. A non-empty list restricts the targeted
     # announce DM (and the detail's "for these regions" label) to users whose

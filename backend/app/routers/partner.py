@@ -35,6 +35,7 @@ from app.services.event_admin import (
     build_responses_csv,
     checked_schema,
     normalize_region_ids,
+    normalize_reminder_times,
     to_naive_utc,
     update_event_response,
 )
@@ -65,6 +66,9 @@ class PartnerEventBody(BaseModel):
     # Multi-region targeting. null/[] = unlimited (everyone).
     region_ids: list[int] | None = None
     location: str | None = None            # free-text venue / place
+    lat: float | None = None               # map pin
+    lng: float | None = None
+    reminder_times: list[datetime] | None = None
     capacity: int | None = None
     # The registration form's question list (see app.services.event_forms).
     # null/[] = no form → plain one-click RSVP.
@@ -83,6 +87,9 @@ class PartnerEventOut(BaseModel):
     region_id: int | None = None
     region_ids: list[int] | None = None
     location: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    reminder_times: list[datetime] | None = None
     partner_id: int | None = None
     capacity: int | None = None
     is_approved: bool = False
@@ -97,8 +104,8 @@ class PartnerEventOut(BaseModel):
 # region_id is NOT here: it's derived from region_ids server-side (kept in sync),
 # so a partner sets targeting via region_ids only.
 _EDITABLE = ("type", "title", "description", "link", "cover_url",
-             "deadline", "starts_at", "region_ids", "location", "capacity",
-             "form_schema")
+             "deadline", "starts_at", "region_ids", "location", "lat", "lng",
+             "reminder_times", "capacity", "form_schema")
 
 
 async def _load_my_event(db: AsyncSession, partner: Partner, event_id: int) -> Event:
@@ -182,6 +189,8 @@ async def partner_create_event(
         deadline=to_naive_utc(body.deadline), starts_at=to_naive_utc(body.starts_at),
         region_ids=rids, region_id=(rids[0] if rids else None),
         location=(body.location.strip() if body.location else None),
+        lat=body.lat, lng=body.lng,
+        reminder_times=normalize_reminder_times(body.reminder_times),
         created_by=current_user.id,
         partner_id=partner.id, is_approved=False, capacity=body.capacity,
         form_schema=checked_schema(body.form_schema),
@@ -219,6 +228,8 @@ async def partner_update_event(
         e.region_id = rids[0] if rids else None
     if "location" in patch and patch["location"] is not None:
         patch["location"] = patch["location"].strip() or None
+    if "reminder_times" in patch:
+        patch["reminder_times"] = normalize_reminder_times(patch["reminder_times"])
     for k, v in patch.items():
         if k in _EDITABLE:
             setattr(e, k, v)

@@ -57,3 +57,8 @@ class EventRsvp(Base):
     # Idempotency stamp for the T-1h (starts_at) reminder, mirroring `reminded_at`
     # (the T-24h deadline reminder) so each window fires exactly once per RSVP.
     reminded_1h_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # For events with ORGANIZER-SET custom reminder times (Event.reminder_times):
+    # a JSON list of the reminder-time ISO strings ALREADY sent to this RSVP, so
+    # the hourly cron fires each custom reminder exactly once. NULL/[] = none sent
+    # yet. (Legacy auto T-24h/T-1h events keep using reminded_at/reminded_1h_at.)
+    reminders_sent: Mapped[list | None] = mapped_column(JSON, nullable=True)

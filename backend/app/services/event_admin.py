@@ -35,12 +35,16 @@ from app.services.notify import esc, push_event
 # PATCH endpoints are the single validation gate (422 on anything else). This is
 # the ONE definition — admin.py re-exports it so `from app.routers.admin import
 # LEAD_STATUSES` (and the partner router) both see the same set.
-LEAD_STATUSES = {"registered", "showed", "scored", "called", "enrolled", "no_show"}
+# registered → (attendee taps the reminder's ✅Boraman / ❌Borolmayman) coming /
+# cant_come → (checked in at the door) showed / no_show → scored → called →
+# enrolled. `coming`/`cant_come` are set by the bot reminder buttons; the rest by
+# the admin/partner in the panel (or QR check-in for `showed`).
+LEAD_STATUSES = {"registered", "coming", "cant_come", "showed", "scored", "called", "enrolled", "no_show"}
 
 # Lead-pipeline stages (from EventRsvp.lead_status) + RSVP statuses (from
 # EventRsvp.status). Disjoint sets → the funnel dict merges both without
 # collision. Every key is reported (0 when absent).
-_FUNNEL_LEAD_KEYS = ("registered", "showed", "scored", "called", "enrolled", "no_show")
+_FUNNEL_LEAD_KEYS = ("registered", "coming", "cant_come", "showed", "scored", "called", "enrolled", "no_show")
 _FUNNEL_STATUS_KEYS = ("waitlisted", "going", "interested")
 
 # Localized "your {title} result: {score}" DM (HTML — {title} is esc()'d by the
@@ -81,6 +85,29 @@ def normalize_region_ids(raw: Any) -> list[int] | None:
         if n > 0 and n not in out:
             out.append(n)
     return out or None
+
+
+def normalize_reminder_times(vals: Any) -> list[str] | None:
+    """Organizer-set reminder moments → a sorted, de-duped list of naive-UTC ISO
+    strings (second precision) for JSON storage. None/[] → None (cron falls back
+    to the legacy auto T-24h/T-1h). Each incoming value is a datetime (Pydantic
+    parsed) or ISO string; an aware value is converted to UTC and made naive so it
+    matches Event.starts_at's storage, and the cron can compare it to utcnow()."""
+    if not isinstance(vals, (list, tuple)):
+        return None
+    out: set[str] = set()
+    for v in vals:
+        dt = v
+        if isinstance(v, str):
+            try:
+                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+        if not isinstance(dt, datetime):
+            continue
+        dt = to_naive_utc(dt)  # aware → UTC-naive; naive passes through
+        out.add(dt.replace(microsecond=0).isoformat())
+    return sorted(out) or None
 
 
 def _csv_phone(u: User, answers: dict, schema: list) -> str:

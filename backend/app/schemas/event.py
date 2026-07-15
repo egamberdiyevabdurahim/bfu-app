@@ -24,6 +24,8 @@ class EventOut(BaseModel):
     # the detail's "for these regions" label).
     region_ids: list[int] | None = None
     location: str | None = None        # free-text venue / place
+    lat: float | None = None           # map pin (WGS84) — drives the detail map
+    lng: float | None = None           #   + "Open in Yandex/2GIS" deep-links
     # Hosting partner org. partner_id is the raw column; partner_name is resolved
     # on the detail endpoint so an event page can credit e.g. "Hosted by Marstiff"
     # (null for BFU-run events). partner_name is null on list rows (not resolved

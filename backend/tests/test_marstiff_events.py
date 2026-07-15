@@ -82,8 +82,11 @@ async def test_starts_at_is_optional(db, make_user, as_user):
 # ── lead_status default + the allowed set ─────────────────────────────────────
 
 async def test_lead_status_allowed_set_is_exactly_the_contract():
+    # coming / cant_come are set by the bot reminder buttons (✅Boraman/❌Borolmayman);
+    # the rest by the panel (or QR check-in for showed).
     assert LEAD_STATUSES == {
-        "registered", "showed", "scored", "called", "enrolled", "no_show",
+        "registered", "coming", "cant_come",
+        "showed", "scored", "called", "enrolled", "no_show",
     }
 
 

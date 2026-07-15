@@ -260,6 +260,67 @@ async def _group_post_decision(cb: types.CallbackQuery) -> None:
             pass
 
 
+@dp.callback_query(F.data.startswith("ev:"))
+async def _event_rsvp_intent(cb: types.CallbackQuery) -> None:
+    """Attendee tapped ✅ Boraman / ❌ Borolmayman on an event reminder → flip their
+    EventRsvp.lead_status to coming / cant_come (feeds the partner funnel). The
+    reminder's buttons stay, so they can switch their mind on any reminder.
+    Idempotent + best-effort; a bad tap never crashes the polling loop."""
+    try:
+        from app.models.event_rsvp import EventRsvp
+        try:
+            _, action, sid = (cb.data or "").split(":", 2)
+            ev_id = int(sid)
+        except (ValueError, AttributeError):
+            await cb.answer()
+            return
+        if action not in ("coming", "cant"):
+            await cb.answer()
+            return
+        new_status = "coming" if action == "coming" else "cant_come"
+        tg_id = cb.from_user.id if cb.from_user else None
+        if not tg_id:
+            await cb.answer()
+            return
+        lang = "en"
+        async with AsyncSessionLocal() as db:
+            u = (await db.execute(
+                select(User).where(User.telegram_id == tg_id)
+            )).scalar_one_or_none()
+            if u is None:
+                await cb.answer("Register in BFU first.", show_alert=True)
+                return
+            if u.language in ("en", "uz", "ru"):
+                lang = u.language
+            row = (await db.execute(select(EventRsvp).where(
+                EventRsvp.event_id == ev_id, EventRsvp.user_id == u.id,
+            ))).scalar_one_or_none()
+            if row is None:
+                await cb.answer(
+                    {"en": "You're not registered for this event.",
+                     "uz": "Siz bu tadbirga ro'yxatdan o'tmagansiz.",
+                     "ru": "Вы не зарегистрированы на это мероприятие."}.get(lang, "Not registered"),
+                    show_alert=True,
+                )
+                return
+            row.lead_status = new_status
+            await db.commit()
+        toasts = {
+            "coming": {"en": "Great — see you there! ✅", "uz": "Zo'r — kutamiz! ✅",
+                       "ru": "Отлично — ждём вас! ✅"},
+            "cant_come": {"en": "Noted — thanks for letting us know.",
+                          "uz": "Qabul qilindi — bildirganingiz uchun rahmat.",
+                          "ru": "Принято — спасибо, что сообщили."},
+        }[new_status]
+        await cb.answer(toasts.get(lang, toasts["en"]))
+    except Exception:
+        logging.exception("event rsvp intent failed")
+        try:
+            await cb.answer()
+        except Exception:
+            pass
+
+
 @dp.message(CommandStart())
 async def command_start_handler(message: types.Message, command: CommandObject) -> None:
     """

@@ -7,6 +7,7 @@ import { fmtDate, fmtDateTime } from "@/lib/datetime";
 import AppTopBar from "@/components/nav/AppTopBar";
 import SiteFooter from "@/components/ui/SiteFooter";
 import EventDetailRegister from "@/components/events/EventDetailRegister";
+import CopyEventLink from "@/components/events/CopyEventLink";
 
 // Event detail page (/web/events/{id}). The event feed cards now link here
 // INTERNALLY (the external `link` is a button on this page). AUTHED and
@@ -78,6 +79,49 @@ function Fact({ glyph, label, children }) {
   );
 }
 
+// Embedded map + deep-links, shown only when the event carries a pin (lat+lng).
+// SSR-safe: a plain OpenStreetMap iframe (no JS map lib) centered on the marker,
+// with Yandex / 2GIS / Google buttons that open the native maps in a new tab.
+function MapBlock({ lat, lng, title, t }) {
+  const bbox = `${lng - 0.008}%2C${lat - 0.006}%2C${lng + 0.008}%2C${lat + 0.006}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
+  const links = [
+    { key: "Yandex", href: `https://yandex.com/maps/?pt=${lng},${lat}&z=17&l=map`, label: t("community.events.detail.mapYandex") },
+    { key: "2GIS", href: `https://2gis.uz/geo/${lng},${lat}`, label: t("community.events.detail.map2gis") },
+    { key: "Google", href: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, label: t("community.events.detail.mapGoogle") },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <iframe
+        src={src}
+        title={t("community.events.detail.mapTitle", { title })}
+        loading="lazy"
+        style={{
+          width: "100%",
+          height: 200,
+          border: "1px solid var(--hair)",
+          borderRadius: "var(--radius)",
+          display: "block",
+        }}
+      />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {links.map((l) => (
+          <a
+            key={l.key}
+            href={l.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ch-btn-ghost"
+            style={{ fontSize: 11.5, padding: "6px 12px" }}
+          >
+            <span aria-hidden>🗺</span> {l.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function EventDetailPage({ params }) {
   const me = await getMe();
   if (!me) redirect("/login");
@@ -120,6 +164,9 @@ export default async function EventDetailPage({ params }) {
   }
 
   const cover = event.cover_url ? asset(event.cover_url) : null;
+
+  // Map pin: render the embedded map + deep-links only when BOTH coords exist.
+  const hasPin = typeof event.lat === "number" && typeof event.lng === "number";
 
   return (
     <AppTopBar active="events" me={me}>
@@ -194,6 +241,8 @@ export default async function EventDetailPage({ params }) {
         <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: 14 }}>
           <EventDetailRegister event={event} meId={me.id} />
 
+          <CopyEventLink eventId={event.id} />
+
           {event.link ? (
             <a
               href={event.link}
@@ -218,6 +267,7 @@ export default async function EventDetailPage({ params }) {
           {event.location ? (
             <Fact glyph="📍" label={t("community.events.detail.locationLabel")}>{event.location}</Fact>
           ) : null}
+          {hasPin ? <MapBlock lat={event.lat} lng={event.lng} title={event.title} t={t} /> : null}
           {seatsText ? (
             <Fact glyph="◎" label={t("community.events.detail.seatsLabel")}>{seatsText}</Fact>
           ) : null}

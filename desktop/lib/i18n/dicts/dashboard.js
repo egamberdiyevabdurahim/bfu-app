@@ -132,6 +132,8 @@ export const dashboard = {
     "dash.resp.funnel.going": "Going",
     "dash.resp.funnel.interested": "Interested",
     "dash.resp.funnel.waitlisted": "Waitlisted",
+    "dash.resp.funnel.coming": "Coming",
+    "dash.resp.funnel.cant_come": "Can't come",
 
     // — AI summary of the responses —
     "dash.resp.ai_btn": "AI summary",
@@ -287,6 +289,8 @@ export const dashboard = {
     "dash.resp.funnel.going": "Boradi",
     "dash.resp.funnel.interested": "Qiziqqan",
     "dash.resp.funnel.waitlisted": "Navbatda",
+    "dash.resp.funnel.coming": "Keladi",
+    "dash.resp.funnel.cant_come": "Kela olmaydi",
 
     "dash.resp.ai_btn": "AI xulosa",
     "dash.resp.ai_kicker": "AI xulosa",
@@ -439,6 +443,8 @@ export const dashboard = {
     "dash.resp.funnel.going": "Иду",
     "dash.resp.funnel.interested": "Интересно",
     "dash.resp.funnel.waitlisted": "В ожидании",
+    "dash.resp.funnel.coming": "Придёт",
+    "dash.resp.funnel.cant_come": "Не сможет",
 
     "dash.resp.ai_btn": "AI-сводка",
     "dash.resp.ai_kicker": "AI-сводка",

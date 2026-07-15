@@ -756,8 +756,11 @@ function Funnel({ data, t }) {
     { key: "called", tone: "var(--amber)" },
     { key: "enrolled", tone: "var(--green)" },
   ];
-  // Off-pipeline tallies, shown only when non-zero.
+  // Off-pipeline tallies, shown only when non-zero. `coming` / `cant_come` are the
+  // RSVP intent split the backend now returns alongside the pipeline stages.
   const CHIPS = [
+    { key: "coming", tone: "var(--green)" },
+    { key: "cant_come", tone: "var(--terra)" },
     { key: "going", tone: "var(--green)" },
     { key: "interested", tone: "var(--muted)" },
     { key: "waitlisted", tone: "var(--amber)" },

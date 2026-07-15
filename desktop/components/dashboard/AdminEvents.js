@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import "leaflet/dist/leaflet.css";
 import { bfu } from "@/lib/client-api";
 import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/components/i18n/LocaleProvider";
@@ -453,12 +454,139 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
   // Max "going" attendees. Blank = unlimited. Beyond it, RSVPs are waitlisted
   // (enforced server-side) and auto-promoted when a seat frees up.
   const [capacity, setCapacity] = useState(event?.capacity != null ? String(event.capacity) : "");
+  // Custom reminder moments — each row is a datetime-local (Tashkent wall-clock).
+  // Seed from the event's reminder_times (ISO → Tashkent input). An empty list
+  // means "use the automatic day-before + hour-before reminders" server-side.
+  const [reminders, setReminders] = useState(
+    (Array.isArray(event?.reminder_times) ? event.reminder_times : [])
+      .map(toTashkentInput)
+      .filter(Boolean)
+  );
+  // Once the reminders auto-seed (for a brand-new event) has fired — or the user
+  // has touched the list — we never re-seed, so clearing the rows sticks.
+  const remindersAutofilled = useRef(!isNew || (Array.isArray(event?.reminder_times) && event.reminder_times.length > 0));
+  // Map pin. lat/lng ride the payload as floats (null when there's no pin).
+  const [lat, setLat] = useState(typeof event?.lat === "number" ? event.lat : null);
+  const [lng, setLng] = useState(typeof event?.lng === "number" ? event.lng : null);
   const [saving, setSaving] = useState(false);
 
   const regionName = (r) => r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`;
 
   const toggleRegion = (id) =>
     setRegionIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  // Reminders list mutators.
+  const setReminderAt = (i, val) => setReminders((rs) => rs.map((r, idx) => (idx === i ? val : r)));
+  const removeReminder = (i) => {
+    remindersAutofilled.current = true; // an explicit clear must not be re-seeded
+    setReminders((rs) => rs.filter((_, idx) => idx !== i));
+  };
+  const addReminder = () => {
+    remindersAutofilled.current = true;
+    setReminders((rs) => [...rs, ""]);
+  };
+
+  // Convenience: for a NEW event, once "Starts at" is set and the organizer
+  // hasn't touched the reminders yet, pre-fill two sensible, editable defaults
+  // (24h before + 1h before). Never re-runs after the first fill or any edit.
+  useEffect(() => {
+    if (remindersAutofilled.current || reminders.length > 0) return;
+    const startIso = fromTashkentInput(startsAt);
+    if (!startIso) return;
+    const startMs = new Date(startIso).getTime();
+    if (!Number.isFinite(startMs)) return;
+    const t24 = toTashkentInput(new Date(startMs - 24 * 60 * 60 * 1000).toISOString());
+    const t1 = toTashkentInput(new Date(startMs - 60 * 60 * 1000).toISOString());
+    const seeded = [t24, t1].filter(Boolean);
+    if (seeded.length) {
+      remindersAutofilled.current = true;
+      setReminders(seeded);
+    }
+  }, [startsAt, reminders.length]);
+
+  // ── Leaflet map picker (client-only) ──────────────────────────────────────
+  const mapElRef = useRef(null);   // the container <div>
+  const mapRef = useRef(null);     // the L.Map instance
+  const markerRef = useRef(null);  // the draggable pin
+  const round6 = (n) => Math.round(n * 1e6) / 1e6;
+
+  const clearPin = () => {
+    setLat(null);
+    setLng(null);
+    if (markerRef.current && mapRef.current) {
+      mapRef.current.removeLayer(markerRef.current);
+      markerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    let disposed = false;
+    (async () => {
+      if (typeof window === "undefined" || !mapElRef.current) return;
+      const L = (await import("leaflet")).default;
+      // Guard against StrictMode double-invoke / an unmount that raced the import.
+      if (disposed || mapRef.current || !mapElRef.current) return;
+
+      const hasPin = lat != null && lng != null;
+      const center = hasPin ? [lat, lng] : [41.311, 69.24];
+      const map = L.map(mapElRef.current, { scrollWheelZoom: false }).setView(center, hasPin ? 15 : 12);
+      mapRef.current = map;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+
+      // A divIcon pin sidesteps Leaflet's well-known default-marker image path
+      // problem entirely (no bundler-relative marker-icon.png to resolve).
+      const pinIcon = L.divIcon({
+        className: "",
+        html: '<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#E8A15C;border:2px solid #160E08;box-shadow:0 1px 5px rgba(0,0,0,0.55)"></div>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 18],
+      });
+
+      const place = (la, ln) => {
+        if (markerRef.current) {
+          markerRef.current.setLatLng([la, ln]);
+        } else {
+          const m = L.marker([la, ln], { draggable: true, icon: pinIcon }).addTo(map);
+          m.on("dragend", () => {
+            const p = m.getLatLng();
+            setLat(round6(p.lat));
+            setLng(round6(p.lng));
+          });
+          markerRef.current = m;
+        }
+      };
+      if (hasPin) place(lat, lng);
+
+      map.on("click", (e) => {
+        const la = round6(e.latlng.lat);
+        const ln = round6(e.latlng.lng);
+        setLat(la);
+        setLng(ln);
+        place(la, ln);
+      });
+
+      // The modal mounts the map hidden-then-shown; recompute tile layout once
+      // the container has its real size, or tiles render grey/misaligned.
+      setTimeout(() => {
+        if (!disposed && mapRef.current) mapRef.current.invalidateSize();
+      }, 80);
+    })();
+
+    return () => {
+      disposed = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      markerRef.current = null;
+    };
+    // Mount-once: the pin is driven imperatively afterwards (place/clearPin), not
+    // by re-running this effect, so lat/lng are intentionally not deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -486,6 +614,12 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
       // Blank → unlimited (null). Otherwise a non-negative whole number; garbage
       // (non-numeric) also falls back to null rather than sending NaN.
       capacity: capacityValue(capacity),
+      // Custom reminder moments → ISO. Drop empty rows. [] means "no custom
+      // reminders" → the backend falls back to auto T-24h / T-1h.
+      reminder_times: reminders.map((r) => fromTashkentInput(r)).filter(Boolean),
+      // Map pin (floats) or null when there's none.
+      lat: lat,
+      lng: lng,
     };
     await onSubmit(payload, isNew ? null : event.id);
     setSaving(false);
@@ -542,6 +676,75 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
 
       <Field label="Location">
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Tashkent, Marstiff HQ" style={{ ...inputStyle, width: "100%" }} />
+      </Field>
+
+      {/* Map pin. Free-text "Location" above is the venue name; this drops an
+          exact lat/lng an attendee can navigate to. Keyless OpenStreetMap tiles;
+          click the map or drag the pin to set it, "Clear pin" to remove it. */}
+      <Field label="Location on map">
+        <div
+          ref={mapElRef}
+          style={{
+            width: "100%", height: 220, borderRadius: 11,
+            border: "1px solid var(--hair)", overflow: "hidden",
+            background: "var(--surface-2)",
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: lat != null && lng != null ? "var(--text)" : "var(--muted)" }}>
+            {lat != null && lng != null ? `📍 ${lat}, ${lng}` : "No pin — click the map to drop one"}
+          </span>
+          {lat != null && lng != null && (
+            <button
+              type="button"
+              onClick={clearPin}
+              className="ch-btn-ghost"
+              style={{ padding: "5px 11px", fontSize: 12 }}
+            >
+              Clear pin
+            </button>
+          )}
+        </div>
+      </Field>
+
+      {/* Custom reminder moments. Each row is a datetime-local; every attendee is
+          DMed at each time. Leave the list empty to fall back to the automatic
+          day-before + hour-before reminders. */}
+      <Field label="Reminders">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {reminders.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="datetime-local"
+                value={r}
+                onChange={(e) => setReminderAt(i, e.target.value)}
+                style={{ ...inputStyle, flex: "1 1 auto", minWidth: 0 }}
+              />
+              <button
+                type="button"
+                onClick={() => removeReminder(i)}
+                title="Remove this reminder"
+                className="ch-btn-ghost"
+                style={{ padding: "8px 11px", fontSize: 13, flex: "0 0 auto", borderColor: "rgba(192,86,59,0.5)", color: "var(--terra)" }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <div>
+            <button
+              type="button"
+              onClick={addReminder}
+              className="ch-btn-ghost"
+              style={{ padding: "7px 12px", fontSize: 12.5, borderColor: "var(--amber)", color: "var(--amber)" }}
+            >
+              + Add reminder
+            </button>
+          </div>
+          <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
+            Attendees are DMed at each time. Leave empty for the automatic day-before + hour-before reminders.
+          </span>
+        </div>
       </Field>
 
       {/* Multi-region targeting. "All regions" is an explicit unlimited toggle;

@@ -6,9 +6,14 @@ import { PartnersModal } from "../components/PartnersModal";
 import { EventFormSheet, useEventFormT } from "../components/EventFormSheet";
 import { FLAGS } from "../flags";
 import { useT } from "../i18n";
+import { openExternal } from "../tg";
 import { fmtDate, fmtDateTime } from "../timefmt";
 
 const TYPES = ["foryou", "myrsvps", "all", "hackathon", "grant", "scholarship", "meetup", "other"];
+
+// Bot username for building shareable deep links (t.me/<bot>?startapp=…). Mirrors
+// the hardcoded handle in RegionLandingScreen — the one public BFU bot.
+const BOT_USERNAME = "BrightFuturesUzbekistan_bot";
 
 // Type → Chorsu accent, mirrored from the desktop EventsBrowser TYPE_STYLE so the
 // hackathon/grant/scholarship/meetup pills read the same warm-firelit language.
@@ -270,6 +275,49 @@ const MetaRow = ({ glyph, label, value, color }) => (
   </div>
 );
 
+// Uppercase mono section label shared by detail blocks (About / Location on map).
+const SectionLabel = ({ children }) => (
+  <div style={{
+    fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+    textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8,
+  }}>{children}</div>
+);
+
+// Embedded OpenStreetMap + navigation deep links. Only mounted when the event
+// carries coordinates (lat && lng from GET /events/{id}). The map tiles come from
+// OSM's export iframe; the three buttons hand a native maps URL to the system
+// browser via openExternal (they leave Telegram, so never a bare <a>).
+const MapBlock = ({ lat, lng, t }) => {
+  const bbox = `${lng - 0.008}%2C${lat - 0.006}%2C${lng + 0.008}%2C${lat + 0.006}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
+  const nav = [
+    { label: "Yandex", url: `https://yandex.com/maps/?pt=${lng},${lat}&z=17&l=map` },
+    { label: "2GIS",   url: `https://2gis.uz/geo/${lng},${lat}` },
+    { label: "Google", url: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` },
+  ];
+  return (
+    <div style={{ marginTop: 22 }}>
+      <SectionLabel>{t("events.detail.mapLabel")}</SectionLabel>
+      <iframe
+        title={t("events.detail.mapLabel")}
+        src={src}
+        loading="lazy"
+        style={{
+          display: "block", width: "100%", height: 180, border: "1px solid var(--hair)",
+          borderRadius: "var(--radius-sm)",
+        }}
+      />
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        {nav.map((n) => (
+          <button key={n.label} onClick={() => openExternal(n.url)} className="btn-ghost" style={{
+            flex: 1, padding: "9px 4px", fontSize: 12.5, fontWeight: 600, textAlign: "center",
+          }}>{n.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Full-screen event detail (parity with the desktop). Tapping a card opens this;
 // it fetches the full event (description, region_ids, location, link, form_schema)
 // via GET /events/{id}, resolves targeted region ids to localized names, and hosts
@@ -281,6 +329,7 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [regionNames, setRegionNames] = useState(null); // null = still resolving
+  const [copied, setCopied] = useState(false); // browser-fallback share confirmation
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [seed?.id]);
 
@@ -324,6 +373,25 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
   // Partner is defensive — the current EventOut payload omits it, but render it
   // the moment the backend starts sending a name/id (desktop parity).
   const partnerLabel = ev.partner_name || (ev.partner_id ? t("events.detail.partnerGeneric") : null);
+  const hasGeo = ev.lat != null && ev.lng != null;
+
+  // Share = a deep link that reopens this event inside the Mini App. Prefer
+  // Telegram's native share sheet; outside Telegram, copy the link + flash "Copied".
+  const shareEvent = () => {
+    const link = `https://t.me/${BOT_USERNAME}?startapp=event_${ev.id}`;
+    const w = window.Telegram?.WebApp;
+    if (w && typeof w.openTelegramLink === "function") {
+      try {
+        w.openTelegramLink(
+          `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(ev.title || "")}`,
+        );
+        return;
+      } catch { /* fall through to clipboard */ }
+    }
+    try { navigator.clipboard?.writeText(link); } catch { /* blocked */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
     <div style={{
@@ -400,19 +468,29 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
             </div>
           )}
 
+          {/* Map + navigation deep links — only when the event carries coordinates. */}
+          {hasGeo && <MapBlock lat={ev.lat} lng={ev.lng} t={t} />}
+
           {loading && !full && (
             <div style={{ textAlign: "center", padding: 24, color: "var(--text-3)" }}>
               <Icon name="loader" size={20} color="var(--amber)" />
             </div>
           )}
 
-          {ev.link && (
-            <a href={ev.link} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{
-              display: "inline-flex", alignItems: "center", gap: 8, marginTop: 22, textDecoration: "none",
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
+            {ev.link && (
+              <a href={ev.link} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{
+                display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none",
+              }}>
+                <Icon name="link" size={15} /> {t("events.open")}
+              </a>
+            )}
+            <button onClick={shareEvent} className="btn-ghost" style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
             }}>
-              <Icon name="link" size={15} /> {t("events.open")}
-            </a>
-          )}
+              <Icon name="link" size={15} /> {copied ? t("events.detail.copied") : t("events.detail.share")}
+            </button>
+          </div>
 
           {/* Register / read-only action — same component as the card. */}
           <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />

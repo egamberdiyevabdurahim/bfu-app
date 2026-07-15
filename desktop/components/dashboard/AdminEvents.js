@@ -69,6 +69,14 @@ function hasForm(e) {
   return e.has_form === true;
 }
 
+// Resolve an event's targeted regions to an id array. Prefer the new region_ids
+// (multi-region); fall back to the legacy single region_id when region_ids is
+// null/absent. Empty array = "all regions / unlimited".
+function regionIdsOf(e) {
+  if (Array.isArray(e?.region_ids) && e.region_ids.length) return e.region_ids;
+  return e?.region_id ? [e.region_id] : [];
+}
+
 // Coerce the capacity input to what EventBody wants: null (unlimited) or a
 // non-negative integer. Empty or non-numeric → null (never NaN over the wire).
 function capacityValue(raw) {
@@ -139,6 +147,17 @@ export default function AdminEvents({
   const partnerName = (id) => {
     const p = partners.find((x) => x.id === id);
     return p ? p.name : null;
+  };
+  // Row summary of who an event targets. Empty (null/[]) → every region; else the
+  // names of the targeted regions (or a count when there are many), resolved via
+  // the already-fetched regions list.
+  const regionSummary = (e) => {
+    const ids = regionIdsOf(e);
+    if (ids.length === 0) return "🌐 All regions";
+    const names = ids.map(regionName).filter(Boolean);
+    if (names.length === 0) return `${ids.length} region${ids.length > 1 ? "s" : ""}`;
+    if (names.length <= 2) return names.join(", ");
+    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
   };
 
   async function doApprove(e) {
@@ -283,7 +302,7 @@ export default function AdminEvents({
                     : ""}
                 </Pill>
               )}
-              {e.region_id && regionName(e.region_id) && <Pill tone="muted">{regionName(e.region_id)}</Pill>}
+              <Pill tone="muted">{regionSummary(e)}</Pill>
               {e.partner_id && partnerName(e.partner_id) && <Pill tone="muted">◆ {partnerName(e.partner_id)}</Pill>}
             </div>
             <div style={{ marginTop: 6, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>
@@ -295,6 +314,9 @@ export default function AdminEvents({
               </div>
             )}
             <div style={{ marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {e.location && (
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>📍 {e.location}</span>
+              )}
               {fmtDeadline(e.deadline) && (
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>⏰ {fmtDeadline(e.deadline)}</span>
               )}
@@ -419,9 +441,14 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
   const [description, setDescription] = useState(event?.description || "");
   const [link, setLink] = useState(event?.link || "");
   const [coverUrl, setCoverUrl] = useState(event?.cover_url || "");
+  const [location, setLocation] = useState(event?.location || "");
   const [startsAt, setStartsAt] = useState(toTashkentInput(event?.starts_at));
   const [deadline, setDeadline] = useState(toTashkentInput(event?.deadline));
-  const [regionId, setRegionId] = useState(event?.region_id ? String(event.region_id) : "");
+  // Multi-region targeting. Seed from the event's region_ids (fall back to the
+  // legacy single region_id). No specific regions → "All regions (unlimited)".
+  const seedRegionIds = regionIdsOf(event).map(Number);
+  const [allRegions, setAllRegions] = useState(seedRegionIds.length === 0);
+  const [regionIds, setRegionIds] = useState(seedRegionIds);
   const [partnerId, setPartnerId] = useState(event?.partner_id ? String(event.partner_id) : "");
   // Max "going" attendees. Blank = unlimited. Beyond it, RSVPs are waitlisted
   // (enforced server-side) and auto-promoted when a seat frees up.
@@ -429,6 +456,9 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
   const [saving, setSaving] = useState(false);
 
   const regionName = (r) => r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`;
+
+  const toggleRegion = (id) =>
+    setRegionIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -441,12 +471,17 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
       description: description.trim() || null,
       link: link.trim() || null,
       cover_url: coverUrl.trim() || null,
+      // Free-text venue (e.g. "Tashkent, Marstiff HQ"). Trim; null when empty.
+      location: location.trim() || null,
       // Two distinct datetimes: starts_at = when the event happens; deadline =
       // the signup cutoff. Interpret the input's wall-clock as Tashkent (fixed
       // +05:00) → UTC ISO, so the stored instant is correct on any browser tz.
       starts_at: fromTashkentInput(startsAt),
       deadline: fromTashkentInput(deadline),
-      region_id: regionId ? Number(regionId) : null,
+      // Multi-region targeting. "All regions" ON → [] (unlimited); otherwise the
+      // picked ids. The backend derives the legacy single region_id itself, so we
+      // no longer send region_id.
+      region_ids: allRegions ? [] : regionIds,
       partner_id: partnerId ? Number(partnerId) : null,
       // Blank → unlimited (null). Otherwise a non-negative whole number; garbage
       // (non-numeric) also falls back to null rather than sending NaN.
@@ -505,13 +540,63 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
         </Field>
       </Row>
 
+      <Field label="Location">
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Tashkent, Marstiff HQ" style={{ ...inputStyle, width: "100%" }} />
+      </Field>
+
+      {/* Multi-region targeting. "All regions" is an explicit unlimited toggle;
+          when it's ON the per-region checkboxes are greyed/disabled. Otherwise
+          pick any subset — the picked ids ride the payload as region_ids. */}
+      <Field label="Target regions">
+        <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={allRegions}
+            onChange={(e) => setAllRegions(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: "var(--amber)", cursor: "pointer" }}
+          />
+          <span style={{ fontSize: 13.5, color: "var(--text)" }}>All regions (unlimited)</span>
+        </label>
+        <div
+          aria-disabled={allRegions}
+          style={{
+            display: "flex", flexDirection: "column", gap: 2,
+            maxHeight: 176, overflowY: "auto",
+            border: "1px solid var(--hair)", borderRadius: 11,
+            background: "var(--surface-2)", padding: "6px 4px",
+            opacity: allRegions ? 0.45 : 1,
+            pointerEvents: allRegions ? "none" : "auto",
+          }}
+        >
+          {regions.length === 0 && (
+            <span style={{ fontSize: 12.5, color: "var(--muted)", padding: "6px 10px" }}>No regions available.</span>
+          )}
+          {regions.map((r) => {
+            const on = !allRegions && regionIds.includes(r.id);
+            return (
+              <label
+                key={r.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 9,
+                  padding: "7px 10px", borderRadius: 8, cursor: allRegions ? "default" : "pointer",
+                  background: on ? "rgba(232,161,92,0.08)" : "transparent",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={allRegions}
+                  onChange={() => toggleRegion(r.id)}
+                  style={{ width: 15, height: 15, accentColor: "var(--amber)", cursor: allRegions ? "default" : "pointer" }}
+                />
+                <span style={{ fontSize: 13.5, color: on ? "var(--text)" : "var(--muted-strong)" }}>{regionName(r)}</span>
+              </label>
+            );
+          })}
+        </div>
+      </Field>
+
       <Row>
-        <Field label="Region">
-          <select value={regionId} onChange={(e) => setRegionId(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
-            <option value="">All / none</option>
-            {regions.map((r) => <option key={r.id} value={r.id}>{regionName(r)}</option>)}
-          </select>
-        </Field>
         {/* Hidden in the partner panel — a partner IS its org, and the backend
             forces partner_id server-side, so there's nothing to pick. */}
         {showPartner && (

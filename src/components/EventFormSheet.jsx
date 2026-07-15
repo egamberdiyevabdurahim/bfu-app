@@ -295,9 +295,12 @@ const Field = ({ q, value, error, onChange, tf, bindRef }) => {
 // ── The sheet ────────────────────────────────────────────────────────────────
 export const EventFormSheet = ({ event, onClose, onDone }) => {
   const tf = useEventFormT();
-  const { lang } = useT();
+  const { lang, t } = useT();
   const eventId = event?.id;
-  const alreadyGoing = event?.my_rsvp === "going";
+  // Already registered (going OR waitlisted) → the sheet opens READ-ONLY: answers
+  // are locked once submitted (the server 409s a re-submit), so we show them back
+  // instead of an editable form. The only mutation left is "Cancel registration".
+  const initiallyRegistered = event?.my_rsvp === "going" || event?.my_rsvp === "waitlisted";
 
   const [schema, setSchema] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -307,6 +310,12 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState(false);
   const [saving, setSaving] = useState(false);
+  // "view" = read-only registration recap; "edit" = the fillable form. We start in
+  // view when already registered, and flip edit→view if the server 409s (someone
+  // registered on another device between opening and submitting).
+  const [mode, setMode] = useState(initiallyRegistered ? "view" : "edit");
+  const [lockedBanner, setLockedBanner] = useState(false); // "already registered" (from a 409)
+  const [confirmCancel, setConfirmCancel] = useState(false);
   // After a successful FIRST registration we don't close straight away — we offer
   // a one-tap "invite a friend" bonus (reusing the existing InviteSheet).
   const [registered, setRegistered] = useState(false);
@@ -439,14 +448,22 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       haptic("success");
       onDone?.(r || {});
       // First registration → celebrate + offer the invite bonus before closing.
-      // Re-editing existing answers just closes (they've been here before).
-      if (alreadyGoing) {
-        onClose();
-      } else {
-        setRegistered(true);
-        setSaving(false);
-      }
+      setRegistered(true);
+      setSaving(false);
     } catch (e) {
+      // 409 = already registered (a re-submit, or a second device beat us to it).
+      // Answers can't be changed, so drop into the read-only recap instead of
+      // stranding them on a form that will never accept a submit.
+      if (e?.status === 409) {
+        clearDraft(eventId);
+        onDone?.({ my_rsvp: "going" });
+        await hydrateFromServer();
+        setLockedBanner(true);
+        setConfirmCancel(false);
+        setMode("view");
+        setSaving(false);
+        return;
+      }
       const se = serverErrors(e, schema.map((q) => q.key));
       if (Object.keys(se).length) {
         setErrors(se);
@@ -456,6 +473,41 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
         setBanner(e?.message || tf("err.generic"));
       }
       haptic("error");
+      setSaving(false);
+    }
+  };
+
+  // Pull the caller's saved answers off the server and coerce them into the
+  // field shapes — used when we enter the read-only recap via a 409 (the local
+  // `answers` there hold the just-typed, rejected values, not what's stored).
+  const hydrateFromServer = async () => {
+    try {
+      const mine = await events.myResponse(eventId).catch(() => null);
+      const prev = mine?.answers && typeof mine.answers === "object" ? mine.answers : null;
+      if (prev && Array.isArray(schema)) {
+        const base = {};
+        schema.forEach((q) => { base[q.key] = prev[q.key] != null ? coerce(q, prev[q.key]) : emptyFor(q); });
+        setAnswers(base);
+      }
+    } catch { /* best-effort; fall back to whatever's on screen */ }
+  };
+
+  // Cancel registration (withdraw). Allowed even when locked — the server accepts
+  // a DELETE, and re-registering afterwards is the sanctioned way to change answers.
+  const withdraw = async () => {
+    if (saving) return;
+    setSaving(true);
+    setBanner("");
+    try {
+      const r = await events.unrsvp(eventId);
+      clearDraft(eventId);
+      haptic("success");
+      onDone?.({ my_rsvp: r?.my_rsvp ?? null, ...(typeof r?.rsvp_count === "number" ? { rsvp_count: r.rsvp_count } : {}) });
+      onClose();
+    } catch (e) {
+      setBanner(e?.message || t("events.reg.withdrawErr"));
+      haptic("error");
+      setConfirmCancel(false);
       setSaving(false);
     }
   };
@@ -484,6 +536,168 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
           <button className="btn-primary" onClick={() => setInviteOpen(true)}>🎁 {tf("reg.invite")}</button>
           <button className="btn-ghost" style={{ width: "100%" }} onClick={onClose}>{tf("reg.done")}</button>
         </div>
+      </div>
+    );
+  }
+
+  // ── Read-only registration recap ───────────────────────────────────────────
+  // Shown once the member is registered: answers are locked (a re-submit 409s), so
+  // we display them back with a "you're registered" banner + a Cancel path only.
+  if (mode === "view") {
+    const answered = (schema || []).filter((q) => isAnswered(q, answers[q.key]));
+    const fmtAns = (q) => {
+      const v = answers[q.key];
+      return isMulti(q) ? (Array.isArray(v) ? v.join(", ") : "") : (v || "");
+    };
+    return (
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 340, background: "var(--bg)",
+        maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column",
+      }}>
+        {/* Header — close + event title + location */}
+        <div style={{
+          flex: "0 0 auto", padding: "calc(var(--safe-t) + 14px) 16px 12px",
+          borderBottom: "1px solid var(--hair)", background: "var(--surface)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={onClose} aria-label={t("common.close")} style={{
+              width: 38, height: 38, borderRadius: 11, border: "1px solid var(--hair)",
+              background: "var(--surface-2)", color: "var(--text-2)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}><Icon name="x" size={18} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: "var(--green)",
+              }}>{t("events.reg.bannerTitle")}</div>
+              <div style={{
+                fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)",
+                lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{event?.title || ""}</div>
+              {event?.location && (
+                <div style={{
+                  marginTop: 3, fontSize: 12, color: "var(--text-3)",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>📍 {event.location}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Body — the "you're registered" banner + a read-only recap of answers */}
+        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 16px 28px" }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 60, color: "var(--text-3)" }}>
+              <Icon name="loader" size={22} color="var(--amber)" />
+            </div>
+          ) : loadErr ? (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <div style={{ color: "var(--terra)", fontSize: 14, marginBottom: 14 }}>{tf("loadError")}</div>
+              <button className="btn-ghost" onClick={load}>{tf("retry")}</button>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 18,
+                padding: "12px 14px", borderRadius: "var(--radius-sm)",
+                background: "rgba(127,176,105,0.12)", border: "1px solid rgba(127,176,105,0.34)",
+              }}>
+                <span aria-hidden style={{ color: "var(--green)", fontSize: 16, lineHeight: 1.3 }}>✓</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--text)", lineHeight: 1.35 }}>
+                    {t("events.reg.bannerTitle")}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
+                    {t("events.reg.bannerBody")}
+                  </div>
+                </div>
+              </div>
+
+              {lockedBanner && (
+                <div style={{
+                  marginBottom: 16, padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                  background: "rgba(232,161,92,0.12)", border: "1px solid rgba(232,161,92,0.34)",
+                  color: "var(--amber)", fontSize: 12.5, lineHeight: 1.45,
+                }}>{t("events.reg.already")}</div>
+              )}
+
+              {answered.length > 0 && (
+                <>
+                  <div style={{
+                    fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+                    textTransform: "uppercase", color: "var(--text-3)",
+                    paddingBottom: 8, marginBottom: 14, borderBottom: "1px solid var(--hair)",
+                  }}>{t("events.reg.answersTitle")}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {answered.map((q) => (
+                      <div key={q.key}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-3)", lineHeight: 1.4, marginBottom: 4 }}>
+                          {q.label}
+                        </div>
+                        <div style={{ fontSize: 14.5, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                          {fmtAns(q) || t("events.reg.noAnswer")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer — Cancel registration (with a confirm step) + Close */}
+        {!loading && !loadErr && (
+          <div style={{
+            flex: "0 0 auto", padding: "12px 16px calc(var(--safe-b) + 14px)",
+            borderTop: "1px solid var(--hair)", background: "var(--surface)",
+          }}>
+            {banner && (
+              <div style={{
+                marginBottom: 10, padding: "9px 12px", borderRadius: "var(--radius-sm)",
+                background: "rgba(192,86,59,0.14)", border: "1px solid rgba(192,86,59,0.4)",
+                color: "var(--terra)", fontSize: 12.5, lineHeight: 1.4, textAlign: "center",
+              }}>{banner}</div>
+            )}
+            {confirmCancel ? (
+              <>
+                <div style={{ fontSize: 13, color: "var(--terra)", textAlign: "center", marginBottom: 10, lineHeight: 1.4 }}>
+                  {t("events.reg.cancelConfirm")}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn-ghost" style={{ flex: 1 }} disabled={saving} onClick={() => setConfirmCancel(false)}>
+                    {t("events.reg.cancelNo")}
+                  </button>
+                  <button
+                    disabled={saving}
+                    onClick={withdraw}
+                    style={{
+                      flex: 1, padding: "12px 14px", borderRadius: "var(--radius-md)",
+                      background: "transparent", color: "var(--terra)", cursor: "pointer",
+                      border: "1px solid rgba(192,86,59,0.5)", fontWeight: 600, fontSize: 14,
+                    }}
+                  >
+                    {saving ? tf("sending") : t("events.reg.cancelYes")}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
+                <button
+                  onClick={() => { setBanner(""); setConfirmCancel(true); }}
+                  style={{
+                    width: "100%", marginTop: 10, padding: "10px 14px", borderRadius: "var(--radius-md)",
+                    background: "transparent", color: "var(--text-3)", cursor: "pointer",
+                    border: "1px solid var(--hair)", fontWeight: 500, fontSize: 13,
+                  }}
+                >
+                  {t("events.reg.cancel")}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -518,6 +732,12 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
               fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--text)",
               lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>{event?.title || ""}</div>
+            {event?.location && (
+              <div style={{
+                marginTop: 3, fontSize: 12, color: "var(--text-3)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>📍 {event.location}</div>
+            )}
           </div>
         </div>
 
@@ -605,7 +825,7 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
             }}>{banner}</div>
           )}
           <button className="btn-primary" onClick={submit} disabled={saving}>
-            {saving ? tf("sending") : (alreadyGoing ? tf("update") : tf("submit"))}
+            {saving ? tf("sending") : tf("submit")}
           </button>
           <div style={{
             marginTop: 8, textAlign: "center", fontFamily: "var(--font-mono)",

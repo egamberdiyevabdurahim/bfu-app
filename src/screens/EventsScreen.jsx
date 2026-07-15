@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Page, SkeletonList } from "../components/Shared";
 import { Icon } from "../components/Icons";
-import { events } from "../api";
+import { events, regions } from "../api";
 import { PartnersModal } from "../components/PartnersModal";
 import { EventFormSheet, useEventFormT } from "../components/EventFormSheet";
 import { FLAGS } from "../flags";
@@ -36,9 +36,11 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
   const goingIsh = ev.my_rsvp === "going" || ev.my_rsvp === "waitlisted";
   const set = async (status) => {
     if (busy) return;
-    // Form event, not registered yet → fill it in first. No optimistic flip: they
-    // are not "going" (or waitlisted) until the answers are in.
-    if (status === "going" && ev.has_form && !goingIsh) {
+    // Form events route EVERY "Going" tap through the sheet: not-registered → fill
+    // the form (no optimistic flip until answers land); already-registered → the
+    // read-only recap, where withdrawal goes through a confirm (a pill tap must
+    // never silently discard submitted answers).
+    if (status === "going" && ev.has_form) {
       onOpenForm(ev);
       return;
     }
@@ -76,9 +78,6 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
           {waitlisted ? "◔ " : ev.my_rsvp === "going" ? "✓ " : ""}
           {waitlisted ? t("events.rsvp.waitlisted") : t("events.rsvp.going")}
         </button>
-        <button disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
-          {ev.my_rsvp === "interested" ? "✓ " : ""}{t("events.rsvp.interested")}
-        </button>
         {ev.rsvp_count > 0 && (
           <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
             {t("events.rsvp.count", { n: ev.rsvp_count })}
@@ -86,15 +85,15 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
         )}
       </div>
 
-      {/* Form events say so up front — and, once registered, offer a way back in
-          to fix a typo (re-submitting overwrites the previous answers). */}
+      {/* Form events say so up front — and, once registered, open the read-only
+          registration recap (answers are locked once submitted). */}
       {ev.has_form && (
         goingIsh ? (
           <button onClick={() => onOpenForm(ev)} style={{
-            ...base, marginTop: 8, background: "transparent", color: "var(--amber)",
-            border: "1px solid rgba(232,161,92,0.34)", fontWeight: 600,
+            ...base, marginTop: 8, background: "transparent", color: "var(--green)",
+            border: "1px solid rgba(127,176,105,0.34)", fontWeight: 600,
           }}>
-            {tf("card.editAnsw")}
+            ✓ {t("events.viewReg")}
           </button>
         ) : (
           <div style={{
@@ -141,7 +140,7 @@ const SeatsLine = ({ ev, t }) => {
 // Firelit event card — the tappable content is the outbound link when `ev.link`
 // exists (mirrors desktop); the RSVP row is a sibling below it, always live.
 // Deep-linked card glows.
-const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
+const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm, onOpenDetail }) => {
   const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
   const deadline = ev.deadline ? fmt(ev.deadline) : null;
   // START time = when to actually show up (distinct from `deadline`, the sign-up
@@ -156,7 +155,6 @@ const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
     color: "var(--text)", textDecoration: "none",
     border: highlighted ? "1.5px solid var(--amber)" : "1px solid var(--hair)",
     boxShadow: highlighted ? "0 0 24px rgba(232,161,92,0.28)" : "none",
-    cursor: ev.link ? "pointer" : "default",
     animation: `fadeUp ${(0.08 + i * 0.05).toFixed(2)}s ease both`,
   };
 
@@ -201,6 +199,15 @@ const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
         </div>
       )}
 
+      {ev.location && (
+        <div style={{
+          marginTop: 8, fontSize: 12.5, color: "var(--text-3)", lineHeight: 1.4,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          📍 {ev.location}
+        </div>
+      )}
+
       <SeatsLine ev={ev} t={t} />
 
       {ev.matched?.length > 0 && (
@@ -218,26 +225,196 @@ const EventCard = ({ ev, i, highlighted, t, tf, fmt, onRsvp, onOpenForm }) => {
         </p>
       )}
 
-      {ev.link && (
-        <div style={{
-          marginTop: 14, fontFamily: "var(--font-mono)", fontSize: 11,
-          letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)",
-        }}>
-          {t("events.open")}
-        </div>
-      )}
+      <div style={{
+        marginTop: 14, fontFamily: "var(--font-mono)", fontSize: 11,
+        letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)",
+      }}>
+        {t("events.detail.viewDetails")} →
+      </div>
     </>
   );
 
+  // The card body opens the in-app DETAIL view (title/description/location/
+  // dates/regions/link + register). The external link lives inside detail now, so
+  // a tap never leaves the app unexpectedly. The RSVP row stays a live sibling.
   return (
     <div className="ch-cell-static" style={containerStyle}>
-      {ev.link ? (
-        <a href={ev.link} target="_blank" rel="noopener noreferrer"
-           style={{ display: "block", color: "inherit", textDecoration: "none", cursor: "pointer" }}>
-          {inner}
-        </a>
-      ) : inner}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onOpenDetail(ev)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetail(ev); } }}
+        style={{ display: "block", color: "inherit", cursor: "pointer" }}
+      >
+        {inner}
+      </div>
       <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />
+    </div>
+  );
+};
+
+// Small labelled meta row for the detail view (glyph + label + value).
+const MetaRow = ({ glyph, label, value, color }) => (
+  <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+    <span aria-hidden style={{ flex: "0 0 auto", fontSize: 13, color: color || "var(--text-3)" }}>{glyph}</span>
+    <div style={{ minWidth: 0 }}>
+      <div style={{
+        fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em",
+        textTransform: "uppercase", color: "var(--text-3)",
+      }}>{label}</div>
+      <div style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.45, marginTop: 2 }}>{value}</div>
+    </div>
+  </div>
+);
+
+// Full-screen event detail (parity with the desktop). Tapping a card opens this;
+// it fetches the full event (description, region_ids, location, link, form_schema)
+// via GET /events/{id}, resolves targeted region ids to localized names, and hosts
+// the register / read-only action by reusing RsvpRow. `seed` is the live list item
+// (authoritative for my_rsvp / rsvp_count after a toggle) painted immediately.
+const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
+  const { lang } = useT();
+  const [full, setFull] = useState(null);      // fetched content fields
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(false);
+  const [regionNames, setRegionNames] = useState(null); // null = still resolving
+
+  useEffect(() => { load(); /* eslint-disable-line */ }, [seed?.id]);
+
+  const load = async () => {
+    setLoading(true); setErr(false);
+    try {
+      const data = await events.get(seed.id);
+      setFull(data);
+      const ids = Array.isArray(data?.region_ids) ? data.region_ids : [];
+      if (ids.length) {
+        try {
+          const list = await regions.list();
+          const byId = new Map((Array.isArray(list) ? list : []).map((r) => [r.id, r]));
+          setRegionNames(ids.map((id) => {
+            const r = byId.get(id);
+            return r ? (r[`name_${lang}`] || r.name_en || r.name_uz || r.name_ru || "") : "";
+          }).filter(Boolean));
+        } catch { setRegionNames([]); }
+      } else {
+        setRegionNames([]); // empty/null = all regions (unlimited)
+      }
+    } catch { setErr(true); }
+    setLoading(false);
+  };
+
+  // Content from the fetch; volatile RSVP state always from the live seed so the
+  // action button stays in sync with the feed after a toggle.
+  const ev = {
+    ...(full || {}), ...seed,
+    my_rsvp: seed.my_rsvp, rsvp_count: seed.rsvp_count, seats_left: seed.seats_left,
+    capacity: full?.capacity ?? seed.capacity,
+  };
+  const style = TYPE_STYLE[ev.type] || DEFAULT_TYPE;
+  const typeLabel = KNOWN_TYPES.includes(ev.type) ? t(`events.type.${ev.type}`) : (ev.type || t("events.type.other"));
+  const start = ev.starts_at ? fmtDateTime(ev.starts_at) : null;
+  const deadline = ev.deadline ? fmtDate(ev.deadline) : null;
+  // Targeted-regions label: resolved names, or "All regions" when unlimited.
+  const regionsLabel = regionNames == null
+    ? null
+    : (regionNames.length ? regionNames.join(", ") : t("events.detail.allRegions"));
+  // Partner is defensive — the current EventOut payload omits it, but render it
+  // the moment the backend starts sending a name/id (desktop parity).
+  const partnerLabel = ev.partner_name || (ev.partner_id ? t("events.detail.partnerGeneric") : null);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 320, background: "var(--bg)",
+      maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column",
+    }}>
+      {/* Header — close + kicker */}
+      <div style={{
+        flex: "0 0 auto", padding: "calc(var(--safe-t) + 14px) 16px 12px",
+        borderBottom: "1px solid var(--hair)", background: "var(--surface)",
+        display: "flex", alignItems: "center", gap: 12,
+      }}>
+        <button onClick={onClose} aria-label={t("common.back")} style={{
+          width: 38, height: 38, borderRadius: 11, border: "1px solid var(--hair)",
+          background: "var(--surface-2)", color: "var(--text-2)", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}><Icon name="arrow_left" size={17} /></button>
+        <div style={{
+          fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.14em",
+          textTransform: "uppercase", color: "var(--amber)",
+        }}>{t("events.kicker")}</div>
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: "1 1 auto", overflowY: "auto" }}>
+        {ev.cover_url && (
+          <img src={ev.cover_url} alt="" style={{ display: "block", width: "100%", height: 190, objectFit: "cover" }} />
+        )}
+        <div style={{ padding: "18px 20px calc(var(--safe-b) + 24px)" }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", padding: "5px 11px",
+            borderRadius: "var(--radius-pill)", background: style.bg, border: `1px solid ${style.bd}`,
+            color: style.color, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase",
+          }}>{typeLabel}</span>
+
+          <h1 style={{
+            margin: "14px 0 0", fontFamily: "var(--font-display)", fontWeight: 700,
+            fontSize: 24, lineHeight: 1.18, letterSpacing: "-0.01em", color: "var(--text)",
+          }}>{ev.title}</h1>
+
+          <SeatsLine ev={ev} t={t} />
+
+          {ev.matched?.length > 0 && (
+            <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", color: "var(--green)" }}>
+              ✨ {t("events.matches", { tags: ev.matched.join(", ") })}
+            </div>
+          )}
+
+          {/* Meta rows — starts / deadline / location / regions / partner */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
+            {start && <MetaRow glyph="◷" color="var(--teal-bright)" label={t("events.detail.startsLabel")} value={start} />}
+            {deadline && <MetaRow glyph="⏰" color="var(--amber)" label={t("events.detail.deadlineLabel")} value={deadline} />}
+            {ev.location && <MetaRow glyph="📍" label={t("events.locationLabel")} value={ev.location} />}
+            {regionsLabel && <MetaRow glyph="◎" label={t("events.detail.regions")} value={regionsLabel} />}
+            {partnerLabel && <MetaRow glyph="◆" label={t("events.detail.partner")} value={partnerLabel} />}
+          </div>
+
+          {err && !full && (
+            <div style={{ marginTop: 18, color: "var(--terra)", fontSize: 13.5, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              {t("events.detail.loadError")}
+              <button className="btn-ghost" onClick={load}>{tf("retry")}</button>
+            </div>
+          )}
+
+          {ev.description && (
+            <div style={{ marginTop: 22 }}>
+              <div style={{
+                fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8,
+              }}>{t("events.detail.about")}</div>
+              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-2)", whiteSpace: "pre-wrap" }}>
+                {ev.description}
+              </p>
+            </div>
+          )}
+
+          {loading && !full && (
+            <div style={{ textAlign: "center", padding: 24, color: "var(--text-3)" }}>
+              <Icon name="loader" size={20} color="var(--amber)" />
+            </div>
+          )}
+
+          {ev.link && (
+            <a href={ev.link} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{
+              display: "inline-flex", alignItems: "center", gap: 8, marginTop: 22, textDecoration: "none",
+            }}>
+              <Icon name="link" size={15} /> {t("events.open")}
+            </a>
+          )}
+
+          {/* Register / read-only action — same component as the card. */}
+          <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />
+        </div>
+      </div>
     </div>
   );
 };
@@ -252,6 +429,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
   const [type, setType] = useState(deepLinkEventId ? "all" : "foryou");
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [formEvent, setFormEvent] = useState(null);  // event whose registration form is open
+  const [detailId, setDetailId] = useState(null);    // event whose full detail view is open
 
   useEffect(() => { load(); /* eslint-disable-line */ }, [type]);
   useEffect(() => { if (deepLinkEventId) setType("all"); }, [deepLinkEventId]);
@@ -364,6 +542,7 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
                   fmt={fmt}
                   onRsvp={onRsvp}
                   onOpenForm={setFormEvent}
+                  onOpenDetail={(e) => setDetailId(e.id)}
                 />
               ))}
             </div>
@@ -373,8 +552,26 @@ export const EventsScreen = ({ onBack, embedded = false, deepLinkEventId = null 
 
       {FLAGS.PARTNERS && partnersOpen && <PartnersModal onClose={() => setPartnersOpen(false)} />}
 
+      {/* Full event detail — reads the live list item so its action stays in sync
+          with the feed after a toggle; closes back to the feed. */}
+      {detailId != null && (() => {
+        const seed = list.find((e) => e.id === detailId);
+        if (!seed) return null;
+        return (
+          <EventDetail
+            seed={seed}
+            t={t}
+            tf={tf}
+            onClose={() => setDetailId(null)}
+            onRsvp={onRsvp}
+            onOpenForm={setFormEvent}
+          />
+        );
+      })()}
+
       {/* Registration form — closing it is safe: every keystroke is already in
-          localStorage, so reopening restores the half-filled form. */}
+          localStorage, so reopening restores the half-filled form. Painted above
+          the detail overlay (higher z-index). */}
       {formEvent && (
         <EventFormSheet
           event={formEvent}

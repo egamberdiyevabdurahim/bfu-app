@@ -36,6 +36,8 @@ const DENIABLE = ["name", "surname", "phone_number", "about", "birth_year", "gen
 function roleLabel(role) {
   if (role === "super_admin") return "Super";
   if (role === "admin") return "Admin";
+  if (role === "partner") return "Partner";
+  if (role === "boss") return "Boss";
   return "User";
 }
 
@@ -237,6 +239,29 @@ export default function AdminUsers({ me }) {
     }
   }
 
+  // Promote an ordinary member to a partner org owner. Idempotent server-side:
+  // flips role to 'partner', creates/re-links a Partner org they own, and they
+  // then use /web/partner. Confirm (role change), prompt for the org name, POST.
+  async function doMakePartner(u) {
+    const who = u.name || u.tg_username || "this user";
+    if (!window.confirm(`Make ${who} a partner? This changes their role. They'll own a partner org and can open /web/partner.`)) return;
+    const suggested = u.name ? `${u.name}${u.surname ? " " + u.surname : ""}` : (u.tg_username || "");
+    const entered = window.prompt("Partner organization name?", suggested);
+    if (entered == null) return; // cancelled
+    const name = entered.trim();
+    if (!name) return;
+    setBusyId(u.id);
+    try {
+      await bfu(`/admin/users/${u.id}/make-partner`, { method: "POST", body: { name } });
+      patchRow(u.id, { role: "partner" });
+      showToast(`Made partner — they can now open /web/partner`);
+    } catch (e) {
+      showToast(e.message || "Couldn't make partner", "err");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function submitDeny(fields, note) {
     const u = denyFor;
     if (!u || fields.length === 0) return;
@@ -336,6 +361,7 @@ export default function AdminUsers({ me }) {
                   onDeny={() => setDenyFor(u)}
                   onShowFull={() => openFull(u)}
                   onNudge={() => doNudge(u)}
+                  onMakePartner={() => doMakePartner(u)}
                 />
               ))}
             </div>
@@ -390,10 +416,13 @@ export default function AdminUsers({ me }) {
   );
 }
 
-function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny, onShowFull, onNudge }) {
+function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRestore, onHardDelete, onDeny, onShowFull, onNudge, onMakePartner }) {
   const name = u.name ? `${u.name}${u.surname ? " " + u.surname : ""}` : u.tg_username || `User #${u.id}`;
   const banned = u.banned || u.is_deleted;
   const pending = !u.is_registered && !banned; // started sign-up, never finished → NOT in Discover
+  // "Make partner" is only for ordinary members — never for someone who's already
+  // a partner, admin, boss, or super_admin.
+  const canMakePartner = u.role === "user" && !banned;
   return (
     <div
       className="ch-cell"
@@ -433,7 +462,7 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
 
       {/* status pills */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: "0 0 auto", minWidth: 140 }}>
-        <Pill tone={u.role === "super_admin" ? "amber" : u.role === "admin" ? "ember" : "muted"}>
+        <Pill tone={u.role === "super_admin" ? "amber" : u.role === "admin" ? "ember" : u.role === "partner" ? "green" : "muted"}>
           {roleLabel(u.role)}
         </Pill>
         {pending ? (
@@ -474,6 +503,11 @@ function UserRow({ u, isSuper, busy, onVerify, onToggle, onSetRole, onBan, onRes
         )}
         {!banned && (
           <ActionBtn onClick={onDeny} busy={busy} title="Ask the user to correct profile fields">Deny…</ActionBtn>
+        )}
+        {canMakePartner && (
+          <ActionBtn onClick={onMakePartner} busy={busy} title="Promote to a partner org owner (they can then open /web/partner)">
+            ◆ Make partner
+          </ActionBtn>
         )}
         {isSuper && (
           <select

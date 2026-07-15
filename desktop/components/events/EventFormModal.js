@@ -587,6 +587,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
   const [phase, setPhase] = useState("loading"); // loading | ready | error
   const [loadError, setLoadError] = useState("");
   const [title, setTitle] = useState(event?.title || "");
+  const [location, setLocation] = useState(event?.location || "");
   const [schema, setSchema] = useState([]);
   const [answers, setAnswers] = useState({});
   const [errors, setErrors] = useState({});
@@ -595,6 +596,9 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
   const [restored, setRestored] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [hadResponse, setHadResponse] = useState(false);
+  // Flipped when a submit comes back 409 ("already registered"): the answers can't
+  // be changed, so we drop into the read-only view even before the reload lands.
+  const [forcedRegistered, setForcedRegistered] = useState(false);
   // After a successful FIRST registration we show a celebratory "invite a friend"
   // prompt (reusing InviteModal) before closing, instead of closing immediately.
   const [registered, setRegistered] = useState(false);
@@ -641,6 +645,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
 
       const qs = normalizeSchema(ev?.form_schema);
       if (ev?.title) setTitle(ev.title);
+      if (ev?.location !== undefined) setLocation(ev.location || "");
       setSchema(qs);
 
       // Server answers → baseline, coerced to the shape each question expects.
@@ -657,14 +662,24 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
         }
       }
 
+      // Registered up front? A stored response OR a going/waitlisted row means
+      // the answers are locked → read-only. Decide this BEFORE prefill so we never
+      // seed profile values that would masquerade as "submitted" answers in the
+      // read-only view.
+      const registeredNow =
+        (!!raw && Object.keys(raw).length > 0) ||
+        event?.my_rsvp === "going" ||
+        event?.my_rsvp === "waitlisted";
+
       // PREFILL — seed answers tagged with a `prefill` hint from the user's
       // profile, but only where the server has no answer for that question
       // (my-response wins over prefill). Baked into the baseline BEFORE the draft
       // merge below, so a saved draft still wins (draft > my-response > prefill >
-      // empty). Best-effort: a failed /users/me never blocks the form.
-      const prefillQs = qs.filter(
-        (q) => q.prefill && PREFILL_KINDS.has(q.prefill) && !isMulti(q.type)
-      );
+      // empty). Skipped entirely when already registered. Best-effort: a failed
+      // /users/me never blocks the form.
+      const prefillQs = registeredNow
+        ? []
+        : qs.filter((q) => q.prefill && PREFILL_KINDS.has(q.prefill) && !isMulti(q.type));
       if (prefillQs.length) {
         try {
           const me = await bfu("/users/me");
@@ -692,6 +707,16 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
 
       baselineRef.current = server;
       setHadResponse(!!raw && Object.keys(raw).length > 0);
+
+      // Already registered → read-only. Answers can't be edited (the server 409s
+      // a re-submit), so a saved draft is meaningless here: never restore it, and
+      // clear any stale one so it can't leak into a future first-time form.
+      if (registeredNow) {
+        clearDraft(meId, eventId);
+        setAnswers(server);
+        setPhase("ready");
+        return;
+      }
 
       // A surviving draft is strictly newer than the server's copy (a successful
       // submit clears it), so it wins — that's the whole point of persisting it.
@@ -819,6 +844,17 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
       });
 
       if (!ok) {
+        // Already registered — the server forbids editing submitted answers. Drop
+        // to the read-only view and refresh from the server so it shows the real
+        // (already-saved) answers rather than the ones just typed.
+        if (status === 409) {
+          setForcedRegistered(true);
+          setFormError("");
+          clearDraft(meId, eventId);
+          flash(t("community.events.form.alreadyRegistered"), "ok");
+          load();
+          return;
+        }
         // The server is the gate. Render ITS verdict, against the exact question.
         if (status === 422) {
           const { fields, message } = parseServerErrors(json, keySet);
@@ -888,7 +924,19 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
     }
   }
 
-  const alreadyGoing = event?.my_rsvp === "going" || hadResponse;
+  // Registered = a going/waitlisted row (with or without answers) OR a stored
+  // response OR a 409 we just hit. In every case the answers are LOCKED: we show
+  // a read-only view (withdrawing is still allowed), never the editable form.
+  const isRegistered =
+    event?.my_rsvp === "going" ||
+    event?.my_rsvp === "waitlisted" ||
+    hadResponse ||
+    forcedRegistered;
+
+  // Questions the member actually answered — rendered as label:value in the
+  // read-only view. Empty when a going/waitlisted row carries no answers.
+  const answeredQuestions = schema.filter((q) => isAnswered(answers[q.key]));
+  const displayValue = (v) => (Array.isArray(v) ? v.join(", ") : String(v ?? ""));
 
   // Invite bonus (reuses the existing InviteModal). Rendered alone so there's no
   // nested-overlay / backdrop-propagation tangle with this modal's own dialog.
@@ -1006,7 +1054,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
       <style>{`
         .evform-panel { width: 100%; max-width: 860px; margin: auto; display: flex; flex-direction: column;
                         max-height: min(88vh, 900px); padding: 0; overflow: hidden; background: var(--surface); }
-        .evform-body  { overflow-y: auto; padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 26px; }
+        .evform-body  { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 26px; }
         .evform-grid  { display: grid; grid-template-columns: 1fr; gap: 18px 22px; }
         @media (min-width: 780px) {
           .evform-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1046,6 +1094,19 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
               >
                 {title}
               </h2>
+              {location ? (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    letterSpacing: "0.03em",
+                    color: "var(--muted)",
+                  }}
+                >
+                  📍 {location}
+                </div>
+              ) : null}
             </div>
             <button
               type="button"
@@ -1059,7 +1120,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
             </button>
           </div>
 
-          {phase === "ready" && total > 0 ? (
+          {phase === "ready" && total > 0 && !isRegistered ? (
             <div style={{ marginTop: 14 }}>
               <div
                 style={{
@@ -1129,6 +1190,65 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
                 {t("community.tryAgain")}
               </button>
             </div>
+          </div>
+        ) : isRegistered ? (
+          // READ-ONLY. Once registered, answers are locked (a re-submit 409s), so
+          // there are no inputs and no Update — only a confirmation banner and the
+          // answers as they were sent. Withdrawing (footer) is still allowed.
+          <div className="evform-body">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+                padding: "13px 16px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid rgba(127,176,105,0.34)",
+                background: "rgba(127,176,105,0.1)",
+              }}
+            >
+              <span style={{ fontSize: 20 }} aria-hidden>✓</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>
+                  {t("community.events.form.registeredBannerTitle")}
+                </div>
+                <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                  {t("community.events.form.registeredBannerBody")}
+                </div>
+              </div>
+            </div>
+
+            {answeredQuestions.length ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {answeredQuestions.map((q) => (
+                  <div key={q.key}>
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: "var(--muted-strong)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {q.label}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 15,
+                        color: "var(--text)",
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {displayValue(answers[q.key])}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : total === 0 ? (
           // Defensive: `has_form` said yes but the schema came back empty. Don't
@@ -1235,9 +1355,9 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
                 <span role="alert" style={{ fontSize: 13, color: "var(--terra)", lineHeight: 1.45 }}>
                   {formError}
                 </span>
-              ) : alreadyGoing ? (
+              ) : isRegistered ? (
                 <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
-                  {t("community.events.form.editingHint")}
+                  {t("community.events.form.registeredFooterHint")}
                 </span>
               ) : (
                 <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
@@ -1246,7 +1366,9 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
               )}
             </div>
 
-            {alreadyGoing && total > 0 ? (
+            {isRegistered ? (
+              // Withdrawing is allowed; editing is not. A de-emphasized ghost
+              // control, plus a close on the far side.
               confirmWithdraw ? (
                 <>
                   <span style={{ fontSize: 13, color: "var(--terra)" }}>
@@ -1271,18 +1393,22 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  className="ch-btn-ghost"
-                  onClick={() => setConfirmWithdraw(true)}
-                  disabled={saving}
-                >
-                  {t("community.events.form.withdraw")}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="ch-btn-ghost"
+                    onClick={() => setConfirmWithdraw(true)}
+                    disabled={saving}
+                    style={{ fontSize: 12.5, color: "var(--muted-strong)" }}
+                  >
+                    {t("community.events.form.withdraw")}
+                  </button>
+                  <button type="button" className="ch-btn-primary" onClick={() => onClose?.()}>
+                    {t("common.close")}
+                  </button>
+                </>
               )
-            ) : null}
-
-            {total > 0 ? (
+            ) : total > 0 ? (
               <button
                 type="submit"
                 form="evform"
@@ -1292,9 +1418,7 @@ export default function EventFormModal({ event, meId = null, onClose, onRsvp }) 
               >
                 {saving
                   ? t("community.events.form.submitting")
-                  : alreadyGoing
-                    ? t("community.events.form.update")
-                    : t("community.events.form.submit")}
+                  : t("community.events.form.submit")}
               </button>
             ) : (
               <button type="button" className="ch-btn-ghost" onClick={() => onClose?.()}>

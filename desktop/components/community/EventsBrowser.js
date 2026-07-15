@@ -14,16 +14,19 @@ import EventFormModal from "@/components/events/EventFormModal";
 //                                      created_at, has_form }
 //   GET /events/for-me  → same fields + { matched:[tag], score } (relevance-ranked
 //                         against the user's AI tags + region — the "For you" tab)
-// Rendered as Chorsu event cards; each card links out to `link` when present.
+// Rendered as Chorsu event cards; each card body links INTERNALLY to the detail
+// page /web/events/{id} (the external `link`, when present, is a button there).
 //
 // REGISTRATION FORMS. An event may carry a `form_schema` (questions authored by an
 // admin, so they're data — changing them needs no deploy). The feed only carries the
 // boolean `has_form`; the questions themselves come from GET /events/{id} inside the
 // modal. Behaviour mirrors the Mini App exactly:
 //   • has_form false → the 1-click RSVP below is UNCHANGED,
-//   • has_form true  → "Going" opens EventFormModal and you are only going once
-//                      POST /events/{id}/rsvp {status:"going", answers} succeeds,
-//   • "Interested"   → never opens the form, in either case.
+//   • has_form true  → "Register" opens EventFormModal and you are only going once
+//                      POST /events/{id}/rsvp {status:"going", answers} succeeds;
+//                      once registered, the pill opens a READ-ONLY view (answers
+//                      are locked — a re-submit 409s — but you can still withdraw).
+// There is no "Interested" state in v1 — members can only Register/Go.
 
 const TYPE_STYLE = {
   hackathon: { color: "var(--amber)", bg: "rgba(232,161,92,0.14)", bd: "rgba(232,161,92,0.34)" },
@@ -63,10 +66,9 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
   const set = async (status) => {
     if (busy) return;
     // Form gate. "Going" on a form event hands off to the modal — both when
-    // registering and when already going (reopen → prefilled → re-submit
-    // overwrites). Un-RSVP for those events lives inside the modal, so the pill
-    // never silently throws away someone's submitted answers.
-    // "Interested" is never gated.
+    // registering (editable form) and when already registered (read-only view of
+    // the submitted answers). Un-RSVP for those events lives inside the modal, so
+    // the pill never silently throws away someone's submitted answers.
     if (status === "going" && ev.has_form) {
       onOpenForm?.(ev);
       return;
@@ -117,9 +119,6 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
               ? t("community.events.rsvpRegister")
               : t("community.events.rsvpGoing")}
         </button>
-        <button type="button" disabled={busy} onClick={() => set("interested")} style={{ ...base, ...pill(ev.my_rsvp === "interested") }}>
-          {ev.my_rsvp === "interested" ? "✓ " : ""}{t("community.events.rsvpInterested")}
-        </button>
         {ev.rsvp_count > 0 ? (
           <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--muted)" }}>
             {t("community.events.goingCount", { n: ev.rsvp_count })}
@@ -127,9 +126,10 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
         ) : null}
       </div>
 
-      {/* Say out loud that this one asks questions — and, once registered, that the
-          answers are still editable. Otherwise "Going" looks like a 1-click pill
-          that unexpectedly opens a 30-question dialog. */}
+      {/* Say out loud that this one asks questions — and, once registered, offer a
+          read-only view of what was submitted (answers are locked; withdrawing is
+          done inside the modal). Otherwise "Going" looks like a 1-click pill that
+          unexpectedly opens a 30-question dialog. */}
       {ev.has_form ? (
         <div
           style={{
@@ -155,7 +155,7 @@ function RsvpRow({ ev, onRsvp, onOpenForm }) {
                 textUnderlineOffset: 3,
               }}
             >
-              {t("community.events.editAnswers")}
+              {t("community.events.viewRegistration")}
             </button>
           ) : (
             <span>◇ {t("community.events.hasForm")}</span>
@@ -256,6 +256,20 @@ function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
         </div>
       ) : null}
 
+      {ev.location ? (
+        <div
+          style={{
+            marginTop: 10,
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            letterSpacing: "0.04em",
+            color: "var(--muted)",
+          }}
+        >
+          📍 {ev.location}
+        </div>
+      ) : null}
+
       <SeatsLine ev={ev} t={t} />
 
       {ev.description ? (
@@ -289,39 +303,35 @@ function EventCard({ ev, onRsvp, onOpenForm, highlighted }) {
         </div>
       ) : null}
 
-      {ev.link ? (
-        <div
-          style={{
-            marginTop: 16,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "var(--amber)",
-          }}
-        >
-          {t("community.openDetails")}
-        </div>
-      ) : null}
+      <div
+        style={{
+          marginTop: 16,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--amber)",
+        }}
+      >
+        {t("community.openDetails")}
+      </div>
     </>
   );
 
-  // The whole card is ONE tile (outer .ch-cell for the hover glow when linkable,
-  // else .ch-cell-static). The body is a plain block link over the content; the
-  // RSVP row sits below it inside the same tile but OUTSIDE the <a>, so its clicks
-  // never trigger the outbound nav.
+  // The whole card is ONE tile with the .ch-cell hover glow. The body is a block
+  // link to the INTERNAL detail page (/web/events/{id}) — the external `link` now
+  // lives as a button on that page. The RSVP row sits below it inside the same
+  // tile but OUTSIDE the <a>, so its clicks never trigger the nav.
   const contentStyle = { display: "block", padding: "28px 28px 0", color: "var(--text)", textDecoration: "none" };
-  const body = ev.link ? (
-    <a href={ev.link} target="_blank" rel="noopener noreferrer" style={{ ...contentStyle, cursor: "pointer" }}>
+  const body = (
+    <a href={`/web/events/${ev.id}`} style={{ ...contentStyle, cursor: "pointer" }}>
       {inner}
     </a>
-  ) : (
-    <div style={contentStyle}>{inner}</div>
   );
   return (
     <div
       ref={ref}
-      className={ev.link ? "ch-cell" : "ch-cell-static"}
+      className="ch-cell"
       style={{
         padding: 0, overflow: "hidden",
         ...(highlighted ? { border: "1.5px solid var(--amber)", boxShadow: "0 0 24px rgba(232,161,92,0.28)" } : null),

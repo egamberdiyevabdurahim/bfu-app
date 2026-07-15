@@ -24,6 +24,12 @@ class EventOut(BaseModel):
     # the detail's "for these regions" label).
     region_ids: list[int] | None = None
     location: str | None = None        # free-text venue / place
+    # Hosting partner org. partner_id is the raw column; partner_name is resolved
+    # on the detail endpoint so an event page can credit e.g. "Hosted by Marstiff"
+    # (null for BFU-run events). partner_name is null on list rows (not resolved
+    # there) — the card only shows it when present.
+    partner_id: int | None = None
+    partner_name: str | None = None
     created_at: datetime
     rsvp_count: int = 0          # number of "going" RSVPs (== going_count; kept for back-compat)
     my_rsvp: str | None = None   # this user's status ("going"/"interested"/"waitlisted") or None

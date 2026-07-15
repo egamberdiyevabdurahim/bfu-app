@@ -1,5 +1,6 @@
 import { cache } from "react";
 import "server-only";
+import { getToken } from "./session";
 
 const API_BASE = process.env.BFU_API_URL;
 
@@ -93,5 +94,34 @@ export const getProject = cache(async (id) => {
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`BFU API error ${res.status} fetching project ${id}`);
+  return res.json();
+});
+
+/**
+ * Fetches one event + its registration form (EventDetailOut) for the event
+ * detail page. UNLIKE getProject, GET /events/{id} is AUTHED and per-user (it
+ * carries my_rsvp), so this uses the session Bearer token (like getMe) and
+ * cache: "no-store" — never a shared/ISR cache. cache()-wrapped so the page and
+ * its generateMetadata share one round-trip.
+ *
+ * Returns null when there's no session, the token is rejected (401/403), or the
+ * event is missing / unapproved / deleted (404). The page uses getMe() to tell
+ * "not logged in" (→ /login) apart from "not found" (→ notFound()).
+ */
+export const getEvent = cache(async (id) => {
+  const token = await getToken();
+  if (!token) return null;
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/events/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+  if (res.status === 404) return null;
+  if (res.status === 401 || res.status === 403) return null;
+  if (!res.ok) throw new Error(`BFU API error ${res.status} fetching event ${id}`);
   return res.json();
 });

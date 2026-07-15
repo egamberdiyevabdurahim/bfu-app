@@ -13,6 +13,7 @@ from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.event import Event
 from app.models.event_rsvp import EventRsvp
+from app.models.partner import Partner
 from app.models.user import User
 from app.schemas.event import EventDetailOut, EventOut, MyResponseOut, RsvpIn
 from app.services.event_forms import has_form, parse_answers
@@ -459,4 +460,11 @@ async def get_event(
     if not e:
         raise HTTPException(status_code=404, detail="Event not found")
     await _attach_rsvp(db, [e], me.id)
+    # Resolve the hosting partner's name for the "Hosted by …" credit on the
+    # detail page (e.g. Marstiff). Set as a plain attribute so EventDetailOut
+    # picks it up via from_attributes. Null for BFU-run events.
+    if e.partner_id:
+        e.partner_name = await db.scalar(
+            select(Partner.name).where(Partner.id == e.partner_id)
+        )
     return e

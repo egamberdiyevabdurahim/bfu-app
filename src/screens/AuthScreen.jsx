@@ -241,7 +241,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
                 <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
                   color: "var(--text-3)", fontSize: 14, pointerEvents: "none", fontFamily: "var(--font-body)" }}>+998</span>
                 <input className="input-field" type="tel" inputMode="numeric" placeholder="90 123 45 67"
-                  autoComplete="off" name="bfu-phone-local" data-lpignore="true"
+                  autoComplete="off" name="bfu-reg-9d" data-lpignore="true"
                   value={phoneLocal(form.phone_number)}
                   onChange={e => set("phone_number", toE164(e.target.value))}
                   style={{ paddingLeft: 52 }} />

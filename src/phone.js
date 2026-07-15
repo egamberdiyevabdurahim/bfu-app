@@ -7,16 +7,20 @@
 export const PHONE_PREFIX = "+998";
 export const PHONE_LOCAL_LEN = 9;
 
-// Reduce any stored/typed/pasted value to its 9 LOCAL digits. Strip everything
-// that isn't a digit, then drop a leading "998" country code ONLY when the input
-// is longer than 9 digits (i.e. a full number was pasted). A bare 9-digit value is
-// kept as-is — critical for real operator-99 locals like "998234567" (Beeline),
-// whose leading 998 must NOT be mistaken for the country code. (Matches
-// desktop/lib/phone.js toLocalPhone exactly so both apps agree.)
+// Reduce any stored/typed/pasted value to its 9 LOCAL digits.
+//   1. Strip our own canonical "+998" prefix FIRST — the stored value is always
+//      "+998"+local (see toE164), so this is the round-trip that runs on every
+//      keystroke. (Without it, storing "+9989" and reading it back showed "9989":
+//      the "998" appeared to type itself.)
+//   2. Then, from a PASTED full number (>9 digits) drop a bare 998 country code.
+//   3. A bare 9-digit value is kept as-is — critical for real operator-99 locals
+//      like "998234567" (Beeline), whose leading 998 is NOT a country code.
 export const phoneLocal = (v) => {
-  let d = String(v ?? "").replace(/\D/g, "");
-  if (d.length > PHONE_LOCAL_LEN && d.startsWith("998")) d = d.slice(3);
-  return d.slice(0, PHONE_LOCAL_LEN);
+  let s = String(v ?? "").trim();
+  if (s.startsWith(PHONE_PREFIX)) s = s.slice(PHONE_PREFIX.length);
+  s = s.replace(/\D/g, "");
+  if (s.length > PHONE_LOCAL_LEN && s.startsWith("998")) s = s.slice(3);
+  return s.slice(0, PHONE_LOCAL_LEN);
 };
 
 // True only when exactly 9 local digits are present.

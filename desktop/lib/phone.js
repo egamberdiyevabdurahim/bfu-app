@@ -6,13 +6,19 @@
 export const PHONE_PREFIX = "+998";
 export const PHONE_LOCAL_LEN = 9;
 
-// Reduce any stored/typed/pasted value to its 9 local digits: strip everything
-// that isn't a digit, drop a leading 998 country code if a full number came in,
-// then cap at 9.
+// Reduce any stored/typed/pasted value to its 9 local digits.
+//   1. Strip our own canonical "+998" prefix FIRST — the stored value is always
+//      "+998"+local (see fullPhone), so this round-trip runs on every keystroke.
+//      (Without it, "+9989" read back as "9989" — the "998" typed itself.)
+//   2. From a PASTED full number (>9 digits), drop a bare 998 country code.
+//   3. Keep a bare 9-digit value as-is — real operator-99 locals (e.g. 998234567)
+//      legitimately start with 998 and must NOT lose it.
 export function toLocalPhone(raw) {
-  let d = String(raw ?? "").replace(/\D/g, "");
-  if (d.length > PHONE_LOCAL_LEN && d.startsWith("998")) d = d.slice(3);
-  return d.slice(0, PHONE_LOCAL_LEN);
+  let s = String(raw ?? "").trim();
+  if (s.startsWith(PHONE_PREFIX)) s = s.slice(PHONE_PREFIX.length);
+  s = s.replace(/\D/g, "");
+  if (s.length > PHONE_LOCAL_LEN && s.startsWith("998")) s = s.slice(3);
+  return s.slice(0, PHONE_LOCAL_LEN);
 }
 
 // Compose the full +998######### value from any input. Empty string when there

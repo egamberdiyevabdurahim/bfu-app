@@ -52,7 +52,7 @@ export default function PhoneInput({
         // Chrome's tel autofill was inserting saved numbers/junk as the user
         // typed. Suppress it (off + a non-standard name + password-manager ignore).
         autoComplete="off"
-        name="bfu-phone-local"
+        name="bfu-reg-9d"
         data-lpignore="true"
         maxLength={PHONE_LOCAL_LEN}
         value={local}

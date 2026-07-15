@@ -1,6 +1,34 @@
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
+
+# ── Shared field rules (frontends mirror these EXACT rules) ────────────────────
+# PHONE: valid iff it matches +998 then exactly 9 digits.
+# ABOUT: valid iff it has at least 10 whitespace-separated words.
+_PHONE_RE = re.compile(r"^\+998\d{9}$")
+_ABOUT_MIN_WORDS = 10
+
+
+def validate_phone(v: str | None) -> str | None:
+    """Return the trimmed phone if it matches ^\\+998\\d{9}$, else raise. None
+    passes through (the field is optional on the edit path)."""
+    if v is None:
+        return v
+    v = v.strip()
+    if not _PHONE_RE.match(v):
+        raise ValueError("Phone must be +998 followed by 9 digits")
+    return v
+
+
+def validate_about(v: str | None) -> str | None:
+    """Return `about` unchanged if it has >= 10 words, else raise. None passes
+    through (the field is optional / not always edited)."""
+    if v is None:
+        return v
+    if len([w for w in v.split() if w]) < _ABOUT_MIN_WORDS:
+        raise ValueError("About must be at least 10 words")
+    return v
 
 
 class AnalysisOut(BaseModel):
@@ -164,6 +192,12 @@ class UserUpdate(BaseModel):
     dm_privacy: str | None = None   # "everyone" | "connections" (validated in update_me)
     who_viewed_consent: bool | None = None
 
+    # Server-side mirror of the shared contract — only enforced when a value is
+    # actually present (None = field omitted, leaves it untouched).
+    _v_phone = field_validator("phone_number")(validate_phone)
+    _v_about = field_validator("about")(validate_about)
+
+
 class NotificationPrefsUpdate(BaseModel):
     """PATCH /users/me/notification-prefs body. Every category is optional; only
     the keys the client actually sends (non-None) are merged into the user's
@@ -189,6 +223,14 @@ class RegisterRequest(BaseModel):
     phone_number: str = Field(min_length=5, max_length=25)
     region_id: int
     language: str | None = None
+    # Intentions ("what I'm here for"). Optional in the body — when omitted on a
+    # first registration the endpoint DEFAULTS them ON (opt-in to everything,
+    # editable later in the profile). School / learning-center are NOT collected
+    # here (removed from the form); their rows stay optional.
+    open_to_work: bool | None = None
+    open_to_volunteering: bool | None = None
+
+    _v_phone = field_validator("phone_number")(validate_phone)
 
     @field_validator("gender")
     @classmethod

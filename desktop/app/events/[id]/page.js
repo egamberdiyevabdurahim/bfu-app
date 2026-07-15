@@ -107,9 +107,13 @@ export default async function EventDetailPage({ params }) {
   if (event.capacity != null) {
     const left = event.seats_left;
     if (typeof left === "number" && left > 0) {
-      seatsText = left === 1
-        ? t("community.events.seatsLeftOne")
-        : t("community.events.seatsLeft", { n: left });
+      // Scarcity cue only: show the count when 10 or fewer seats remain; hide it
+      // when there is plenty of room (> 10). Full/waitlist states are unchanged.
+      if (left <= 10) {
+        seatsText = left === 1
+          ? t("community.events.seatsLeftOne")
+          : t("community.events.seatsLeft", { n: left });
+      }
     } else {
       seatsText = t("community.events.full");
     }

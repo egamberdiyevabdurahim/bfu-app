@@ -4,9 +4,9 @@ import { users, regions } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm } from "../tg";
 import { FLAGS } from "../flags";
+import { phoneLocal, phoneComplete, toE164 } from "../phone";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const phoneRegex = /^\+?[0-9]{7,15}$/;
 
 export const EditProfileScreen = ({ me, onBack, onSaved }) => {
   const { t, lang, setLang } = useT();
@@ -73,7 +73,8 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         errs.birth_year = t("ep.birthYearRange", { min: CURRENT_YEAR - 60, max: CURRENT_YEAR - 10 });
       }
     }
-    if (form.phone_number && !phoneRegex.test(form.phone_number)) {
+    // Phone is optional here — but when provided it must be exactly 9 local digits.
+    if (phoneLocal(form.phone_number).length > 0 && !phoneComplete(form.phone_number)) {
       errs.phone_number = t("ep.phoneInvalid");
     }
     setErrors(errs);
@@ -221,8 +222,17 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
             </div>
             <div style={{ flex: 2 }}>
               <div className="section-label">{t("ep.phone")}</div>
-              <input className="input-field" type="tel" placeholder="+998911853616"
-                value={form.phone_number} onChange={e => set("phone_number", e.target.value)} />
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                  color: "var(--text-3)", fontSize: 14, pointerEvents: "none", fontFamily: "var(--font-body)" }}>+998</span>
+                <input className="input-field" type="tel" inputMode="numeric" placeholder="90 123 45 67"
+                  value={phoneLocal(form.phone_number)}
+                  onChange={e => { const d = e.target.value.replace(/\D/g, "").slice(0, 9); set("phone_number", d ? toE164(d) : ""); }}
+                  style={{ paddingLeft: 52 }} />
+              </div>
+              {phoneLocal(form.phone_number).length > 0 && !phoneComplete(form.phone_number) && (
+                <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{t("ep.phoneDigits")}</div>
+              )}
               {errors.phone_number && <div style={{ color: "#FF6363", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
             </div>
           </div>

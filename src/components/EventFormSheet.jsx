@@ -4,6 +4,7 @@ import { Icon } from "./Icons";
 import { InviteSheet } from "./InviteSheet";
 import { useT } from "../i18n";
 import { haptic } from "../tg";
+import { phoneLocal, toE164 } from "../phone";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event registration form — the member-facing filler.
@@ -244,9 +245,17 @@ const Field = ({ q, value, error, onChange, tf, bindRef }) => {
       );
       break;
     case "phone":
+      // Fixed, non-editable "+998" prefix; the user types only the 9 local digits.
+      // Stored answer is the canonical "+998XXXXXXXXX".
       control = (
-        <input className="input-field" type="tel" inputMode="tel" maxLength={40} placeholder="+998 ..." style={inputStyle}
-          value={value || ""} onChange={(e) => onChange(e.target.value)} />
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+            color: "var(--text-3)", fontSize: 14, pointerEvents: "none", fontFamily: "var(--font-body)" }}>+998</span>
+          <input className="input-field" type="tel" inputMode="numeric" maxLength={9} placeholder="90 123 45 67"
+            style={{ ...inputStyle, paddingLeft: 52 }}
+            value={phoneLocal(value)}
+            onChange={(e) => { const d = e.target.value.replace(/\D/g, "").slice(0, 9); onChange(d ? toE164(d) : ""); }} />
+        </div>
       );
       break;
     case "dropdown":

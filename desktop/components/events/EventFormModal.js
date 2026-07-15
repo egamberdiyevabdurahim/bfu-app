@@ -6,6 +6,8 @@ import { useToast } from "@/lib/useToast";
 import { Toast } from "@/components/ui/Toast";
 import { useT, useLang } from "@/components/i18n/LocaleProvider";
 import InviteModal from "@/components/InviteModal";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
 // Event registration form (desktop). An event may carry a `form_schema` — a list
 // of questions authored by an admin in the panel, so the questions are DATA and
@@ -226,6 +228,10 @@ function validateAnswers(schema, answers, t) {
     }
     if (q.type === "number" && !Number.isFinite(Number(s))) {
       errs[q.key] = t("community.events.form.errNumber");
+      continue;
+    }
+    if (q.type === "phone" && !isCompletePhone(s)) {
+      errs[q.key] = t("community.events.form.errPhone");
       continue;
     }
     if (s.length > MAX_ANSWER_LEN) {
@@ -511,10 +517,27 @@ function Field({ q, value, error, onChange, inputRef, eventId }) {
         })}
       </div>
     );
+  } else if (q.type === "phone") {
+    // Fixed +998 prefix; the user types only the 9 local digits. Stored/submitted
+    // as the full "+998#########" — the server enforces the same shape.
+    control = (
+      <PhoneInput
+        value={value ?? ""}
+        onChange={(full) => onChange(q.key, full)}
+        baseStyle={{ ...inputBase, borderColor: border }}
+        invalid={invalid}
+        inputRef={inputRef}
+        inputProps={{
+          id: domId,
+          "aria-invalid": invalid || undefined,
+          "aria-describedby": invalid ? errId : undefined,
+        }}
+      />
+    );
   } else {
-    // text | number | date | phone
+    // text | number | date
     const type =
-      q.type === "number" ? "number" : q.type === "date" ? "date" : q.type === "phone" ? "tel" : "text";
+      q.type === "number" ? "number" : q.type === "date" ? "date" : "text";
     control = (
       <input
         {...common}

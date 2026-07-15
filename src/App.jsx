@@ -15,6 +15,7 @@ import { ProjectDetail } from "./components/ProjectDetail";
 import { MessagesScreen } from "./components/MessagesScreen";
 import { Onboarding } from "./components/Onboarding";
 import { WebBridge } from "./components/WebBridge";
+import { ChannelReminder } from "./components/ChannelReminder";
 import { startUpdateCheck } from "./updateCheck";
 import { FLAGS } from "./flags";
 
@@ -325,6 +326,10 @@ function MiniApp() {
                 Same !forceSettings gate as the nav: a locked profile is the one
                 thing we want them fixing, not a second screen to go read it on. */}
             {!forceSettings && !showOnboarding && <WebBridge />}
+            {/* Gentle, recurring "join the BFU channel" nudge — replaces the old
+                hard group-join gate in registration. Never blocking; hidden while
+                a locked profile or the walkthrough owns the screen. */}
+            {!forceSettings && !showOnboarding && <ChannelReminder />}
           </>
         )}
         {deepUserId && (

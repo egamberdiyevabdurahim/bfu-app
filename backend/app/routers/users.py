@@ -941,6 +941,8 @@ async def register_member(
     if region is None:
         raise HTTPException(status_code=422, detail="Unknown region")
 
+    was_registered = current_user.is_registered
+
     current_user.name = body.name.strip()
     current_user.surname = (body.surname or "").strip() or None
     current_user.gender = body.gender
@@ -949,6 +951,25 @@ async def register_member(
     current_user.region_id = body.region_id
     if body.language:
         current_user.language = body.language
+
+    # Intentions default ON at first registration: a brand-new member is opted
+    # in to everything (editable later in the profile) unless the client
+    # explicitly sent a value. For an already-registered member re-using this
+    # endpoint to update fields, only apply the flags they actually sent so we
+    # never silently flip back a preference they turned off.
+    if not was_registered:
+        current_user.open_to_work = (
+            True if body.open_to_work is None else body.open_to_work
+        )
+        current_user.open_to_volunteering = (
+            True if body.open_to_volunteering is None else body.open_to_volunteering
+        )
+    else:
+        if body.open_to_work is not None:
+            current_user.open_to_work = body.open_to_work
+        if body.open_to_volunteering is not None:
+            current_user.open_to_volunteering = body.open_to_volunteering
+
     current_user.is_registered = True
     await db.commit()
     return {"ok": True, "is_registered": True}

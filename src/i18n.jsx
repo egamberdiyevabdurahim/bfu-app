@@ -263,6 +263,12 @@ const STRINGS = {
   "auth.err.gender": { en: "Please select a gender", uz: "Jinsni tanlang", ru: "Выберите пол" },
   "auth.err.birthYear": { en: "Birth year must be between {min} and {max}", uz: "Tug‘ilgan yil {min}–{max} oralig‘ida bo‘lishi kerak", ru: "Год рождения должен быть между {min} и {max}" },
   "auth.err.phone": { en: "Enter a valid phone number (e.g. +998911853616)", uz: "To‘g‘ri telefon raqamini kiriting (masalan, +998911853616)", ru: "Введите корректный номер (например, +998911853616)" },
+  "auth.err.phoneDigits": { en: "Enter exactly 9 digits after +998", uz: "+998 dan keyin roppa-rosa 9 ta raqam kiriting", ru: "Введите ровно 9 цифр после +998" },
+
+  // About — live word counter (min 10 words)
+  "auth.about.counter": { en: "{n} / {min} words", uz: "{n} / {min} so‘z", ru: "{n} / {min} слов" },
+  "auth.about.hint": { en: "Write at least {min} words so AI can match you well.", uz: "AI sizni yaxshi moslashi uchun kamida {min} so‘z yozing.", ru: "Напишите не менее {min} слов, чтобы ИИ подобрал вам подходящее." },
+  "auth.about.ok": { en: "Looks good — keep going if you like.", uz: "Yaxshi — xohlasangiz davom eting.", ru: "Отлично — можете продолжить." },
 
   // Step 3 — location
   "auth.step.locTitle": { en: "Your location", uz: "Joylashuvingiz", ru: "Ваше местоположение" },
@@ -424,6 +430,7 @@ const STRINGS = {
   "ep.birthYearRange": { en: "Must be between {min} and {max}", uz: "{min}–{max} oralig‘ida bo‘lishi kerak", ru: "Должно быть между {min} и {max}" },
   "ep.phone": { en: "Phone Number", uz: "Telefon raqami", ru: "Номер телефона" },
   "ep.phoneInvalid": { en: "Enter a valid phone number (e.g. +998911853616)", uz: "To‘g‘ri telefon raqamini kiriting (masalan, +998911853616)", ru: "Введите корректный номер (например, +998911853616)" },
+  "ep.phoneDigits": { en: "Enter exactly 9 digits after +998", uz: "+998 dan keyin roppa-rosa 9 ta raqam kiriting", ru: "Введите ровно 9 цифр после +998" },
   "ep.gender": { en: "Gender", uz: "Jins", ru: "Пол" },
   "ep.region": { en: "Region", uz: "Hudud", ru: "Регион" },
   "ep.regionPlaceholder": { en: "Select your region", uz: "Hududingizni tanlang", ru: "Выберите регион" },
@@ -516,6 +523,11 @@ const STRINGS = {
   "loc.sharing": { en: "Getting location…", uz: "Joylashuv olinmoqda…", ru: "Определение локации…" },
   "loc.shared": { en: "✓ Location added", uz: "✓ Joylashuv qo‘shildi", ru: "✓ Локация добавлена" },
   "loc.failed": { en: "Couldn't get location. You can skip this.", uz: "Joylashuvni olib bo‘lmadi. Buni o‘tkazib yuborishingiz mumkin.", ru: "Не удалось определить локацию. Можно пропустить." },
+
+  // ── BFU channel reminder (soft, recurring) ────────────────────────────────
+  "channel.title": { en: "Join the BFU channel", uz: "BFU kanaliga qo‘shiling", ru: "Присоединяйтесь к каналу BFU" },
+  "channel.body": { en: "Stay updated on events and opportunities.", uz: "Tadbirlar va imkoniyatlardan xabardor bo‘ling.", ru: "Будьте в курсе событий и возможностей." },
+  "channel.join": { en: "Join", uz: "Qo‘shilish", ru: "Вступить" },
 
   // ── Discover / match / verified ───────────────────────────────────────────
   "discover.forYou": { en: "For you", uz: "Siz uchun", ru: "Для вас" },

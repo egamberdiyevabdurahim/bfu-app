@@ -8,6 +8,8 @@ import { useToast } from "@/lib/useToast";
 import { handleFor } from "@/lib/handle";
 import { useT } from "@/components/i18n/LocaleProvider";
 import AchievementsCell from "@/components/AchievementsCell";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 import { FLAGS } from "@/lib/flags";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -18,7 +20,13 @@ import { FLAGS } from "@/lib/flags";
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_BIRTH_YEAR = CURRENT_YEAR - 60;
 const MAX_BIRTH_YEAR = CURRENT_YEAR - 10;
-const PHONE_RE = /^\+?[0-9]{7,15}$/;
+const ABOUT_MIN_WORDS = 10;
+
+// Count whitespace-separated words (SHARED RULE: about must be >= 10 words).
+function wordCount(s) {
+  const v = String(s || "").trim();
+  return v ? v.split(/\s+/).length : 0;
+}
 
 // The fields an admin may flag for correction — mirrors DENIABLE_FIELDS in
 // backend/app/routers/admin.py (and the DENIABLE list in dashboard/AdminUsers.js).
@@ -293,6 +301,7 @@ export default function ProfileEditor({ initial, regions }) {
   }
 
   const dirty = Object.keys(changedFields()).length > 0;
+  const aboutWords = wordCount(about);
 
   // Same rules as the Mini App / RegisterFlow: name + surname required; birth
   // year (when given) inside the allowed window; phone (when given) a plausible
@@ -317,9 +326,15 @@ export default function ProfileEditor({ initial, regions }) {
       errs.birth_year = t("settings.err_birth_year_required");
     }
     if (phone.trim()) {
-      if (!PHONE_RE.test(phone.trim())) errs.phone_number = t("settings.err_phone");
+      if (!isCompletePhone(phone)) errs.phone_number = t("settings.err_phone");
     } else if (b.phone_number.trim()) {
       errs.phone_number = t("settings.err_phone_required");
+    }
+    // SHARED RULE: about must be >= 10 words. Only enforced when the user is
+    // actually changing it, so an older short bio can't trap them out of saving
+    // an unrelated field.
+    if (about !== b.about && aboutWords < ABOUT_MIN_WORDS) {
+      errs.about = t("settings.about_min");
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -725,16 +740,18 @@ export default function ProfileEditor({ initial, regions }) {
                   {t("settings.phone_label")}
                   <DenyChip field="phone_number" />
                 </span>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  maxLength={25}
-                  placeholder="+998911853616"
-                  aria-invalid={errors.phone_number ? true : undefined}
-                  style={fieldStyle("phone_number")}
+                  onChange={setPhone}
+                  baseStyle={fieldStyle("phone_number")}
+                  invalid={!!errors.phone_number || isDenied("phone_number")}
+                  inputProps={{ "aria-invalid": errors.phone_number ? true : undefined }}
                 />
-                {errors.phone_number ? <div style={errText}>{errors.phone_number}</div> : null}
+                {errors.phone_number ? (
+                  <div style={errText}>{errors.phone_number}</div>
+                ) : phone && !isCompletePhone(phone) ? (
+                  <div style={errText}>{t("settings.err_phone")}</div>
+                ) : null}
               </label>
             </div>
           </Section>
@@ -761,16 +778,22 @@ export default function ProfileEditor({ initial, regions }) {
               />
               <span
                 style={{
-                  display: "block",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
                   marginTop: 6,
-                  textAlign: "right",
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: about.length > 560 ? "var(--amber)" : "var(--muted-strong)",
                 }}
               >
-                {about.length}/600
+                <span style={{ color: aboutWords >= ABOUT_MIN_WORDS ? "var(--green)" : "var(--muted-strong)" }}>
+                  {t("settings.about_count", { n: aboutWords, min: ABOUT_MIN_WORDS })}
+                </span>
+                <span style={{ color: about.length > 560 ? "var(--amber)" : "var(--muted-strong)" }}>
+                  {about.length}/600
+                </span>
               </span>
+              {errors.about ? <div style={errText}>{errors.about}</div> : null}
             </label>
 
             {/* AI bio coach */}

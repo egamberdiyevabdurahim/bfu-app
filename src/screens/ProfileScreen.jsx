@@ -392,7 +392,9 @@ export const ProfileScreen = () => {
             )}
           </div>
 
-          {/* Reputation */}
+          {/* Reputation — hidden for V1 (rating/reputation is a TRUST feature).
+              Flip FLAGS.TRUST to bring the ring card back. */}
+          {FLAGS.TRUST && (
           <div className="ch-cell-static" style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <ReputationRing average={rating.average} />
             <div style={{ minWidth: 0 }}>
@@ -411,6 +413,7 @@ export const ProfileScreen = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Looking for */}
           {lookingFor && (
@@ -633,7 +636,10 @@ export const ProfileScreen = () => {
           {FLAGS.NOTIF_PREFS && (
             <ActionRow glyph="🔔" label={t("notif.settingsRow")} onClick={() => setNotifPrefsOpen(true)} />
           )}
-          <ActionRow glyph="🚫" label={t("blocked.title")} onClick={() => setBlockedOpen(true)} />
+          {/* Block-user management — hidden for V1. Restore by removing the `false &&`. */}
+          {false && (
+            <ActionRow glyph="🚫" label={t("blocked.title")} onClick={() => setBlockedOpen(true)} />
+          )}
           {isMentor && (
             <ActionRow glyph="🗓️" label={t("mentor.mySlots")} onClick={() => setSlotsOpen(true)} />
           )}

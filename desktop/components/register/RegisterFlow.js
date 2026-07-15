@@ -6,16 +6,27 @@ import { bfu } from "@/lib/client-api";
 import { useT, useLang } from "@/components/i18n/LocaleProvider";
 import { nearestRegionId } from "@/lib/regionCentroids";
 import { asset } from "@/lib/asset";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
-// Mirrors the Telegram Mini App's 6-step registration (src/screens/AuthScreen.jsx):
-// language → basic info → location/school/centers → about → intentions → groups.
-// Submits with the SAME backend calls the Mini App uses: PATCH /users/me then
+// A slimmed 4-step web sign-up: language → basic info → location → about.
+// The old school/learning-center pickers, the intentions step, and the hard
+// group-join gate were removed — a member now defaults to all intentions ON
+// (the backend applies that default) and the channel join is a soft, recurring
+// banner (components/ChannelBanner.js) instead of a wall.
+// Submits with the SAME backend calls as before: PATCH /users/me then
 // POST /users/me/finalize (finalize flips is_registered + sets group name tags).
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_BIRTH_YEAR = CURRENT_YEAR - 60;
 const MAX_BIRTH_YEAR = CURRENT_YEAR - 10;
-const PHONE_RE = /^\+?[0-9]{7,15}$/;
+const ABOUT_MIN_WORDS = 10;
+
+// Count whitespace-separated words (SHARED RULE: ABOUT must be >= 10 words).
+function wordCount(s) {
+  const t = String(s || "").trim();
+  return t ? t.split(/\s+/).length : 0;
+}
 
 const LANGUAGES = [
   { label: "English", code: "en" },
@@ -57,10 +68,6 @@ export default function RegisterFlow({ me, preview = false }) {
   const [submitError, setSubmitError] = useState(null);
 
   const [regions, setRegions] = useState([]);
-  const [schools, setSchools] = useState([]);
-  const [lcs, setLcs] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [checkingGroups, setCheckingGroups] = useState(false);
 
   const [form, setForm] = useState({
     language: lang,
@@ -70,17 +77,11 @@ export default function RegisterFlow({ me, preview = false }) {
     birth_year: me?.birth_year ? String(me.birth_year) : "",
     phone_number: me?.phone_number || "",
     region_id: me?.region_id ? String(me.region_id) : "",
-    school_id: "",
-    lc_ids: [],
     about: me?.about || "",
-    open_to_work: false,
-    open_to_volunteering: false,
     latitude: null,
     longitude: null,
   });
   const [errors, setErrors] = useState({});
-  const [schoolSearch, setSchoolSearch] = useState("");
-  const [lcSearch, setLcSearch] = useState("");
   const [locStatus, setLocStatus] = useState("");
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -88,37 +89,6 @@ export default function RegisterFlow({ me, preview = false }) {
   useEffect(() => {
     bfu("/regions").then((d) => setRegions(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
-
-  async function fetchSchoolsAndLCs(regionId) {
-    if (!regionId) return;
-    try {
-      const [s, l] = await Promise.all([
-        bfu(`/regions/${regionId}/schools`).catch(() => []),
-        bfu(`/regions/${regionId}/learning-centers`).catch(() => []),
-      ]);
-      setSchools(Array.isArray(s) ? s : []);
-      setLcs(Array.isArray(l) ? l : []);
-      set("school_id", "");
-      set("lc_ids", []);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const lastGroupsCheck = useRef(0);
-  async function refreshGroups() {
-    const now = Date.now();
-    if (now - lastGroupsCheck.current < 3000) return;
-    lastGroupsCheck.current = now;
-    setCheckingGroups(true);
-    try {
-      const d = await bfu("/users/me/groups");
-      setGroups(Array.isArray(d) ? d : []);
-    } catch {
-      setGroups([]); // fail open — never trap the final step on a hiccup
-    }
-    setCheckingGroups(false);
-  }
 
   function shareLocation() {
     if (!navigator.geolocation) {
@@ -139,7 +109,6 @@ export default function RegisterFlow({ me, preview = false }) {
           longitude: lng,
           region_id: f.region_id || (auto ? String(auto) : f.region_id),
         }));
-        if (auto && !form.region_id) fetchSchoolsAndLCs(auto);
         setLocStatus("shared");
       },
       () => setLocStatus("failed"),
@@ -156,21 +125,22 @@ export default function RegisterFlow({ me, preview = false }) {
     if (!by || by < MIN_BIRTH_YEAR || by > MAX_BIRTH_YEAR) {
       e.birth_year = t("register.err_birth_year", { min: MIN_BIRTH_YEAR, max: MAX_BIRTH_YEAR });
     }
-    if (!form.phone_number || !PHONE_RE.test(form.phone_number.trim())) {
+    if (!isCompletePhone(form.phone_number)) {
       e.phone_number = t("register.err_phone");
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
+  const aboutWords = wordCount(form.about);
+
   const canContinue = (() => {
     if (preview) return true; // review mode — walk every step freely
     if (step === 0) return !!form.language;
-    if (step === 1) return !!(form.name && form.surname && form.gender && form.birth_year && form.phone_number);
+    if (step === 1)
+      return !!(form.name && form.surname && form.gender && form.birth_year && isCompletePhone(form.phone_number));
     if (step === 2) return !!form.region_id;
-    if (step === 3) return !!form.about.trim();
-    if (step === 4) return true;
-    if (step === 5) return groups.length === 0 || groups.every((g) => g.joined);
+    if (step === 3) return aboutWords >= ABOUT_MIN_WORDS;
     return true;
   })();
 
@@ -181,6 +151,10 @@ export default function RegisterFlow({ me, preview = false }) {
       await bfu("/users/me", {
         method: "PATCH",
         body: {
+          // Intentions (open_to_work / open_to_volunteering), school and
+          // learning centers are intentionally omitted — the intentions step and
+          // the school/LC pickers were removed, and the backend defaults a new
+          // member to all intentions ON. Sending them here would override that.
           language: form.language,
           name: form.name.trim(),
           surname: form.surname.trim(),
@@ -188,13 +162,9 @@ export default function RegisterFlow({ me, preview = false }) {
           birth_year: parseInt(form.birth_year, 10) || null,
           phone_number: form.phone_number.trim(),
           region_id: parseInt(form.region_id, 10) || null,
-          school_id: form.school_id ? parseInt(form.school_id, 10) : null,
-          learning_center_ids: form.lc_ids,
           latitude: form.latitude,
           longitude: form.longitude,
           about: form.about,
-          open_to_work: form.open_to_work,
-          open_to_volunteering: form.open_to_volunteering,
         },
       });
       await bfu("/users/me/finalize", { method: "POST" });
@@ -205,14 +175,13 @@ export default function RegisterFlow({ me, preview = false }) {
     }
   }
 
-  const STEPS = 6;
+  const STEPS = 4;
   function goNext() {
     if (!preview && step === 1 && !validateBasics()) return;
     if (step === STEPS - 1) {
       if (!preview) submit();
       return;
     }
-    if (step === STEPS - 2) refreshGroups(); // entering groups step → load them
     setStep((s) => s + 1);
   }
 
@@ -221,18 +190,9 @@ export default function RegisterFlow({ me, preview = false }) {
     { emoji: "🧬", title: t("register.s1_title"), sub: t("register.s1_sub") },
     { emoji: "📍", title: t("register.s2_title"), sub: t("register.s2_sub") },
     { emoji: "✍️", title: t("register.s3_title"), sub: t("register.s3_sub") },
-    { emoji: "🤝", title: t("register.s4_title"), sub: t("register.s4_sub") },
-    { emoji: "💬", title: t("register.s5_title"), sub: t("register.s5_sub") },
   ];
   const meta = STEP_META[step];
   const progress = ((step + 1) / STEPS) * 100;
-
-  const filteredSchools = schools
-    .filter((s) => !schoolSearch || s.name.toLowerCase().includes(schoolSearch.toLowerCase()))
-    .slice(0, 20);
-  const filteredLCs = lcs
-    .filter((l) => (!lcSearch || l.name.toLowerCase().includes(lcSearch.toLowerCase())) && !form.lc_ids.includes(l.id))
-    .slice(0, 20);
 
   return (
     <main
@@ -355,8 +315,16 @@ export default function RegisterFlow({ me, preview = false }) {
                 </div>
                 <div>
                   <div style={LABEL}>{t("register.phone")} *</div>
-                  <input style={INPUT} type="tel" value={form.phone_number} onChange={(e) => set("phone_number", e.target.value)} placeholder="+998911853616" maxLength={25} />
-                  {errors.phone_number && <div style={ERR}>{errors.phone_number}</div>}
+                  <PhoneInput
+                    value={form.phone_number}
+                    onChange={(full) => set("phone_number", full)}
+                    baseStyle={INPUT}
+                    invalid={!!errors.phone_number}
+                  />
+                  {(errors.phone_number ||
+                    (form.phone_number && !isCompletePhone(form.phone_number))) && (
+                    <div style={ERR}>{t("register.err_phone")}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -367,58 +335,10 @@ export default function RegisterFlow({ me, preview = false }) {
               <div>
                 <div style={LABEL}>{t("register.region")} *</div>
                 <select style={{ ...INPUT, cursor: "pointer" }} value={form.region_id}
-                  onChange={(e) => { set("region_id", e.target.value); fetchSchoolsAndLCs(e.target.value); }}>
+                  onChange={(e) => set("region_id", e.target.value)}>
                   <option value="" disabled>{t("register.select_region")}</option>
                   {regions.map((r) => <option key={r.id} value={r.id}>{regionName(r, lang)}</option>)}
                 </select>
-              </div>
-              {/* School (single) */}
-              <div>
-                <div style={LABEL}>{t("register.school")}</div>
-                {form.school_id ? (
-                  <span className="ch-tag" onClick={() => set("school_id", "")} style={{ cursor: "pointer" }}>
-                    {schools.find((s) => String(s.id) === String(form.school_id))?.name} ✕
-                  </span>
-                ) : (
-                  <>
-                    <input style={INPUT} value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)} placeholder={t("register.search_school")} disabled={!form.region_id} />
-                    {schoolSearch && filteredSchools.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                        {filteredSchools.map((s) => (
-                          <button key={s.id} type="button" onClick={() => { set("school_id", String(s.id)); setSchoolSearch(""); }}
-                            style={{ background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: 20, color: "var(--text)", padding: "6px 12px", fontSize: 12.5, cursor: "pointer" }}>
-                            + {s.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {!form.region_id && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{t("register.select_region_first")}</div>}
-                  </>
-                )}
-              </div>
-              {/* Learning centers (multi) */}
-              <div>
-                <div style={LABEL}>{t("register.lcs")}</div>
-                {form.lc_ids.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                    {form.lc_ids.map((id) => (
-                      <span key={id} className="ch-tag" onClick={() => set("lc_ids", form.lc_ids.filter((x) => x !== id))} style={{ cursor: "pointer" }}>
-                        {lcs.find((l) => l.id === id)?.name} ✕
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <input style={INPUT} value={lcSearch} onChange={(e) => setLcSearch(e.target.value)} placeholder={t("register.search_lc")} disabled={!form.region_id} />
-                {lcSearch && filteredLCs.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                    {filteredLCs.map((l) => (
-                      <button key={l.id} type="button" onClick={() => { set("lc_ids", [...form.lc_ids, l.id]); setLcSearch(""); }}
-                        style={{ background: "var(--surface-2)", border: "1px solid var(--hair)", borderRadius: 20, color: "var(--text)", padding: "6px 12px", fontSize: 12.5, cursor: "pointer" }}>
-                        + {l.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
               {/* Location */}
               <div>
@@ -439,68 +359,20 @@ export default function RegisterFlow({ me, preview = false }) {
           )}
 
           {step === 3 && (
-            <textarea style={{ ...INPUT, resize: "none", lineHeight: 1.6 }} rows={6} value={form.about}
-              onChange={(e) => set("about", e.target.value)} placeholder={t("register.about_ph")} />
-          )}
-
-          {step === 4 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { key: "open_to_work", title: t("register.work_title"), sub: t("register.work_sub") },
-                { key: "open_to_volunteering", title: t("register.vol_title"), sub: t("register.vol_sub") },
-              ].map((it) => {
-                const on = form[it.key];
-                return (
-                  <button key={it.key} type="button" onClick={() => set(it.key, !on)} style={{
-                    padding: 16, borderRadius: "var(--radius-sm)", textAlign: "left", cursor: "pointer",
-                    border: `1px solid ${on ? "var(--amber)" : "var(--hair)"}`,
-                    background: on ? "rgba(232,161,92,0.14)" : "var(--surface-2)",
-                    color: on ? "var(--amber)" : "var(--text)",
-                  }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 4 }}>{it.title}</div>
-                    <div style={{ fontSize: 13, color: on ? "var(--amber)" : "var(--muted-strong)" }}>{it.sub}</div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {step === 5 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {groups.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 20, color: "var(--muted)", fontSize: 14 }}>
-                  {checkingGroups ? t("register.groups_checking") : t("register.groups_none")}
-                </div>
-              ) : (
-                groups.map((g) => (
-                  <div key={g.group_id} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-                    padding: "14px 16px", borderRadius: "var(--radius-sm)",
-                    border: `1px solid ${g.joined ? "rgba(94,197,182,0.4)" : "var(--hair)"}`, background: "var(--surface-2)",
-                  }}>
-                    <div>
-                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14, color: "var(--text)" }}>{g.name}</div>
-                      <div style={{ fontSize: 12, marginTop: 2, color: g.joined ? "var(--teal-bright)" : "var(--muted)" }}>
-                        {g.joined ? t("register.groups_joined") : t("register.groups_not_joined")}
-                      </div>
-                    </div>
-                    {!g.joined && g.group_link && (
-                      <a href={g.group_link} target="_blank" rel="noopener noreferrer" style={{
-                        flexShrink: 0, background: "linear-gradient(135deg, var(--amber), var(--terra))", color: "#160E08",
-                        borderRadius: "var(--radius-sm)", padding: "8px 14px", fontSize: 12, fontWeight: 700, textDecoration: "none", fontFamily: "var(--font-display)",
-                      }}>{t("register.groups_join")}</a>
-                    )}
-                    {g.joined && <span style={{ fontSize: 18 }} aria-hidden>✅</span>}
-                  </div>
-                ))
-              )}
-              <button type="button" onClick={refreshGroups} disabled={checkingGroups} style={{
-                padding: 12, borderRadius: "var(--radius-sm)", cursor: "pointer",
-                border: "1px solid var(--hair)", background: "var(--surface-2)",
-                color: "var(--muted-strong)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13, opacity: checkingGroups ? 0.6 : 1,
-              }}>
-                {checkingGroups ? t("register.groups_check_btn") : t("register.groups_refresh")}
-              </button>
+            <div>
+              <textarea style={{ ...INPUT, resize: "none", lineHeight: 1.6 }} rows={6} value={form.about}
+                onChange={(e) => set("about", e.target.value)} placeholder={t("register.about_ph")} />
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 6 }}>
+                <span style={{ fontSize: 12, color: aboutWords >= ABOUT_MIN_WORDS ? "var(--muted)" : "var(--amber)" }}>
+                  {aboutWords < ABOUT_MIN_WORDS ? t("register.about_min") : ""}
+                </span>
+                <span style={{
+                  fontFamily: "var(--font-mono)", fontSize: 11, flexShrink: 0,
+                  color: aboutWords >= ABOUT_MIN_WORDS ? "var(--green)" : "var(--muted-strong)",
+                }}>
+                  {t("register.about_count", { n: aboutWords, min: ABOUT_MIN_WORDS })}
+                </span>
+              </div>
             </div>
           )}
 

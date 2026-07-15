@@ -179,6 +179,9 @@ function SeatsLine({ ev, t }) {
     label = `◔ ${t("community.events.onWaitlist")}`;
     color = "var(--amber)";
   } else if (typeof seatsLeft === "number" && seatsLeft > 0) {
+    // Scarcity cue only: show the exact count when 10 or fewer seats remain.
+    // Plenty of room (> 10) → show nothing, so the number reads as "hurry".
+    if (seatsLeft > 10) return null;
     label = `◎ ${seatsLeft === 1 ? t("community.events.seatsLeftOne") : t("community.events.seatsLeft", { n: seatsLeft })}`;
     color = "var(--green)";
   } else {

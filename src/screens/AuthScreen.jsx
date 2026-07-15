@@ -4,6 +4,7 @@ import { auth, health, makeDevInitData, storage, regions, users } from "../api";
 import { useT } from "../i18n";
 import { tgAlert, tgConfirm, getStartParam, requestWriteAccess } from "../tg";
 import { nearestRegionId } from "../regionCentroids";
+import { phoneLocal, phoneComplete, toE164 } from "../phone";
 
 const LANGUAGES = [
   { label: "English", code: "en" },
@@ -14,7 +15,9 @@ const CURRENT_YEAR = new Date().getFullYear();
 const MIN_BIRTH_YEAR = CURRENT_YEAR - 60;
 const MAX_BIRTH_YEAR = CURRENT_YEAR - 10;
 
-const phoneRegex = /^\+?[0-9]{7,15}$/;
+// About must be >= 10 words (mirrors the server rule).
+const ABOUT_MIN_WORDS = 10;
+const wordCount = (s) => String(s || "").trim().split(/\s+/).filter(Boolean).length;
 
 export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   const { t, lang, setLang } = useT();
@@ -24,26 +27,17 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   const [devMode, setDevMode] = useState(false);
 
   const [dbRegions, setDbRegions] = useState([]);
-  const [dbSchools, setDbSchools] = useState([]);
-  const [dbLCs, setDbLCs] = useState([]);
-  const [groupStatuses, setGroupStatuses] = useState([]);
-  const [checkingGroups, setCheckingGroups] = useState(false);
 
   const [form, setForm] = useState({
     language: lang,
     name: "", surname: "",
     gender: "", birth_year: "", phone_number: "",
-    region_id: "", school_id: "", lc_ids: [],
+    region_id: "",
     about: "",
-    open_to_work: false, open_to_volunteering: false,
     latitude: null, longitude: null,
   });
   const [locStatus, setLocStatus] = useState(""); // "" | sharing | shared | failed
   const [selectedSkills] = useState([]);
-  const [schoolSearch, setSchoolSearch] = useState("");
-  const [lcSearch, setLcSearch] = useState("");
-  const [schoolFocused, setSchoolFocused] = useState(false);
-  const [lcFocused, setLcFocused] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState({});
@@ -87,19 +81,6 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     } catch (e) {}
   };
 
-  const fetchSchoolsAndLCs = async (regionId) => {
-    if (!regionId) return;
-    try {
-      const [sData, lcData] = await Promise.all([
-        regions.schools(regionId),
-        regions.lcs(regionId)
-      ]);
-      setDbSchools(sData);
-      setDbLCs(lcData);
-      setForm(f => ({ ...f, school_id: "", lc_ids: [] }));
-    } catch (e) {}
-  };
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const shareLocation = () => {
@@ -112,35 +93,11 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         const auto = nearestRegionId(dbRegions, lat, lng);
         setForm(f => ({ ...f, latitude: lat, longitude: lng,
                               region_id: auto ? String(auto) : f.region_id }));
-        if (auto) fetchSchoolsAndLCs(auto);
         setLocStatus("shared");
       },
       () => setLocStatus("failed"),
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  };
-
-  const lastGroupsCheckRef = useRef(0);
-  const GROUPS_CHECK_COOLDOWN_MS = 3000;
-
-  const refreshGroupStatus = async () => {
-    // checkingGroups only blocks an in-flight overlap, not rapid re-taps
-    // right after a response lands — this is the final gate every new
-    // registrant hits, so an impatient "mash the refresh button" moment
-    // during a traffic spike shouldn't turn into an uncapped request rate.
-    const now = Date.now();
-    if (now - lastGroupsCheckRef.current < GROUPS_CHECK_COOLDOWN_MS) return;
-    lastGroupsCheckRef.current = now;
-    setCheckingGroups(true);
-    try {
-      const data = await users.checkGroups();
-      setGroupStatuses(Array.isArray(data) ? data : []);
-    } catch (e) {
-      // Fail open: never block the last registration step if this hiccups.
-      setGroupStatuses([]);
-      console.warn("checkGroups failed:", e?.message);
-    }
-    setCheckingGroups(false);
   };
 
   const validateStep = (step) => {
@@ -153,7 +110,7 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
       if (!by || by < MIN_BIRTH_YEAR || by > MAX_BIRTH_YEAR) {
         errs.birth_year = t("auth.err.birthYear", { min: MIN_BIRTH_YEAR, max: MAX_BIRTH_YEAR });
       }
-      if (!form.phone_number || !phoneRegex.test(form.phone_number)) {
+      if (!phoneComplete(form.phone_number)) {
         errs.phone_number = t("auth.err.phone");
       }
     }
@@ -164,6 +121,9 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
   const submitRegistration = async () => {
     setLoading(true);
     try {
+      // Intentions (open_to_work / open_to_volunteering) are intentionally NOT sent:
+      // the backend defaults every new member to opted-IN, and they can adjust it
+      // later in profile. Sending false here would silently override those defaults.
       await users.updateMe({
         language: form.language,
         name: form.name.trim(),
@@ -172,13 +132,9 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         birth_year: parseInt(form.birth_year) || null,
         phone_number: form.phone_number,
         region_id: parseInt(form.region_id) || null,
-        school_id: parseInt(form.school_id) || null,
-        learning_center_ids: form.lc_ids,
         latitude: form.latitude,
         longitude: form.longitude,
         about: form.about,
-        open_to_work: form.open_to_work,
-        open_to_volunteering: form.open_to_volunteering,
       });
 
       // Finalize: mark registered + set name tags in all groups
@@ -208,23 +164,9 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     if (regStep === steps.length - 1) {
       submitRegistration();
     } else {
-      if (regStep === steps.length - 2) {
-        // About to enter groups step — load group statuses
-        refreshGroupStatus();
-      }
       setRegStep(r => r + 1);
     }
   };
-
-  // ── Filtered lists ─────────────────────────────────────────────────────────
-  const filteredSchools = dbSchools.filter(s =>
-    !schoolSearch || s.name.toLowerCase().includes(schoolSearch.toLowerCase())
-  ).slice(0, 20);
-
-  const filteredLCs = dbLCs.filter(lc =>
-    (!lcSearch || lc.name.toLowerCase().includes(lcSearch.toLowerCase())) &&
-    !form.lc_ids.includes(lc.id)
-  ).slice(0, 20);
 
   // ── Steps ──────────────────────────────────────────────────────────────────
   const steps = [
@@ -295,8 +237,17 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
             </div>
             <div style={{ flex: 2 }}>
               <div className="section-label">{t("auth.phone")} *</div>
-              <input className="input-field" type="tel" placeholder="+998911853616" value={form.phone_number}
-                onChange={e => set("phone_number", e.target.value)} />
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                  color: "var(--text-3)", fontSize: 14, pointerEvents: "none", fontFamily: "var(--font-body)" }}>+998</span>
+                <input className="input-field" type="tel" inputMode="numeric" placeholder="90 123 45 67"
+                  value={phoneLocal(form.phone_number)}
+                  onChange={e => set("phone_number", toE164(e.target.value))}
+                  style={{ paddingLeft: 52 }} />
+              </div>
+              {phoneLocal(form.phone_number).length > 0 && !phoneComplete(form.phone_number) && (
+                <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{t("auth.err.phoneDigits")}</div>
+              )}
               {errors.phone_number && <div style={{ color: "var(--terra)", fontSize: 11, marginTop: 4 }}>{errors.phone_number}</div>}
             </div>
           </div>
@@ -309,83 +260,11 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <div className="section-label">{t("auth.region")} *</div>
-            <select className="input-field" value={form.region_id} onChange={e => {
-              set("region_id", e.target.value);
-              fetchSchoolsAndLCs(e.target.value);
-            }} style={{ appearance: "none", cursor: "pointer" }}>
+            <select className="input-field" value={form.region_id} onChange={e => set("region_id", e.target.value)}
+              style={{ appearance: "none", cursor: "pointer" }}>
               <option value="">{t("auth.selectRegion")}</option>
               {dbRegions.map(r => <option key={r.id} value={r.id}>{r.name_en}</option>)}
             </select>
-          </div>
-
-          {/* School */}
-          <div>
-            <div className="section-label">{t("auth.school")}</div>
-            {form.school_id && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                <span onClick={() => set("school_id", "")} className="chip active" style={{ cursor: "pointer" }}>
-                  {dbSchools.find(s => s.id.toString() === form.school_id)?.name} <Icon name="x" size={12} />
-                </span>
-              </div>
-            )}
-            {!form.school_id && (
-              <>
-                <input className="input-field" placeholder={t("auth.searchSchool")}
-                  value={schoolSearch}
-                  onChange={e => setSchoolSearch(e.target.value)}
-                  onFocus={() => setSchoolFocused(true)}
-                  onBlur={() => setTimeout(() => setSchoolFocused(false), 200)}
-                />
-                {(schoolFocused || schoolSearch) && filteredSchools.length > 0 && (
-                  <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)", marginTop: 4, maxHeight: 160,
-                    overflowY: "auto", padding: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {filteredSchools.map(s => (
-                      <button key={s.id} onMouseDown={e => e.preventDefault()} onClick={() => { set("school_id", s.id.toString()); setSchoolSearch(""); }}
-                        style={{ background: "var(--surface-3)", border: "none", borderRadius: 20,
-                          color: "var(--text)", padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
-                        + {s.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* LCs */}
-          <div>
-            <div className="section-label">{t("auth.lcs")}</div>
-            {form.lc_ids.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                {form.lc_ids.map(id => (
-                  <span key={id} onClick={() => set("lc_ids", form.lc_ids.filter(x => x !== id))}
-                    className="chip active" style={{ cursor: "pointer" }}>
-                    {dbLCs.find(lc => lc.id === id)?.name} <Icon name="x" size={12} />
-                  </span>
-                ))}
-              </div>
-            )}
-            <input className="input-field" placeholder={t("auth.searchLC")}
-              value={lcSearch}
-              onChange={e => setLcSearch(e.target.value)}
-              onFocus={() => setLcFocused(true)}
-              onBlur={() => setTimeout(() => setLcFocused(false), 200)}
-            />
-            {(lcFocused || lcSearch) && filteredLCs.length > 0 && (
-              <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)", marginTop: 4, maxHeight: 160,
-                overflowY: "auto", padding: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {filteredLCs.map(lc => (
-                  <button key={lc.id} onMouseDown={e => e.preventDefault()} onClick={() => { set("lc_ids", [...form.lc_ids, lc.id]); setLcSearch(""); }}
-                    style={{ background: "var(--surface-3)", border: "none", borderRadius: 20,
-                      color: "var(--text)", padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
-                    + {lc.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {dbLCs.length === 0 && <span style={{ fontSize: 12, color: "var(--text-3)", display: "block", marginTop: 6 }}>{t("auth.selectRegionFirst")}</span>}
           </div>
 
           <div>
@@ -409,80 +288,27 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
     },
     {
       emoji: "✍️", title: t("auth.step.aboutTitle"), sub: t("auth.step.aboutSub"),
-      content: (
-        <textarea className="input-field" rows={6}
-          placeholder={t("auth.aboutPh")}
-          value={form.about} onChange={e => set("about", e.target.value)}
-          style={{ resize: "none", lineHeight: 1.6 }} />
-      ),
-    },
-    {
-      emoji: "🤝", title: t("auth.step.intentTitle"), sub: t("auth.step.intentSub"),
-      content: (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <button onClick={() => set("open_to_work", !form.open_to_work)} style={{
-            background: form.open_to_work ? "var(--accent-dim)" : "var(--surface-2)",
-            border: `1px solid ${form.open_to_work ? "var(--accent)" : "var(--border)"}`,
-            borderRadius: "var(--radius-sm)", padding: "16px",
-            color: form.open_to_work ? "var(--accent)" : "var(--text)",
-            cursor: "pointer", transition: "all 0.2s", textAlign: "left",
-          }}>
-            <div style={{ fontWeight: 700, marginBottom: 4, fontFamily: "var(--font-display)" }}>{t("auth.intent.workTitle")}</div>
-            <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("auth.intent.workSub")}</div>
-          </button>
-          <button onClick={() => set("open_to_volunteering", !form.open_to_volunteering)} style={{
-            background: form.open_to_volunteering ? "var(--accent-dim)" : "var(--surface-2)",
-            border: `1px solid ${form.open_to_volunteering ? "var(--accent)" : "var(--border)"}`,
-            borderRadius: "var(--radius-sm)", padding: "16px",
-            color: form.open_to_volunteering ? "var(--accent)" : "var(--text)",
-            cursor: "pointer", transition: "all 0.2s", textAlign: "left",
-          }}>
-            <div style={{ fontWeight: 700, marginBottom: 4, fontFamily: "var(--font-display)" }}>{t("auth.intent.volTitle")}</div>
-            <div style={{ fontSize: 13, color: "var(--text-3)" }}>{t("auth.intent.volSub")}</div>
-          </button>
-        </div>
-      ),
-    },
-    {
-      emoji: "💬", title: t("auth.step.groupsTitle"), sub: t("auth.step.groupsSub"),
-      content: (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {groupStatuses.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 20, color: "var(--text-3)" }}>
-              {checkingGroups ? t("auth.groups.checking") : t("auth.groups.none")}
+      content: (() => {
+        const words = wordCount(form.about);
+        const enough = words >= ABOUT_MIN_WORDS;
+        return (
+          <div>
+            <textarea className="input-field" rows={6}
+              placeholder={t("auth.aboutPh")}
+              value={form.about} onChange={e => set("about", e.target.value)}
+              style={{ resize: "none", lineHeight: 1.6 }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 6 }}>
+              <span style={{ fontSize: 12, color: enough ? "var(--text-3)" : "var(--amber)", lineHeight: 1.4 }}>
+                {enough ? t("auth.about.ok") : t("auth.about.hint")}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, flexShrink: 0,
+                color: enough ? "var(--teal-bright)" : "var(--text-3)" }}>
+                {t("auth.about.counter", { n: words, min: ABOUT_MIN_WORDS })}
+              </span>
             </div>
-          ) : groupStatuses.map(g => (
-            <div key={g.group_id} style={{
-              background: "var(--surface-2)", border: `1px solid ${g.joined ? "rgba(94,197,182,0.4)" : "var(--border)"}`,
-              borderRadius: "var(--radius-sm)", padding: "14px 16px",
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-            }}>
-              <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 }}>{g.name}</div>
-                <div style={{ fontSize: 12, color: g.joined ? "var(--teal-bright)" : "var(--text-3)", marginTop: 2 }}>
-                  {g.joined ? t("auth.groups.joined") : t("auth.groups.notJoined")}
-                </div>
-              </div>
-              {!g.joined && g.group_link && (
-                <a href={g.group_link} target="_blank" rel="noopener noreferrer" style={{
-                  background: "linear-gradient(135deg, var(--amber), var(--terra))", color: "#160E08", borderRadius: "var(--radius-sm)",
-                  padding: "8px 14px", fontSize: 12, fontWeight: 700, textDecoration: "none",
-                  fontFamily: "var(--font-display)", flexShrink: 0,
-                }}>{t("auth.groups.join")}</a>
-              )}
-              {g.joined && <span style={{ fontSize: 20 }}>✅</span>}
-            </div>
-          ))}
-          <button onClick={refreshGroupStatus} disabled={checkingGroups} style={{
-            background: "var(--surface-2)", border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)", padding: "12px", cursor: "pointer",
-            color: "var(--text-2)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13,
-            opacity: checkingGroups ? 0.6 : 1,
-          }}>
-            {checkingGroups ? t("auth.groups.checkBtn") : t("auth.groups.refresh")}
-          </button>
-        </div>
-      ),
+          </div>
+        );
+      })(),
     },
   ];
 
@@ -491,14 +317,9 @@ export const AuthScreen = ({ onComplete, forceRegister = false }) => {
 
   const canContinue = (() => {
     if (regStep === 0) return !!form.language;
-    if (regStep === 1) return !!(form.name && form.surname && form.gender && form.birth_year && form.phone_number);
+    if (regStep === 1) return !!(form.name && form.surname && form.gender && form.birth_year) && phoneComplete(form.phone_number);
     if (regStep === 2) return !!form.region_id;
-    if (regStep === 3) return !!form.about;
-    if (regStep === 4) return true; // intentions optional
-    if (regStep === 5) {
-      // All groups must be joined (or no groups exist)
-      return groupStatuses.length === 0 || groupStatuses.every(g => g.joined);
-    }
+    if (regStep === 3) return wordCount(form.about) >= ABOUT_MIN_WORDS;
     return true;
   })();
 

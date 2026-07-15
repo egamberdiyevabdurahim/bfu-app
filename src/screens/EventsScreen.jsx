@@ -121,6 +121,9 @@ const SeatsLine = ({ ev, t }) => {
     label = `◔ ${t("events.onWaitlist")}`;
     color = "var(--amber)";
   } else if (typeof seatsLeft === "number" && seatsLeft > 0) {
+    // Only surface a scarcity count when seats are actually running low (<= 10).
+    // With plenty of room the number is noise — render nothing for the count.
+    if (seatsLeft > 10) return null;
     label = `◎ ${seatsLeft === 1 ? t("events.seatsLeftOne") : t("events.seatsLeft", { n: seatsLeft })}`;
     color = "var(--green)";
   } else {

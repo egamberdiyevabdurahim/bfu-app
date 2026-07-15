@@ -37,7 +37,7 @@ export const register = {
     "register.err_phone": "Enter a valid phone number (e.g. +998911853616)",
 
     "register.s2_title": "Your location",
-    "register.s2_sub": "Select your region, school, and language centers",
+    "register.s2_sub": "Select your region and optionally share your location",
     "register.region": "Region",
     "register.select_region": "Select region…",
     "register.school": "School / University (optional)",
@@ -55,6 +55,8 @@ export const register = {
     "register.s3_title": "About yourself",
     "register.s3_sub": "Tell the community who you are. AI will match you to opportunities.",
     "register.about_ph": "I'm a student from Tashkent interested in EdTech. I know Python and design…",
+    "register.about_count": "{n} / {min} words",
+    "register.about_min": "Please write at least 10 words.",
 
     "register.s4_title": "Intentions",
     "register.s4_sub": "What are you looking for in BFU?",
@@ -107,7 +109,7 @@ export const register = {
     "register.err_phone": "To‘g‘ri telefon raqamini kiriting (masalan, +998911853616)",
 
     "register.s2_title": "Joylashuvingiz",
-    "register.s2_sub": "Hudud, maktab va o‘quv markazlaringizni tanlang",
+    "register.s2_sub": "Hududingizni tanlang va ixtiyoriy ravishda joylashuvni ulashing",
     "register.region": "Hudud",
     "register.select_region": "Hududni tanlang…",
     "register.school": "Maktab / Universitet (ixtiyoriy)",
@@ -125,6 +127,8 @@ export const register = {
     "register.s3_title": "O‘zingiz haqingizda",
     "register.s3_sub": "Hamjamiyatga o‘zingizni tanishtiring. AI sizni imkoniyatlarga moslaydi.",
     "register.about_ph": "Men Toshkentlik talabaman, EdTech bilan qiziqaman. Python va dizaynni bilaman…",
+    "register.about_count": "{n} / {min} so‘z",
+    "register.about_min": "Iltimos, kamida 10 ta so‘z yozing.",
 
     "register.s4_title": "Maqsadlaringiz",
     "register.s4_sub": "BFU’da nimani qidiryapsiz?",
@@ -177,7 +181,7 @@ export const register = {
     "register.err_phone": "Введите корректный номер (например, +998911853616)",
 
     "register.s2_title": "Ваше местоположение",
-    "register.s2_sub": "Выберите регион, школу и учебные центры",
+    "register.s2_sub": "Выберите регион и при желании поделитесь локацией",
     "register.region": "Регион",
     "register.select_region": "Выберите регион…",
     "register.school": "Школа / Университет (необязательно)",
@@ -195,6 +199,8 @@ export const register = {
     "register.s3_title": "О себе",
     "register.s3_sub": "Расскажите сообществу о себе. ИИ подберёт вам возможности.",
     "register.about_ph": "Я студент из Ташкента, увлекаюсь EdTech. Знаю Python и дизайн…",
+    "register.about_count": "{n} / {min} слов",
+    "register.about_min": "Пожалуйста, напишите не менее 10 слов.",
 
     "register.s4_title": "Намерения",
     "register.s4_sub": "Что вы ищете в BFU?",

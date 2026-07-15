@@ -51,6 +51,11 @@ export const misc = {
     "misc.foot_close": "to close",
     "misc.hiring": "Hiring",
     "misc.member": "Member",
+
+    // — Channel nudge (soft, dismissible, recurring) —
+    "misc.channel_banner": "Join the BFU channel to stay updated.",
+    "misc.channel_banner_join": "Join channel",
+    "misc.channel_banner_dismiss": "Dismiss",
   },
 
   uz: {
@@ -97,6 +102,10 @@ export const misc = {
     "misc.foot_close": "yopish uchun",
     "misc.hiring": "Ishga olmoqda",
     "misc.member": "A’zo",
+
+    "misc.channel_banner": "Yangiliklardan xabardor bo‘lish uchun BFU kanaliga qo‘shiling.",
+    "misc.channel_banner_join": "Kanalga qo‘shilish",
+    "misc.channel_banner_dismiss": "Yopish",
   },
 
   ru: {
@@ -143,5 +152,9 @@ export const misc = {
     "misc.foot_close": "чтобы закрыть",
     "misc.hiring": "Нанимает",
     "misc.member": "Участник",
+
+    "misc.channel_banner": "Подпишитесь на канал BFU, чтобы быть в курсе.",
+    "misc.channel_banner_join": "Подписаться",
+    "misc.channel_banner_dismiss": "Закрыть",
   },
 };

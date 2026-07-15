@@ -11,6 +11,7 @@ import { EXPLORE, YOU, ADMIN, ADMIN_ROLES, PARTNER, PARTNER_ROLE } from "@/compo
 import { useT } from "@/components/i18n/LocaleProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import NavIcon from "@/components/nav/NavIcon";
+import ChannelBanner from "@/components/ChannelBanner";
 import { handleFor } from "@/lib/handle";
 import { asset } from "@/lib/asset";
 
@@ -634,7 +635,10 @@ export default function AppShell({ active, me: initialMe = null, children }) {
           </a>
         </div>
 
-        <div className="ash-content">{children}</div>
+        <div className="ash-content">
+          <ChannelBanner />
+          {children}
+        </div>
       </div>
 
       <style>{`

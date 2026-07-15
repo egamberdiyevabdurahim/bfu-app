@@ -345,7 +345,7 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm }) => {
       </div>
 
       {/* Body */}
-      <div style={{ flex: "1 1 auto", overflowY: "auto" }}>
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {ev.cover_url && (
           <img src={ev.cover_url} alt="" style={{ display: "block", width: "100%", height: 190, objectFit: "cover" }} />
         )}

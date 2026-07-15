@@ -89,7 +89,7 @@ const Sheet = ({ title, onClose, children }) => (
       <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
         <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800 }}>{title}</h2>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 40px" }}>{children}</div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "16px 24px 40px" }}>{children}</div>
     </div>
   </div>
 );

@@ -446,6 +446,7 @@ export default function EventFormBuilder({
         position: "fixed", inset: 0, zIndex: 90,
         background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
@@ -453,7 +454,7 @@ export default function EventFormBuilder({
         className="ch-cell"
         style={{
           width: "100%", maxWidth: 880, maxHeight: "88vh",
-          display: "flex", flexDirection: "column",
+          display: "flex", flexDirection: "column", margin: "auto",
           padding: 0, background: "var(--surface)", overflow: "hidden",
         }}
       >
@@ -503,7 +504,7 @@ export default function EventFormBuilder({
         </div>
 
         {/* body */}
-        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 26px" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "18px 26px" }}>
           {state === "loading" && (
             <div style={{ color: "var(--muted)", fontSize: 14, padding: "24px 0" }}>
               <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>

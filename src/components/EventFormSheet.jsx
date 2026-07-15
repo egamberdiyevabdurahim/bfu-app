@@ -585,7 +585,7 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
         </div>
 
         {/* Body — the "you're registered" banner + a read-only recap of answers */}
-        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 16px 28px" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "18px 16px 28px" }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: 60, color: "var(--text-3)" }}>
               <Icon name="loader" size={22} color="var(--amber)" />
@@ -763,7 +763,7 @@ export const EventFormSheet = ({ event, onClose, onDone }) => {
       </div>
 
       {/* Body — the questions */}
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 16px 28px" }}>
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "18px 16px 28px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 60, color: "var(--text-3)" }}>
             <Icon name="loader" size={22} color="var(--amber)" />

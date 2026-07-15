@@ -395,6 +395,8 @@ export default function CommandPalette() {
           align-items: flex-start;
           justify-content: center;
           padding: 12vh 20px 20px;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           background: rgba(6,5,4,0.68);
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);

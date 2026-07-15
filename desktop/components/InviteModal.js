@@ -111,6 +111,7 @@ export default function InviteModal({ onClose }) {
         justifyContent: "center",
         padding: 20,
         overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <div

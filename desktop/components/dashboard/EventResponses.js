@@ -268,6 +268,7 @@ export default function EventResponses({
         position: "fixed", inset: 0, zIndex: 90,
         background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
@@ -275,7 +276,7 @@ export default function EventResponses({
         className="ch-cell"
         style={{
           width: "100%", maxWidth: 1040, maxHeight: "88vh",
-          display: "flex", flexDirection: "column",
+          display: "flex", flexDirection: "column", margin: "auto",
           padding: 0, background: "var(--surface)", overflow: "hidden",
         }}
       >
@@ -326,7 +327,7 @@ export default function EventResponses({
         </div>
 
         {/* body */}
-        <div style={{ flex: "1 1 auto", overflow: "auto", padding: "18px 26px 26px" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflow: "auto", padding: "18px 26px 26px" }}>
           {state === "loading" && (
             <div style={{ color: "var(--muted)", fontSize: 14, padding: "24px 0" }}>
               <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
@@ -536,6 +537,7 @@ function AiReportModal({ event, state, report, onRetry, onClose }) {
         position: "fixed", inset: 0, zIndex: 95,
         background: "rgba(6,5,4,0.72)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
@@ -543,7 +545,7 @@ function AiReportModal({ event, state, report, onRetry, onClose }) {
         className="ch-cell"
         style={{
           width: "100%", maxWidth: 620, maxHeight: "84vh",
-          display: "flex", flexDirection: "column", padding: 0,
+          display: "flex", flexDirection: "column", margin: "auto", padding: 0,
           background: "var(--surface)", overflow: "hidden",
         }}
       >
@@ -570,7 +572,7 @@ function AiReportModal({ event, state, report, onRetry, onClose }) {
           </button>
         </div>
 
-        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "20px 24px 24px" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "20px 24px 24px" }}>
           {state === "loading" && (
             <div style={{ color: "var(--muted)", fontSize: 14, padding: "16px 0" }}>
               <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span>
@@ -672,6 +674,7 @@ function ResponseSheet({ row, schema, columns, onClose }) {
         position: "fixed", inset: 0, zIndex: 95,
         background: "rgba(6,5,4,0.72)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
@@ -679,7 +682,7 @@ function ResponseSheet({ row, schema, columns, onClose }) {
         className="ch-cell"
         style={{
           width: "100%", maxWidth: 640, maxHeight: "84vh",
-          display: "flex", flexDirection: "column", padding: 0,
+          display: "flex", flexDirection: "column", margin: "auto", padding: 0,
           background: "var(--surface)", overflow: "hidden",
         }}
       >
@@ -701,7 +704,7 @@ function ResponseSheet({ row, schema, columns, onClose }) {
           </button>
         </div>
 
-        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 24px 24px" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "18px 24px 24px" }}>
           {groups.map((group, gi) => (
             <div key={`${group.section}-${gi}`} style={{ marginBottom: 20 }}>
               {group.section && (

@@ -510,7 +510,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
             atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
           }}
           style={{
-            flex: "1 1 auto", overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8,
+            flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 16, display: "flex", flexDirection: "column", gap: 8,
           }}>
           {threadState === "loading" && <Hint>{t("msg.loadingMessages")}</Hint>}
           {threadState === "error" && (
@@ -608,7 +608,7 @@ export const MessagesScreen = ({ meId, initialConversationId = null, onClose }) 
           })}
         </div>
       ) : (
-        <div style={{ flex: "1 1 auto", overflowY: "auto", padding: 8 }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 8 }}>
           {listState === "loading" && conversations === null && <Hint>{t("msg.loadingConversations")}</Hint>}
           {listState === "error" && (
             <Hint tone="error">{t("msg.listError")}{" "}<LinkBtn onClick={loadList}>{t("common.retry")}</LinkBtn></Hint>

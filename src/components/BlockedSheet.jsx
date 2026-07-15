@@ -44,7 +44,7 @@ export const BlockedSheet = ({ onClose }) => {
         </div>
       </div>
 
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 16px 40px" }}>
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "16px 16px 40px" }}>
         {list === null && !error ? (
           <div style={{ textAlign: "center", padding: 50, color: "var(--text-3)" }}>
             <Icon name="loader" size={22} color="var(--amber)" />

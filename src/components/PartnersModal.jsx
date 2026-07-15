@@ -31,7 +31,7 @@ export const PartnersModal = ({ onClose }) => {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 40px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "14px 16px 40px" }}>
         {mine && (
           <PostOpportunity mine={mine} posting={posting} setPosting={setPosting} t={t} />
         )}
@@ -125,7 +125,7 @@ const PartnerProfile = ({ id, onBack, t }) => {
         </button>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800 }}>{p?.name || "…"}</h1>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 20 }}>
         {!p ? <div style={{ color: "var(--text-3)" }}>{t("common.loading")}</div> : (
           <>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>

@@ -189,7 +189,7 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       </div>
 
       {/* Fields */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "20px 24px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Name */}

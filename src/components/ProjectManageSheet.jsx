@@ -103,7 +103,7 @@ const OverlayShell = ({ title, onClose, children }) => {
           <span style={{ width: 38, height: 38 }} />
         </div>
         <div style={{
-          flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
+          flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch",
           padding: "16px 18px calc(28px + var(--safe-b))",
         }}>
           {children}
@@ -459,7 +459,7 @@ export const ProjectManageSheet = ({ me, onClose, onChanged, initialTab = "post"
 
           {/* ── Scroll body ── */}
           <div style={{
-            flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
+            flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch",
             padding: "12px 18px calc(28px + var(--safe-b))",
           }}>
             {/* ══ POST ══ */}

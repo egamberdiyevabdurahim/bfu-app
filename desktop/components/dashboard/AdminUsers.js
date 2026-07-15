@@ -597,12 +597,13 @@ function DenyDialog({ user, onCancel, onSubmit }) {
         position: "fixed", inset: 0, zIndex: 90,
         background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="ch-cell"
-        style={{ width: "100%", maxWidth: 460, padding: 28, background: "var(--surface)" }}
+        style={{ width: "100%", maxWidth: 460, padding: 28, background: "var(--surface)", margin: "auto" }}
       >
         <div className="ch-cell-label" style={{ marginBottom: 6 }}>Request corrections</div>
         <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22, color: "var(--text)" }}>
@@ -677,12 +678,13 @@ function FullFieldsDialog({ user, data, onClose }) {
         position: "fixed", inset: 0, zIndex: 90,
         background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="ch-cell"
-        style={{ width: "100%", maxWidth: 560, maxHeight: "82vh", display: "flex", flexDirection: "column", padding: 24, background: "var(--surface)" }}
+        style={{ width: "100%", maxWidth: 560, maxHeight: "82vh", display: "flex", flexDirection: "column", padding: 24, background: "var(--surface)", margin: "auto" }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
           <div className="ch-cell-label" style={{ margin: 0 }}>All fields</div>
@@ -699,7 +701,7 @@ function FullFieldsDialog({ user, data, onClose }) {
             <span className="ch-spin" aria-hidden style={{ marginRight: 8 }}>◠</span> Loading full record…
           </div>
         ) : (
-          <div style={{ overflowY: "auto", border: "1px solid var(--hair)", borderRadius: 10 }}>
+          <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", border: "1px solid var(--hair)", borderRadius: 10 }}>
             {entries.map(([k, v], i) => (
               <div
                 key={k}

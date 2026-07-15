@@ -341,7 +341,7 @@ export const ProjectDetail = ({ project: initial, me, prefillRole, onClose, onUp
 
           {/* ── Scroll body ── */}
           <div style={{
-            flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
+            flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch",
             padding: "20px 18px calc(28px + var(--safe-b))",
           }}>
             {/* ── HERO (mirror ProjectHero) ── */}

@@ -644,7 +644,7 @@ export function Modal({ label, onCancel, children }) {
         position: "fixed", inset: 0, zIndex: 90,
         background: "rgba(6,5,4,0.7)", backdropFilter: "blur(3px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        overflowY: "auto",
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
       <div

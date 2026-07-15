@@ -116,7 +116,7 @@ export const NotificationPrefsSheet = ({ onClose, masterOnly = false }) => {
         </div>
       </div>
 
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "18px 16px 40px" }}>
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "18px 16px 40px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 50, color: "var(--text-3)" }}>
             <Icon name="loader" size={22} color="var(--amber)" />

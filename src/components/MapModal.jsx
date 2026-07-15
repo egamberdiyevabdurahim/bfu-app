@@ -65,7 +65,7 @@ export const MapModal = ({ onClose }) => {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 16 }}>
         <div style={{ borderRadius: 20, overflow: "hidden", background: "linear-gradient(135deg,#13131A,#0c0c14)", border: "1px solid var(--border)", padding: 6 }}>
           <svg viewBox={UZ_VIEWBOX} style={{ width: "100%", height: "auto" }}>
             {/* Tashkent city is a tiny enclave inside Tashkent region; paint it

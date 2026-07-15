@@ -46,7 +46,7 @@ export const SearchModal = ({ onClose }) => {
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>{t("common.cancel")}</button>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 40px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "12px 16px 40px" }}>
         {q.trim().length < 2 ? (
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-3)", fontSize: 13 }}>{t("search.hint")}</div>
         ) : loading ? (

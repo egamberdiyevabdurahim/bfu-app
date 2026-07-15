@@ -126,7 +126,7 @@ export const InboxModal = ({ onClose }) => {
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: "auto", padding: TABS.length > 1 ? "0 16px 32px" : "8px 16px 32px" }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: TABS.length > 1 ? "0 16px 32px" : "8px 16px 32px" }}>
           {/* Activity is the fallback branch: with FLAGS.CONNECTIONS off, no tab
               value can route away from it. */}
           {!(FLAGS.CONNECTIONS && (tab === "connections" || tab === "following")) ? (

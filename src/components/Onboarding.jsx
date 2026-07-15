@@ -128,7 +128,7 @@ export const Onboarding = ({ onDone }) => {
       {/* Card */}
       <div style={{
         flex: "1 1 auto", position: "relative", zIndex: 1, minHeight: 0,
-        overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center",
+        overflowY: "auto", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", justifyContent: "center",
         padding: "24px 26px",
       }}>
         <div key={key} style={{ animation: "fadeUp 0.42s ease both" }}>

@@ -100,6 +100,16 @@ const PATHS = {
     </>
   ),
 
+  // PARTNER — a storefront/organisation mark for the scoped partner panel.
+  "partner-panel": (
+    <>
+      <path d="M3 9.5 4.5 4h15L21 9.5" />
+      <path d="M3 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 3 0" />
+      <path d="M4.5 11v9h15v-9" />
+      <path d="M9.5 20v-5h5v5" />
+    </>
+  ),
+
   // ADMIN
   dashboard: (
     <>

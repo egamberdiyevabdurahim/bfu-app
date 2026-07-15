@@ -79,6 +79,17 @@ export const ADMIN = [
 
 export const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 
+// PARTNER — only rendered for role === PARTNER_ROLE members. A partner is NOT an
+// admin: it never sees the "Command center", only its OWN scoped panel over its
+// own events (create/edit forms, read responses/funnel/leads/AI/CSV). The route
+// is role-gated in app/partner/page.js (a non-partner is sent away) and every
+// /partner/* API route is org-scoped server-side.
+export const PARTNER = [
+  { key: "partner-panel", href: "/partner", label: "Partner panel", icon: "⬡" },
+];
+
+export const PARTNER_ROLE = "partner";
+
 // Resolve a nav item's href against the current user (for any future /u/{id}
 // profile link). Returns null when the item can't be resolved (no me.id yet) so
 // callers can filter it out.

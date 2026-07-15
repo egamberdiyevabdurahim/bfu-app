@@ -12,8 +12,10 @@ Rules under test (shared contract):
     birth_year) — accepted in the schema, rejected otherwise, IGNORED by answer
     validation.
 
-The DM path uses push_event; tests patch it at the router binding (exactly how
-conftest patches send_telegram) so nothing touches the network.
+The DM path uses push_event from the shared event-management service
+(app.services.event_admin, called by both the admin and partner panels); tests
+patch it there (exactly how conftest patches send_telegram) so nothing touches
+the network.
 """
 import pytest
 from sqlalchemy import func, select
@@ -267,7 +269,7 @@ async def test_score_patch_sends_student_dm(db, make_user, as_user, monkeypatch)
     await as_user(student).post(f"/events/{e.id}/rsvp", json={"status": "going", "answers": ANSWERS})
 
     calls = []
-    monkeypatch.setattr("app.routers.admin.push_event",
+    monkeypatch.setattr("app.services.event_admin.push_event",
                         lambda user, ntype, textmap, **kw: calls.append((user.id, textmap, kw)))
 
     r = await as_user(admin).patch(f"/admin/events/{e.id}/responses/{student.id}", json={"score": 1500})
@@ -295,7 +297,7 @@ async def test_lead_status_only_patch_sends_no_score_dm(db, make_user, as_user, 
     await as_user(student).post(f"/events/{e.id}/rsvp", json={"status": "going", "answers": ANSWERS})
 
     calls = []
-    monkeypatch.setattr("app.routers.admin.push_event",
+    monkeypatch.setattr("app.services.event_admin.push_event",
                         lambda *a, **k: calls.append(a))
     r = await as_user(admin).patch(
         f"/admin/events/{e.id}/responses/{student.id}", json={"lead_status": "showed"})

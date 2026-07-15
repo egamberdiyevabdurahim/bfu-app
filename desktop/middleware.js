@@ -202,6 +202,12 @@ export const config = {
     "/events/:path*",
     "/partners",
     "/partners/:path*",
+    // The partner org panel. Middleware only enforces a valid SESSION here (no
+    // session → /login); the ROLE gate ("are you actually a partner?") lives in
+    // app/partner/page.js, and every /partner/* API route is org-scoped
+    // server-side. /dashboard stays admin-only exactly as before — untouched.
+    "/partner",
+    "/partner/:path*",
     "/api/bfu/:path*",
     "/api/resume",
   ],

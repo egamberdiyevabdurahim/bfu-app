@@ -7,7 +7,7 @@ import { gradientFor, initials } from "@/lib/avatar";
 import Atmosphere from "@/components/Atmosphere";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import CommandPalette from "@/components/search/CommandPalette";
-import { EXPLORE, YOU, ADMIN, ADMIN_ROLES } from "@/components/nav/navConfig";
+import { EXPLORE, YOU, ADMIN, ADMIN_ROLES, PARTNER, PARTNER_ROLE } from "@/components/nav/navConfig";
 import { useT } from "@/components/i18n/LocaleProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import NavIcon from "@/components/nav/NavIcon";
@@ -291,6 +291,8 @@ export default function AppShell({ active, me: initialMe = null, children }) {
   }, []);
 
   const isAdmin = !!me && ADMIN_ROLES.has(me.role);
+  // A partner org account: gets its OWN scoped panel row, never the admin group.
+  const isPartner = !!me && me.role === PARTNER_ROLE;
   const name = me?.display_name || me?.name || "You";
   // The current user's own presence dot. Driven by real `me.is_online`; while
   // the heartbeat pinger is running the backend keeps this true, so we only
@@ -301,10 +303,13 @@ export default function AppShell({ active, me: initialMe = null, children }) {
     { id: "explore", label: t("nav.group.explore"), items: EXPLORE },
     { id: "you", label: t("nav.group.you"), items: YOU },
     ...(isAdmin ? [{ id: "admin", label: t("nav.group.admin"), items: ADMIN }] : []),
+    // A partner sees ONLY its own panel group here — never the admin group
+    // (isPartner and isAdmin are mutually exclusive: partner ∉ ADMIN_ROLES).
+    ...(isPartner ? [{ id: "partner", label: t("nav.group.partner"), items: PARTNER }] : []),
   ];
   // Pathname wins; the `active` prop is only a first-paint fallback.
   const activeKey =
-    deriveActiveKey(pathname, [...EXPLORE, ...YOU, ...ADMIN]) || active || null;
+    deriveActiveKey(pathname, [...EXPLORE, ...YOU, ...ADMIN, ...PARTNER]) || active || null;
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   // The sidebar search control no longer navigates — it OPENS the ⌘K command
@@ -492,7 +497,7 @@ export default function AppShell({ active, me: initialMe = null, children }) {
               </span>
               <span className="ash-profile-meta">
                 <span className="ash-profile-name">{name}</span>
-                <span className="ash-profile-role">{isAdmin ? t("common.admin") : t("common.builder")}</span>
+                <span className="ash-profile-role">{isPartner ? t("common.partner") : isAdmin ? t("common.admin") : t("common.builder")}</span>
               </span>
               <span className="ash-profile-caret" aria-hidden>
                 {menuOpen ? "▾" : "▸"}

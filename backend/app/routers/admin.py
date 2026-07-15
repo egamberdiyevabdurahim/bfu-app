@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,26 +7,28 @@ from app.config import settings
 from app.core.deps import get_admin_user, get_super_admin_user
 from app.database import get_db, AsyncSessionLocal
 import asyncio
-import csv
-import io
 import json
-from typing import Any
 from app.models.user import User, PendingLocation, Report, ErrorLog, AuditLog
-from app.services.notify import esc, push_event, send_telegram, send_telegram_result
+from app.services.notify import esc, send_telegram, send_telegram_result
 from app.services.group_moderation import queue_group_post
 from app.services.audit import log_action
-from app.services.event_forms import (
-    answer_to_text, has_form, normalize_schema, validate_schema,
+# The responses table / CSV / funnel / lead-score PATCH live in ONE shared
+# service so the admin panel and the partner self-serve panel never drift.
+# LEAD_STATUSES is re-exported here (tests + partner import it from admin).
+from app.services.event_admin import (
+    LEAD_STATUSES,
+    build_funnel,
+    build_responses,
+    build_responses_csv,
+    checked_schema as _checked_schema,
+    to_naive_utc as _to_naive_utc,
+    update_event_response,
 )
 from app.models.project import Project, ProjectMember, ProjectReqSkill
 from app.models.user_analysis import UserAnalysis
 from app.models.region import Region, School, LearningCenter
 from app.models.event import Event
-from app.models.event_rsvp import EventRsvp
 from app.models.partner import Partner
-# Waitlist promotion helpers live with the RSVP logic (events router). Safe to
-# import here: events.py never imports admin, so there is no cycle.
-from app.routers.events import notify_seat_opened, promote_from_waitlist
 
 # These two live in sibling service modules written in parallel. Degrade to a
 # no-op if they haven't landed yet so this router (and the whole test suite)
@@ -42,7 +43,7 @@ try:
 except ImportError:  # pragma: no cover - only until the service agent lands it
     async def generate_event_report(event_id: int) -> dict:  # type: ignore[misc]
         return {"summary": "", "response_count": 0, "generated_at": None}
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from app.schemas.event import FormResponseOut
 from app.schemas.user import AdminUserOut
 from app.schemas.project import AdminProjectOut
@@ -714,10 +715,6 @@ async def hard_delete_user(
         raise HTTPException(409, "User still referenced by other records; ban instead.")
     return {"detail": "User hard deleted"}
 
-# The partner lead-pipeline stages a registrant can be advanced through. The
-# admin PATCH endpoint is the single validation gate (422 on anything else).
-LEAD_STATUSES = {"registered", "showed", "scored", "called", "enrolled", "no_show"}
-
 # Retain fire-and-forget event-push tasks so the loop can't GC them mid-run.
 _event_push_tasks: set = set()
 
@@ -774,33 +771,6 @@ class ResponseUpdateBody(BaseModel):
     """Admin edit to one registrant's lead pipeline row."""
     lead_status: str | None = None
     score: int | None = None
-
-
-def _checked_schema(raw: Any) -> list[dict] | None:
-    """Validate an admin-supplied question list with the ONE rulebook
-    (app.services.event_forms) and return the normalized blob to store.
-    422s with {question_key: reason} so the panel can point at the bad row."""
-    errors = validate_schema(raw)
-    if errors:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "Invalid form_schema", "errors": errors},
-        )
-    return normalize_schema(raw)
-
-
-def _to_naive_utc(dt: datetime | None) -> datetime | None:
-    """Normalize an incoming datetime for storage in a timezone-NAIVE column.
-
-    The desktop sends Z-suffixed ISO (``.toISOString()``), which Pydantic parses
-    to a tz-AWARE datetime. Assigning an aware value to a "timestamp without time
-    zone" column raises asyncpg ``DataError`` → HTTP 500 on Postgres (SQLite in
-    tests silently accepts it, hiding the bug). So: convert an aware value to UTC
-    and strip the tzinfo (keeping the SAME wall-clock instant); pass a naive value
-    through unchanged (already treated as naive-UTC everywhere in this app)."""
-    if dt is not None and dt.tzinfo is not None:
-        return dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
 
 
 @router.get("/events", response_model=list[EventOut])
@@ -937,6 +907,66 @@ async def admin_delete_partner(partner_id: int, admin: User = Depends(get_admin_
     return {"detail": "Partner deleted"}
 
 
+class MakePartnerBody(BaseModel):
+    """Optional org fields for the make-partner promotion. All optional: name
+    falls back to the user's display name so a one-tap promotion still works."""
+    name: str | None = None
+    about: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    region_id: int | None = None
+
+
+@router.post("/users/{user_id}/make-partner", response_model=PartnerOut,
+             status_code=status.HTTP_201_CREATED)
+async def admin_make_user_partner(
+    user_id: int,
+    body: MakePartnerBody | None = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Turn a normal member into a PARTNER: flip role='partner' and create (or
+    re-link) a Partner org owned by that user. The user then gets the scoped
+    /partner/* panel over ONLY its own events, is HIDDEN from City discovery, but
+    keeps using BFU as a normal member otherwise. Idempotent: re-running returns
+    the existing linked org instead of creating a duplicate."""
+    body = body or MakePartnerBody()
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    _guard_privileged_target(admin, user)  # a plain admin can't demote a super-admin
+
+    user.role = "partner"
+
+    # Re-link an existing (non-deleted) org this user already owns rather than
+    # spawning a second one — the /partner guard resolves exactly one org.
+    p = (await db.execute(
+        select(Partner).where(Partner.owner_user_id == user_id,
+                              Partner.is_deleted == False)
+    )).scalar_one_or_none()
+    created = False
+    if p is None:
+        name = (body.name or "").strip() or (user.display_name or "").strip() or f"Partner #{user_id}"
+        p = Partner(
+            name=name, about=body.about, website=body.website,
+            logo_url=body.logo_url, region_id=body.region_id,
+            owner_user_id=user_id, verified=True,
+        )
+        db.add(p)
+        created = True
+    else:
+        # Apply any org fields the admin supplied on an already-linked org.
+        for field in ("name", "about", "website", "logo_url", "region_id"):
+            val = getattr(body, field)
+            if val is not None:
+                setattr(p, field, val.strip() if isinstance(val, str) else val)
+
+    await log_action(db, admin.id, "user.make_partner", "user", user_id,
+                     {"created_org": created})
+    await db.commit(); await db.refresh(p)
+    return p
+
+
 @router.patch("/events/{event_id}", response_model=EventOut)
 async def admin_update_event(event_id: int, body: EventBody,
                               admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
@@ -969,32 +999,7 @@ async def admin_event_responses(
     e = await db.get(Event, event_id)
     if not e:
         raise HTTPException(404, "Event not found")
-    rows = await _event_responses(db, event_id)
-    return [
-        FormResponseOut(
-            user_id=u.id, display_name=u.display_name, tg_username=u.tg_username,
-            phone_number=u.phone_number, submitted_at=r.created_at, answers=r.answers,
-            lead_status=r.lead_status, score=r.score,
-        )
-        for r, u in rows
-    ]
-
-
-async def _event_responses(db: AsyncSession, event_id: int) -> list[tuple[EventRsvp, User]]:
-    """(rsvp, user) pairs for the 'going' registrations, oldest first."""
-    return list((await db.execute(
-        select(EventRsvp, User)
-        .join(User, User.id == EventRsvp.user_id)
-        .where(EventRsvp.event_id == event_id, EventRsvp.status == "going")
-        .order_by(EventRsvp.created_at.asc(), EventRsvp.id.asc())
-    )).all())
-
-
-# Lead-pipeline stages (from EventRsvp.lead_status) + RSVP statuses (from
-# EventRsvp.status). Disjoint sets → the funnel dict merges both without
-# collision. Every key is reported (0 when absent).
-_FUNNEL_LEAD_KEYS = ("registered", "showed", "scored", "called", "enrolled", "no_show")
-_FUNNEL_STATUS_KEYS = ("waitlisted", "going", "interested")
+    return await build_responses(db, e)
 
 
 @router.get("/events/{event_id}/funnel")
@@ -1004,29 +1009,11 @@ async def admin_event_funnel(
     db: AsyncSession = Depends(get_db),
 ):
     """Stage counts for an event: the partner lead pipeline (lead_status) plus the
-    RSVP status breakdown, in two grouped queries. ``total`` = every RSVP row."""
+    RSVP status breakdown. ``total`` = every RSVP row. See event_admin.build_funnel."""
     e = await db.get(Event, event_id)
     if not e:
         raise HTTPException(404, "Event not found")
-    lead_rows = dict((await db.execute(
-        select(EventRsvp.lead_status, func.count())
-        .where(EventRsvp.event_id == event_id)
-        .group_by(EventRsvp.lead_status)
-    )).all())
-    status_rows = dict((await db.execute(
-        select(EventRsvp.status, func.count())
-        .where(EventRsvp.event_id == event_id)
-        .group_by(EventRsvp.status)
-    )).all())
-    funnel = {k: 0 for k in (_FUNNEL_LEAD_KEYS + _FUNNEL_STATUS_KEYS)}
-    for k, c in lead_rows.items():
-        if k in funnel:
-            funnel[k] = c
-    for k, c in status_rows.items():
-        if k in funnel:
-            funnel[k] = c
-    funnel["total"] = sum(status_rows.values())
-    return funnel
+    return await build_funnel(db, e)
 
 
 @router.get("/events/{event_id}/responses.csv")
@@ -1035,52 +1022,12 @@ async def admin_event_responses_csv(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """The same table as a spreadsheet: one column per question (header = the
-    question's LABEL, in schema order). UTF-8 **with BOM** so Excel renders
-    Uzbek/Cyrillic text instead of mojibake."""
+    """The same table as a spreadsheet: one column per question, UTF-8 with BOM.
+    See event_admin.build_responses_csv (shared with the partner panel)."""
     e = await db.get(Event, event_id)
     if not e:
         raise HTTPException(404, "Event not found")
-    schema = e.form_schema if has_form(e.form_schema) else []
-    rows = await _event_responses(db, event_id)
-
-    buf = io.StringIO()
-    w = csv.writer(buf, lineterminator="\r\n")
-    w.writerow(
-        ["user_id", "name", "username", "phone", "submitted_at", "lead_status", "score"]
-        + [q.get("label", q.get("key", "")) for q in schema]
-    )
-    for r, u in rows:
-        answers = r.answers or {}
-        w.writerow(
-            [
-                u.id,
-                u.display_name,
-                f"@{u.tg_username}" if u.tg_username else "",
-                u.phone_number or "",
-                r.created_at.isoformat(sep=" ", timespec="seconds") if r.created_at else "",
-                r.lead_status,
-                "" if r.score is None else r.score,
-            ]
-            + [answer_to_text(answers.get(q.get("key"))) for q in schema]
-        )
-
-    body = "﻿" + buf.getvalue()   # BOM first -> Excel-safe UTF-8
-    filename = f"event-{event_id}-responses.csv"
-    return Response(
-        content=body.encode("utf-8"),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-# Localized "your {title} result: {score}" DM (HTML — {title} is esc()'d by the
-# caller; {score} is an int). Sent best-effort when an admin sets/changes a score.
-_SCORE_RESULT = {
-    "en": "📊 Your <b>{title}</b> result: <b>{score}</b>",
-    "uz": "📊 <b>{title}</b> natijangiz: <b>{score}</b>",
-    "ru": "📊 Ваш результат «<b>{title}</b>»: <b>{score}</b>",
-}
+    return await build_responses_csv(db, e)
 
 
 @router.patch("/events/{event_id}/responses/{user_id}", response_model=FormResponseOut)
@@ -1095,58 +1042,13 @@ async def admin_update_event_response(
     and/or record a number for them (score). Both fields are optional — a PATCH
     can set just one. An unknown lead_status is a 422 and writes nothing.
 
-    Side effects (best-effort, after commit):
-      * setting/changing ``score`` DMs the student their result (localized);
-      * marking a going attendee ``no_show`` frees their seat → the oldest
-        waitlisted registrant is promoted to going and DMed."""
-    row = (await db.execute(select(EventRsvp).where(
-        EventRsvp.event_id == event_id, EventRsvp.user_id == user_id,
-    ))).scalar_one_or_none()
-    if not row:
-        raise HTTPException(404, "Registration not found")
-    patch = body.model_dump(exclude_unset=True)
-    old_lead, old_score = row.lead_status, row.score
-    if "lead_status" in patch and patch["lead_status"] is not None:
-        if patch["lead_status"] not in LEAD_STATUSES:
-            raise HTTPException(
-                status_code=422,
-                detail={"message": "Invalid lead_status",
-                        "allowed": sorted(LEAD_STATUSES)},
-            )
-        row.lead_status = patch["lead_status"]
-    if "score" in patch:
-        row.score = patch["score"]
-
-    # A no_show releases the attendee's seat → promote the oldest waitlisted.
-    became_no_show = (
-        patch.get("lead_status") == "no_show" and old_lead != "no_show"
-    )
-    score_changed = (
-        "score" in patch and patch["score"] is not None and patch["score"] != old_score
-    )
-    ev = await db.get(Event, event_id) if (became_no_show or score_changed) else None
-    promoted = None
-    if became_no_show and ev is not None:
-        # autoflush writes the no_show above before _seats_taken counts seats.
-        promoted = await promote_from_waitlist(db, ev)
-
-    await log_action(db, admin.id, "event.response.update", "event", event_id,
-                     {"user_id": user_id, **patch})
-    await db.commit()
-
-    u = await db.get(User, user_id)
-    if promoted is not None and ev is not None:
-        await notify_seat_opened(db, promoted.user_id, ev)
-    if score_changed and ev is not None and u is not None:
-        push_event(u, "event_reminder", _SCORE_RESULT,
-                   fmt={"title": esc(ev.title), "score": patch["score"]})
-
-    return FormResponseOut(
-        user_id=user_id, display_name=u.display_name if u else str(user_id),
-        tg_username=u.tg_username if u else None,
-        phone_number=u.phone_number if u else None,
-        submitted_at=row.created_at, answers=row.answers,
-        lead_status=row.lead_status, score=row.score,
+    The pipeline logic + side effects (score DM, no_show → waitlist promotion)
+    live in event_admin.update_event_response, shared with the partner panel."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    return await update_event_response(
+        db, e, user_id, body.model_dump(exclude_unset=True), admin.id
     )
 
 

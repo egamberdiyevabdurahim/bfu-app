@@ -72,3 +72,29 @@ async def get_super_admin_user(current_user: User = Depends(get_current_user)) -
     if current_user.role != "super_admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin access required")
     return current_user
+
+
+async def get_partner_user(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gate the /partner/* self-serve panel. A partner is NOT an admin: it is a
+    normal member whose role is 'partner' and who owns exactly one Partner org
+    (Partner.owner_user_id == its id). Returns that Partner org.
+
+    403 unless role == 'partner'; 404 if the role is set but no live org is
+    linked (a half-provisioned account) — so a partner can never reach the panel
+    without a resolvable org to scope every /partner/events/{id}* route against."""
+    from app.models.partner import Partner
+
+    if current_user.role != "partner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Partner access required")
+    partner = (await db.execute(
+        select(Partner).where(
+            Partner.owner_user_id == current_user.id,
+            Partner.is_deleted == False,  # noqa: E712
+        )
+    )).scalar_one_or_none()
+    if partner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No partner org linked")
+    return partner

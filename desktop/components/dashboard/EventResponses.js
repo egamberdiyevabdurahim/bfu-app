@@ -7,16 +7,23 @@ import { useT } from "@/components/i18n/LocaleProvider";
 import { fmtTashkent } from "@/lib/datetime";
 import { normalizeSchema, groupBySection } from "@/components/dashboard/EventFormBuilder";
 
-// The RESPONSES viewer for one event's registration form (/dashboard/events).
+// The RESPONSES viewer for one event's registration form.
 //
-// Reads:
-//   GET /admin/events/{id}/responses      → [{ user_id, display_name, tg_username,
+// BASE IS A PROP, NOT A CONSTANT. The SAME viewer serves the admin console
+// (apiBase "/admin") and the partner panel (apiBase "/partner"); every read/write
+// below routes through `apiBase` (or `readEventPath` for the single-event schema
+// read) — there is no hardcoded "/admin".
+//
+// Reads (shown at the default "/admin" base):
+//   GET {apiBase}/events/{id}/responses   → [{ user_id, display_name, tg_username,
 //                                              phone_number, submitted_at, answers }]
-//   GET /events/{id}                      → the form_schema, so the columns come
+//   GET {readEventPath(id)}               → the form_schema, so the columns come
 //                                            out in the founder's question ORDER
 //                                            with his LABELS (answers alone are a
-//                                            bare {key: value} dict).
-//   GET /admin/events/{id}/responses.csv  → the download (Excel-safe UTF-8).
+//                                            bare {key: value} dict). Default
+//                                            /events/{id}; partner passes a scoped
+//                                            reader so pending events still load.
+//   GET {apiBase}/events/{id}/responses.csv → the download (Excel-safe UTF-8).
 //
 // Layout problem this solves: the Marstiff SAT survey is 30 free-text questions,
 // so a naive table is a mile wide and each cell is a paragraph. So: the table
@@ -57,7 +64,17 @@ function leadTone(status) {
   }
 }
 
-export default function EventResponses({ event, onClose, showToast }) {
+export default function EventResponses({
+  event,
+  onClose,
+  showToast,
+  // API base for responses / funnel / ai-report / csv / lead-status + score
+  // writes — "/admin" (console) or "/partner" (panel).
+  apiBase = "/admin",
+  // How to READ one event (for its form_schema). Default public /events/{id};
+  // the partner panel passes a scoped reader so a pending event still loads.
+  readEventPath = (id) => `/events/${id}`,
+}) {
   const t = useT();
   const [rows, setRows] = useState([]);
   const [schema, setSchema] = useState([]);
@@ -80,13 +97,13 @@ export default function EventResponses({ event, onClose, showToast }) {
         // The schema read is best-effort: if it fails we still show the answers,
         // just keyed by question key instead of by label.
         const [responses, full, funnelRes] = await Promise.all([
-          bfu(`/admin/events/${event.id}/responses`),
+          bfu(`${apiBase}/events/${event.id}/responses`),
           Object.prototype.hasOwnProperty.call(event, "form_schema")
             ? Promise.resolve({ form_schema: event.form_schema })
-            : bfu(`/events/${event.id}`).catch(() => null),
+            : bfu(readEventPath(event.id)).catch(() => null),
           // Best-effort: the funnel is a headline, but a failed read must not
           // hide the responses table.
-          bfu(`/admin/events/${event.id}/funnel`).catch(() => null),
+          bfu(`${apiBase}/events/${event.id}/funnel`).catch(() => null),
         ]);
         if (!alive) return;
         setRows(Array.isArray(responses) ? responses : []);
@@ -127,7 +144,7 @@ export default function EventResponses({ event, onClose, showToast }) {
   const downloadCsv = useCallback(async () => {
     setCsvBusy(true);
     try {
-      const res = await fetch(`/web/api/bfu/admin/events/${event.id}/responses.csv`, {
+      const res = await fetch(`/web/api/bfu${apiBase}/events/${event.id}/responses.csv`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -150,7 +167,7 @@ export default function EventResponses({ event, onClose, showToast }) {
     } finally {
       setCsvBusy(false);
     }
-  }, [event.id, event.title, showToast, t]);
+  }, [apiBase, event.id, event.title, showToast, t]);
 
   // Patch one response row in place (optimistic), keyed by user_id.
   const patchRespRow = useCallback((userId, patch) => {
@@ -164,7 +181,7 @@ export default function EventResponses({ event, onClose, showToast }) {
     if (next === prev) return;
     patchRespRow(r.user_id, { lead_status: next });
     try {
-      const res = await bfu(`/admin/events/${event.id}/responses/${r.user_id}`, {
+      const res = await bfu(`${apiBase}/events/${event.id}/responses/${r.user_id}`, {
         method: "PATCH",
         body: { lead_status: next },
       });
@@ -174,7 +191,7 @@ export default function EventResponses({ event, onClose, showToast }) {
       patchRespRow(r.user_id, { lead_status: prev });
       showToast?.(err.message || t("dash.resp.lead_failed"), "err");
     }
-  }, [event.id, patchRespRow, showToast, t]);
+  }, [apiBase, event.id, patchRespRow, showToast, t]);
 
   // Score commit (on blur, not per keystroke): PATCH { score }. Empty clears to
   // null; otherwise a whole number. No-ops when unchanged.
@@ -191,7 +208,7 @@ export default function EventResponses({ event, onClose, showToast }) {
     if (next === prev) return;
     patchRespRow(r.user_id, { score: next });
     try {
-      const res = await bfu(`/admin/events/${event.id}/responses/${r.user_id}`, {
+      const res = await bfu(`${apiBase}/events/${event.id}/responses/${r.user_id}`, {
         method: "PATCH",
         body: { score: next },
       });
@@ -211,7 +228,7 @@ export default function EventResponses({ event, onClose, showToast }) {
       patchRespRow(r.user_id, { score: prev });
       showToast?.(err.message || t("dash.resp.score_failed"), "err");
     }
-  }, [event.id, patchRespRow, showToast, t]);
+  }, [apiBase, event.id, patchRespRow, showToast, t]);
 
   // Ask the backend for a one-shot AI summary of every answer. The service is
   // robust to 0 responses (returns a "no responses yet" summary), so this is
@@ -220,13 +237,13 @@ export default function EventResponses({ event, onClose, showToast }) {
     setAiOpen(true);
     setAiState("loading");
     try {
-      const rep = await bfu(`/admin/events/${event.id}/ai-report`);
+      const rep = await bfu(`${apiBase}/events/${event.id}/ai-report`);
       setAiReport(rep || {});
       setAiState("ready");
     } catch {
       setAiState("error");
     }
-  }, [event.id]);
+  }, [apiBase, event.id]);
 
   useEffect(() => {
     const onKey = (e) => {

@@ -63,7 +63,11 @@ CITY_ONLINE_WINDOW = ONLINE_WINDOW
 async def _city_stats(db: AsyncSession) -> dict:
     now = datetime.utcnow()
     online_cut = now - CITY_ONLINE_WINDOW
-    base = (User.is_deleted == False, User.is_registered == True)
+    # role != 'partner' excludes partner ORGS — they are opportunity posters, not
+    # builders, so they never appear in (or count toward) City discovery. role is
+    # NOT NULL (default 'user'), so this predicate is always well-defined.
+    base = (User.is_deleted == False, User.is_registered == True,
+            User.role != "partner")
 
     online_now = await db.scalar(
         select(func.count(User.id)).where(*base, User.last_seen_at >= online_cut)
@@ -98,7 +102,8 @@ async def _city_clusters(db: AsyncSession, region_id: int | None, limit: int):
     online_cut = now - CITY_ONLINE_WINDOW
 
     q = (select(User).options(selectinload(User.analysis))
-         .where(User.is_deleted == False, User.is_registered == True))
+         .where(User.is_deleted == False, User.is_registered == True,
+                User.role != "partner"))  # partner orgs aren't builders
     if region_id:
         q = q.where(User.region_id == region_id)
     # Pool cap: at scale (>300 builders) the cap must keep the most-recently-
@@ -217,7 +222,10 @@ def _face(u: User) -> dict:
 
 async def _city_threads(db: AsyncSession, region_id: int | None) -> list[dict]:
     now = datetime.utcnow()
-    base = [User.is_deleted == False, User.is_registered == True]
+    # role != 'partner' keeps partner orgs out of every thread (new-in-city faces,
+    # rising, skill clusters) — same exclusion as the cluster pool + stats.
+    base = [User.is_deleted == False, User.is_registered == True,
+            User.role != "partner"]
     if region_id:
         base.append(User.region_id == region_id)
     threads: list[dict] = []

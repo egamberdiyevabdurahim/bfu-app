@@ -8,22 +8,30 @@ import { fmtDate, toTashkentInput, fromTashkentInput } from "@/lib/datetime";
 import EventFormBuilder from "@/components/dashboard/EventFormBuilder";
 import EventResponses from "@/components/dashboard/EventResponses";
 
-// Events content management for /dashboard/events.
+// Events content management. Powers BOTH the admin console (/dashboard/events)
+// and the partner panel (/partner) — the ONLY difference is the props.
 //
-// Loads GET /admin/events (EventOut[]) — the backend floats pending
-// (unapproved, partner-submitted) events to the top, then newest first, up to
-// 200. EventOut = { id, type, title, description, link, cover_url, deadline,
-// region_id, partner_id, is_approved, is_deleted, has_form }. Actions (all
-// get_admin_user):
-//   - create   POST   /admin/events   {EventBody}   (is_approved:true on admin create)
-//   - edit     PATCH  /admin/events/{id} {EventBody}
-//   - approve  PATCH  /admin/events/{id}/approve    (for pending ones)
-//   - delete   DELETE /admin/events/{id}            (soft; sets is_deleted)
+// BASE IS A PROP, NOT A CONSTANT. Everything routes through `apiBase` (default
+// "/admin"; the partner panel passes "/partner"). The partner's own /partner/*
+// router scopes every route to its org, so the SAME component, pointed at a
+// different base, becomes a per-org panel over only that org's events.
+//
+// Loads GET {apiBase}/events (EventOut[]) — the backend floats pending
+// (unapproved) events to the top, then newest first, up to 200. EventOut = {
+// id, type, title, description, link, cover_url, deadline, starts_at, capacity,
+// region_id, partner_id, is_approved, is_deleted, has_form }. Actions:
+//   - create   POST   {apiBase}/events   {EventBody}
+//              (admin: is_approved:true · partner: is_approved:FALSE → moderation)
+//   - edit     PATCH  {apiBase}/events/{id} {EventBody}
+//   - approve  PATCH  {apiBase}/events/{id}/approve   (ADMIN only — canApprove)
+//   - delete   DELETE {apiBase}/events/{id}           (soft; canDelete)
 //
 // EventBody = { type (required), title (required), description?, link?,
-// cover_url?, deadline? (ISO datetime), region_id?, partner_id?, form_schema? }.
-// Regions for the dropdown come from GET /admin/regions; partners from
-// GET /admin/partners (id+name). Optimistic + toast; confirm on delete.
+// cover_url?, starts_at?, deadline? (ISO datetime), region_id?, partner_id?,
+// capacity?, form_schema? }. Region options come from `regionsPath` (admin:
+// /admin/regions · partner: the public /regions); partner options from
+// `partnersPath` (null → the org picker is hidden, the partner is its own org).
+// Optimistic + toast; confirm on delete.
 //
 // REGISTRATION FORM. An event can carry one (Event.form_schema): the questions a
 // member answers when they say "I'm going". Two surfaces hang off each row:
@@ -65,9 +73,29 @@ function capacityValue(raw) {
   return Math.max(0, Math.trunc(n));
 }
 
-export default function AdminEvents() {
+export default function AdminEvents({
+  // "/admin" (console) or "/partner" (per-org panel). Every fetch below is
+  // `${apiBase}/events...` — no hardcoded "/admin".
+  apiBase = "/admin",
+  // Region options: admins hit /admin/regions; partners the public /regions.
+  regionsPath = "/admin/regions",
+  // Org options for the picker. null hides it (the partner IS its own org, and
+  // the backend forces partner_id server-side).
+  partnersPath = "/admin/partners",
+  // Single-event read (form_schema) handed to the form/response children.
+  // Default is the public, approved-only /events/{id}; partner passes a scoped
+  // reader so a pending event still loads.
+  readEventPath = (id) => `/events/${id}`,
+  // ADMIN-only affordances. A partner can create/edit its own events but can't
+  // self-approve (moderation) or delete (no such /partner route).
+  canApprove = true,
+  canDelete = true,
+  // "admin" | "partner" — flips copy + the prominent "pending review" callout.
+  variant = "admin",
+} = {}) {
   const t = useT();
   const { showToast, Toast } = useToast();
+  const isPartner = variant === "partner";
   const [rows, setRows] = useState([]);
   const [regions, setRegions] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -80,9 +108,10 @@ export default function AdminEvents() {
   useEffect(() => {
     let alive = true;
     Promise.all([
-      bfu("/admin/events").catch(() => []),
-      bfu("/admin/regions").catch(() => []),
-      bfu("/admin/partners").catch(() => []),
+      bfu(`${apiBase}/events`).catch(() => []),
+      bfu(regionsPath).catch(() => []),
+      // The org picker is hidden for partners → don't fetch a list nobody sees.
+      partnersPath ? bfu(partnersPath).catch(() => []) : Promise.resolve([]),
     ])
       .then(([ev, rg, pt]) => {
         if (!alive) return;
@@ -95,7 +124,7 @@ export default function AdminEvents() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [apiBase, regionsPath, partnersPath]);
 
   const regionName = (id) => {
     const r = regions.find((x) => x.id === id);
@@ -110,7 +139,7 @@ export default function AdminEvents() {
     setBusyId(e.id);
     setRows((rs) => rs.map((x) => (x.id === e.id ? { ...x, is_approved: true } : x)));
     try {
-      const res = await bfu(`/admin/events/${e.id}/approve`, { method: "PATCH" });
+      const res = await bfu(`${apiBase}/events/${e.id}/approve`, { method: "PATCH" });
       if (res && typeof res.is_approved === "boolean") {
         setRows((rs) => rs.map((x) => (x.id === e.id ? { ...x, ...res } : x)));
       }
@@ -129,7 +158,7 @@ export default function AdminEvents() {
     const prev = rows;
     setRows((rs) => rs.filter((x) => x.id !== e.id));
     try {
-      await bfu(`/admin/events/${e.id}`, { method: "DELETE" });
+      await bfu(`${apiBase}/events/${e.id}`, { method: "DELETE" });
       showToast("Event deleted");
     } catch (err) {
       setRows(prev);
@@ -143,13 +172,15 @@ export default function AdminEvents() {
     // id === null → create; else patch.
     try {
       if (id == null) {
-        const created = await bfu("/admin/events", { method: "POST", body: payload });
+        const created = await bfu(`${apiBase}/events`, { method: "POST", body: payload });
         setRows((rs) => [created, ...rs]);
-        showToast("Event created");
+        // Partner-created events land unapproved → say "submitted for review",
+        // not "created", so the moderation step is never a surprise.
+        showToast(isPartner ? t("partner.events.submitted") : "Event created");
       } else {
-        const updated = await bfu(`/admin/events/${id}`, { method: "PATCH", body: payload });
+        const updated = await bfu(`${apiBase}/events/${id}`, { method: "PATCH", body: payload });
         setRows((rs) => rs.map((x) => (x.id === id ? { ...x, ...updated } : x)));
-        showToast("Event updated");
+        showToast(isPartner ? t("partner.events.updated") : "Event updated");
       }
       setEditing(null);
     } catch (err) {
@@ -161,7 +192,7 @@ export default function AdminEvents() {
     <div style={{ marginTop: 28 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <button type="button" className="ch-btn-primary" onClick={() => setEditing("new")} style={{ padding: "9px 18px" }}>
-          + New event
+          {isPartner ? `+ ${t("partner.events.new")}` : "+ New event"}
         </button>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em" }}>
           {state === "ready" ? `${rows.length} shown` : ""}
@@ -180,9 +211,13 @@ export default function AdminEvents() {
 
       {state === "ready" && rows.length === 0 && (
         <div className="ch-grace" style={{ minHeight: 160 }}>
-          <span className="ch-grace-k">Nothing yet</span>
-          <div className="ch-grace-t">No events.</div>
-          <div className="ch-grace-s">Create one and it'll be announced to the global group with a deep link.</div>
+          <span className="ch-grace-k">{isPartner ? t("partner.events.empty_k") : "Nothing yet"}</span>
+          <div className="ch-grace-t">{isPartner ? t("partner.events.empty_t") : "No events."}</div>
+          <div className="ch-grace-s">
+            {isPartner
+              ? t("partner.events.empty_s")
+              : "Create one and it'll be announced to the global group with a deep link."}
+          </div>
         </div>
       )}
 
@@ -232,10 +267,39 @@ export default function AdminEvents() {
                 </a>
               )}
             </div>
+
+            {/* Requirement #4: a partner can't approve their own event, so make
+                the moderation gate explicit and reassuring on every pending row —
+                not just the small "Pending" pill above. */}
+            {isPartner && !e.is_approved && (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(232,161,92,0.35)",
+                  background: "rgba(232,161,92,0.08)",
+                  maxWidth: 620,
+                }}
+              >
+                <span aria-hidden style={{ color: "var(--amber)", fontSize: 13, lineHeight: 1.5 }}>◷</span>
+                <div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--amber)" }}>
+                    {t("partner.events.pending_k")}
+                  </div>
+                  <div style={{ marginTop: 3, fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+                    {t("partner.events.pending_note")}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "0 0 auto" }}>
-            {!e.is_approved && (
+            {canApprove && !e.is_approved && (
               <ActionBtn onClick={() => doApprove(e)} busy={busyId === e.id} title="Approve + announce">✓ Approve</ActionBtn>
             )}
             <ActionBtn onClick={() => setFormFor(e)} busy={busyId === e.id} title={t("dash.events.form_title")}>
@@ -246,8 +310,12 @@ export default function AdminEvents() {
                 {t("dash.events.responses_btn")}
               </ActionBtn>
             )}
-            <ActionBtn onClick={() => setEditing(e)} busy={busyId === e.id} title="Edit this event">Edit</ActionBtn>
-            <ActionBtn onClick={() => doDelete(e)} busy={busyId === e.id} tone="terra" title="Delete this event">Delete</ActionBtn>
+            <ActionBtn onClick={() => setEditing(e)} busy={busyId === e.id} title="Edit this event">
+              {isPartner ? t("partner.events.edit") : "Edit"}
+            </ActionBtn>
+            {canDelete && (
+              <ActionBtn onClick={() => doDelete(e)} busy={busyId === e.id} tone="terra" title="Delete this event">Delete</ActionBtn>
+            )}
           </div>
         </div>
       ))}
@@ -257,6 +325,8 @@ export default function AdminEvents() {
           event={editing === "new" ? null : editing}
           regions={regions}
           partners={partners}
+          // Hide the org picker for a partner — it's its own org, forced server-side.
+          showPartner={!!partnersPath}
           onCancel={() => setEditing(null)}
           onSubmit={submitForm}
         />
@@ -266,6 +336,8 @@ export default function AdminEvents() {
         <EventFormBuilder
           event={formFor}
           showToast={showToast}
+          apiBase={apiBase}
+          readEventPath={readEventPath}
           onClose={() => setFormFor(null)}
           // The builder hands back the saved row (+ has_form/form_schema) so the
           // pill and the Responses button update without a reload.
@@ -276,7 +348,13 @@ export default function AdminEvents() {
       )}
 
       {respFor && (
-        <EventResponses event={respFor} showToast={showToast} onClose={() => setRespFor(null)} />
+        <EventResponses
+          event={respFor}
+          showToast={showToast}
+          apiBase={apiBase}
+          readEventPath={readEventPath}
+          onClose={() => setRespFor(null)}
+        />
       )}
 
       <Toast />
@@ -284,7 +362,7 @@ export default function AdminEvents() {
   );
 }
 
-function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
+function EventDialog({ event, regions, partners, showPartner = true, onCancel, onSubmit }) {
   const isNew = !event;
   const [type, setType] = useState(event?.type || "hackathon");
   const [title, setTitle] = useState(event?.title || "");
@@ -384,12 +462,16 @@ function EventDialog({ event, regions, partners, onCancel, onSubmit }) {
             {regions.map((r) => <option key={r.id} value={r.id}>{regionName(r)}</option>)}
           </select>
         </Field>
-        <Field label="Partner">
-          <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
-            <option value="">None</option>
-            {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </Field>
+        {/* Hidden in the partner panel — a partner IS its org, and the backend
+            forces partner_id server-side, so there's nothing to pick. */}
+        {showPartner && (
+          <Field label="Partner">
+            <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
+              <option value="">None</option>
+              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+        )}
         {/* Optional seat cap. Blank = unlimited. Full events waitlist new RSVPs. */}
         <Field label="Capacity (seats)">
           <input

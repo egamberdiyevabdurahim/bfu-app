@@ -32,8 +32,14 @@ import { useT } from "@/components/i18n/LocaleProvider";
 // renumber the survivors either, for the same reason.
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Reads   GET   /events/{id}          → EventOut + form_schema
-// Writes  PATCH /admin/events/{id}    → { …EventBody, form_schema }
+// Reads   GET   {readEventPath(id)}   → EventOut + form_schema   (default /events/{id})
+// Writes  PATCH {apiBase}/events/{id}  → { …EventBody, form_schema }  (default /admin)
+//
+// BASE IS A PROP, NOT A CONSTANT. The SAME builder drives the admin console
+// (apiBase "/admin", read the public /events/{id}) and the partner panel
+// (apiBase "/partner", read the scoped /partner/events/{id} so a not-yet-approved
+// event is still readable). Everything below routes through `apiBase` /
+// `readEventPath` — no hardcoded "/admin".
 //
 // The write sends the WHOLE EventBody (current values + form_schema) rather than
 // form_schema alone, because the backend's EventBody still requires `type` and
@@ -249,7 +255,18 @@ export function groupBySection(list) {
 
 // ── the builder ──────────────────────────────────────────────────────────────
 
-export default function EventFormBuilder({ event, onClose, onSaved, showToast }) {
+export default function EventFormBuilder({
+  event,
+  onClose,
+  onSaved,
+  showToast,
+  // API base for the WRITE (PATCH) — "/admin" (console) or "/partner" (panel).
+  apiBase = "/admin",
+  // How to READ one event (with its form_schema). Default is the public,
+  // approved-only /events/{id}; the partner panel passes a scoped reader so a
+  // pending event is still loadable. Both bases route only through these two.
+  readEventPath = (id) => `/events/${id}`,
+}) {
   const t = useT();
   const [questions, setQuestions] = useState([]);
   const [state, setState] = useState("loading"); // loading | ready | blocked
@@ -273,7 +290,7 @@ export default function EventFormBuilder({ event, onClose, onSaved, showToast })
         return;
       }
       try {
-        const full = await bfu(`/events/${event.id}`);
+        const full = await bfu(readEventPath(event.id));
         if (!alive) return;
         setQuestions(normalizeSchema(full?.form_schema));
         setState("ready");
@@ -368,7 +385,7 @@ export default function EventFormBuilder({ event, onClose, onSaved, showToast })
     const wire = toWire(list);
     try {
       // Whole EventBody + form_schema — see the header note on exclude_unset.
-      const updated = await bfu(`/admin/events/${event.id}`, {
+      const updated = await bfu(`${apiBase}/events/${event.id}`, {
         method: "PATCH",
         body: {
           type: event.type,

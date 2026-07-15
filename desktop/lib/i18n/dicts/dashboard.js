@@ -142,6 +142,32 @@ export const dashboard = {
     "dash.resp.ai_retry": "Try again",
     "dash.resp.ai_generated": "Generated {when}",
     "dash.resp.ai_empty": "No responses yet — nothing to summarise.",
+
+    // — Partner panel (/partner) — the org's own scoped view over its events —
+    "partner.panel.kicker": "Partner panel",
+    "partner.panel.title": "Your",
+    "partner.panel.title_accent": "events",
+    "partner.panel.subtitle":
+      "Post opportunities for the community, design the registration form, and read who signed up — for your organisation only.",
+    "partner.panel.intro_k": "How it works",
+    "partner.panel.intro":
+      "Create an event and, if you want, add a registration form. An admin reviews it before it goes live — once approved, it announces itself to the community. Then every sign-up, their answers, the funnel, and an AI summary show up right here.",
+    "partner.panel.org_fallback": "Your organisation",
+    "partner.panel.footer": "The opportunities you post light up someone's path.",
+    "partner.panel.load_error": "Couldn't load your organisation just now — your events still show below.",
+
+    // — Events list, partner wording —
+    "partner.events.new": "Submit an event",
+    "partner.events.edit": "Edit",
+    "partner.events.submitted": "Submitted — an admin will review it",
+    "partner.events.updated": "Event updated",
+    "partner.events.empty_k": "Nothing yet",
+    "partner.events.empty_t": "No events yet.",
+    "partner.events.empty_s":
+      "Submit one — an admin approves it, then it announces itself to the community.",
+    "partner.events.pending_k": "Pending review",
+    "partner.events.pending_note":
+      "An admin has to approve this before it's shown to members or announced. You can keep editing it meanwhile.",
   },
 
   uz: {
@@ -270,6 +296,30 @@ export const dashboard = {
     "dash.resp.ai_retry": "Qayta urinish",
     "dash.resp.ai_generated": "Tayyorlandi {when}",
     "dash.resp.ai_empty": "Hali javob yo‘q — xulosa qilishga narsa yo‘q.",
+
+    "partner.panel.kicker": "Hamkor paneli",
+    "partner.panel.title": "Sizning",
+    "partner.panel.title_accent": "tadbirlaringiz",
+    "partner.panel.subtitle":
+      "Hamjamiyat uchun imkoniyatlar joylang, ro‘yxatdan o‘tish anketasini tuzing va kim yozilganini o‘qing — faqat o‘z tashkilotingiz bo‘yicha.",
+    "partner.panel.intro_k": "Bu qanday ishlaydi",
+    "partner.panel.intro":
+      "Tadbir yarating va istasangiz ro‘yxatdan o‘tish anketasini qo‘shing. Efirga chiqishdan oldin admin uni ko‘rib chiqadi — tasdiqlangach, hamjamiyatga o‘zi e’lon qilinadi. So‘ng har bir ro‘yxatdan o‘tish, javoblar, voronka va AI xulosa aynan shu yerda ko‘rinadi.",
+    "partner.panel.org_fallback": "Sizning tashkilotingiz",
+    "partner.panel.footer": "Siz joylagan imkoniyatlar kimningdir yo‘lini yoritadi.",
+    "partner.panel.load_error": "Tashkilotingizni hozir yuklab bo‘lmadi — tadbirlaringiz quyida ko‘rinib turibdi.",
+
+    "partner.events.new": "Tadbir yuborish",
+    "partner.events.edit": "Tahrirlash",
+    "partner.events.submitted": "Yuborildi — admin ko‘rib chiqadi",
+    "partner.events.updated": "Tadbir yangilandi",
+    "partner.events.empty_k": "Hali yo‘q",
+    "partner.events.empty_t": "Hali tadbir yo‘q.",
+    "partner.events.empty_s":
+      "Bittasini yuboring — admin tasdiqlaydi, so‘ng u hamjamiyatga o‘zi e’lon qilinadi.",
+    "partner.events.pending_k": "Ko‘rib chiqilmoqda",
+    "partner.events.pending_note":
+      "A’zolarga ko‘rsatilishi yoki e’lon qilinishidan oldin admin buni tasdiqlashi kerak. Shu orada tahrirlashda davom etishingiz mumkin.",
   },
 
   ru: {
@@ -398,5 +448,29 @@ export const dashboard = {
     "dash.resp.ai_retry": "Попробовать снова",
     "dash.resp.ai_generated": "Создано {when}",
     "dash.resp.ai_empty": "Ответов пока нет — обобщать нечего.",
+
+    "partner.panel.kicker": "Панель партнёра",
+    "partner.panel.title": "Ваши",
+    "partner.panel.title_accent": "события",
+    "partner.panel.subtitle":
+      "Публикуйте возможности для сообщества, собирайте анкету регистрации и читайте, кто записался — только по вашей организации.",
+    "partner.panel.intro_k": "Как это работает",
+    "partner.panel.intro":
+      "Создайте событие и, при желании, добавьте анкету регистрации. Перед публикацией его проверит админ — после одобрения оно само анонсируется сообществу. Затем каждая регистрация, ответы, воронка и AI-сводка появятся прямо здесь.",
+    "partner.panel.org_fallback": "Ваша организация",
+    "partner.panel.footer": "Опубликованные вами возможности освещают чей-то путь.",
+    "partner.panel.load_error": "Не удалось загрузить вашу организацию — события всё равно показаны ниже.",
+
+    "partner.events.new": "Отправить событие",
+    "partner.events.edit": "Изменить",
+    "partner.events.submitted": "Отправлено — админ проверит",
+    "partner.events.updated": "Событие обновлено",
+    "partner.events.empty_k": "Пока пусто",
+    "partner.events.empty_t": "Событий пока нет.",
+    "partner.events.empty_s":
+      "Отправьте событие — админ одобрит его, и оно само анонсируется сообществу.",
+    "partner.events.pending_k": "На проверке",
+    "partner.events.pending_note":
+      "Админ должен одобрить его, прежде чем оно станет видно участникам или будет анонсировано. Пока можно продолжать редактировать.",
   },
 };

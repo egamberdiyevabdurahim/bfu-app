@@ -1901,7 +1901,10 @@ async def discover(
     q = (
         select(User)
         .options(selectinload(User.analysis))
-        .where(User.is_deleted == False, User.is_registered == True, User.id != current_user.id)
+        # role != 'partner' hides partner ORGS from discovery — they post
+        # opportunities, they are not builders to be discovered/matched.
+        .where(User.is_deleted == False, User.is_registered == True,
+               User.id != current_user.id, User.role != "partner")
     )
     if region_id:
         q = q.where(User.region_id == region_id)

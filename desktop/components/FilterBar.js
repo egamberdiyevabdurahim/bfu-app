@@ -1,192 +1,156 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useT } from "@/components/i18n/LocaleProvider";
+import { useT, useLang } from "@/components/i18n/LocaleProvider";
 import InviteModal from "./InviteModal";
+import CityDiscoverFeed from "./CityDiscoverFeed";
 import { FLAGS } from "@/lib/flags";
 
-// Ports the mockup's `.filters` chip row
-// (docs/superpowers/mockups/2026-07-06-chorsu-city-discovery.html lines 70-76, 177-189).
+// ── City toolbar + hybrid view switch ─────────────────────────────────────────
+// The flagship City page keeps its SSR "bazaar" (region clusters, passed in as
+// `children`) as the DEFAULT view. This bar sits above it with the Mini App's
+// full discovery controls — facets · sort · verified · region · skill search.
 //
-// v1 = CLIENT-SIDE filtering over the already-loaded builder set — no refetch.
-// FilterBar wraps the server-rendered region clusters as `children`. Each
-// BuilderCard (Task 9) tags itself with data-* attributes; on chip select we
-// walk our own subtree and show/hide `[data-builder]` cards, then collapse any
-// `[data-cluster]` whose visible-card count drops to zero. This keeps
-// BuilderCard/RegionCluster as pure SERVER components (the boundary is intact —
-// only this wrapper is a client component).
+// The moment the reader engages ANY control (a facet other than "All", a sort
+// other than "recent", the verified toggle, a region, or a search term) the page
+// switches to <CityDiscoverFeed>: a FLAT, personalized, paginated feed off the
+// authed GET /users/discover (match %, online-accurate, sortable, offset paging)
+// — everything the cached /public/city clusters can't do. Clearing every control
+// returns to the SSR clusters instantly (they stay mounted, just hidden), so the
+// richer default is never lost and nothing refetches to get back to it.
 //
-// The chip set is derived from the payload actually loaded:
-//   All · Online now (ember dot) · <one chip per region present> ·
-//   Looking for co-founder (green dot) · Mentors · up to 4 top skill chips.
-//
-// FilterBar <-> BuilderCard data-attribute contract (BuilderCard, Task 9, MUST
-// emit exactly these on each `[data-builder]` element, inside a `[data-cluster]`):
-//   data-online       "1" | "0"
-//   data-region       String(region_id)  (or "" when null)
-//   data-looking-for  "work" | "volunteering" | "both" | ""   (from builder.looking_for)
-//   data-mentor       "1" | "0"           (from builder.mentor)
-//   data-skills       comma-joined slug()'d skills             (from builder.skills)
-// "Looking for co-founder" maps to looking_for in {work, both} — the Chorsu
-// framing of open_to_work, matching the profile's LookingForCell copy. `mentor`
-// is now a real field on the /public/city Builder contract.
+// The header (AmbientTicker + CityHeader) lives OUTSIDE this component in
+// app/city/page.js, so toggling views never touches it.
 
 const ALL = "all";
-const ONLINE = "online";
-const OPEN_TO_WORK = "open_to_work";
-const MENTOR = "mentor";
 
-// Normalize a skill/region token for stable data-attribute matching.
-function slug(s) {
-  return (s || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
-
-// Build the ordered chip list from the loaded regions/builders.
-function deriveChips(regions, nameKey, t) {
+// The facet chip set. Each key maps to a real /users/discover param in
+// CityDiscoverFeed.buildParams(); "For you" (match=true) is the personalized
+// rank. MENTOR stays gated on FLAGS.MENTORING (hidden in V1) — same as the Mini
+// App — and its is_mentor param is likewise only sent when the flag is on.
+function facetChips(t) {
   const chips = [
     { key: ALL, label: t("city.filter.all") },
-    { key: ONLINE, label: t("city.filter.online"), marker: "ember" },
+    { key: "foryou", label: `✦ ${t("city.filter.foryou")}` },
+    { key: "online", label: t("city.filter.online"), marker: "ember" },
+    { key: "cofounder", label: t("city.filter.cofounder"), marker: "green" },
+    { key: "volunteer", label: t("city.filter.volunteer") },
   ];
-
-  // One chip per region present in the payload (in payload order).
-  for (const r of regions || []) {
-    const name = (r && (r[nameKey] || r.name_en)) || "";
-    if (!name) continue;
-    chips.push({ key: `region:${r.id}`, label: name, region: r.id });
-  }
-
-  chips.push({ key: OPEN_TO_WORK, label: t("city.filter.cofounder"), marker: "green" });
-  // V1: the Mentors chip is hidden. Flip FLAGS.MENTORING to `true` and it comes
-  // back here; cardMatches() below still knows how to match it, and the
-  // data-mentor attribute is still emitted by BuilderCard.
-  if (FLAGS.MENTORING) {
-    chips.push({ key: MENTOR, label: t("city.filter.mentors") });
-  }
-
-  // Up to 4 most common skills across the loaded builders.
-  const counts = new Map();
-  for (const r of regions || []) {
-    for (const p of (r && r.people) || []) {
-      for (const s of (p && p.skills) || []) {
-        const label = (s || "").toString().trim();
-        if (!label) continue;
-        const entry = counts.get(label) || { label, n: 0 };
-        entry.n += 1;
-        counts.set(label, entry);
-      }
-    }
-  }
-  const topSkills = Array.from(counts.values())
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 4);
-  for (const s of topSkills) {
-    chips.push({ key: `skill:${slug(s.label)}`, label: s.label, skill: slug(s.label) });
-  }
-
+  if (FLAGS.MENTORING) chips.push({ key: "mentor", label: t("city.filter.mentors") });
   return chips;
 }
 
-// Decide whether a single builder card element passes the active filter.
-function cardMatches(el, chip) {
-  if (!chip || chip.key === ALL) return true;
-  if (chip.key === ONLINE) return el.getAttribute("data-online") === "1";
-  if (chip.key === OPEN_TO_WORK) {
-    const lf = el.getAttribute("data-looking-for") || "";
-    return lf === "work" || lf === "both";
+// Map a ThreadsRail / Serendipity `?f=<key>` deep-link to a facet. The rail emits
+// "online" / "open_to_work" / "all"; older links may carry "mentor" / "match" /
+// "open_to_volunteering". Region + skill deep-links are handled separately below.
+function facetFromDeepLink(f) {
+  switch (f) {
+    case "online":
+      return "online";
+    case "open_to_work":
+      return "cofounder";
+    case "open_to_volunteering":
+      return "volunteer";
+    case "match":
+    case "foryou":
+      return "foryou";
+    case "mentor":
+      return FLAGS.MENTORING ? "mentor" : null;
+    default:
+      return null;
   }
-  if (chip.key === MENTOR) return el.getAttribute("data-mentor") === "1";
-  if (chip.region != null) {
-    return el.getAttribute("data-region") === String(chip.region);
-  }
-  if (chip.skill != null) {
-    const skills = (el.getAttribute("data-skills") || "").split(",");
-    return skills.includes(chip.skill);
-  }
-  return true;
 }
 
-export default function FilterBar({ regions = [], nameKey = "name_en", children }) {
+export default function FilterBar({ regions = [], regionOptions = [], children }) {
   const t = useT();
-  const [active, setActive] = useState(ALL);
-  // TRUE once a real (non-"All") chip has hidden every builder card on the page.
-  // FilterBar is the only component that can know this: it is the thing doing the
-  // hiding, and it hides by walking the DOM, so no server-rendered ancestor can
-  // see the outcome. Before this existed, that state painted a blank body —
-  // every [data-cluster] hidden, nothing left to say so.
-  const [noMatch, setNoMatch] = useState(false);
-  const rootRef = useRef(null);
+  const { lang } = useLang();
   const searchParams = useSearchParams();
 
-  const chips = useMemo(() => deriveChips(regions, nameKey, t), [regions, nameKey, t]);
+  const [facet, setFacet] = useState(ALL);
+  const [sort, setSort] = useState("recent");
+  const [verified, setVerified] = useState(false);
+  const [regionId, setRegionId] = useState("");
+  // The search box is debounced: `searchInput` tracks keystrokes, `search` is the
+  // settled value that actually drives the view switch + the discover fetch, so
+  // typing doesn't flip to the feed (or refetch) on every character.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
-  // Deep-link support: a `?f=<key>` param (e.g. from a Serendipity thread on the
-  // city) opens the page already-filtered. Guard so an absent/`all`/unknown key
-  // is a no-op and the default "All" view stands. Runs after the server-rendered
-  // clusters are in the DOM (effect fires post-paint), so applyFilter can walk them.
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const chips = useMemo(() => facetChips(t), [t]);
+
+  // id → localized region name, for the region <select> and the feed cards' foot.
+  const regionMap = useMemo(() => {
+    const m = {};
+    for (const r of regionOptions || []) {
+      const name =
+        (lang === "uz" ? r.name_uz : lang === "ru" ? r.name_ru : r.name_en) ||
+        r.name_en ||
+        r.name ||
+        "";
+      if (name) m[r.id] = name;
+    }
+    return m;
+  }, [regionOptions, lang]);
+
+  const regionList = useMemo(
+    () =>
+      Object.entries(regionMap).sort((a, b) =>
+        String(a[1]).localeCompare(String(b[1]))
+      ),
+    [regionMap]
+  );
+
+  // Deep-link support (?f=…) — opens the page already narrowed. facet / region: /
+  // skill: are all honored; "all"/absent/unknown is a no-op (SSR clusters stand).
   useEffect(() => {
     const f = searchParams?.get("f");
     if (!f || f === ALL) return;
-    if (!chips.some((c) => c.key === f)) return; // unknown chip → no-op
-    applyFilter(f);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, chips]);
-
-  function applyFilter(key) {
-    setActive(key);
-    const root = rootRef.current;
-    if (!root) return;
-    const chip = chips.find((c) => c.key === key) || { key: ALL };
-
-    // Builder cards left standing across the WHOLE page after this filter — the
-    // number the no-results state below is gated on.
-    let totalVisible = 0;
-
-    // Show/hide each builder card, then collapse empty clusters.
-    const clusters = root.querySelectorAll("[data-cluster]");
-    if (clusters.length) {
-      clusters.forEach((cluster) => {
-        const cards = cluster.querySelectorAll("[data-builder]");
-        let visible = 0;
-        cards.forEach((card) => {
-          const ok = cardMatches(card, chip);
-          card.hidden = !ok;
-          if (ok) visible += 1;
-        });
-        totalVisible += visible;
-        // If the cluster carries no cards at all (e.g. a small-count grace
-        // tile only), never hide it on the "All" view — the grace tile IS the
-        // content there. Under a real filter it has nothing to say about the
-        // chip the reader picked, so it collapses with everything else and the
-        // no-results tile below speaks for the page instead.
-        cluster.hidden = visible === 0 && (cards.length > 0 || chip.key !== ALL);
-      });
-    } else {
-      // No cluster wrappers — filter loose builder cards directly.
-      root.querySelectorAll("[data-builder]").forEach((card) => {
-        const ok = cardMatches(card, chip);
-        card.hidden = !ok;
-        if (ok) totalVisible += 1;
-      });
+    if (f.startsWith("region:")) {
+      const id = f.slice("region:".length);
+      if (id) setRegionId(id);
+      return;
     }
+    if (f.startsWith("skill:")) {
+      const s = f.slice("skill:".length);
+      if (s) {
+        setSearchInput(s);
+        setSearch(s);
+      }
+      return;
+    }
+    const fc = facetFromDeepLink(f);
+    if (fc) setFacet(fc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
-    // Only a REAL chip can raise the no-results state. On "All" every card is
-    // shown, so totalVisible === 0 there would mean the city holds no builders at
-    // all — and that payload never reaches FilterBar (app/city/page.js renders
-    // <CityEmpty /> instead of us). Gating on `key !== ALL` is exactly what keeps
-    // the "Clear filter" button below honest: it can only ever be offered while a
-    // non-All chip is selected, so pressing it always changes something.
-    setNoMatch(key !== ALL && totalVisible === 0);
+  // Any engaged control ⇒ show the discover feed. The pristine default (All /
+  // recent / not-verified / no region / no search) keeps the SSR clusters.
+  const discoverActive =
+    facet !== ALL ||
+    sort !== "recent" ||
+    verified ||
+    regionId !== "" ||
+    search !== "";
+
+  function clearAll() {
+    setFacet(ALL);
+    setSort("recent");
+    setVerified(false);
+    setRegionId("");
+    setSearchInput("");
+    setSearch("");
   }
 
   return (
-    <div ref={rootRef}>
+    <div>
+      {/* Facet chip row */}
       <div
         role="tablist"
         aria-label={t("city.filter.aria")}
@@ -199,14 +163,14 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
         }}
       >
         {chips.map((chip) => {
-          const on = active === chip.key;
+          const on = facet === chip.key;
           return (
             <button
               key={chip.key}
               type="button"
               role="tab"
               aria-selected={on}
-              onClick={() => applyFilter(chip.key)}
+              onClick={() => setFacet(chip.key)}
               style={{
                 padding: "9px 16px",
                 borderRadius: "var(--radius-pill)",
@@ -222,49 +186,169 @@ export default function FilterBar({ regions = [], nameKey = "name_en", children 
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
                 cursor: "pointer",
-                transition: "color 0.16s ease, border-color 0.16s ease, background 0.16s ease",
+                transition:
+                  "color 0.16s ease, border-color 0.16s ease, background 0.16s ease",
                 display: "inline-flex",
                 alignItems: "center",
               }}
             >
-              {chip.marker === "ember" && <Marker color="var(--ember)" glow="rgba(255,106,61,0.9)" />}
-              {chip.marker === "green" && <Marker color="var(--green)" glow="rgba(127,176,105,0.8)" />}
+              {chip.marker === "ember" && (
+                <Marker color="var(--ember)" glow="rgba(255,106,61,0.9)" />
+              )}
+              {chip.marker === "green" && (
+                <Marker color="var(--green)" glow="rgba(127,176,105,0.8)" />
+              )}
               {chip.label}
             </button>
           );
         })}
       </div>
-      {children}
 
-      {/* PATH (a): the active chip matched nothing, so every [data-cluster] above
-          is now hidden and the body would otherwise be BLANK — no message, no way
-          back. Reuses the app's `ch-empty` treatment (app/projects/page.js), sized
-          down since it sits under a live chip row rather than owning the page.
-          Never rendered on "All" (see applyFilter), so "Clear filter" is always a
-          real action: it resets the chips to All, which always brings cards back. */}
-      {noMatch && (
-        <div
-          className="ch-empty"
-          role="status"
-          style={{ minHeight: 220, padding: "36px 28px", marginTop: 26 }}
+      {/* Controls row — search · region · sort · verified */}
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={t("city.filter.search_ph")}
+          aria-label={t("city.filter.search_aria")}
+          style={{
+            flex: "1 1 220px",
+            minWidth: 180,
+            background: "var(--surface-2)",
+            border: `1px solid ${searchInput ? "var(--amber)" : "var(--hair)"}`,
+            borderRadius: "var(--radius-pill)",
+            padding: "10px 16px",
+            fontSize: 13,
+            color: "var(--text)",
+            outline: "none",
+          }}
+        />
+
+        {regionList.length > 0 && (
+          <select
+            value={regionId}
+            onChange={(e) => setRegionId(e.target.value)}
+            aria-label={t("city.filter.region_aria")}
+            style={ctrlStyle(regionId !== "")}
+          >
+            <option value="">{t("city.filter.all_regions")}</option>
+            {regionList.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          aria-label={t("city.filter.sort_aria")}
+          style={ctrlStyle(sort !== "recent")}
         >
-          <span className="ch-empty-k">{t("city.filter.empty_k")}</span>
-          <div className="ch-empty-t" style={{ fontSize: 22 }}>
-            {t("city.filter.empty_t")}
-          </div>
-          <div className="ch-empty-s">{t("city.filter.empty_s")}</div>
+          <option value="recent">{t("city.sort.recent")}</option>
+          <option value="verified">{t("city.sort.verified")}</option>
+          <option value="name">{t("city.sort.name")}</option>
+        </select>
+
+        <button
+          type="button"
+          aria-pressed={verified}
+          onClick={() => setVerified((v) => !v)}
+          style={{
+            padding: "10px 16px",
+            borderRadius: "var(--radius-pill)",
+            border: verified
+              ? "1px solid rgba(232,161,92,0.5)"
+              : "1px solid var(--hair)",
+            background: verified
+              ? "linear-gradient(135deg, rgba(232,161,92,0.16), rgba(192,86,59,0.12))"
+              : "var(--surface-2)",
+            color: verified ? "var(--amber)" : "var(--muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11.5,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {t("city.filter.verified_only")}
+        </button>
+
+        {discoverActive && (
           <button
             type="button"
-            className="ch-btn-primary"
-            onClick={() => applyFilter(ALL)}
-            style={{ marginTop: 8 }}
+            onClick={clearAll}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px solid var(--hair)",
+              background: "transparent",
+              color: "var(--muted)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11.5,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
           >
             {t("city.filter.clear")}
           </button>
-        </div>
+        )}
+      </div>
+
+      {/* SSR region clusters — the DEFAULT bazaar. Kept mounted (just hidden)
+          while the discover feed is up, so returning is instant and no cluster
+          data is refetched. */}
+      <div
+        style={{ display: discoverActive ? "none" : undefined }}
+        aria-hidden={discoverActive}
+      >
+        {children}
+      </div>
+
+      {/* The flat, personalized, paginated discover feed — swaps in for the
+          clusters the moment any control is engaged. */}
+      {discoverActive && (
+        <CityDiscoverFeed
+          facet={facet}
+          sort={sort}
+          verified={verified}
+          regionId={regionId}
+          search={search}
+          regionMap={regionMap}
+          onClear={clearAll}
+        />
       )}
     </div>
   );
+}
+
+// Shared look for the <select> controls (region / sort): amber edge when the
+// control is off its default, hair edge otherwise.
+function ctrlStyle(active) {
+  return {
+    background: "var(--surface-2)",
+    border: `1px solid ${active ? "var(--amber)" : "var(--hair)"}`,
+    borderRadius: "var(--radius-pill)",
+    padding: "10px 14px",
+    fontSize: 13,
+    color: active ? "var(--text)" : "var(--muted-strong)",
+    appearance: "none",
+    cursor: "pointer",
+    maxWidth: 220,
+  };
 }
 
 // ── PATH (b): the city holds NO builders at all ──────────────────────────────

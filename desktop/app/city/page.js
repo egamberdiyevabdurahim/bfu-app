@@ -1,4 +1,4 @@
-import { getCity } from "@/lib/bfu-api";
+import { getCity, getRegions } from "@/lib/bfu-api";
 import { asset } from "@/lib/asset";
 import SiteTopBar from "@/components/nav/SiteTopBar";
 import AmbientTicker from "@/components/AmbientTicker";
@@ -151,7 +151,10 @@ async function loadCity() {
 
 export default async function CityPage() {
   const { t } = await getT();
-  const data = await loadCity();
+  // getRegions() feeds the FilterBar region <select> the FULL region set (not
+  // just the lit ones in the city payload). It's ISR-cached (revalidate: 300)
+  // and returns [] on error, so it never blocks or breaks the flagship render.
+  const [data, regionOptions] = await Promise.all([loadCity(), getRegions()]);
   const stats = data?.stats || {};
   const weekday = data?.weekday || "";
   const regions = data?.regions || [];
@@ -185,7 +188,7 @@ export default async function CityPage() {
           // show/hide the server-rendered cards without a refetch. It also owns
           // the "no builders match this filter" state, since it is the only thing
           // that can see how many cards its own filter left standing.
-          <FilterBar regions={regions}>
+          <FilterBar regions={regions} regionOptions={regionOptions}>
             {regions.map((region) => (
               <RegionCluster key={region.id ?? region.name_en} region={region} />
             ))}

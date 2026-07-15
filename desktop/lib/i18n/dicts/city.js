@@ -89,6 +89,30 @@ export const city = {
       "Nobody lit tonight fits what you picked. Clear the filter to see the whole city again.",
     "city.filter.clear": "✕ Clear filter",
 
+    // — Discovery toolbar + flat feed (FilterBar.js controls + CityDiscoverFeed.js).
+    //   Engaging any of these switches the SSR clusters for the personalized,
+    //   paginated GET /users/discover feed. —
+    "city.filter.foryou": "For you",
+    "city.filter.volunteer": "Volunteer",
+    "city.filter.verified_only": "Verified only",
+    "city.filter.all_regions": "All regions",
+    // The search box maps to /users/discover's `skill` param (the only text
+    // filter it accepts) — so it filters by skill, not free text.
+    "city.filter.search_ph": "Filter by skill…",
+    "city.filter.search_aria": "Filter builders by skill",
+    "city.filter.region_aria": "Filter by region",
+    "city.filter.sort_aria": "Sort builders",
+    "city.sort.recent": "Recent",
+    "city.sort.verified": "Verified",
+    "city.sort.name": "Name",
+    "city.discover.kicker": "Discover",
+    "city.discover.count_one": "{n} builder",
+    "city.discover.count_other": "{n} builders",
+    "city.discover.load_more": "Load more",
+    "city.discover.loading_more": "Loading…",
+    "city.discover.error": "The city didn’t load.",
+    "city.discover.retry": "Try again",
+
     // — Presence toast (PresenceToast.js) —
     "city.toast.someone": "Someone",
     "city.toast.just_online": "just came online",

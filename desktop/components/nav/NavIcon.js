@@ -22,6 +22,14 @@ const PATHS = {
       <path d="m2 18 10 5 10-5" />
     </>
   ),
+  roles: (
+    // user-plus — an open seat on a team waiting to be filled.
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </>
+  ),
   mentors: (
     <>
       <path d="M22 10 12 5 2 10l10 5 10-5Z" />

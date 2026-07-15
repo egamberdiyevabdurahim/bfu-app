@@ -8,6 +8,25 @@ export const community = {
     "community.builderFallback": "A builder",
     "community.openDetails": "Open details →",
 
+    // — open roles page (/roles) + browser —
+    "roles.kicker": "Find your place on a team",
+    "roles.titleLead": "Open",
+    "roles.titleAccent": "roles",
+    "roles.subtitle": "Every unfilled position across the projects being built right now. Find one that fits and meet the team.",
+    "roles.searchPh": "Search roles…",
+    "roles.searchAria": "Search open roles by name",
+    "roles.openBadge": "Open",
+    "roles.inProject": "in {project}",
+    "roles.openProject": "Open project →",
+    "roles.loading": "Gathering open roles…",
+    "roles.loadError": "Couldn't load open roles.",
+    "roles.emptyKicker": "All quiet",
+    "roles.emptyTitle": "No open roles right now",
+    "roles.emptyBody": "Every position is filled for the moment. Check back soon — new roles open as projects grow.",
+    "roles.emptyTitleSearch": "No roles match your search",
+    "roles.emptyBodySearch": "Try a different title, or clear the search to see every open role.",
+    "roles.footer": "Someone is always looking for a teammate.",
+
     // — mentors page + browser —
     "community.mentors.kicker": "Learn from those ahead of you",
     "community.mentors.titleLead": "The",
@@ -234,6 +253,25 @@ export const community = {
     "community.builderFallback": "Bunyodkor",
     "community.openDetails": "Batafsil →",
 
+    // — ochiq o‘rinlar (/roles) —
+    "roles.kicker": "Jamoadan o‘z o‘rningizni toping",
+    "roles.titleLead": "Ochiq",
+    "roles.titleAccent": "o‘rinlar",
+    "roles.subtitle": "Hozir qurilayotgan loyihalardagi barcha bo‘sh o‘rinlar. O‘zingizga mosini toping va jamoa bilan tanishing.",
+    "roles.searchPh": "O‘rinlarni qidiring…",
+    "roles.searchAria": "Ochiq o‘rinlarni nomi bo‘yicha qidirish",
+    "roles.openBadge": "Ochiq",
+    "roles.inProject": "{project} loyihasida",
+    "roles.openProject": "Loyihani ochish →",
+    "roles.loading": "Ochiq o‘rinlar yig‘ilmoqda…",
+    "roles.loadError": "Ochiq o‘rinlarni yuklab bo‘lmadi.",
+    "roles.emptyKicker": "Hozircha jimjit",
+    "roles.emptyTitle": "Hozir ochiq o‘rin yo‘q",
+    "roles.emptyBody": "Ayni damda barcha o‘rinlar band. Tez orada qayting — loyihalar o‘sgani sari yangi o‘rinlar ochiladi.",
+    "roles.emptyTitleSearch": "Qidiruvingizga mos o‘rin topilmadi",
+    "roles.emptyBodySearch": "Boshqa nom bilan urinib ko‘ring yoki barcha ochiq o‘rinlarni ko‘rish uchun qidiruvni tozalang.",
+    "roles.footer": "Kimdir doim jamoadosh izlaydi.",
+
     // — mentors page + browser —
     "community.mentors.kicker": "O‘zingizdan oldinda yurganlardan o‘rganing",
     "community.mentors.titleLead": "Bizning",
@@ -457,6 +495,25 @@ export const community = {
     "community.tryAgain": "Попробовать снова",
     "community.builderFallback": "Участник",
     "community.openDetails": "Подробнее →",
+
+    // — открытые роли (/roles) —
+    "roles.kicker": "Найдите своё место в команде",
+    "roles.titleLead": "Открытые",
+    "roles.titleAccent": "роли",
+    "roles.subtitle": "Все незанятые позиции в проектах, которые создаются прямо сейчас. Найдите подходящую и познакомьтесь с командой.",
+    "roles.searchPh": "Поиск ролей…",
+    "roles.searchAria": "Поиск открытых ролей по названию",
+    "roles.openBadge": "Открыта",
+    "roles.inProject": "в проекте {project}",
+    "roles.openProject": "Открыть проект →",
+    "roles.loading": "Собираем открытые роли…",
+    "roles.loadError": "Не удалось загрузить открытые роли.",
+    "roles.emptyKicker": "Пока тихо",
+    "roles.emptyTitle": "Сейчас открытых ролей нет",
+    "roles.emptyBody": "Все позиции пока заняты. Загляните позже — новые роли появляются по мере роста проектов.",
+    "roles.emptyTitleSearch": "Нет ролей по вашему запросу",
+    "roles.emptyBodySearch": "Попробуйте другое название или очистите поиск, чтобы увидеть все открытые роли.",
+    "roles.footer": "Кто-то всегда ищет напарника.",
 
     // — mentors page + browser —
     "community.mentors.kicker": "Учитесь у тех, кто впереди вас",

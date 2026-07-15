@@ -192,6 +192,7 @@ export const config = {
     "/projects/new",
     "/projects/new/:path*",
     "/projects/:id/manage",
+    "/roles",
     "/dashboard",
     "/dashboard/:path*",
     "/mentors",

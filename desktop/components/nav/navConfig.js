@@ -30,6 +30,9 @@ import { handleFor } from "@/lib/handle";
 const ALL_EXPLORE = [
   { key: "city", href: "/city", label: "City", icon: "✦", public: true },
   { key: "projects", href: "/projects", label: "Projects", icon: "◆", public: true },
+  // Open roles — every unfilled position across live projects. A core discovery
+  // surface (parity with the Mini App); NOT flag-gated, needs a session.
+  { key: "roles", href: "/roles", label: "Open roles", icon: "◈", public: false },
   { key: "mentors", href: "/mentors", label: "Mentors", icon: "◈", public: false, flag: "MENTORING" },
   { key: "events", href: "/events", label: "Events", icon: "✧", public: false },
   { key: "partners", href: "/partners", label: "Partners", icon: "⬡", public: false, flag: "PARTNERS" },

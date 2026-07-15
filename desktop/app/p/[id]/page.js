@@ -10,6 +10,7 @@ import TeamCell from "@/components/TeamCell";
 import ProjectLookingForCell from "@/components/ProjectLookingForCell";
 import ProjectActions from "@/components/projects/ProjectActions";
 import FavoriteButton from "@/components/projects/FavoriteButton";
+import { FLAGS } from "@/lib/flags";
 import TeamChatButton from "@/components/messages/TeamChatButton";
 import OpenRolesCell from "@/components/projects/OpenRolesCell";
 import ProjectUpdates from "@/components/projects/ProjectUpdates";
@@ -103,8 +104,9 @@ export default async function ProjectPage({ params }) {
             }}
           >
             <ProjectActions projectId={project.id} />
-            {/* Save/heart toggle — additive island; self-hides for anon readers. */}
-            <FavoriteButton projectId={project.id} />
+            {/* Save/heart toggle — additive island; self-hides for anon readers.
+                Gated with the rest of Saved for V1 (FLAGS.SAVED). */}
+            {FLAGS.SAVED && <FavoriteButton projectId={project.id} />}
             {/* Team chat entry — self-hides unless the viewer is on the team. */}
             <TeamChatButton projectId={project.id} />
             {/* Open roles the team is hiring for. Auth-gated read, so it

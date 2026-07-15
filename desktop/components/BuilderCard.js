@@ -60,11 +60,18 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
     rating,
     weight,
     region_id,
+    match_pct,
   } = builder;
 
   const label = display_name || name || "";
   const grad = gradientFor(id);
   const isNew = weight === "new" || rating == null;
+  // ✦ match chip — only set by the personalized discover feed (CityDiscoverFeed
+  // maps GET /users/discover?match=true's `match_pct` straight through). When
+  // present it is the strongest signal and wins over the rating/new badge,
+  // mirroring the Mini App's BuilderCard (src/screens/CityScreen.jsx). The SSR
+  // /public/city clusters never carry it, so their cards are unchanged.
+  const hasMatch = match_pct != null;
   const topSkills = (skills || []).slice(0, 3);
   const look = lookingLabel(builder, t);
   const big = weight === "high";
@@ -137,8 +144,12 @@ export default function BuilderCard({ builder = {}, index = 0, regionLabel = "" 
 
         <div className="ch-card-foot">
           <span className="ch-card-reg">{regionLabel}</span>
-          <span className={`ch-card-rep${isNew ? " ch-card-rep-new" : ""}`}>
-            {isNew ? `✶ ${t("city.card.new")}` : `★ ${rating}`}
+          <span className={`ch-card-rep${(!hasMatch && isNew) ? " ch-card-rep-new" : ""}`}>
+            {hasMatch
+              ? `✦ ${match_pct}%`
+              : isNew
+                ? `✶ ${t("city.card.new")}`
+                : `★ ${rating}`}
           </span>
         </div>
       </div>

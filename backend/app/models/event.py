@@ -43,6 +43,13 @@ class Event(SoftDeleteMixin, TimestampMixin, Base):
     # OLDEST waitlisted registrant. Seat accounting excludes no-shows — see
     # app.routers.events._seats_taken.
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # When an admin EXPLICITLY announced this event to members' chats (the
+    # targeted DM fan-out + the global-group card). NULL = never announced.
+    # Creating or approving an event no longer sends anything to chats on its
+    # own — an admin has to press "Announce" (POST /admin/events/{id}/announce).
+    # This column both gates re-announcing (no accidental double-blast) and lets
+    # the panel show an "Announced ✓" state.
+    announced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     @property
     def has_form(self) -> bool:

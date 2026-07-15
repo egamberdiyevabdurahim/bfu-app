@@ -24,6 +24,12 @@ import EventResponses from "@/components/dashboard/EventResponses";
 //              (admin: is_approved:true · partner: is_approved:FALSE → moderation)
 //   - edit     PATCH  {apiBase}/events/{id} {EventBody}
 //   - approve  PATCH  {apiBase}/events/{id}/approve   (ADMIN only — canApprove)
+//              Makes the event VISIBLE only. It does NOT message anyone.
+//   - announce POST   {apiBase}/events/{id}/announce  (ADMIN only, console-only)
+//              The ONLY action that reaches chats: DMs matching members + posts
+//              the group card. Never auto-fires — an admin has to press it. A
+//              second press 409s unless ?force=true (re-announce). Partners have
+//              no such route, so the button is admin-console only.
 //   - delete   DELETE {apiBase}/events/{id}           (soft; canDelete)
 //
 // EventBody = { type (required), title (required), description?, link?,
@@ -143,10 +149,36 @@ export default function AdminEvents({
       if (res && typeof res.is_approved === "boolean") {
         setRows((rs) => rs.map((x) => (x.id === e.id ? { ...x, ...res } : x)));
       }
-      showToast("Event approved — announced to the group");
+      // Approve only makes it visible — it no longer touches anyone's chat. The
+      // toast tells the admin the announce step is theirs to press.
+      showToast("Approved — now press Announce to notify members");
     } catch (err) {
       setRows((rs) => rs.map((x) => (x.id === e.id ? { ...x, is_approved: e.is_approved } : x)));
       showToast(err.message || "Couldn't approve", "err");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // The ONE button that reaches members' chats: DMs matching members + posts the
+  // group card (which itself routes through the TG management-approval queue).
+  // Admin-only — a partner has no /partner/announce route, so this is never
+  // rendered in the partner panel. `force` re-announces an already-sent event.
+  async function doAnnounce(e, force = false) {
+    const first = !e.announced_at;
+    const msg = first
+      ? `Announce "${e.title}" to members?\n\nThis DMs every matching member and posts the event to the group (pending management approval). It can't be un-sent.`
+      : `Re-announce "${e.title}"?\n\nEvery matching member will be messaged again.`;
+    if (!window.confirm(msg)) return;
+    setBusyId(e.id);
+    try {
+      const res = await bfu(`${apiBase}/events/${e.id}/announce${force ? "?force=true" : ""}`, { method: "POST" });
+      if (res && typeof res === "object") {
+        setRows((rs) => rs.map((x) => (x.id === e.id ? { ...x, ...res } : x)));
+      }
+      showToast(first ? "Announced to members" : "Re-announced");
+    } catch (err) {
+      showToast(err.message || "Couldn't announce", "err");
     } finally {
       setBusyId(null);
     }
@@ -216,7 +248,7 @@ export default function AdminEvents({
           <div className="ch-grace-s">
             {isPartner
               ? t("partner.events.empty_s")
-              : "Create one and it'll be announced to the global group with a deep link."}
+              : "Create one, then press Announce to DM matching members and post it to the group."}
           </div>
         </div>
       )}
@@ -232,6 +264,11 @@ export default function AdminEvents({
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>#{e.id}</span>
               <Pill tone="ember">{e.type}</Pill>
               {e.is_approved ? <Pill tone="green">Approved</Pill> : <Pill tone="amber">Pending</Pill>}
+              {/* State of the explicit announce step: once sent, admins see it
+                  was reached to chats (and the button flips to Re-announce). */}
+              {e.is_approved && (e.announced_at
+                ? <Pill tone="green">📣 Announced</Pill>
+                : (!isPartner && <Pill tone="amber">Not announced</Pill>))}
               {hasForm(e) && (
                 <Pill tone="ember">
                   ▤ {t("dash.events.has_form")}
@@ -300,7 +337,20 @@ export default function AdminEvents({
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "0 0 auto" }}>
             {canApprove && !e.is_approved && (
-              <ActionBtn onClick={() => doApprove(e)} busy={busyId === e.id} title="Approve + announce">✓ Approve</ActionBtn>
+              <ActionBtn onClick={() => doApprove(e)} busy={busyId === e.id} title="Make the event visible in the app (does not message anyone)">✓ Approve</ActionBtn>
+            )}
+            {/* Explicit reach-members action — admin console only. Approve makes
+                the event visible; Announce is the deliberate second press that
+                actually DMs members + posts to the group. */}
+            {!isPartner && e.is_approved && !e.announced_at && (
+              <ActionBtn onClick={() => doAnnounce(e, false)} busy={busyId === e.id} tone="ember" title="DM matching members + post the event to the group">
+                📢 Announce
+              </ActionBtn>
+            )}
+            {!isPartner && e.is_approved && e.announced_at && (
+              <ActionBtn onClick={() => doAnnounce(e, true)} busy={busyId === e.id} title="Already announced — click to message matching members again">
+                📣 Re-announce
+              </ActionBtn>
             )}
             <ActionBtn onClick={() => setFormFor(e)} busy={busyId === e.id} title={t("dash.events.form_title")}>
               ▤ {t("dash.events.form_btn")}
@@ -539,6 +589,10 @@ export function Row({ children }) {
 }
 
 function ActionBtn({ children, onClick, busy, tone, title }) {
+  const toneStyle =
+    tone === "terra" ? { borderColor: "rgba(192,86,59,0.5)", color: "var(--terra)" } :
+    tone === "ember" ? { borderColor: "var(--ember)", color: "var(--ember)" } :
+    {};
   return (
     <button
       type="button"
@@ -549,7 +603,7 @@ function ActionBtn({ children, onClick, busy, tone, title }) {
       style={{
         padding: "7px 12px",
         fontSize: 12.5,
-        ...(tone === "terra" ? { borderColor: "rgba(192,86,59,0.5)", color: "var(--terra)" } : {}),
+        ...toneStyle,
       }}
     >
       {children}

@@ -214,6 +214,11 @@ async def lifespan(app: FastAPI):
         #     stored status="waitlisted" and auto-promoted when a seat frees.
         #     NULL capacity = unlimited (never waitlists). See app.routers.events.
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS capacity INTEGER;",
+        # --- Explicit announce gate: creating/approving an event no longer sends
+        #     anything to chats. announced_at is stamped only when an admin presses
+        #     "Announce" (POST /admin/events/{id}/announce), which fires the DM
+        #     fan-out + the global-group card. NULL = not yet announced.
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS announced_at TIMESTAMP;",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

@@ -762,6 +762,9 @@ class EventOut(BaseModel):
     capacity: int | None = None
     is_approved: bool = True
     is_deleted: bool
+    # When an admin explicitly announced this to members' chats (null = never).
+    # The panel keys the "Announce" button's state off this.
+    announced_at: datetime | None = None
     form_schema: list[dict] | None = None
     has_form: bool = False
     model_config = {"from_attributes": True}
@@ -790,20 +793,53 @@ async def admin_approve_event(event_id: int, admin: User = Depends(get_admin_use
     e = await db.get(Event, event_id)
     if not e:
         raise HTTPException(404, "Event not found")
-    was = e.is_approved
+    # Approve only makes the event VISIBLE in the app. It no longer sends
+    # anything to chats — that is a deliberate, separate admin action ("Announce",
+    # POST /admin/events/{id}/announce). This is the guard the founder asked for:
+    # no event message reaches a member's chat without an explicit admin press.
     e.is_approved = True
     await log_action(db, admin.id, "event.approve", "event", event_id)
     await db.commit(); await db.refresh(e)
-    if not was:
-        # Only the false→true transition: an already-approved event isn't
-        # re-pushed. Targeted DM fan-out + the global-group card fire once here.
-        _fire_event_push(e.id)
-        deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
-        await _broadcast_to_group(
-            f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
-            + (f"\n{esc((e.description or '')[:200])}" if e.description else "") + deadline,
-            f"event_{e.id}",
-        )
+    return e
+
+
+async def _announce_event(e: Event) -> None:
+    """The ONE place an event actually reaches members' chats: the targeted DM
+    fan-out (fire-and-forget) + the global-group card (which itself routes
+    through the TG management-approval queue). Called only from the explicit
+    announce endpoint — never from create/approve."""
+    _fire_event_push(e.id)
+    deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
+    await _broadcast_to_group(
+        f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
+        + (f"\n{esc((e.description or '')[:200])}" if e.description else "") + deadline,
+        f"event_{e.id}",
+    )
+
+
+@router.post("/events/{event_id}/announce", response_model=EventOut)
+async def admin_announce_event(
+    event_id: int,
+    force: bool = False,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Explicit, admin-only: send this event to members' chats (targeted DMs +
+    the global-group card). Nothing about an event goes to chats without this
+    press. Guards: the event must exist, be live (approved) and not deleted; a
+    second press is refused (409) unless ?force=true, so a stray double-click
+    can't blast every matching member twice."""
+    e = await db.get(Event, event_id)
+    if not e or e.is_deleted:
+        raise HTTPException(404, "Event not found")
+    if not e.is_approved:
+        raise HTTPException(400, "Approve the event before announcing it.")
+    if e.announced_at and not force:
+        raise HTTPException(409, "Already announced. Re-announce with force=true.")
+    e.announced_at = datetime.utcnow()
+    await log_action(db, admin.id, "event.announce", "event", event_id)
+    await db.commit(); await db.refresh(e)
+    await _announce_event(e)
     return e
 
 
@@ -824,16 +860,9 @@ async def admin_create_event(body: EventBody, admin: User = Depends(get_admin_us
         form_schema=_checked_schema(body.form_schema),
     )
     db.add(e); await db.commit(); await db.refresh(e)
-    # Targeted DM fan-out to matching users (fires exactly once, on create).
-    _fire_event_push(e.id)
-    # Announce the new event to the global group with a deep link.
-    deadline = f"\n⏰ {e.deadline:%d %b %Y}" if e.deadline else ""
-    await _broadcast_to_group(
-        f"📅 <b>New {esc(e.type)}</b>: {esc(e.title)}"
-        + (f"\n{esc((e.description or '')[:200])}" if e.description else "")
-        + deadline,
-        f"event_{e.id}",
-    )
+    # NOTE: creating an event no longer sends anything to chats. The targeted DM
+    # fan-out + the global-group card fire ONLY when an admin presses "Announce"
+    # (POST /admin/events/{id}/announce) — an explicit, per-event permission.
     return e
 
 

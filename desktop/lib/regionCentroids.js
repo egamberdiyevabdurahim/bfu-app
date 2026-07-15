@@ -14,8 +14,12 @@ export const REGION_CENTROIDS = {
   Samarkand: [39.65, 66.96],
   Sirdaryo: [40.5, 68.8],
   Surxondaryo: [37.22, 67.28],
-  Tashkent: [41.3, 69.24],
-  "Tashkent City": [41.32, 69.25],
+  // Tashkent CITY (shahri) is a small enclave inside/beside Tashkent REGION
+  // (viloyati). Their old centroids sat ~2 km apart, both on the city centre, so
+  // a city GPS often resolved to the surrounding REGION. Fix: pin the city at its
+  // true centre and push the region's centroid well outside the city.
+  Tashkent: [41.05, 69.75],          // viloyati — SE of the city, outside it
+  "Tashkent City": [41.311, 69.279], // shahri — Amir Temur square / city centre
   "Republic of Karakalpakstan": [42.46, 59.62],
 };
 

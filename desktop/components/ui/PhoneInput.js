@@ -49,7 +49,11 @@ export default function PhoneInput({
         ref={inputRef}
         type="tel"
         inputMode="numeric"
-        autoComplete="tel-national"
+        // Chrome's tel autofill was inserting saved numbers/junk as the user
+        // typed. Suppress it (off + a non-standard name + password-manager ignore).
+        autoComplete="off"
+        name="bfu-phone-local"
+        data-lpignore="true"
         maxLength={PHONE_LOCAL_LEN}
         value={local}
         onChange={(e) => onChange(fullPhone(e.target.value))}

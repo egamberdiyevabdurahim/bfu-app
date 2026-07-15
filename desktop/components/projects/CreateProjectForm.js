@@ -14,10 +14,20 @@ import { useT } from "@/components/i18n/LocaleProvider";
 // Grounded on the backend ProjectCreate / ProjectUpdate schemas
 // (backend/app/schemas/project.py) — only the real accepted fields are wired:
 //   type, name, goal, about, is_hiring, gender_req, age_from, age_to,
-//   req_region_ids, req_skills, req_knowledges.
-// `channel`, `is_active`, `is_draft`, `group_link` exist on the schema but are
-// out of scope for Batch 2a (channel/group_link are Telegram-link fields; draft
-// mode is a later batch).
+//   req_region_ids, req_skills, req_knowledges, is_draft (create only).
+// `channel`, `is_active`, `group_link` exist on the schema but are out of scope
+// (channel/group_link are Telegram-link fields).
+//
+// "Save draft" (create only) POSTs the same body with is_draft:true. The backend
+// (routers/projects.py create_project) accepts is_draft and, crucially, skips the
+// admin-approval Telegram ping for drafts — a draft is NOT queued as a live
+// project, it only shows a DRAFT badge in /projects/mine. Mirrors the Mini App's
+// ProjectForm handleSubmit(asDraft).
+//
+// "Improve with AI" (both modes) POSTs the current About to /users/me/coach
+// {kind:"project"} → {improved}, then lets the user Apply the rewrite — the same
+// contract the Mini App's polishAbout uses and the same UX as the bio coach in
+// components/settings/ProfileEditor.js.
 
 const inputBase = {
   width: "100%",
@@ -336,6 +346,16 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
   // "idle" | "saving" | "error"
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
+  // Which button is mid-flight, so only that one shows the spinner (Save draft vs
+  // Publish). null while idle. Create mode has two buttons; edit has one.
+  const [savingKind, setSavingKind] = useState(null); // "draft" | "publish" | null
+
+  // AI project coach — mirrors the Mini App's polishAbout (ProjectForm.jsx) and the
+  // desktop bio coach (ProfileEditor.js). POST /users/me/coach {kind:"project"} →
+  // {improved}; the user Applies the rewrite into `about`. Never blocks the form.
+  const [coachBusy, setCoachBusy] = useState(false);
+  const [coachSuggestion, setCoachSuggestion] = useState("");
+  const [coachError, setCoachError] = useState("");
 
   // Toast for secondary feedback (e.g. nothing changed on edit) — shared,
   // timer-managed hook (no leaked setTimeout).
@@ -352,7 +372,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
 
   const nameOk = name.trim().length >= 3;
 
-  function buildBody() {
+  function buildBody(asDraft = false) {
     const parsedFrom = ageFrom.trim() === "" ? null : Number(ageFrom);
     const parsedTo = ageTo.trim() === "" ? null : Number(ageTo);
     const body = {
@@ -367,13 +387,50 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       req_skills: skills,
       req_knowledges: knowledges,
     };
-    // `type` is immutable on the backend PATCH (ProjectUpdate has no `type`), so
-    // only send it on create.
-    if (!isEdit) body.type = type;
+    // `type` and `is_draft` are create-only: ProjectUpdate has neither (type is
+    // immutable, and a live project's draft state isn't toggled from this form).
+    if (!isEdit) {
+      body.type = type;
+      body.is_draft = asDraft;
+    }
     return body;
   }
 
-  async function submit() {
+  // AI project coach — POST the current About to /users/me/coach, then let the
+  // user Apply the returned rewrite. Errors surface inline; the form stays usable.
+  async function runCoach() {
+    setCoachError("");
+    setCoachSuggestion("");
+    const text = about.trim();
+    if (!text) {
+      setCoachError(t("projmanage.coach_need_draft"));
+      return;
+    }
+    setCoachBusy(true);
+    try {
+      const res = await bfu("/users/me/coach", {
+        method: "POST",
+        body: { kind: "project", text },
+      });
+      setCoachSuggestion(res?.improved || "");
+      if (!res?.improved) setCoachError(t("projmanage.coach_nothing"));
+    } catch (err) {
+      setCoachError(err?.message || t("projmanage.coach_error"));
+    } finally {
+      setCoachBusy(false);
+    }
+  }
+
+  function applyCoach() {
+    if (!coachSuggestion) return;
+    setAbout(coachSuggestion);
+    setCoachSuggestion("");
+    showToast(t("projmanage.coach_applied"), "ok");
+  }
+
+  async function submit(asDraft = false) {
+    // Draft is a create-only affordance; never let it leak into an edit PATCH.
+    const draft = asDraft && !isEdit;
     setError("");
     if (!nameOk) {
       setError(t("projmanage.form_err_name"));
@@ -394,7 +451,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       setError(t("projmanage.form_err_age_range"));
       return;
     }
-    const body = buildBody();
+    const body = buildBody(draft);
     // Nothing changed on edit → skip the round-trip and tell the user.
     if (isEdit && initialBody != null) {
       const currentBody = JSON.stringify({
@@ -415,6 +472,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       }
     }
     setState("saving");
+    setSavingKind(draft ? "draft" : "publish");
     try {
       if (isEdit) {
         await bfu(`/projects/${init.id}`, { method: "PATCH", body });
@@ -425,11 +483,15 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
         const created = await bfu("/projects", { method: "POST", body });
         const newId = created?.id;
         // Created projects are unapproved → not yet public at /p/{id}. Land the
-        // founder on their projects list, where the pending badge explains the
-        // wait, rather than a 404-until-approved public page.
+        // founder on their projects list, where the badge explains the state.
+        // A draft is NOT pending approval, so it uses a distinct session key —
+        // the "pending admin approval" banner would be a lie for a draft.
         if (newId) {
           try {
-            sessionStorage.setItem("bfu:justCreated", String(newId));
+            sessionStorage.setItem(
+              draft ? "bfu:justSavedDraft" : "bfu:justCreated",
+              String(newId)
+            );
           } catch {}
         }
         router.push("/projects/mine");
@@ -437,6 +499,7 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
       }
     } catch (err) {
       setState("error");
+      setSavingKind(null);
       setError(err?.message || t("projmanage.form_err_generic"));
     }
   }
@@ -496,6 +559,58 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
           placeholder={t("projmanage.form_story_placeholder")}
           style={{ ...inputBase, resize: "vertical", lineHeight: 1.55, minHeight: 130 }}
         />
+
+        {/* AI project coach — same contract & UX as the bio coach in ProfileEditor. */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          <button
+            type="button"
+            className="ch-btn-ghost"
+            onClick={runCoach}
+            disabled={coachBusy || !about.trim()}
+            style={{ opacity: coachBusy || !about.trim() ? 0.6 : 1 }}
+          >
+            <span style={{ color: "var(--amber)" }} aria-hidden>✦</span>
+            {coachBusy ? t("projmanage.coach_polishing") : t("projmanage.coach_button")}
+          </button>
+          <span style={{ fontSize: 13, color: "var(--muted-strong)" }}>
+            {t("projmanage.coach_helper")}
+          </span>
+        </div>
+        {coachError ? (
+          <div style={{ fontSize: 13, color: "var(--terra)" }}>{coachError}</div>
+        ) : null}
+        {coachSuggestion ? (
+          <div
+            style={{
+              border: "1px solid rgba(232,161,92,0.35)",
+              background: "rgba(232,161,92,0.07)",
+              borderRadius: "var(--radius-sm)",
+              padding: 16,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div className="ch-cell-label" style={{ color: "var(--amber)" }}>
+              {t("projmanage.coach_suggestion_label")}
+            </div>
+            <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--text)", whiteSpace: "pre-wrap" }}>
+              {coachSuggestion}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" className="ch-btn-primary" onClick={applyCoach}>
+                {t("projmanage.coach_apply")}
+              </button>
+              <button
+                type="button"
+                className="ch-btn-ghost"
+                onClick={() => setCoachSuggestion("")}
+              >
+                {t("projmanage.coach_dismiss")}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </Section>
 
       {/* Hiring */}
@@ -646,17 +761,39 @@ export default function CreateProjectForm({ regions = [], mode = "create", initi
               {t("projmanage.cancel")}
             </a>
           )}
+          {/* Save draft — create only. Same body with is_draft:true → stays private
+              (DRAFT badge in /projects/mine), never enters the approval queue. */}
+          {!isEdit && (
+            <button
+              type="button"
+              className="ch-btn-ghost"
+              onClick={() => submit(true)}
+              disabled={state === "saving" || !nameOk}
+              style={{
+                opacity: state === "saving" || !nameOk ? 0.55 : 1,
+                cursor: state === "saving" || !nameOk ? "default" : "pointer",
+              }}
+            >
+              {savingKind === "draft" ? (
+                <>
+                  <span className="ch-spin" aria-hidden>◠</span> {t("projmanage.form_saving_draft")}
+                </>
+              ) : (
+                t("projmanage.form_save_draft")
+              )}
+            </button>
+          )}
           <button
             type="button"
             className="ch-btn-primary"
-            onClick={submit}
+            onClick={() => submit(false)}
             disabled={state === "saving" || !nameOk}
             style={{
               opacity: state === "saving" || !nameOk ? 0.55 : 1,
               cursor: state === "saving" || !nameOk ? "default" : "pointer",
             }}
           >
-            {state === "saving" ? (
+            {savingKind === "publish" ? (
               <>
                 <span className="ch-spin" aria-hidden>◠</span> {isEdit ? t("projmanage.saving") : t("projmanage.form_submitting")}
               </>

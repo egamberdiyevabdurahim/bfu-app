@@ -6,6 +6,10 @@ import IdentityStrip from "@/components/IdentityStrip";
 import HeroBuildingCell from "@/components/HeroBuildingCell";
 import ReputationCell from "@/components/ReputationCell";
 import LookingForCell from "@/components/LookingForCell";
+import ProfileStatsCell from "@/components/ProfileStatsCell";
+import ProjectsListCell from "@/components/ProjectsListCell";
+import SkillsCell from "@/components/SkillsCell";
+import PortfolioCell from "@/components/PortfolioCell";
 import AchievementsCell from "@/components/AchievementsCell";
 import VouchesCell from "@/components/VouchesCell";
 import ConnectionsCell from "@/components/ConnectionsCell";
@@ -71,11 +75,30 @@ export default async function ProfilePage({ params }) {
               collaborator/follower cell are hidden — they render empty on a young
               user base. Flip FLAGS.TRUST / FLAGS.CONNECTIONS to bring them back;
               every cell below spans the full grid row, so the bento reads the same
-              with two cells or six. */}
+              with two cells or six.
+
+              The Stats / Projects / Skills / Portfolio cells are the desktop twin
+              of the Mini App's UserProfileModal — they render the rich payload the
+              page already receives (stats, founded_projects/member_projects, skills,
+              portfolio_links). Each self-guards and returns null when its slice is
+              empty, so a null cell contributes nothing to the grid and the bento
+              never shows a blank tile. Skills is an analysis attribute (not social
+              proof), so it is intentionally NOT gated behind FLAGS.TRUST. */}
           <div className="ch-grid u-profile-bento" style={{ alignItems: "stretch" }}>
             <HeroBuildingCell profile={profile} />
             {FLAGS.TRUST && <ReputationCell rating={profile.rating} />}
             <LookingForCell lookingFor={profile.looking_for} />
+            <ProfileStatsCell stats={profile.stats} />
+            <ProjectsListCell
+              founded={profile.founded_projects}
+              member={profile.member_projects}
+            />
+            <SkillsCell
+              skills={profile.skills}
+              knowledges={profile.knowledges}
+              interests={profile.interests}
+            />
+            <PortfolioCell links={profile.portfolio_links} />
             {FLAGS.TRUST && <AchievementsCell achievements={profile.achievements} />}
             {FLAGS.TRUST && (
               <VouchesCell vouches={profile.vouches} vouchCount={profile.vouch_count} />

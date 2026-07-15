@@ -149,9 +149,9 @@ export default function CommandPalette() {
     const id = setTimeout(async () => {
       try {
         const r = await bfu("/search", { params: { q: term, limit: 8 } });
-        if (seq.current === my) setResults(r || { people: [], projects: [] });
+        if (seq.current === my) setResults(r || { people: [], projects: [], events: [] });
       } catch {
-        if (seq.current === my) setResults({ people: [], projects: [] });
+        if (seq.current === my) setResults({ people: [], projects: [], events: [] });
       } finally {
         if (seq.current === my) setLoading(false);
       }
@@ -179,7 +179,13 @@ export default function CommandPalette() {
       kind: "project", key: `p-${p.id}`, href: `/p/${p.id}`,
       title: p.name, subtitle: p.goal || null, type: p.type, hiring: p.is_hiring,
     }));
-    return [...people, ...projects];
+    // Events — GET /search returns them too; each row deep-links to the events
+    // page's highlight target (/events?e={id}, read by app/events/page.js).
+    const events = (results?.events || []).map((e) => ({
+      kind: "event", key: `e-${e.id}`, href: `/events?e=${e.id}`,
+      title: e.title, subtitle: e.type || null,
+    }));
+    return [...people, ...projects, ...events];
   }, [showActions, results, t]);
 
   // Reset the highlight whenever the visible set changes.
@@ -253,6 +259,7 @@ export default function CommandPalette() {
 
   const peopleRows = items.filter((i) => i.kind === "person");
   const projectRows = items.filter((i) => i.kind === "project");
+  const eventRows = items.filter((i) => i.kind === "event");
   const isEmpty = !showActions && !loading && items.length === 0;
 
   const renderRow = (it) => {
@@ -275,6 +282,10 @@ export default function CommandPalette() {
           <PersonAvatar person={it.person} />
         ) : it.kind === "project" ? (
           <ProjectIcon type={it.type} />
+        ) : it.kind === "event" ? (
+          <span className="cmdk-picon" aria-hidden>
+            ✧
+          </span>
         ) : (
           <span className="cmdk-aicon" aria-hidden>
             {it.icon}
@@ -344,6 +355,12 @@ export default function CommandPalette() {
                 <div className="cmdk-group">
                   <div className="cmdk-grouplabel">{t("misc.group_projects")}</div>
                   {projectRows.map(renderRow)}
+                </div>
+              )}
+              {eventRows.length > 0 && (
+                <div className="cmdk-group">
+                  <div className="cmdk-grouplabel">{t("misc.group_events")}</div>
+                  {eventRows.map(renderRow)}
                 </div>
               )}
               {isEmpty && (

@@ -330,6 +330,9 @@ export default function MyProjectsList({ meId }) {
   const [state, setState] = useState("loading"); // loading | ready | error
   const [projects, setProjects] = useState([]);
   const [justCreated, setJustCreated] = useState(null);
+  // A draft was just saved — distinct from justCreated, which claims "pending
+  // approval". A draft isn't in any queue, so it gets its own honest banner.
+  const [justSavedDraft, setJustSavedDraft] = useState(null);
   const aliveRef = useRef(true);
 
   function load() {
@@ -353,6 +356,11 @@ export default function MyProjectsList({ meId }) {
       if (id) {
         setJustCreated(id);
         sessionStorage.removeItem("bfu:justCreated");
+      }
+      const draftId = sessionStorage.getItem("bfu:justSavedDraft");
+      if (draftId) {
+        setJustSavedDraft(draftId);
+        sessionStorage.removeItem("bfu:justSavedDraft");
       }
     } catch {}
 
@@ -422,6 +430,26 @@ export default function MyProjectsList({ meId }) {
         >
           <span style={{ color: "var(--green)", fontSize: 16 }}>✓</span>
           {t("projects.just_created")}
+        </div>
+      ) : null}
+
+      {justSavedDraft ? (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "14px 18px",
+            borderRadius: "var(--radius-sm)",
+            background: "rgba(232,161,92,0.1)",
+            border: "1px solid rgba(232,161,92,0.35)",
+            color: "var(--text)",
+            fontSize: 14,
+          }}
+        >
+          <span style={{ color: "var(--amber)", fontSize: 16 }}>✎</span>
+          {t("projects.just_saved_draft")}
         </div>
       ) : null}
 

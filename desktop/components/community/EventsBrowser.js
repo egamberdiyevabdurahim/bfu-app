@@ -33,6 +33,10 @@ const TYPE_STYLE = {
 };
 const DEFAULT_TYPE = { color: "var(--muted-strong)", bg: "var(--surface-2)", bd: "var(--hair)" };
 
+// Event-type filter chips (the "all" tab only). "" = all types; the rest mirror
+// the Mini App's KNOWN_TYPES and each sends ?type= to GET /events.
+const TYPE_FILTERS = ["", "hackathon", "grant", "scholarship", "meetup", "other"];
+
 // DEADLINE = the sign-up cutoff (date-only). Rendered in Tashkent via the shared
 // helper: a bare new Date on a naive-UTC "…T00:00:00" could print the PREVIOUS
 // day for a 00:00–04:59 Tashkent deadline.
@@ -337,15 +341,30 @@ export default function EventsBrowser({ highlightEventId = null, meId = null }) 
   // requested on page load.
   const [formEvent, setFormEvent] = useState(null);
   const [tab, setTab] = useState("all"); // all | forme | mine
+  // Event-type filter — parity with the Mini App's type pills. "" = all types.
+  // Only the "all" tab hits GET /events, which is the only feed that takes
+  // ?type= (backend app/routers/events.py list_events); /events/for-me and
+  // /events/mine/rsvps have no type param, so the chips show on "all" only.
+  const [type, setType] = useState("");
   const [state, setState] = useState("loading"); // loading | ready | error
-  const [all, setAll] = useState(null);
+  // "all" is cached per selected type ({ [type]: EventOut[] }) so switching a
+  // chip and switching back is instant without a refetch — same as forme/mine.
+  const [allByType, setAllByType] = useState({});
   const [forme, setForme] = useState(null);
   const [mine, setMine] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const cacheFor = (tb) => (tb === "all" ? all : tb === "forme" ? forme : mine);
-  const setCacheFor = (tb, v) => (tb === "all" ? setAll(v) : tb === "forme" ? setForme(v) : setMine(v));
-  const pathFor = (tb) => (tb === "all" ? "/events" : tb === "forme" ? "/events/for-me" : "/events/mine/rsvps");
+  const cacheFor = (tb) => (tb === "all" ? allByType[type] ?? null : tb === "forme" ? forme : mine);
+  const setCacheFor = (tb, v) =>
+    tb === "all" ? setAllByType((prev) => ({ ...prev, [type]: v })) : tb === "forme" ? setForme(v) : setMine(v);
+  const pathFor = (tb) =>
+    tb === "all"
+      ? type
+        ? `/events?type=${encodeURIComponent(type)}`
+        : "/events"
+      : tb === "forme"
+        ? "/events/for-me"
+        : "/events/mine/rsvps";
 
   useEffect(() => {
     let alive = true;
@@ -364,7 +383,7 @@ export default function EventsBrowser({ highlightEventId = null, meId = null }) 
     return () => {
       alive = false;
     };
-  }, [tab, all, forme, mine, reloadKey]);
+  }, [tab, type, allByType, forme, mine, reloadKey]);
 
   const list = cacheFor(tab);
 
@@ -380,7 +399,12 @@ export default function EventsBrowser({ highlightEventId = null, meId = null }) 
   // open — an in-place patch can't add a newly-RSVP'd event or drop an un-RSVP'd one.
   function onRsvp(id, patch) {
     const upd = (arr) => (Array.isArray(arr) ? arr.map((e) => (e.id === id ? { ...e, ...patch } : e)) : arr);
-    setAll(upd);
+    // Patch the event across every loaded type bucket of the "all" tab.
+    setAllByType((prev) => {
+      const next = {};
+      for (const k of Object.keys(prev)) next[k] = upd(prev[k]);
+      return next;
+    });
     setForme(upd);
     if (tab === "mine") setMine(upd);
     else setMine(null);
@@ -441,6 +465,47 @@ export default function EventsBrowser({ highlightEventId = null, meId = null }) 
           );
         })}
       </div>
+
+      {/* Event-type chips — only on the "all" tab (GET /events is the sole feed
+          that accepts ?type=). Selecting one refetches /events?type= and caches
+          per type; the "For you" / "Mine" feeds have no type dimension. */}
+      {tab === "all" ? (
+        <div
+          role="group"
+          aria-label={t("community.events.typeFilterAria")}
+          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}
+        >
+          {TYPE_FILTERS.map((ty) => {
+            const on = type === ty;
+            return (
+              <button
+                key={ty || "__all"}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setType(ty)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: "var(--radius-pill)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  background: on ? "var(--amber)" : "var(--surface-2)",
+                  color: on ? "#160E08" : "var(--muted-strong)",
+                  border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+                  fontWeight: on ? 800 : 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  boxShadow: on ? "0 4px 14px rgba(232,161,92,0.28)" : "none",
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                {ty ? t(`community.events.type.${ty}`) : t("community.events.filterAllTypes")}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div role="status" aria-live="polite">
         {state === "loading" ? (

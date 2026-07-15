@@ -209,6 +209,20 @@ export const projmanage = {
     "projmanage.form_submitting": "Submitting…",
     "projmanage.form_save_changes": "Save changes",
     "projmanage.form_create_project": "Create project",
+    "projmanage.form_save_draft": "Save draft",
+    "projmanage.form_saving_draft": "Saving draft…",
+
+    // — AI project coach (create/edit form) —
+    "projmanage.coach_button": "Improve with AI",
+    "projmanage.coach_polishing": "Improving…",
+    "projmanage.coach_helper": "Let the coach sharpen your description — you decide whether to keep it.",
+    "projmanage.coach_need_draft": "Write a first draft of your description, then let the coach polish it.",
+    "projmanage.coach_nothing": "The coach had nothing to add — your description reads well.",
+    "projmanage.coach_error": "The coach is resting. Try again in a moment.",
+    "projmanage.coach_suggestion_label": "Coach suggestion",
+    "projmanage.coach_apply": "Apply to description",
+    "projmanage.coach_dismiss": "Dismiss",
+    "projmanage.coach_applied": "Suggestion applied to your description",
 
     // — Star input —
     "projmanage.stars_readonly_aria": "{value} out of 5 stars",
@@ -440,6 +454,20 @@ export const projmanage = {
     "projmanage.form_submitting": "Yuborilmoqda…",
     "projmanage.form_save_changes": "O‘zgarishlarni saqlash",
     "projmanage.form_create_project": "Loyiha yaratish",
+    "projmanage.form_save_draft": "Qoralama saqlash",
+    "projmanage.form_saving_draft": "Qoralama saqlanmoqda…",
+
+    // — AI loyiha murabbiysi (yaratish/tahrirlash formasi) —
+    "projmanage.coach_button": "AI bilan yaxshilash",
+    "projmanage.coach_polishing": "Yaxshilanmoqda…",
+    "projmanage.coach_helper": "Murabbiy tavsifingizni ixchamlashtiradi — saqlashni o‘zingiz hal qilasiz.",
+    "projmanage.coach_need_draft": "Avval tavsif uchun dastlabki matn yozing, so‘ng murabbiy uni sayqallasin.",
+    "projmanage.coach_nothing": "Murabbiyda qo‘shadigan narsa yo‘q — tavsifingiz yaxshi o‘qiladi.",
+    "projmanage.coach_error": "Murabbiy dam olyapti. Birozdan so‘ng qayta urinib ko‘ring.",
+    "projmanage.coach_suggestion_label": "Murabbiy taklifi",
+    "projmanage.coach_apply": "Tavsifga qo‘llash",
+    "projmanage.coach_dismiss": "Bekor qilish",
+    "projmanage.coach_applied": "Taklif tavsifingizga qo‘llandi",
 
     "projmanage.stars_readonly_aria": "5 dan {value} yulduz",
     "projmanage.stars_rate_aria": "1 dan 5 gacha yulduz bilan baholang",
@@ -668,6 +696,20 @@ export const projmanage = {
     "projmanage.form_submitting": "Отправка…",
     "projmanage.form_save_changes": "Сохранить изменения",
     "projmanage.form_create_project": "Создать проект",
+    "projmanage.form_save_draft": "Сохранить черновик",
+    "projmanage.form_saving_draft": "Сохранение черновика…",
+
+    // — AI-коуч проекта (форма создания/редактирования) —
+    "projmanage.coach_button": "Улучшить с ИИ",
+    "projmanage.coach_polishing": "Улучшаем…",
+    "projmanage.coach_helper": "Коуч подтянет ваше описание — оставить его или нет, решаете вы.",
+    "projmanage.coach_need_draft": "Сначала напишите черновик описания, а затем дайте коучу его отшлифовать.",
+    "projmanage.coach_nothing": "Коучу нечего добавить — ваше описание читается хорошо.",
+    "projmanage.coach_error": "Коуч отдыхает. Попробуйте ещё раз чуть позже.",
+    "projmanage.coach_suggestion_label": "Предложение коуча",
+    "projmanage.coach_apply": "Применить к описанию",
+    "projmanage.coach_dismiss": "Отклонить",
+    "projmanage.coach_applied": "Предложение применено к описанию",
 
     "projmanage.stars_readonly_aria": "{value} из 5 звёзд",
     "projmanage.stars_rate_aria": "Оцените от 1 до 5 звёзд",

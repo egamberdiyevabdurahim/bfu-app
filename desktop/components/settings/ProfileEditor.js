@@ -1121,6 +1121,11 @@ export default function ProfileEditor({ initial, regions }) {
                 </span>
               ) : null}
             </div>
+            {/* Referral leaderboard — desktop parity with the Mini App's
+                InviteSheet. GET /users/leaderboard → {top:[{rank,name,count,
+                is_me}], my_count}. Fetched client-side (SSR /users/me doesn't
+                carry it), "you" highlighted in amber. */}
+            <InviteLeaderboard />
           </Section>
 
           {/* Download CV — V1: hidden behind FLAGS.CV_EXPORT. The whole Section
@@ -1286,4 +1291,86 @@ function AchievementsLoader() {
     );
   }
   return <AchievementsCell achievements={achievements} />;
+}
+
+// Referral leaderboard shown under the invite link — the desktop counterpart of
+// the Mini App InviteSheet's board. GET /users/leaderboard returns
+// {top:[{rank,name,count,is_me}], my_count, period}; the default period is
+// "week" (same as the Mini App's users.leaderboard()). Rendered as a compact
+// ranked list with the current user's row highlighted in amber. Stays silent
+// while loading and on error — the invite link is the primary content, so a
+// leaderboard hiccup must never blank out the invite card.
+function InviteLeaderboard() {
+  const t = useT();
+  const [board, setBoard] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    bfu("/users/leaderboard")
+      .then((res) => alive && setBoard(res && Array.isArray(res.top) ? res : { top: [] }))
+      .catch(() => alive && setBoard({ top: [] }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!board) return null;
+  const rows = Array.isArray(board.top) ? board.top : [];
+  return (
+    <div style={{ marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
+      <div className="ch-cell-label">{t("settings.leaderboard_label")}</div>
+      <div style={{ marginTop: 12, display: "flex", flexDirection: "column" }}>
+        {rows.length ? (
+          rows.map((r) => (
+            <div
+              key={r.rank}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                padding: "8px 2px",
+                borderBottom: "1px solid var(--hair)",
+                fontSize: 14,
+                color: r.is_me ? "var(--amber)" : "var(--text)",
+                fontWeight: r.is_me ? 700 : 500,
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--muted)",
+                    width: 20,
+                    textAlign: "right",
+                    flex: "0 0 auto",
+                  }}
+                >
+                  {r.rank}
+                </span>
+                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.name}
+                  {r.is_me ? ` (${t("settings.leaderboard_you")})` : ""}
+                </span>
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--amber)", flex: "0 0 auto" }}>
+                {r.count}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--muted)",
+              fontStyle: "italic",
+              fontFamily: "var(--font-accent)",
+              padding: "8px 2px",
+            }}
+          >
+            {t("settings.leaderboard_empty")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

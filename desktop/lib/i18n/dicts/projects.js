@@ -145,6 +145,8 @@ export const projects = {
     "projects.err_load_t": "We couldn't load your projects.",
     "projects.just_created":
       "Submitted — your project is pending admin approval. It'll appear in the city once approved.",
+    "projects.just_saved_draft":
+      "Saved as a draft — only you can see it. Open it any time to keep editing, then publish when it's ready.",
     "projects.slab_yours_k": "Yours",
     "projects.slab_yours_h": "Projects you started",
     "projects.slab_joined_k": "Joined",
@@ -153,6 +155,19 @@ export const projects = {
     // — start-project CTA —
     "projects.your_projects": "Your projects",
     "projects.start_project": "Start a project",
+
+    // — group chat + contact channel (detail action rail) —
+    "projects.chat_title": "Group chat",
+    "projects.join_chat": "Join chat",
+    "projects.set_group_link": "Add a group chat link",
+    "projects.group_link_ph": "https://t.me/…",
+    "projects.group_link_howto":
+      "Paste your project's Telegram group invite link so teammates can join the conversation.",
+    "projects.group_link_saved": "Group chat link saved.",
+    "projects.group_link_invalid": "That needs to be a https://t.me/ link.",
+    "projects.group_link_error": "Couldn't save the link.",
+    "projects.save": "Save",
+    "projects.contact_channel": "Contact channel",
   },
 
   uz: {
@@ -286,6 +301,8 @@ export const projects = {
     "projects.err_load_t": "Loyihalaringizni yuklab bo‘lmadi.",
     "projects.just_created":
       "Yuborildi — loyihangiz admin tasdig‘ini kutmoqda. Tasdiqlangach, u shaharda paydo bo‘ladi.",
+    "projects.just_saved_draft":
+      "Qoralama sifatida saqlandi — uni faqat siz ko‘rasiz. Istalgan vaqt ochib tahrirlashda davom eting, tayyor bo‘lgach chop eting.",
     "projects.slab_yours_k": "Sizniki",
     "projects.slab_yours_h": "Siz boshlagan loyihalar",
     "projects.slab_joined_k": "Qo‘shilgan",
@@ -293,6 +310,18 @@ export const projects = {
 
     "projects.your_projects": "Loyihalaringiz",
     "projects.start_project": "Loyiha boshlash",
+
+    "projects.chat_title": "Guruh chati",
+    "projects.join_chat": "Chatga qo‘shilish",
+    "projects.set_group_link": "Guruh chati havolasini qo‘shish",
+    "projects.group_link_ph": "https://t.me/…",
+    "projects.group_link_howto":
+      "Jamoadoshlar suhbatga qo‘shilishi uchun loyihangizning Telegram guruhi taklif havolasini joylashtiring.",
+    "projects.group_link_saved": "Guruh chati havolasi saqlandi.",
+    "projects.group_link_invalid": "Bu https://t.me/ havolasi bo‘lishi kerak.",
+    "projects.group_link_error": "Havolani saqlab bo‘lmadi.",
+    "projects.save": "Saqlash",
+    "projects.contact_channel": "Bog‘lanish kanali",
   },
 
   ru: {
@@ -426,6 +455,8 @@ export const projects = {
     "projects.err_load_t": "Не удалось загрузить ваши проекты.",
     "projects.just_created":
       "Отправлено — ваш проект ожидает одобрения администратора. После одобрения он появится в городе.",
+    "projects.just_saved_draft":
+      "Сохранено как черновик — его видите только вы. Открывайте в любой момент, чтобы продолжить редактирование, и опубликуйте, когда будет готово.",
     "projects.slab_yours_k": "Ваши",
     "projects.slab_yours_h": "Проекты, которые вы создали",
     "projects.slab_joined_k": "Присоединились",
@@ -433,5 +464,17 @@ export const projects = {
 
     "projects.your_projects": "Ваши проекты",
     "projects.start_project": "Создать проект",
+
+    "projects.chat_title": "Групповой чат",
+    "projects.join_chat": "Войти в чат",
+    "projects.set_group_link": "Добавить ссылку на групповой чат",
+    "projects.group_link_ph": "https://t.me/…",
+    "projects.group_link_howto":
+      "Вставьте пригласительную ссылку на Telegram-группу проекта, чтобы участники могли присоединиться к беседе.",
+    "projects.group_link_saved": "Ссылка на групповой чат сохранена.",
+    "projects.group_link_invalid": "Это должна быть ссылка https://t.me/.",
+    "projects.group_link_error": "Не удалось сохранить ссылку.",
+    "projects.save": "Сохранить",
+    "projects.contact_channel": "Канал для связи",
   },
 };

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bfu } from "@/lib/client-api";
+import { useToast } from "@/lib/useToast";
 import { useT } from "@/components/i18n/LocaleProvider";
 
 // Additive client island mounted on the public /p/[id] page. The SSR content
@@ -17,10 +18,24 @@ import { useT } from "@/components/i18n/LocaleProvider";
 //   • else, if hiring                  → Apply (with a role picker if open roles exist)
 //                                        → POST /projects/{id}/apply {role?}
 //
-// Verbs/fields confirmed against backend/app/routers/projects.py:
-//   apply:  POST /projects/{id}/apply  body {role?}   → 201 {id,status:"pending",role}
-//   cancel: DELETE /projects/{id}/apply                → 204
-//   leave:  DELETE /projects/{id}/join                 → 204
+// The same authed GET /projects/{id} also carries the viewer-specific bits the
+// public SSR payload omits, so this one island now hosts every project-detail
+// action the Mini App's ProjectDetail has (mirroring components/ProjectDetail.jsx):
+//   • FOLLOW / unfollow the project (is_following + follower_count)
+//   • REPORT the project
+//   • GROUP CHAT — join the founder's external t.me link (group_link); the
+//     founder can set/replace it inline
+//   • CONTACT CHANNEL — the project's public channel link
+//
+// Verbs/fields confirmed against backend/app/routers/{projects,users}.py:
+//   apply:    POST   /projects/{id}/apply  body {role?}  → 201 {id,status:"pending",role}
+//   cancel:   DELETE /projects/{id}/apply                → 204
+//   leave:    DELETE /projects/{id}/join                 → 204
+//   follow:   POST   /follow  {target_type:"project",target_id}  → {following,follower_count}
+//   unfollow: DELETE /follow  {target_type:"project",target_id}  → 204
+//   report:   POST   /users/reports {target_type:"project",target_id,reason}  → {ok}
+//   set link: PATCH  /projects/{id} {group_link}         → ProjectResponse (owner-only; t.me validated)
+//   GET /projects/{id} → …, is_following, follower_count, group_link, channel
 //   status strings: pending | accepted | declined
 
 const card = {
@@ -29,6 +44,53 @@ const card = {
   background: "var(--surface)",
   padding: 22,
 };
+
+const ghostBtn = {
+  padding: "12px 16px",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-2)",
+  border: "1px solid var(--hair)",
+  color: "var(--text)",
+  fontFamily: "var(--font-body)",
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: "pointer",
+  transition: "border-color 0.18s ease, background 0.18s ease",
+};
+
+// A tiny transient toast, mirroring the .ch-toast styling used across the app
+// (same shape PersonActions renders). Reads the shared useToast { text, tone }.
+function Toast({ toast }) {
+  if (!toast?.text) return null;
+  const isError = toast.tone === "error";
+  const border = isError ? "rgba(192,86,59,0.5)" : "rgba(255,106,61,0.4)";
+  const accent = isError ? "var(--terra)" : "var(--ember)";
+  return (
+    <div
+      className="ch-toast ch-toast-show"
+      style={{ border: `1px solid ${border}` }}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="ch-toast-tx" style={{ color: "var(--text)" }}>
+        <b style={{ color: accent }}>{toast.text}</b>
+      </span>
+    </div>
+  );
+}
+
+// Best-effort href for a project's contact channel, which members type freely:
+// a full URL, a bare @handle, or a t.me path. Anything already absolute is left
+// untouched; a leading @ or t.me/… is resolved to a telegram link. Falls back to
+// the raw value so a link is always produced.
+function channelHref(raw) {
+  const v = (raw || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (v.startsWith("@")) return `https://t.me/${v.slice(1)}`;
+  if (/^t\.me\//i.test(v)) return `https://${v}`;
+  return v;
+}
 
 function Pill({ children, color, bg, border }) {
   return (
@@ -63,6 +125,17 @@ export default function ProjectActions({ projectId }) {
   const [me, setMe] = useState(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Follow / report / group-link — all read off the same authed `project`.
+  const { toast, flash } = useToast(3200);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reported, setReported] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [editingLink, setEditingLink] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -147,6 +220,97 @@ export default function ProjectActions({ projectId }) {
       setErr(e?.message || t("projects.err_leave"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // ── Follow (optimistic toggle) — mirrors the Mini App FollowButton ──────────
+  async function toggleFollow() {
+    if (followBusy || !project) return;
+    setFollowBusy(true);
+    const wasFollowing = project.is_following;
+    setProject((p) => ({
+      ...p,
+      is_following: !wasFollowing,
+      follower_count: Math.max(0, (p.follower_count || 0) + (wasFollowing ? -1 : 1)),
+    }));
+    try {
+      if (wasFollowing) {
+        await bfu("/follow", {
+          method: "DELETE",
+          body: { target_type: "project", target_id: Number(projectId) },
+        });
+      } else {
+        const r = await bfu("/follow", {
+          method: "POST",
+          body: { target_type: "project", target_id: Number(projectId) },
+        });
+        // Reconcile the authoritative follower count returned by the server.
+        if (r && typeof r.follower_count === "number") {
+          setProject((p) => ({ ...p, follower_count: r.follower_count }));
+        }
+      }
+    } catch (e) {
+      // Roll back on failure.
+      setProject((p) => ({
+        ...p,
+        is_following: wasFollowing,
+        follower_count: Math.max(0, (p.follower_count || 0) + (wasFollowing ? 1 : -1)),
+      }));
+      flash(e?.message || t("people.followUpdateError"), "error");
+    } finally {
+      setFollowBusy(false);
+    }
+  }
+
+  // ── Report the project — reveal → send is the confirm step, then toast ──────
+  async function submitReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
+    try {
+      await bfu("/users/reports", {
+        method: "POST",
+        body: {
+          target_type: "project",
+          target_id: Number(projectId),
+          reason: reportReason.trim() || null,
+        },
+      });
+      setReported(true);
+      setShowReport(false);
+      setReportReason("");
+      flash(t("people.reportSent"));
+    } catch (e) {
+      flash(e?.message || t("people.reportError"), "error");
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  // ── Group-chat link — founder-only set/replace (backend validates t.me) ─────
+  async function saveLink() {
+    if (linkBusy) return;
+    const draft = linkDraft.trim();
+    if (!draft) return;
+    setLinkBusy(true);
+    try {
+      const updated = await bfu(`/projects/${projectId}`, {
+        method: "PATCH",
+        body: { group_link: draft },
+      });
+      setProject((p) => ({ ...p, group_link: updated?.group_link ?? draft }));
+      setEditingLink(false);
+      setLinkDraft("");
+      flash(t("projects.group_link_saved"));
+    } catch (e) {
+      // 422 = not a https://t.me/ link (see _clean_group_link).
+      flash(
+        e?.status === 422
+          ? t("projects.group_link_invalid")
+          : e?.message || t("projects.group_link_error"),
+        "error"
+      );
+    } finally {
+      setLinkBusy(false);
     }
   }
 
@@ -409,17 +573,226 @@ export default function ProjectActions({ projectId }) {
     );
   }
 
+  const followers = project.follower_count || 0;
+  const showChatCell = !!project.group_link || isOwner;
+
   return (
-    <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className="ch-cell-label">
-        {isOwner
-          ? t("projects.actions_your_project")
-          : project.is_member
-          ? t("projects.actions_your_team")
-          : t("projects.actions_join")}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* ── Primary actions: apply / manage / leave + follow + report ── */}
+      <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div className="ch-cell-label">
+            {isOwner
+              ? t("projects.actions_your_project")
+              : project.is_member
+              ? t("projects.actions_your_team")
+              : t("projects.actions_join")}
+          </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-strong)" }}>
+            {followers === 1
+              ? t("people.followerOne", { n: followers })
+              : t("people.followerMany", { n: followers })}
+          </div>
+        </div>
+
+        {control}
+        {err ? <div style={{ fontSize: 13, color: "var(--terra)" }}>{err}</div> : null}
+
+        {/* Follow toggle — hidden for the founder (can't follow your own). */}
+        {!isOwner && (
+          <button
+            type="button"
+            onClick={toggleFollow}
+            disabled={followBusy}
+            aria-pressed={!!project.is_following}
+            className={project.is_following ? undefined : "ch-btn-primary"}
+            style={
+              project.is_following
+                ? {
+                    ...ghostBtn,
+                    width: "100%",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    borderColor: "rgba(127,176,105,0.4)",
+                    color: "var(--green)",
+                    background: "rgba(127,176,105,0.1)",
+                    opacity: followBusy ? 0.6 : 1,
+                  }
+                : { width: "100%", justifyContent: "center", opacity: followBusy ? 0.6 : 1 }
+            }
+          >
+            <span aria-hidden>{project.is_following ? "✓" : "+"}</span>{" "}
+            {project.is_following ? t("people.following") : t("people.follow")}
+          </button>
+        )}
+
+        {/* Report affordance — hidden for the founder. The reveal → send is the
+            confirm step; success surfaces as a toast. */}
+        {!isOwner && (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              {reported ? (
+                <span style={{ fontSize: 12, color: "var(--muted-strong)" }}>
+                  {t("people.reported")} ✓
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowReport((v) => !v)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--muted-strong)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    padding: "4px 2px",
+                  }}
+                >
+                  <span aria-hidden>⋯</span> {t("people.report")}
+                </button>
+              )}
+            </div>
+            {showReport && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <textarea
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  placeholder={t("people.reportPlaceholder")}
+                  rows={2}
+                  style={{
+                    width: "100%",
+                    resize: "vertical",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--hair)",
+                    background: "var(--surface-2)",
+                    color: "var(--text)",
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font-body)",
+                  }}
+                />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowReport(false)}
+                    disabled={reportBusy}
+                    style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, opacity: reportBusy ? 0.6 : 1 }}
+                  >
+                    {t("people.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitReport}
+                    disabled={reportBusy}
+                    style={{
+                      ...ghostBtn,
+                      padding: "8px 14px",
+                      fontSize: 13,
+                      color: "var(--terra)",
+                      borderColor: "rgba(192,86,59,0.35)",
+                      opacity: reportBusy ? 0.6 : 1,
+                      cursor: reportBusy ? "default" : "pointer",
+                    }}
+                  >
+                    {reportBusy ? t("people.sending") : t("people.sendReport")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
-      {control}
-      {err ? <div style={{ fontSize: 13, color: "var(--terra)" }}>{err}</div> : null}
+
+      {/* ── Group chat: join the founder's external t.me link, or set it ── */}
+      {showChatCell && (
+        <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="ch-cell-label">{t("projects.chat_title")}</div>
+          {project.group_link ? (
+            <a
+              href={project.group_link}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="ch-btn-primary"
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              <span aria-hidden>💬</span> {t("projects.join_chat")}
+            </a>
+          ) : editingLink ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                value={linkDraft}
+                onChange={(e) => setLinkDraft(e.target.value)}
+                placeholder={t("projects.group_link_ph")}
+                style={{
+                  width: "100%",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--hair)",
+                  background: "var(--surface-2)",
+                  color: "var(--text)",
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  fontFamily: "var(--font-body)",
+                }}
+              />
+              <div style={{ fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+                {t("projects.group_link_howto")}
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => { setEditingLink(false); setLinkDraft(""); }}
+                  disabled={linkBusy}
+                  style={{ ...ghostBtn, padding: "9px 16px", fontSize: 13, opacity: linkBusy ? 0.6 : 1 }}
+                >
+                  {t("people.cancel")}
+                </button>
+                <button
+                  type="button"
+                  className="ch-btn-primary"
+                  onClick={saveLink}
+                  disabled={linkBusy || !linkDraft.trim()}
+                  style={{ padding: "9px 18px", fontSize: 13, opacity: linkBusy || !linkDraft.trim() ? 0.55 : 1 }}
+                >
+                  {t("projects.save")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setLinkDraft(""); setEditingLink(true); }}
+              style={{ ...ghostBtn, width: "100%", justifyContent: "center", textAlign: "center" }}
+            >
+              <span aria-hidden>＋</span> {t("projects.set_group_link")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Contact channel: a tappable link to the project's public channel ── */}
+      {project.channel && (
+        <div style={{ ...card, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="ch-cell-label">{t("projects.contact_channel")}</div>
+          <a
+            href={channelHref(project.channel)}
+            target="_blank"
+            rel="noreferrer noopener"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 14,
+              color: "var(--amber)",
+              textDecoration: "none",
+              overflowWrap: "anywhere",
+            }}
+          >
+            <span aria-hidden>↗</span> {project.channel}
+          </a>
+        </div>
+      )}
+
+      <Toast toast={toast} />
     </div>
   );
 }

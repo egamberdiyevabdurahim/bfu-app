@@ -20,7 +20,9 @@ from app.services.event_admin import (
     build_funnel,
     build_responses,
     build_responses_csv,
+    build_checkin_roster,
     checked_schema as _checked_schema,
+    checkin_by_code,
     normalize_region_ids as _norm_region_ids,
     normalize_reminder_times as _norm_reminder_times,
     to_naive_utc as _to_naive_utc,
@@ -1060,6 +1062,39 @@ async def admin_event_responses(
     if not e:
         raise HTTPException(404, "Event not found")
     return await build_responses(db, e)
+
+
+class CheckinBody(BaseModel):
+    code: str
+
+
+@router.post("/events/{event_id}/checkin")
+async def admin_event_checkin(
+    event_id: int,
+    body: CheckinBody,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """QR/manual door check-in: mark the registrant whose code matches as SHOWED.
+    Idempotent (a second scan says already_checked_in). See event_admin.checkin_by_code."""
+    e = await db.get(Event, event_id)
+    if not e or e.is_deleted:
+        raise HTTPException(404, "Event not found")
+    return await checkin_by_code(db, e, body.code, admin.id)
+
+
+@router.get("/events/{event_id}/checkin-roster")
+async def admin_event_checkin_roster(
+    event_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Going registrants + codes + checked-in state — the scanner pre-loads this so
+    a decoded QR shows a name instantly even on a weak venue signal."""
+    e = await db.get(Event, event_id)
+    if not e:
+        raise HTTPException(404, "Event not found")
+    return await build_checkin_roster(db, e)
 
 
 @router.get("/events/{event_id}/funnel")

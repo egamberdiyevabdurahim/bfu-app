@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import io
+import secrets
 from datetime import datetime, timezone
 from typing import Any
 
@@ -155,6 +156,91 @@ async def event_responses(db: AsyncSession, event_id: int) -> list[tuple[EventRs
         .where(EventRsvp.event_id == event_id, EventRsvp.status == "going")
         .order_by(EventRsvp.created_at.asc(), EventRsvp.id.asc())
     )).all())
+
+
+# ── QR check-in ───────────────────────────────────────────────────────────────
+# Unambiguous alphabet (no 0/O/1/I/L) so a code is typeable as a fallback and a
+# scan is never mis-read. 6 chars → 30^6 ≈ 729M combos, far more than any roster.
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def gen_checkin_code(n: int = 6) -> str:
+    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(n))
+
+
+async def ensure_checkin_code(db: AsyncSession, rsvp: EventRsvp, event_id: int) -> str:
+    """Return the RSVP's check-in code, generating a unique-within-the-event one on
+    first use. Caller commits. Retries on the (astronomically unlikely) collision."""
+    if rsvp.checkin_code:
+        return rsvp.checkin_code
+    for _ in range(8):
+        code = gen_checkin_code()
+        clash = (await db.execute(select(EventRsvp.id).where(
+            EventRsvp.event_id == event_id, EventRsvp.checkin_code == code,
+        ))).first()
+        if not clash:
+            rsvp.checkin_code = code
+            return code
+    rsvp.checkin_code = gen_checkin_code(10)  # widen the space and accept it
+    return rsvp.checkin_code
+
+
+def parse_checkin_payload(scanned: str, event_id: int) -> tuple[str | None, str | None]:
+    """A ticket QR encodes ``{event_id}.{code}``; a manually-typed value is just the
+    bare code. Returns (code, error): error='wrong_event' if the QR names a
+    DIFFERENT event (so staff can't check someone into the wrong door)."""
+    s = (scanned or "").strip()
+    if "." in s:
+        eid, _, code = s.partition(".")
+        if eid.strip().isdigit() and int(eid) != event_id:
+            return None, "wrong_event"
+        return code.strip().upper(), None
+    return s.upper(), None
+
+
+async def checkin_by_code(db: AsyncSession, event: Event, scanned: str, actor_id: int) -> dict:
+    """Mark the registrant whose code matches as SHOWED. Idempotent: a second scan
+    reports already_checked_in and changes nothing. `event` is pre-loaded +
+    authorized by the caller (admin any / partner own event only)."""
+    code, err = parse_checkin_payload(scanned, event.id)
+    if err == "wrong_event":
+        raise HTTPException(409, "This ticket is for a different event.")
+    if not code:
+        raise HTTPException(400, "Empty code.")
+    row = (await db.execute(select(EventRsvp).where(
+        EventRsvp.event_id == event.id, EventRsvp.checkin_code == code,
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(404, "No registrant with that code for this event.")
+    u = await db.get(User, row.user_id)
+    name = u.display_name if u else str(row.user_id)
+    if row.checked_in_at is not None:
+        return {"ok": True, "already_checked_in": True, "user_id": row.user_id,
+                "name": name, "checked_in_at": row.checked_in_at.isoformat()}
+    row.checked_in_at = datetime.utcnow()
+    row.lead_status = "showed"
+    await log_action(db, actor_id, "event.checkin", "event", event.id, {"user_id": row.user_id})
+    await db.commit()
+    return {"ok": True, "already_checked_in": False, "user_id": row.user_id,
+            "name": name, "checked_in_at": row.checked_in_at.isoformat()}
+
+
+async def build_checkin_roster(db: AsyncSession, event: Event) -> list[dict]:
+    """The going registrants + their codes + checked-in state, so the scanner can
+    show a name the instant it decodes a QR (and keep working on a weak signal).
+    Generates any missing codes so the roster and every ticket QR always agree."""
+    rows = await event_responses(db, event.id)
+    out = []
+    changed = False
+    for r, u in rows:
+        if not r.checkin_code:
+            await ensure_checkin_code(db, r, event.id)
+            changed = True
+        out.append({"user_id": u.id, "code": r.checkin_code, "name": u.display_name,
+                    "checked_in": r.checked_in_at is not None})
+    if changed:
+        await db.commit()
+    return out
 
 
 async def build_responses(db: AsyncSession, event: Event) -> list[FormResponseOut]:

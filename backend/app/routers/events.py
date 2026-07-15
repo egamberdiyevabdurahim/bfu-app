@@ -445,6 +445,33 @@ async def my_form_response(
     return {"answers": row.answers if row else None}
 
 
+@router.get("/{event_id}/my-ticket")
+async def my_ticket(
+    event_id: int,
+    me: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The caller's check-in ticket for this event: a short code + the QR payload
+    ("{event_id}.{code}") the door scanner reads. Available once they're 'going';
+    the code is generated on first request and stable thereafter."""
+    row = (await db.execute(select(EventRsvp).where(
+        EventRsvp.event_id == event_id, EventRsvp.user_id == me.id,
+    ))).scalar_one_or_none()
+    if row is None or row.status != "going":
+        raise HTTPException(status_code=404, detail="You're not registered for this event.")
+    from app.services.event_admin import ensure_checkin_code
+    code = await ensure_checkin_code(db, row, event_id)
+    await db.commit()
+    e = await db.get(Event, event_id)
+    return {
+        "event_id": event_id,
+        "event_title": e.title if e else "",
+        "code": code,
+        "qr": f"{event_id}.{code}",
+        "checked_in": row.checked_in_at is not None,
+    }
+
+
 # Declared LAST: a bare "/{event_id}" would otherwise shadow the literal routes
 # above ("/for-me", "/mine/rsvps") — FastAPI matches in declaration order.
 @router.get("/{event_id}", response_model=EventDetailOut)

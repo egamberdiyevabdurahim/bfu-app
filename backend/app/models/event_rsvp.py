@@ -62,3 +62,12 @@ class EventRsvp(Base):
     # the hourly cron fires each custom reminder exactly once. NULL/[] = none sent
     # yet. (Legacy auto T-24h/T-1h events keep using reminded_at/reminded_1h_at.)
     reminders_sent: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # ── QR check-in ──────────────────────────────────────────────────────────
+    # A short, unguessable per-registrant code (unique within the event). Encoded
+    # in the attendee's ticket QR ("{event_id}.{code}") and also typeable as a
+    # manual fallback. Generated when the RSVP becomes 'going'. Door staff scan the
+    # QR → POST /events/{id}/checkin {code} marks the registrant showed.
+    checkin_code: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    # When the registrant was scanned in at the door (idempotent: a second scan is
+    # a no-op that reports "already checked in"). NULL = not yet checked in.
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -33,7 +33,9 @@ from app.services.event_admin import (
     build_funnel,
     build_responses,
     build_responses_csv,
+    build_checkin_roster,
     checked_schema,
+    checkin_by_code,
     normalize_region_ids,
     normalize_reminder_times,
     to_naive_utc,
@@ -248,6 +250,35 @@ async def partner_event_responses(
 ):
     e = await _load_my_event(db, partner, event_id)
     return await build_responses(db, e)
+
+
+class PartnerCheckinBody(BaseModel):
+    code: str
+
+
+@router.post("/events/{event_id}/checkin")
+async def partner_event_checkin(
+    event_id: int,
+    body: PartnerCheckinBody,
+    partner: Partner = Depends(get_partner_user),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Door check-in for one of MY org's events (scoped via _load_my_event → a code
+    from another org's event is a 404). Marks the registrant SHOWED; idempotent."""
+    e = await _load_my_event(db, partner, event_id)
+    return await checkin_by_code(db, e, body.code, current_user.id)
+
+
+@router.get("/events/{event_id}/checkin-roster")
+async def partner_event_checkin_roster(
+    event_id: int,
+    partner: Partner = Depends(get_partner_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Roster + codes for the scanner to pre-load (own event only)."""
+    e = await _load_my_event(db, partner, event_id)
+    return await build_checkin_roster(db, e)
 
 
 @router.get("/events/{event_id}/responses.csv")

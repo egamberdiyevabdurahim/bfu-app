@@ -234,6 +234,11 @@ async def lifespan(app: FastAPI):
         # Per-RSVP record of which custom reminder times have already been sent
         # (exactly-once for organizer-set reminders).
         "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS reminders_sent JSONB;",
+        # QR check-in: per-registrant unguessable code (in the ticket QR) + the
+        # timestamp they were scanned in at the door.
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS checkin_code VARCHAR(16);",
+        "ALTER TABLE event_rsvps ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMP;",
+        "CREATE INDEX IF NOT EXISTS ix_event_rsvps_checkin_code ON event_rsvps (checkin_code);",
     ]
     for sql in migrations:
         await _run(sql[:40], sql)

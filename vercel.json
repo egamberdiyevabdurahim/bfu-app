@@ -15,6 +15,7 @@
     { "source": "/events/:path*", "destination": "https://bfu-backend-production.up.railway.app/events/:path*" },
     { "source": "/partners", "destination": "https://bfu-backend-production.up.railway.app/partners" },
     { "source": "/partners/:path*", "destination": "https://bfu-backend-production.up.railway.app/partners/:path*" },
+    { "source": "/partner/:path*", "destination": "https://bfu-backend-production.up.railway.app/partner/:path*" },
     { "source": "/bookings", "destination": "https://bfu-backend-production.up.railway.app/bookings" },
     { "source": "/bookings/:path*", "destination": "https://bfu-backend-production.up.railway.app/bookings/:path*" },
     { "source": "/roles", "destination": "https://bfu-backend-production.up.railway.app/roles" },

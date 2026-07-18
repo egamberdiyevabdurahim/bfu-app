@@ -483,6 +483,12 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
   // Map pin. lat/lng ride the payload as floats (null when there's no pin).
   const [lat, setLat] = useState(typeof event?.lat === "number" ? event.lat : null);
   const [lng, setLng] = useState(typeof event?.lng === "number" ? event.lng : null);
+  // Map address search (keyless OpenStreetMap/Nominatim geocoding). Seeded from the
+  // free-text Location so the organiser can just press Search on what they typed.
+  const [mapQuery, setMapQuery] = useState(event?.location || "");
+  const [geoResults, setGeoResults] = useState([]);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoNone, setGeoNone] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const regionName = (r) => r.name_en || r.name_uz || r.name_ru || `Region ${r.id}`;
@@ -523,6 +529,7 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
   const mapElRef = useRef(null);   // the container <div>
   const mapRef = useRef(null);     // the L.Map instance
   const markerRef = useRef(null);  // the draggable pin
+  const flyToRef = useRef(null);   // imperative: center map + drop pin at (lat,lng)
   const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
   const clearPin = () => {
@@ -575,6 +582,12 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
       };
       if (hasPin) place(lat, lng);
 
+      // Imperative hook for the address search: center + drop the pin at a result.
+      flyToRef.current = (la, ln) => {
+        const rla = round6(la), rln = round6(ln);
+        setLat(rla); setLng(rln); place(rla, rln); map.setView([rla, rln], 16);
+      };
+
       map.on("click", (e) => {
         const la = round6(e.latlng.lat);
         const ln = round6(e.latlng.lng);
@@ -597,11 +610,38 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
         mapRef.current = null;
       }
       markerRef.current = null;
+      flyToRef.current = null;
     };
     // Mount-once: the pin is driven imperatively afterwards (place/clearPin), not
     // by re-running this effect, so lat/lng are intentionally not deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Geocode the typed address via keyless OpenStreetMap/Nominatim (Uzbekistan-
+  // biased) → a small result list; picking one drops the pin. Search-on-submit
+  // (not per-keystroke) to respect Nominatim's 1 req/s usage policy.
+  async function geocodeAddress() {
+    const q = mapQuery.trim();
+    if (!q) return;
+    setGeoBusy(true); setGeoResults([]); setGeoNone(false);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=uz&accept-language=uz&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      const data = await res.json();
+      const list = Array.isArray(data) ? data.slice(0, 5) : [];
+      setGeoResults(list);
+      setGeoNone(list.length === 0);
+    } catch {
+      setGeoNone(true);
+    } finally {
+      setGeoBusy(false);
+    }
+  }
+  function pickGeoResult(r) {
+    const la = parseFloat(r.lat), ln = parseFloat(r.lon);
+    if (Number.isFinite(la) && Number.isFinite(ln) && flyToRef.current) flyToRef.current(la, ln);
+    setGeoResults([]); setGeoNone(false);
+  }
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -695,8 +735,57 @@ function EventDialog({ event, regions, partners, showPartner = true, onCancel, o
 
       {/* Map pin. Free-text "Location" above is the venue name; this drops an
           exact lat/lng an attendee can navigate to. Keyless OpenStreetMap tiles;
-          click the map or drag the pin to set it, "Clear pin" to remove it. */}
+          type an address to fly the pin there, or click the map / drag the pin,
+          "Clear pin" to remove it. */}
       <Field label="Location on map">
+        {/* Address search → Nominatim geocode → drop the pin. Saves organizers
+            from panning around when they know the place by name. */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input
+            value={mapQuery}
+            onChange={(e) => { setMapQuery(e.target.value); setGeoNone(false); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); geocodeAddress(); } }}
+            placeholder="Search an address — e.g. Marstiff, Chilanzar, Tashkent"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={geocodeAddress}
+            disabled={geoBusy || !mapQuery.trim()}
+            className="ch-btn-ghost"
+            style={{ padding: "8px 14px", fontSize: 13, whiteSpace: "nowrap" }}
+          >
+            {geoBusy ? "Searching…" : "Find"}
+          </button>
+        </div>
+        {geoResults.length > 0 && (
+          <div style={{
+            border: "1px solid var(--hair)", borderRadius: 10, overflow: "hidden",
+            marginBottom: 8, background: "var(--surface-1)",
+          }}>
+            {geoResults.map((r, i) => (
+              <button
+                key={`${r.place_id || i}`}
+                type="button"
+                onClick={() => pickGeoResult(r)}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "9px 12px", fontSize: 12.5, lineHeight: 1.35,
+                  background: "transparent", border: "none",
+                  borderTop: i ? "1px solid var(--hair)" : "none",
+                  color: "var(--text)", cursor: "pointer",
+                }}
+              >
+                📍 {r.display_name}
+              </button>
+            ))}
+          </div>
+        )}
+        {geoNone && (
+          <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+            No match — try a broader search, or just click the map to drop the pin.
+          </div>
+        )}
         <div
           ref={mapElRef}
           style={{

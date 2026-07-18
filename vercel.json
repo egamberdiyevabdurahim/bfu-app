@@ -32,6 +32,7 @@
     { "source": "/u/:id", "destination": "https://bfu-backend-production.up.railway.app/public/u/:id" },
     { "source": "/web", "destination": "https://bfu-desktop.vercel.app/web" },
     { "source": "/web/:path*", "destination": "https://bfu-desktop.vercel.app/web/:path*" },
-    { "source": "/((?!landing|u/|web).*)", "destination": "/index.html" }
+    { "source": "/e/:id", "destination": "https://bfu-desktop.vercel.app/web/e/:id" },
+    { "source": "/((?!landing|u/|web|e/).*)", "destination": "/index.html" }
   ]
 }

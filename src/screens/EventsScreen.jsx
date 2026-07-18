@@ -399,10 +399,12 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm, me }) => {
   const partnerLabel = ev.partner_name || (ev.partner_id ? t("events.detail.partnerGeneric") : null);
   const hasGeo = ev.lat != null && ev.lng != null;
 
-  // Share = a deep link that reopens this event inside the Mini App. Prefer
+  // Share = the PUBLIC landing-page link (brightfuturesuzbekistan.uz/e/{id}) — it
+  // renders a rich preview card in any chat (cover image), works for logged-out
+  // viewers, and its Register button opens Telegram straight onto sign-up. Prefer
   // Telegram's native share sheet; outside Telegram, copy the link + flash "Copied".
   const shareEvent = () => {
-    const link = `https://t.me/${BOT_USERNAME}?startapp=event_${ev.id}`;
+    const link = `https://brightfuturesuzbekistan.uz/e/${ev.id}`;
     const w = window.Telegram?.WebApp;
     if (w && typeof w.openTelegramLink === "function") {
       try {

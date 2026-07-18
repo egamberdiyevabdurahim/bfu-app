@@ -26,6 +26,20 @@ export const getPublicProfile = cache(async (id) => {
 });
 
 /**
+ * PUBLIC (unauthenticated) event info for the shareable /e/{id} landing page —
+ * the link shared on Instagram. Public fields only. ISR-cached (revalidate: 120);
+ * returns null on 404 so the page renders notFound() instead of throwing.
+ */
+export const getPublicEvent = cache(async (id) => {
+  const res = await fetch(`${API_BASE}/public/events/${id}`, {
+    next: { revalidate: 120, tags: [`event:${id}`] },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`BFU API error ${res.status} fetching event ${id}`);
+  return res.json();
+});
+
+/**
  * Fetches the batched, public "building tonight" City/Discovery payload
  * (stats, region clusters of builder cards, serendipity threads) in one
  * round-trip. Wrapped in React's cache() so generateMetadata() and the page

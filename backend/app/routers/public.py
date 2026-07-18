@@ -15,6 +15,9 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.core.handles import decode_handle
 from app.database import get_db
+from app.models.event import Event
+from app.models.event_rsvp import EventRsvp
+from app.models.partner import Partner
 from app.models.project import Project
 from app.models.region import Region
 from app.models.trust import ProjectRating, Vouch
@@ -30,6 +33,37 @@ from app.routers.users import (
 from app.services.signing import avatar_sig, card_sig, og_sig  # noqa: E402,F401
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+@router.get("/events/{event_id}")
+async def public_event(event_id: int, response: Response, db: AsyncSession = Depends(get_db)):
+    """Unauthenticated event info for the shareable landing page (/e/{id}) — the
+    link Marstiff puts on Instagram. Only PUBLIC fields (never registrants/answers).
+    Anyone can view; registration itself still happens in the Mini App."""
+    e = (await db.execute(select(Event).where(
+        Event.id == event_id, Event.is_deleted == False, Event.is_approved == True,
+    ))).scalar_one_or_none()
+    if not e:
+        raise HTTPException(404, "Event not found")
+    going = await db.scalar(
+        select(func.count(EventRsvp.id)).where(
+            EventRsvp.event_id == e.id, EventRsvp.status == "going")
+    ) or 0
+    seats_left = None if e.capacity is None else max(0, e.capacity - int(going))
+    partner_name = None
+    if e.partner_id:
+        partner_name = await db.scalar(select(Partner.name).where(Partner.id == e.partner_id))
+    response.headers["Cache-Control"] = "public, max-age=60, s-maxage=120"
+    return {
+        "id": e.id, "type": e.type, "title": e.title, "description": e.description,
+        "cover_url": e.cover_url, "link": e.link,
+        "starts_at": e.starts_at.isoformat() if e.starts_at else None,
+        "deadline": e.deadline.isoformat() if e.deadline else None,
+        "location": e.location, "lat": e.lat, "lng": e.lng,
+        "region_ids": e.region_ids if isinstance(e.region_ids, list) else None,
+        "capacity": e.capacity, "going_count": int(going), "seats_left": seats_left,
+        "has_form": e.has_form, "partner_name": partner_name,
+    }
 
 # Landing counts change slowly but the page fetches them on every anonymous
 # visit. A tiny in-process TTL cache means the DB is hit at most once per TTL

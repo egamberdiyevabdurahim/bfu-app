@@ -121,3 +121,24 @@ async def test_checkin_roster_lists_going_with_codes(db, make_user, as_user):
     # Codes are unique within the event.
     codes = [x["code"] for x in roster]
     assert len(set(codes)) == 2
+
+
+async def test_public_event_landing_endpoint(db, make_user, as_user):
+    admin = await _admin(make_user)
+    r = await as_user(admin).post("/admin/events", json={
+        "type": "meetup", "title": "Free SAT Mock", "location": "Tashkent",
+    })
+    eid = r.json()["id"]
+    # Public, no-auth fetch (the /e/{id} landing page uses this).
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as pub:
+        pr = await pub.get(f"/public/events/{eid}")
+    assert pr.status_code == 200, pr.text
+    body = pr.json()
+    assert body["title"] == "Free SAT Mock"
+    assert body["location"] == "Tashkent"
+    assert "seats_left" in body and "partner_name" in body
+    # missing / unapproved → 404
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as pub:
+        assert (await pub.get("/public/events/999999")).status_code == 404

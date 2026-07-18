@@ -3,16 +3,15 @@
 import { useState } from "react";
 import { useT } from "@/components/i18n/LocaleProvider";
 
-// Share control for the event detail page. Builds the Telegram deep-link that
-// opens the Mini App straight onto this event (?startapp=event_{id}) and copies
-// it to the clipboard on click, flashing "Copied!" for ~1.5s. Client-only (needs
+// Share control for the event detail page. Copies the PUBLIC landing-page link
+// (brightfuturesuzbekistan.uz/e/{id}) — the shareable, preview-rich URL for
+// Instagram/anywhere. That page shows the event to logged-out visitors and its
+// Register button opens Telegram straight onto sign-up. Client-only (needs
 // navigator.clipboard + local state); the rest of the page is SSR.
-const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME || "BrightFuturesUzbekistan_bot";
-
 export default function CopyEventLink({ eventId }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const link = `https://t.me/${BOT}?startapp=event_${eventId}`;
+  const link = `https://brightfuturesuzbekistan.uz/e/${eventId}`;
 
   async function copy() {
     try {

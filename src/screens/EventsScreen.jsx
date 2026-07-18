@@ -35,11 +35,19 @@ const KNOWN_TYPES = ["hackathon", "grant", "scholarship", "meetup", "other"];
 // tap into EventFormSheet — the RSVP only lands once the form is submitted and
 // the server accepts the answers. Everything else (no-form events, "Interested",
 // un-RSVPing by tapping an active pill) is untouched 1-click behaviour.
-const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
+// Register / Going control. `variant` scales it to context: "card" is a compact
+// (but comfortably tappable) pill in the list; "detail" makes Register the HERO of
+// the detail page — a big, full-width primary button — since registering is the
+// whole point of opening an event. Label reads "Register" for form events until
+// you're in, then flips to the confirmed "Going" state.
+const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm, variant = "card" }) => {
   const [busy, setBusy] = useState(false);
+  const detail = variant === "detail";
   // A capacity-full "going" RSVP comes back as "waitlisted" from the server — for
   // toggling and labels, treat it as "already in this event".
-  const goingIsh = ev.my_rsvp === "going" || ev.my_rsvp === "waitlisted";
+  const going = ev.my_rsvp === "going";
+  const waitlisted = ev.my_rsvp === "waitlisted";
+  const goingIsh = going || waitlisted;
   const set = async (status) => {
     if (busy) return;
     // Form events route EVERY "Going" tap through the sheet: not-registered → fill
@@ -68,47 +76,76 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm }) => {
   };
   const base = {
     fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.06em",
-    borderRadius: "var(--radius-pill)", fontSize: 11, padding: "7px 13px", cursor: "pointer",
-    transition: "background 0.15s ease, color 0.15s ease",
+    borderRadius: "var(--radius-pill)", cursor: busy ? "default" : "pointer",
+    opacity: busy ? 0.7 : 1, transition: "background 0.15s ease, color 0.15s ease, opacity 0.15s ease",
+    // Detail = big full-width hero CTA; card = compact-but-tappable pill.
+    ...(detail
+      ? { fontSize: 15, padding: "16px 22px", width: "100%", textAlign: "center", fontWeight: 700 }
+      : { fontSize: 12.5, padding: "10px 18px", fontWeight: 600 }),
   };
-  const pill = (active) => active
-    ? { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: 700, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" }
-    : { background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--hair)", fontWeight: 500 };
-  // Waitlisted = amber outline (in the event, but not counted as going).
-  const waitPill = { background: "transparent", color: "var(--amber)", border: "1px solid var(--amber)", fontWeight: 700 };
-  const waitlisted = ev.my_rsvp === "waitlisted";
+  const solidAmber = { background: "var(--amber)", color: "#160E08", border: "1px solid var(--amber)", fontWeight: detail ? 800 : 700, boxShadow: "0 4px 14px rgba(232,161,92,0.28)" };
+  const outlineAmber = { background: "transparent", color: "var(--amber)", border: "1px solid var(--amber)", fontWeight: 700 };
+
+  // Appearance:
+  //  • waitlisted            → amber outline (in the event, not counted as going)
+  //  • detail + going        → amber outline, so the 🎫 ticket button below is the
+  //                            clear solid-amber primary once you're registered
+  //  • going (card)          → solid amber active pill
+  //  • not going             → solid amber (the CTA to act on)
+  const look = waitlisted
+    ? outlineAmber
+    : going
+      ? (detail ? outlineAmber : solidAmber)
+      : solidAmber;
+  // Label: form events read "Register" until you're in; then the confirmed "Going".
+  const primaryLabel = waitlisted
+    ? t("events.rsvp.waitlisted")
+    : going
+      ? t("events.rsvp.going")
+      : ev.has_form
+        ? t("events.rsvp.register")
+        : t("events.rsvp.going");
+  const glyph = waitlisted ? "◔ " : going ? "✓ " : "";
+
   return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...(waitlisted ? waitPill : pill(ev.my_rsvp === "going")) }}>
-          {waitlisted ? "◔ " : ev.my_rsvp === "going" ? "✓ " : ""}
-          {waitlisted ? t("events.rsvp.waitlisted") : t("events.rsvp.going")}
+    <div style={{ marginTop: detail ? 22 : 14 }}>
+      <div style={detail
+        ? { display: "flex", flexDirection: "column", gap: 8 }
+        : { display: "flex", gap: 8, alignItems: "center" }}>
+        <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...look }}>
+          {glyph}{primaryLabel}
         </button>
         {ev.rsvp_count > 0 && (
-          <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>
+          <span style={{
+            fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)",
+            ...(detail ? { textAlign: "center" } : { marginLeft: "auto" }),
+          }}>
             {t("events.rsvp.count", { n: ev.rsvp_count })}
           </span>
         )}
       </div>
 
       {/* Form events say so up front — and, once registered, open the read-only
-          registration recap (answers are locked once submitted). */}
+          registration recap (answers are locked once submitted). The "has a form"
+          hint is redundant on the detail CTA (which already reads "Register"). */}
       {ev.has_form && (
         goingIsh ? (
           <button onClick={() => onOpenForm(ev)} style={{
-            ...base, marginTop: 8, background: "transparent", color: "var(--green)",
-            border: "1px solid rgba(127,176,105,0.34)", fontWeight: 600,
+            fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.06em",
+            borderRadius: "var(--radius-pill)", cursor: "pointer", marginTop: 10,
+            background: "transparent", color: "var(--green)", border: "1px solid rgba(127,176,105,0.34)",
+            fontWeight: 600, ...(detail ? { fontSize: 12.5, padding: "11px 18px", width: "100%", textAlign: "center" } : { fontSize: 12.5, padding: "9px 15px" }),
           }}>
             ✓ {t("events.viewReg")}
           </button>
-        ) : (
+        ) : !detail ? (
           <div style={{
             marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10.5,
             letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)",
           }}>
             ◇ {tf("card.hasForm")}
           </div>
-        )
+        ) : null
       )}
     </div>
   );
@@ -519,27 +556,42 @@ const EventDetail = ({ seed, t, tf, onClose, onRsvp, onOpenForm, me }) => {
             </button>
           </div>
 
-          {/* Register / read-only action — same component as the card. */}
-          <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} />
+          {/* Register — the hero action. Big, full-width primary on the detail. */}
+          <RsvpRow ev={ev} t={t} tf={tf} onRsvp={onRsvp} onOpenForm={onOpenForm} variant="detail" />
 
           {/* 🎫 Attendee ticket — the QR + code door staff scan. Only for a
-              member who is actually going (going OR waitlisted). */}
+              member who is actually going (going OR waitlisted). Solid amber so
+              it's the clear primary action once you're registered. */}
           {(ev.my_rsvp === "going" || ev.my_rsvp === "waitlisted") && (
             <button onClick={() => setTicketOpen(true)} className="btn-primary" style={{
-              marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 8, width: "100%", fontSize: 14.5, padding: "15px 20px",
             }}>
               🎫 {t("events.ticket.openBtn")}
             </button>
           )}
 
-          {/* 📷 Staff check-in — shown once the roster pre-load proves the viewer
-              owns/manages this event (admin/boss/super_admin, or owning partner). */}
+          {/* 📷 Staff door check-in — deliberately set apart in its own STAFF
+              footer, small and muted, so it never competes with or resembles the
+              attendee's Register action. Airtight-gated: only rendered once the
+              roster pre-load proves the viewer manages THIS event (admin/boss/
+              super_admin, or the OWNING partner — a non-owning partner 404s, a
+              regular attendee never has a staff role), so attendees never see it. */}
           {canStaff && Array.isArray(roster) && (
-            <button onClick={() => setScanOpen(true)} className="btn-ghost" style={{
-              marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-            }}>
-              📷 {t("events.scan.openBtn")}
-            </button>
+            <div style={{ marginTop: 26, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
+              <div style={{
+                fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.16em",
+                textTransform: "uppercase", color: "var(--text-3)", marginBottom: 10,
+              }}>{t("events.scan.staffLabel")}</div>
+              <button onClick={() => setScanOpen(true)} style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.04em",
+                padding: "9px 14px", borderRadius: "var(--radius-pill)", cursor: "pointer",
+                background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--hair)",
+              }}>
+                📷 {t("events.scan.openBtn")}
+              </button>
+            </div>
           )}
         </div>
       </div>

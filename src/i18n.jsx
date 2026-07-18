@@ -686,6 +686,7 @@ const STRINGS = {
   "events.foryou": { en: "✨ For You", uz: "✨ Siz uchun", ru: "✨ Для вас" },
   "events.myRsvps": { en: "Mine", uz: "Meniki", ru: "Мои" },
   "events.rsvp.going": { en: "Going", uz: "Boraman", ru: "Иду" },
+  "events.rsvp.register": { en: "Register", uz: "Ro‘yxatdan o‘tish", ru: "Регистрация" },
   "events.rsvp.interested": { en: "Interested", uz: "Qiziqaman", ru: "Интересно" },
   "events.rsvp.count": { en: "{n} going", uz: "{n} kishi boradi", ru: "Идут: {n}" },
   "events.rsvp.waitlisted": { en: "Waitlisted", uz: "Navbatda", ru: "В ожидании" },
@@ -732,6 +733,7 @@ const STRINGS = {
 
   // ── Check-in: staff scanner (📷 partner/admin at the door) ──────────────────
   "events.scan.kicker": { en: "Check-in", uz: "Ro‘yxatga olish", ru: "Регистрация на входе" },
+  "events.scan.staffLabel": { en: "Staff · Door check-in", uz: "Xodim · Eshikda ro‘yxat", ru: "Персонал · Регистрация на входе" },
   "events.scan.openBtn": { en: "Scan check-in", uz: "Skanerlab ro‘yxatga olish", ru: "Сканировать вход" },
   "events.scan.scanBtn": { en: "Scan a QR", uz: "QR skanerlash", ru: "Сканировать QR" },
   "events.scan.popupText": { en: "Point at an attendee's ticket QR", uz: "Ishtirokchi chiptasidagi QR’ga qarating", ru: "Наведите на QR билета участника" },

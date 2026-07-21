@@ -33,6 +33,7 @@
     { "source": "/web", "destination": "https://bfu-desktop.vercel.app/web" },
     { "source": "/web/:path*", "destination": "https://bfu-desktop.vercel.app/web/:path*" },
     { "source": "/e/:id", "destination": "https://bfu-desktop.vercel.app/web/e/:id" },
+    { "source": "/e/:id/", "destination": "https://bfu-desktop.vercel.app/web/e/:id" },
     { "source": "/((?!landing|u/|web|e/).*)", "destination": "/index.html" }
   ]
 }

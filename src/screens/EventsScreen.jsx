@@ -115,14 +115,9 @@ const RsvpRow = ({ ev, t, tf, onRsvp, onOpenForm, variant = "card" }) => {
         <button disabled={busy} onClick={() => set("going")} style={{ ...base, ...look }}>
           {glyph}{primaryLabel}
         </button>
-        {ev.rsvp_count > 0 && (
-          <span style={{
-            fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)",
-            ...(detail ? { textAlign: "center" } : { marginLeft: "auto" }),
-          }}>
-            {t("events.rsvp.count", { n: ev.rsvp_count })}
-          </span>
-        )}
+        {/* The public "N going" count is intentionally hidden from attendees —
+            an early event showing "1 going" reads as empty and deters sign-ups.
+            Organizers still see real counts in the partner/admin funnel. */}
       </div>
 
       {/* Form events say so up front — and, once registered, open the read-only

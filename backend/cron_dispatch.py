@@ -1,4 +1,4 @@
-"""Single cron dispatcher — run hourly, runs the right jobs by UTC time.
+"""Single cron dispatcher — run every 5 min, runs the right jobs by UTC time.
 
 Lets you create ONE Railway Cron service instead of six. Still a separate
 service from the web process (honors the "no in-process scheduler" decision).
@@ -6,11 +6,17 @@ service from the web process (honors the "no in-process scheduler" decision).
 Railway Cron service:
   Root directory: backend
   Start command:  python cron_dispatch.py
-  Schedule (UTC): 0 * * * *     (top of every hour)
+  Schedule (UTC): */5 * * * *    (every 5 minutes)
+
+**rsvp_reminders runs EVERY tick (every 5 min)** so organizer-set reminder
+moments fire within ~5 min of their scheduled time — an event whose reminders
+land at :30 / :50 past the hour (or a T-1h/T-24h moment) must not wait up to a
+full hour. Everything else stays hourly: gated on ``minute < 5`` so the once-a-
+day / weekly jobs run exactly once (at the :00 tick of their hour), never 12×.
 
 Job times (UTC):
-  every hour        → nudges (abandoned + inactive)
-  every hour        → rsvp_reminders (per-attendee, deadline ≤24h, once each)
+  every 5 min       → rsvp_reminders (per-attendee event reminders, once each)
+  hourly (:00)      → nudges (abandoned + inactive)
   01:00 daily       → db_backup
   04:00 daily       → pulse (founder daily DM)
   06:00 daily       → event_reminders (T-1 deadlines)
@@ -29,17 +35,24 @@ log = logging.getLogger("cron")
 
 
 def _due(now: datetime) -> list[str]:
-    jobs = ["nudges", "rsvp_reminders"]  # hourly
-    if now.hour == 1:
-        jobs.append("db_backup")
-    if now.hour == 4:
-        jobs.append("pulse")
-    if now.hour == 6:
-        jobs.append("event_reminders")
-    if now.weekday() == 0 and now.hour == 5:   # Monday
-        jobs.append("match_drop")
-    if now.weekday() == 0 and now.hour == 9:
-        jobs.append("digest")
+    # Runs EVERY tick (every 5 min) — event reminders need sub-hourly accuracy.
+    # rsvp_reminders is exactly-once per (rsvp, moment) via EventRsvp.reminders_sent,
+    # so re-running every 5 min never double-sends.
+    jobs = ["rsvp_reminders"]
+    # Everything else keeps its hourly/daily cadence: only at the :00 tick of the
+    # hour (minute < 5) so a 5-min dispatcher can't fire a daily job 12 times.
+    if now.minute < 5:
+        jobs.append("nudges")
+        if now.hour == 1:
+            jobs.append("db_backup")
+        if now.hour == 4:
+            jobs.append("pulse")
+        if now.hour == 6:
+            jobs.append("event_reminders")
+        if now.weekday() == 0 and now.hour == 5:   # Monday
+            jobs.append("match_drop")
+        if now.weekday() == 0 and now.hour == 9:
+            jobs.append("digest")
     return jobs
 
 

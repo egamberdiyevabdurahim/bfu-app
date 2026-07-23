@@ -16,6 +16,11 @@ def validate_phone(v: str | None) -> str | None:
     if v is None:
         return v
     v = v.strip()
+    # A blank string means "no phone", not an invalid one. Coerce to None so a
+    # user with an empty/cleared phone can still save their profile — otherwise
+    # PATCH /users/me 422s on a field they never filled in.
+    if not v:
+        return None
     if not _PHONE_RE.match(v):
         raise ValueError("Phone must be +998 followed by 9 digits")
     return v

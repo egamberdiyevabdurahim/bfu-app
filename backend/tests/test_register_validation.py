@@ -55,6 +55,7 @@ async def test_register_accepts_valid_phone(make_user, as_user, db):
         "+9989012345678",   # 10 digits after +998
         "+998abcdefghi",    # letters
         "+998 90 123 45 67",  # spaces / separators
+        "     ",            # whitespace-only (passes min_length; must 422, not 500)
     ],
 )
 async def test_register_rejects_bad_phone(make_user, as_user, db, bad_phone):
@@ -84,6 +85,31 @@ async def test_patch_me_accepts_valid_phone(make_user, as_user, db):
     res = await c.patch("/users/me", json={"phone_number": "+998911112233"})
     assert res.status_code == 200, res.text
     assert res.json()["phone_number"] == "+998911112233"
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+async def test_patch_me_blank_phone_is_noop_not_422(make_user, as_user, db, blank):
+    """A blank phone means "no phone", not an invalid one: coerced to None, which
+    the update path treats as "leave untouched" — so it saves (200, never 422)
+    and does NOT wipe an existing number. Without this, a user whose phone field
+    is empty is permanently locked out of editing the rest of their profile."""
+    user = await make_user(phone_number="+998901234567")
+    c = as_user(user)
+    res = await c.patch("/users/me", json={"phone_number": blank})
+    assert res.status_code == 200, res.text
+    # No 422, and the stored phone is preserved (blank == "don't touch it").
+    assert res.json()["phone_number"] == "+998901234567"
+
+
+async def test_patch_me_blank_phone_ok_when_none_stored(make_user, as_user, db):
+    """The real-world case: a legacy user with NO phone edits their bio. The
+    blank phone field must not 422 the whole save."""
+    user = await make_user(phone_number=None)
+    c = as_user(user)
+    res = await c.patch("/users/me", json={"phone_number": "", "about":
+                                           "I am a builder shipping great products with teams every single day now"})
+    assert res.status_code == 200, res.text
+    assert res.json()["phone_number"] is None
 
 
 # ── ABOUT (>= 10 words) on the profile-edit path ───────────────────────────────

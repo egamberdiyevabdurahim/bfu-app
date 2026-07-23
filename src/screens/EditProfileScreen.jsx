@@ -73,8 +73,12 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
         errs.birth_year = t("ep.birthYearRange", { min: CURRENT_YEAR - 60, max: CURRENT_YEAR - 10 });
       }
     }
-    // Phone is optional here — but when provided it must be exactly 9 local digits.
-    if (phoneLocal(form.phone_number).length > 0 && !phoneComplete(form.phone_number)) {
+    // Phone is optional here — but when provided it must be exactly 9 local
+    // digits. Only validate it when the user actually CHANGED it: a legacy
+    // member whose stored phone is a malformed/short value must still be able to
+    // save a bio-only edit (the untouched phone isn't re-sent — see handleSave).
+    const phoneChanged = (form.phone_number || "") !== (me?.phone_number || "");
+    if (phoneChanged && phoneLocal(form.phone_number).length > 0 && !phoneComplete(form.phone_number)) {
       errs.phone_number = t("ep.phoneInvalid");
     }
     setErrors(errs);
@@ -85,7 +89,8 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const payload = {
+      // The FULL desired state of every editable field…
+      const desired = {
         name: form.name.trim(),
         surname: form.surname.trim(),
         birth_year: parseInt(form.birth_year) || null,
@@ -107,14 +112,26 @@ export const EditProfileScreen = ({ me, onBack, onSaved }) => {
       // profile away with empty values from a form they never saw. Omit them
       // entirely — the server keeps whatever it already has.
       if (FLAGS.MENTORING) {
-        payload.is_mentor = form.is_mentor;
-        payload.mentor_bio = form.is_mentor ? form.mentor_bio.trim() : "";
-        payload.mentor_topics = form.is_mentor
+        desired.is_mentor = form.is_mentor;
+        desired.mentor_bio = form.is_mentor ? form.mentor_bio.trim() : "";
+        desired.mentor_topics = form.is_mentor
           ? form.mentor_topics.split(",").map(s => s.trim()).filter(Boolean).slice(0, 6)
           : [];
       }
 
-      await users.updateMe(payload);
+      // …but PATCH only the fields that ACTUALLY changed. Re-sending the whole
+      // form made a user editing (say) their bio also re-submit a legacy phone
+      // or a pre-rule short "about" they never touched — which the server then
+      // 422s, blocking an otherwise-valid save. Empty-string and null are the
+      // same "empty" here, so an optional field left blank is never re-sent.
+      const norm = (x) => (x === undefined || x === "" ? null : x);
+      const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+      const payload = {};
+      for (const [k, v] of Object.entries(desired)) {
+        if (!same(v, me?.[k])) payload[k] = v;
+      }
+
+      if (Object.keys(payload).length > 0) await users.updateMe(payload);
 
       const nameChanged = form.name.trim() !== origName || form.surname.trim() !== origSurname;
       if (nameChanged) {

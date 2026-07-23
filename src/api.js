@@ -13,11 +13,40 @@ const BASE = _envBase !== undefined
   : (import.meta.env.DEV ? "http://localhost:8000" : "");
 
 // ── Token storage ─────────────────────────────────────────────────────────────
+// In-memory is the SOURCE OF TRUTH for the running session; localStorage is a
+// best-effort mirror for persistence across app restarts. This matters because
+// some Telegram Mini App webviews — notably the app opened via a link inside
+// Instagram's in-app browser, and iOS private/partitioned contexts — sandbox or
+// silently reject localStorage. When that happens the freshly-issued token used
+// to vanish on the very next read, so every request went out with no
+// Authorization header → the backend's HTTPBearer returned 403 "Not
+// authenticated" (which, being a 403 not a 401, never triggered a refresh, so it
+// surfaced raw). Holding the token in a module variable keeps the session alive
+// even when localStorage is dead, and every localStorage call is guarded so a
+// throwing storage API can never break auth.
+let _memAccess = null;
+let _memRefresh = null;
+let _hydrated = false;   // localStorage is read exactly ONCE, then memory rules
+const _ls = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked — memory still holds it */ } },
+  del: (k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } },
+};
+// Hydrate memory from localStorage on first touch. After that, memory is the
+// sole source of truth: setTokens/clear both mark us hydrated so a later read
+// can never resurrect a stale token from a localStorage whose removeItem was
+// silently rejected (the exact fragile-webview case this whole cache guards).
+function _hydrate() {
+  if (_hydrated) return;
+  _hydrated = true;
+  _memAccess = _ls.get("bfu_access");
+  _memRefresh = _ls.get("bfu_refresh");
+}
 export const storage = {
-  getAccess:  ()      => localStorage.getItem("bfu_access"),
-  getRefresh: ()      => localStorage.getItem("bfu_refresh"),
-  setTokens:  (a, r)  => { localStorage.setItem("bfu_access", a); localStorage.setItem("bfu_refresh", r); },
-  clear:      ()      => { localStorage.removeItem("bfu_access"); localStorage.removeItem("bfu_refresh"); },
+  getAccess:  ()      => { _hydrate(); return _memAccess; },
+  getRefresh: ()      => { _hydrate(); return _memRefresh; },
+  setTokens:  (a, r)  => { _hydrated = true; _memAccess = a; _memRefresh = r; _ls.set("bfu_access", a); _ls.set("bfu_refresh", r); },
+  clear:      ()      => { _hydrated = true; _memAccess = null; _memRefresh = null; _ls.del("bfu_access"); _ls.del("bfu_refresh"); },
 };
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────

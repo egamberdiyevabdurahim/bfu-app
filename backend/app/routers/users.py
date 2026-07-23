@@ -943,11 +943,19 @@ async def register_member(
 
     was_registered = current_user.is_registered
 
+    # Phone is required to register. validate_phone coerces a blank/whitespace
+    # value to None (so the profile-EDIT path never 422s on an untouched empty
+    # phone); here on the REGISTER path that None means "no phone was given" —
+    # reject cleanly with 422 rather than crashing on None.strip().
+    phone = (body.phone_number or "").strip()
+    if not phone:
+        raise HTTPException(status_code=422, detail="Phone is required")
+
     current_user.name = body.name.strip()
     current_user.surname = (body.surname or "").strip() or None
     current_user.gender = body.gender
     current_user.birth_year = body.birth_year
-    current_user.phone_number = body.phone_number.strip()
+    current_user.phone_number = phone
     current_user.region_id = body.region_id
     if body.language:
         current_user.language = body.language
